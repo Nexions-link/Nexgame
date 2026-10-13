@@ -250,7 +250,7 @@ function rollCorpseLoot(){
 }
 
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
-state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,6);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);state.hp=clamp(state.hp,1,120+(state.level-1)*20);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
+state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);state.hp=clamp(state.hp,1,120+(state.level-1)*20);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
 state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
@@ -368,14 +368,72 @@ function interact(){
 }
 function xpNeed(){return 100+(state.level-1)*50}
 function experience(n){state.xp+=n;while(state.xp>=xpNeed()){state.xp-=xpNeed();state.level++;state.hp=120+(state.level-1)*20;msg('Новый уровень: '+state.level+'!')}}
-function mentorTalk(){const q=state.quest;
- if(q===0){openDialog('Первые шаги','НАСТАВНИК КАМЕННЫЙ РОГ',['Почувствуй землю под копытами, молодой воин. Здесь начинается твой путь.','За лагерем пасутся равнинные долгоноги. Победи трёх и покажи, что готов защищать свой народ.','Награда: 25 монет и 80 опыта.']);choice('Принять — Обряд силы',()=>{state.quest=1;state.kills=0;closeDialog();msg('Задание принято: Обряд силы')});choice('Я вернусь позже',closeDialog,'alt')}
- else if(q===1){openDialog('Обряд силы','НАСТАВНИК КАМЕННЫЙ РОГ',['Твоя цель — равнинные долгоноги за лагерем. Не нападай на всё стадо сразу.','Побеждено: '+state.kills+' из 3.']);choice('Продолжить охоту',closeDialog)}
- else if(q===2){openDialog('Обряд силы завершён','НАСТАВНИК КАМЕННЫЙ РОГ',['Хорошая работа. Но сила — только начало пути. Мудрость приходит к тем, кто умеет слушать.']);choice('Получить 25 монет и 80 опыта',()=>{state.quest=3;state.gold+=25;experience(80);closeDialog();msg('Обряд силы пройден')})}
- else if(q===3){openDialog('Голос предков','НАСТАВНИК КАМЕННЫЙ РОГ',['К востоку стоит старый тотем. Пройди по тропе и принеси лежащее перед ним перо предков.','Не торопись. Посмотри на землю, которую однажды будешь защищать.','Награда: 40 монет и 110 опыта.']);choice('Принять — Голос предков',()=>{state.quest=4;closeDialog();msg('Найди тотем к востоку от лагеря')});choice('Позже',closeDialog,'alt')}
- else if(q===4){openDialog('Голос предков','НАСТАВНИК КАМЕННЫЙ РОГ',['Иди на восток по тропе. Перо ждёт тебя у высокого тотема с бирюзовыми крыльями.']);choice('Я найду его',closeDialog)}
- else if(q===5){openDialog('Земля помнит','НАСТАВНИК КАМЕННЫЙ РОГ',['Ты услышал голос долины. Пусть это будет первым из многих путешествий.']);choice('Отдать перо: 40 монет и 110 опыта',()=>{state.quest=6;state.relic=false;state.gold+=40;experience(110);closeDialog();msg('Первые испытания Мулгора пройдены')})}
- else{openDialog('Путь продолжается','НАСТАВНИК КАМЕННЫЙ РОГ',['Ты прошёл первые испытания. Исследуй долину, тренируйся и возвращайся к костру. Впереди ещё много дорог.']);choice('До встречи',closeDialog)}
+function mentorTalk(){
+ const q=state.quest;
+ if(q===0){
+  openDialog('Первые шаги','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Приветствую тебя, молодой воин. Это первое из пяти испытаний лагеря Нараче.',
+    'Для начала победи трёх долгоногов за лагерем.']);
+  choice('Принять: Обряд силы (2/5)',()=>{state.quest=1;state.kills=0;closeDialog();msg('Задание принято: Обряд силы')});
+  choice('Позже',closeDialog,'alt');
+ }else if(q===1){
+  openDialog('Обряд силы','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Победи трёх обычных равнинных долгоногов на дороге. Прогресс: '+state.kills+' / 3.']);
+  choice('Продолжить охоту',closeDialog);
+ }else if(q===2){
+  openDialog('Обряд силы завершён','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Ты доказал силу. Впереди испытание внимательности и уважения к предкам.']);
+  choice('Награда: 25 монет и 80 опыта',()=>{state.quest=3;state.gold+=25;experience(80);closeDialog();msg('Обряд силы пройден — 2/5')});
+ }else if(q===3){
+  openDialog('Голос предков','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['На востоке стоит древний тотем с бирюзовыми крыльями. Подбери перо предков рядом с ним и принеси мне.',
+    'Награда: 40 монет и 110 опыта.']);
+  choice('Принять: Голос предков (3/5)',()=>{state.quest=4;closeDialog();msg('Найди перо у восточного тотема')});
+  choice('Позже',closeDialog,'alt');
+ }else if(q===4){
+  openDialog('Голос предков','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Иди по восточной тропе к высокому тотему с бирюзовыми крыльями. Ищи сияющее перо на земле.']);
+  choice('Я вернусь',closeDialog);
+ }else if(q===5){
+  openDialog('Земля помнит','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Ты сохранил память предков. Но на дальних пастбищах замечены огромные следы.']);
+  choice('Отдать перо: 40 монет и 110 опыта',()=>{state.quest=6;state.relic=false;state.gold+=40;experience(110);closeDialog();msg('Голос предков завершён — 3/5')});
+ }else if(q===6){
+  openDialog('Следы исполина','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Охотники заметили следы громадной птицы. Пройди по юго-восточной тропе и разведай дальнее пастбище.',
+    'Найди каменную развилку на дальнем участке дороги. Награда: 50 монет и 95 опыта.']);
+  choice('Принять: Следы исполина (4/5)',()=>{state.quest=7;closeDialog();msg('Разведай дальнюю тропу на юго-востоке')});
+  choice('Позже',closeDialog,'alt');
+ }else if(q===7){
+  openDialog('Следы исполина','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Следуй по юго-восточной дороге от лагеря к дальнему пастбищу. Осмотри местность и возвращайся.']);
+  choice('Продолжить разведку',closeDialog);
+ }else if(q===8){
+  openDialog('Донесение разведчика','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Теперь мы знаем, где бродит исполин. Ты хорошо справился, но впереди настоящее испытание.']);
+  choice('Завершить: 50 монет и 95 опыта',()=>{state.quest=9;state.gold+=50;experience(95);closeDialog();msg('Следы исполина завершены — 4/5')});
+ }else if(q===9){
+  openDialog('Грозоклюв: вожак стада','ПОСЛЕДНЕЕ ИСПЫТАНИЕ · 5/5',
+   ['На дальнем пастбище появился Грозоклюв — огромный долгоног. Он вдвое выносливее обычных птиц.',
+    'Победи его и возвращайся. Красный пунктир укажет путь в мире и на мини-карте.',
+    'Награда: 90 монет и 190 опыта.']);
+  choice('Принять: Победить Грозоклюва (5/5)',()=>{state.quest=10;closeDialog();msg('Следуй по красному пунктиру к Грозоклюву')});
+  choice('Позже',closeDialog,'alt');
+ }else if(q===10){
+  openDialog('Грозоклюв: вожак стада','ПОСЛЕДНЕЕ ИСПЫТАНИЕ · 5/5',
+   ['Иди по красному пунктиру по юго-восточной дороге к Грозоклюву.',
+    'У него 108 здоровья. Его удары сильнее, чем у обычных долгоногов.']);
+  choice('Продолжить охоту',closeDialog);
+ }else if(q===11){
+  openDialog('Испытания завершены','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Грозоклюв повержен. Ты прошёл все пять испытаний и защитил лагерь Нараче!']);
+  choice('Награда: 90 монет и 190 опыта',()=>{state.quest=12;state.gold+=90;experience(190);closeDialog();msg('Все 5 заданий завершены!')});
+ }else{
+  openDialog('Хранитель Мулгора','НАСТАВНИК КАМЕННЫЙ РОГ',
+   ['Все пять заданий пройдены. Ты стал защитником лагеря Нараче.',
+    'Продолжай путешествовать и собирать добычу. Впереди новые приключения.']);
+  choice('До встречи',closeDialog);
+ }
 }
 function traderTalk(){openDialog('Травница Тихая Заря','ПРИПАСЫ ЛАГЕРЯ',['Настой луговых трав восстанавливает 55 здоровья. Цена — 10 монет.','В твоём кошеле: '+state.gold+' монет.']);choice('Купить настой — 10 монет',()=>{if(state.gold<10){msg('Недостаточно монет');return}state.gold-=10;state.potions++;closeDialog();msg('Лечебный настой добавлен в рюкзак')});choice('До встречи',closeDialog,'alt')}
 function bag(){
@@ -601,7 +659,21 @@ function bindImmediateButton(id,action){
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
 $('heal').addEventListener('click',()=>heal());$('interact').addEventListener('click',interact);$('bag').addEventListener('click',bag);$('pause').addEventListener('click',pause);
-const questLines=[['Первые шаги','Поговорите с наставником\nу большого тотема.'],['Обряд силы','Равнинные долгоноги: 0 / 3'],['Обряд силы','Вернитесь к наставнику.'],['Следующее испытание','Поговорите с наставником.'],['Голос предков','Найдите перо у восточного тотема.'],['Голос предков','Отнесите перо наставнику.'],['Дороги Мулгора','Первые испытания пройдены.\nИсследуйте долину.']];
+const questLines=[
+ ['Первые шаги','Поговорите с наставником у большого тотема.'],
+ ['Обряд силы','Победите обычных долгоногов: 0 / 3'],
+ ['Обряд силы','Вернитесь к наставнику за наградой.'],
+ ['Голос предков','Поговорите с наставником.'],
+ ['Голос предков','Найдите перо возле восточного тотема.'],
+ ['Голос предков','Отнесите перо наставнику.'],
+ ['Следы исполина','Поговорите с наставником, чтобы начать разведку.'],
+ ['Следы исполина','Разведайте дальнее пастбище по юго-восточной тропе.'],
+ ['Следы исполина','Разведка завершена. Вернитесь к наставнику.'],
+ ['Грозоклюв, вожак стада','Поговорите с наставником о финальной охоте.'],
+ ['Грозоклюв, вожак стада','Следуйте по красному пунктиру и убейте Грозоклюва (0 / 1).'],
+ ['Грозоклюв, вожак стада','Грозоклюв повержен! Вернитесь к наставнику.'],
+ ['Все испытания пройдены','Вы завершили цепочку из пяти заданий.']
+];
 let lastMarker='';
 function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
