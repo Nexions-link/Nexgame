@@ -33,13 +33,12 @@
 <div id="help">W/S — ходьба · A/D — поворот · Tab — цель · 1 — автоатака</div>
 <div id="build">NexGame · Alpha 0.2.7</div>
 <div id="combatError" role="status" aria-live="polite"></div><div id="toast" role="status"></div>
-<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" hidden><div id="panel"><div class="panel-corner">◆</div><span class="eyebrow" id="msub"></span><h2 id="mtitle"></h2><div class="ornament">━━━━ ◆ ━━━━</div><div id="mbody"></div><div id="choices"></div>
- <section id="cameraControl" class="camera-settings" hidden aria-label="Настройки камеры">
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" hidden><div id="panel"><div class="panel-corner">◆</div><span class="eyebrow" id="msub"></span><h2 id="mtitle"></h2><div class="ornament">━━━━ ◆ ━━━━</div><div id="mbody"></div><section id="cameraControl" class="camera-settings" hidden aria-label="Настройки камеры">
   <div class="camera-label"><label for="cameraDistance">Расстояние до персонажа</label><span id="cameraDistanceValue">10,5</span></div>
   <input id="cameraDistance" type="range" min="4" max="22" step="0.1" value="10.5" aria-label="Расстояние камеры от персонажа">
   <div class="camera-scale"><span>Ближе</span><span>Дальше</span></div>
   <label class="camera-follow-row" for="cameraFollow"><input id="cameraFollow" type="checkbox" aria-label="Автоматическое следование камеры за персонажем"><span>Следовать за героем</span></label>
- </section></div></div>
+ </section><div id="choices"></div></div></div>
 <script type="module" src="./game.js?v=0.2.7"></script>
 </body>
 </html>
