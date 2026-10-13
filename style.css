@@ -20,3 +20,38 @@
 .camera-follow-row input:focus-visible{outline:2px solid #ffdfa6;outline-offset:3px}
 @media(max-width:850px){#cameraControl{width:155px}.camera-follow-row{font-size:10px;gap:6px}}
 @media(max-height:510px) and (min-width:600px){#cameraControl{width:155px}}
+
+
+/* Combat targeting, WoW-like range feedback and touch-friendly selection. */
+#targetFrame{min-height:98px;padding-right:31px;pointer-events:auto}
+#targetName{font-size:13px;font-weight:bold;max-width:100%}
+#targetClear{position:absolute;right:4px;top:4px;width:27px;height:27px;line-height:21px;background:#382c20;color:#f5d69d;border:1px solid #998159;border-radius:2px;font:24px Georgia,serif;touch-action:manipulation}
+#targetClear:hover{background:#70402e}
+#targetDistance{margin-top:6px;color:#d6c8a4;font:11px system-ui,sans-serif}
+#targetStatus{margin-top:3px;min-height:14px;color:#c4dca5;font:11px/1.35 system-ui,sans-serif}
+#targetStatus.target-far,#targetStatus.target-back{color:#ff9987}
+#targetStatus.target-active{color:#9feba4}
+#attack.auto-attacking{border-color:#e0c36e;background:radial-gradient(ellipse at 50% 30%,#797039,#494025);box-shadow:inset 0 0 0 1px #edca7f,0 0 15px #df9c4150}
+#attack.auto-attacking #attackLabel{color:#fff0ae}
+#targetNext.target-selected{border-color:#d9c27f;background:radial-gradient(ellipse at 50% 30%,#6a5633,#293e2b)}
+#combatError{position:fixed;z-index:16;top:29%;left:50%;transform:translate(-50%,-3px);width:min(87vw,490px);pointer-events:none;text-align:center;font:bold 18px/1.3 Georgia,serif;color:#ff7c68;text-shadow:0 2px 2px #1c0909,0 0 7px #250605,1px 1px 12px #1a070a;opacity:0;transition:opacity .16s,transform .2s;white-space:normal}
+#combatError.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:850px){
+ #actionsBar .ability{width:49px;height:64px}
+ #actionsBar .ability svg{width:33px;height:35px;margin-top:6px}
+ #actionsBar .ability>span{font-size:8px;letter-spacing:-.12px}
+ #targetFrame:not([hidden])~#quest{top:calc(225px + var(--safe-top))}
+ #combatError{top:34%;font-size:16px}
+}
+@media(max-width:360px){
+ #actionsBar .ability{width:45px}
+ #actionsBar{padding-left:4px;padding-right:4px}
+ #targetFrame{left:10px;width:185px}
+ #targetFrame:not([hidden])~#quest{top:calc(218px + var(--safe-top))}
+}
+@media(max-height:510px) and (min-width:600px){
+ #targetFrame{min-height:90px}
+ #targetFrame:not([hidden])~#quest{top:103px}
+ #actionsBar .ability{width:49px}
+ #combatError{top:39%}
+}
