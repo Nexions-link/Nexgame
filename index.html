@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#152d35"><title>NexGame 3D · Alpha 0.1</title><style>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#152d35"><title>NexGame 3D · Alpha 0.1.1</title><style>
 :root{color-scheme:dark;--panel:#152330e8;--gold:#f3cf8b;--line:#a8c3b277}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#8fb5bf;font-family:system-ui,-apple-system,sans-serif;color:#f5f1e9;touch-action:none;-webkit-user-select:none;user-select:none}
@@ -22,6 +22,16 @@ button{font:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select
 #top{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;display:flex;flex-direction:column;gap:7px;z-index:8}
 .topButton{border-radius:10px;border:1px solid #a1b1a9;background:#223642ee;color:#f7efd9;min-width:92px;height:42px;font-size:13px;font-weight:700}
 #build{position:fixed;right:12px;top:calc(113px + env(safe-area-inset-top));font-size:11px;text-shadow:0 2px 6px #000;color:#f5f0df;pointer-events:none}
+#cameraControl{position:fixed;right:12px;top:calc(137px + env(safe-area-inset-top));width:160px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 14px #15202a60;z-index:8}
+.cameraLabel{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:#ffe6b8}
+#cameraDistanceValue{font-variant-numeric:tabular-nums;color:#d4e5e2}
+#cameraDistance{display:block;width:100%;height:34px;margin:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:ew-resize;touch-action:none}
+#cameraDistance::-webkit-slider-runnable-track{height:5px;background:#607b7f;border-radius:5px}
+#cameraDistance::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;margin-top:-9.5px;border:2px solid #fff0cc;border-radius:50%;background:#d9b477;box-shadow:0 2px 5px #0006}
+#cameraDistance::-moz-range-track{height:5px;background:#607b7f;border-radius:5px}
+#cameraDistance::-moz-range-thumb{box-sizing:border-box;width:24px;height:24px;border:2px solid #fff0cc;border-radius:50%;background:#d9b477;box-shadow:0 2px 5px #0006}
+#cameraDistance:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:5px}
+.cameraScale{display:flex;justify-content:space-between;font-size:10px;color:#bfd1d1;pointer-events:none}
 #stick{position:fixed;bottom:calc(26px + env(safe-area-inset-bottom));left:20px;height:155px;width:155px;border:2px solid #c1d9cf88;border-radius:50%;background:radial-gradient(circle,#5b747290,#283f4a99);box-shadow:0 5px 21px #0007;z-index:8;touch-action:none}
 #nub{position:absolute;top:43px;left:43px;width:65px;height:65px;border-radius:50%;border:2px solid #deefdcaf;background:radial-gradient(circle at 30% 28%,#cbdfca,#729a9d);box-shadow:0 4px 13px #0008;pointer-events:none}
 #attack{position:fixed;right:18px;bottom:calc(24px + env(safe-area-inset-bottom));width:93px;height:93px;border-radius:50%;border:2px solid #f9bb9f;background:radial-gradient(circle at 32% 25%,#df8b73,#b85053);color:#fffbeb;font-weight:800;font-size:15px;z-index:8}
@@ -40,13 +50,16 @@ button{font:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select
 .choice.danger{background:#6c3842;border-color:#c78d91}
 @media(max-width:690px){#area{top:calc(115px + env(safe-area-inset-top));font-size:13px}#quest{top:calc(171px + env(safe-area-inset-top));max-width:60vw}#quest b{font-size:14px}#hud{min-width:165px}#cameraHint{display:none}}
 @media(max-height:650px){#stick{height:124px;width:124px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom))}#nub{top:28px;left:28px}#attack{height:78px;width:78px;bottom:calc(10px + env(safe-area-inset-bottom))}#interact{height:68px;width:68px;bottom:calc(95px + env(safe-area-inset-bottom))}}
+@media(max-width:690px){#cameraControl{width:132px}#quest{max-width:min(60vw,calc(100vw - 168px))}}
+@media(max-height:500px) and (min-width:600px){#cameraControl{top:calc(12px + env(safe-area-inset-top));right:calc(118px + env(safe-area-inset-right));width:176px}#area{top:calc(115px + env(safe-area-inset-top))}}
 </style></head><body>
 <div id="scene"></div>
 <div id="loader"><div id="loadPanel"><h1>NexGame 3D</h1><p id="loadText">Подготавливаем трёхмерный мир...</p></div></div>
 <div id="hud"><div id="name">Странник <span id="lvl">1</span> ур.</div><div id="meta">Воин · <span id="gold">0</span> ● · <span id="potions">2</span> зелий</div><div class="bar"><div class="fill" id="hpFill"></div></div><div class="stat">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><div class="fill" id="xpFill"></div></div><div class="stat">Опыт: <span id="xp">0</span> / <span id="need">100</span></div></div>
 <div id="area">✧ Тихий Приют</div><div id="quest"><b id="qtitle">Начало пути</b><p id="qtext">Найдите старосту Эйрин.</p></div>
 <div id="top"><button class="topButton" id="pause">⏸ Пауза</button><button class="topButton" id="bag">🎒 Рюкзак</button></div>
-<div id="build">NexGame 3D · Alpha 0.1</div>
+<div id="build">NexGame 3D · Alpha 0.1.1</div>
+<div id="cameraControl"><div class="cameraLabel"><label for="cameraDistance">Камера</label><span id="cameraDistanceValue">8,3</span></div><input id="cameraDistance" type="range" min="4" max="18" step="0.1" value="8.3" aria-label="Расстояние камеры от персонажа"><div class="cameraScale" aria-hidden="true"><span>Ближе</span><span>Дальше</span></div></div>
 <div id="stick"><div id="nub"></div></div>
 <button id="interact">✦<br>Говорить</button><button id="attack">⚔<br>АТАКА</button>
 <div id="cameraHint">Вращай камеру пальцем по правой части экрана</div>
@@ -233,6 +246,19 @@ const save=()=>{try{localStorage.setItem(storeKey,JSON.stringify(state))}catch(e
 addEventListener("pagehide",save);document.addEventListener("visibilitychange",()=>{if(document.hidden){clearInput();save()}});
 const keys=new Set(),stick=$("stick"),nub=$("nub"),joy={x:0,y:0,id:null};
 const look={id:null,x:0,y:0};let cameraYaw=0,cameraPitch=.37,cameraDistance=8.3;
+const cameraSlider=$("cameraDistance"),cameraValue=$("cameraDistanceValue");
+const cameraStoreKey="nexgame-real3d-camera-distance";
+function setCameraDistance(value,persist=true){
+ if(!Number.isFinite(value))return;
+ cameraDistance=Math.round(THREE.MathUtils.clamp(value,Number(cameraSlider.min),Number(cameraSlider.max))*10)/10;
+ cameraSlider.value=String(cameraDistance);
+ const label=cameraDistance.toFixed(1).replace(".",",");
+ cameraValue.textContent=label;cameraSlider.setAttribute("aria-valuetext",label);
+ if(persist){try{localStorage.setItem(cameraStoreKey,String(cameraDistance))}catch(e){}}
+}
+try{const savedDistance=JSON.parse(localStorage.getItem(cameraStoreKey));if(Number.isFinite(savedDistance))setCameraDistance(savedDistance,false)}catch(e){}
+setCameraDistance(cameraDistance,false);
+cameraSlider.addEventListener("input",()=>setCameraDistance(Number(cameraSlider.value)));
 function resetStick(){joy.x=0;joy.y=0;joy.id=null;nub.style.transform="translate(0px,0px)"}
 function clearInput(){keys.clear();resetStick();look.id=null}
 function stickMove(e){
@@ -251,10 +277,12 @@ renderer.domElement.addEventListener("pointerdown",e=>{if(paused||dialog||look.i
 renderer.domElement.addEventListener("pointermove",e=>{if(e.pointerId!==look.id)return;const dx=e.clientX-look.x,dy=e.clientY-look.y;look.x=e.clientX;look.y=e.clientY;cameraYaw-=dx*.008;cameraPitch=THREE.MathUtils.clamp(cameraPitch+dy*.005,.13,1.08)});
 for(const name of ["pointerup","pointercancel","lostpointercapture"])renderer.domElement.addEventListener(name,e=>{if(e.pointerId===look.id)look.id=null});
 renderer.domElement.addEventListener("contextmenu",e=>e.preventDefault());
-addEventListener("wheel",e=>{cameraDistance=THREE.MathUtils.clamp(cameraDistance+Math.sign(e.deltaY)*.55,5.5,12)},{passive:true});
+renderer.domElement.addEventListener("wheel",e=>{if(!paused&&!dialog)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
 addEventListener("blur",clearInput);
-addEventListener("keydown",e=>{const key=e.key.toLowerCase();if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key))e.preventDefault();
+addEventListener("keydown",e=>{const key=e.key.toLowerCase();
  if(key==="escape"){if(dialog)closeDialog();else togglePause();return}
+ if(e.target===cameraSlider)return;
+ if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key))e.preventDefault();
  if(key===" "){if(!e.repeat)attack();return}
  if(key==="e"){if(!e.repeat)interact();return}
  if(key==="i"){if(!e.repeat)bag();return}
