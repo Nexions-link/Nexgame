@@ -216,34 +216,83 @@ function plant(x,y,seed){
  line(x,y,x+sw+4,y-9,"#4b8c52",1.4);
  if(seed>.83){ellipse(x+sw-3,y-9,2.2,2.2,"#e6ce80");ellipse(x+sw+3,y-10,1.7,1.7,"#f6f0c2")}
 }
-function drawProp(o){const p=iso(o.x,o.y),x=p.x,y=p.y;ellipse(x+8,y+7,24,10,"#0009");if(o.type==="rock"){polygon([[x-23,y],[x-12,y-18],[x+6,y-25],[x+22,y-7],[x+10,y+5],[x-13,y+7]],"#414247","#1c2328");polygon([[x-12,y-18],[x+6,y-25],[x+3,y-8],[x-16,y-3]],"#696c71");return}if(o.type==="ruin"){polygon([[x-16,y],[x-16,y-45],[x+4,y-56],[x+4,y-8]],"#47434a");polygon([[x+4,y-8],[x+4,y-56],[x+18,y-45],[x+18,y+2]],"#292a32");polygon([[x-16,y-45],[x+4,y-56],[x+18,y-45],[x-2,y-34]],"#757078");return}
-line(x,y,x-3,y-47,o.type==="tree"?"#201c1e":"#352b2c",o.type==="tree"?10:5);for(const [dx,dy] of [[-20,-64],[20,-72],[-12,-92],[9,-107]])line(x-3,y-47,x+dx,y+dy,"#332b2c",3);
-if(o.type==="tree"){for(const [dx,dy,r] of [[-16,-71,24],[15,-76,27],[-4,-103,27]]){ellipse(x+dx,y+dy,r,r*.73,"#17271f");ellipse(x+dx-5,y+dy-6,r*.7,r*.5,"#2d3a2d")}}}
+function drawProp(o){
+ const p=iso(o.x,o.y),x=p.x,y=p.y;
+ if(o.type==="rock"){
+  softShadow(x,y,23,9,.26);
+  polygon([[x-26,y-2],[x-12,y-23],[x+10,y-29],[x+26,y-8],[x+17,y+4],[x-13,y+5]],"#879899","#4b7271");
+  polygon([[x-12,y-23],[x+10,y-29],[x+6,y-5],[x-15,y-5]],"#bcc4b8");
+  polygon([[x+6,y-5],[x+10,y-29],[x+26,y-8],[x+17,y+4]],"#687e80");
+  line(x-10,y-19,x,y-23,"#ffffff64",1);
+  return;
+ }
+ if(o.type==="ruin"){
+  softShadow(x,y,24,11,.3);
+  polygon([[x-17,y],[x-17,y-46],[x+3,y-56],[x+3,y-10]],"#a2a49b","#516565");
+  polygon([[x+3,y-10],[x+3,y-56],[x+20,y-46],[x+20,y+3]],"#6f8582","#516565");
+  polygon([[x-17,y-46],[x+3,y-56],[x+20,y-46],[x,y-36]],"#d2c7af","#5b7471");
+  polygon([[x-9,y-12],[x-9,y-33],[x+3,y-39],[x+3,y-18]],"#456d6c");
+  return;
+ }
+ softShadow(x,y,29,11,.25);
+ if(o.type==="dead"){
+  line(x,y,x-3,y-58,"#73655b",8);
+  line(x-3,y-44,x-24,y-74,"#897968",4);
+  line(x-3,y-39,x+21,y-70,"#857267",4);
+  line(x-5,y-57,x+8,y-91,"#837162",3);
+  return;
+ }
+ line(x+1,y+1,x-2,y-65,"#685b46",13);
+ line(x-3,y-33,x-21,y-68,"#71624c",5);
+ line(x-1,y-40,x+18,y-76,"#756a53",5);
+ leaf(x-25,y-78,30,22,"#83bd70","#427d59");
+ leaf(x+19,y-79,33,27,"#95c882","#4b8965");
+ leaf(x-8,y-112,37,29,"#b5d88c","#568e62");
+ leaf(x+6,y-111,24,18,"#c4e3a0","#80b477");
+ ellipse(x-14,y-124,10,4,"#d8ecb067");
+}
 function drawHouse(o){
  const p=iso(o.x,o.y),x=p.x,y=p.y;
- const wallFront="#6e594c",wallSide="#51483f",roofWest="#6a4944",roofEast="#40313a";
- ellipse(x+5,y+17,76,23,"#0009");
- // Vertical exterior walls; their bases stay below the roofline.
- polygon([[x-49,y-12],[x,y+12],[x,y+54],[x-49,y+29]],wallFront,"#2d2424");
- polygon([[x,y+12],[x+49,y-12],[x+49,y+29],[x,y+54]],wallSide,"#2d2424");
- // Two sloping roof faces, complete with a clearly defined ridge and overhanging eaves.
- polygon([[x-61,y-18],[x,y-66],[x+3,y-30],[x-52,y+5]],roofWest,"#261e25");
- polygon([[x,y-66],[x+61,y-18],[x+52,y+5],[x+3,y-30]],roofEast,"#261e25");
- line(x-61,y-18,x,y-66,"#97736a",3);
- line(x,y-66,x+61,y-18,"#856663",3);
- line(x-52,y+5,x+3,y-30,"#2c2424",3);
- line(x+3,y-30,x+52,y+5,"#2c2424",3);
- // Stone chimney rises above the roof.
- polygon([[x+16,y-46],[x+16,y-73],[x+28,y-67],[x+28,y-40]],"#777177","#39343a");
- polygon([[x+28,y-40],[x+28,y-67],[x+36,y-63],[x+36,y-35]],"#4e4a52","#39343a");
- polygon([[x+13,y-73],[x+26,y-81],[x+38,y-74],[x+26,y-66]],"#8e898d","#39343a");
- // Door and glowing windows on the actual vertical walls.
- polygon([[x+12,y+17],[x+12,y-9],[x+30,y],[x+30,y+27]],"#201b1a","#b89b72");
- polygon([[x-33,y+8],[x-33,y-8],[x-17,y],[x-17,y+16]],"#1b2530","#d6ae68");
- polygon([[x-11,y+20],[x-11,y+5],[x+3,y+12],[x+3,y+27]],"#1b2530","#d6ae68");
- ellipse(x-25,y+5,3,4,"#e0ad61a0");
+ softShadow(x,y+15,81,24,.4);
+ // Volumetric building with a visible front and side wall.
+ polygon([[x-67,y-44],[x,y-10],[x,y+47],[x-67,y+13]],"#ead9ae","#978a75");
+ polygon([[x,y-10],[x+67,y-44],[x+67,y+13],[x,y+47]],"#c9b89d","#8b8a76");
+ line(x-62,y-38,x-62,y+10,"#f9e9bd66",3);
+ line(x+60,y-37,x+60,y+10,"#9b8b6d",3);
+ // Stone chimney set behind the roof planes.
+ polygon([[x+21,y-74],[x+21,y-127],[x+37,y-118],[x+37,y-66]],"#d2bfaa","#887d73");
+ polygon([[x+37,y-66],[x+37,y-118],[x+48,y-110],[x+48,y-59]],"#ac9c91","#766f69");
+ polygon([[x+19,y-127],[x+36,y-137],[x+50,y-128],[x+33,y-118]],"#f1e0c5","#95837c");
+ // Warm red-tiled elevated hip roof, with overhanging eaves.
+ const west=o.x<0?"#d78e69":"#ce795d",east=o.x<0?"#b7705a":"#b06d62";
+ polygon([[x,y-132],[x-80,y-53],[x,y-10]],west,"#875949");
+ polygon([[x,y-132],[x,y-10],[x+80,y-53]],east,"#805647");
+ polygon([[x-80,y-53],[x,y-10],[x-2,y-4],[x-86,y-49]],"#b46c56","#925c4f");
+ polygon([[x,y-10],[x+80,y-53],[x+86,y-49],[x+2,y-4]],"#965d51","#785047");
+ line(x,y-132,x-80,y-53,"#f2b88d",3);
+ line(x,y-132,x+80,y-53,"#e0a182",3);
+ // A framed entrance and turquoise glass windows.
+ polygon([[x+18,y+10],[x+18,y-15],[x+45,y-28],[x+45,y-2]],"#745b4b","#f2dfb0");
+ polygon([[x+22,y+9],[x+22,y-11],[x+40,y-20],[x+40,y-2]],"#65544b");
+ ellipse(x+37,y-11,2,3,"#f9e6b1");
+ polygon([[x-47,y-4],[x-47,y-26],[x-21,y-14],[x-21,y+8]],"#fff2cf","#ad9b7e");
+ polygon([[x-42,y-4],[x-42,y-19],[x-26,y-12],[x-26,y+3]],"#81bec5");
+ line(x-34,y-17,x-34,y+2,"#f4e4be",2);
+ windowGlow(x-34,y-8);
+ for(let i=0;i<4;i++)plant(x-48+i*13,y+20+i*4,.84+i*.04);
 }
-function drawRelic(){const p=iso(relicSpot.x,relicSpot.y),x=p.x,y=p.y;ellipse(x,y+8,48,17,"#070809bb");polygon([[x-24,y],[x-10,y-21],[x+7,y-24],[x+23,y+1]],"#515258","#272933");polygon([[x-10,y-21],[x+7,y-24],[x+11,y-5],[x-12,y-2]],"#77767d");if(quest===4){ellipse(x,y-33,13,18,"#d6ab5870");ellipse(x,y-40,6,10,"#ffd789");line(x,y-35,x,y-11,"#cba453",3)}}
+function drawRelic(){
+ const p=iso(relicSpot.x,relicSpot.y),x=p.x,y=p.y;
+ softShadow(x,y+7,52,18,.33);
+ ellipse(x,y+5,49,16,"#81948c");ellipse(x,y-1,40,13,"#b1bcb0");
+ polygon([[x-31,y],[x-31,y-22],[x-8,y-32],[x-8,y-7]],"#b5b7ab","#758c86");
+ polygon([[x-8,y-7],[x-8,y-32],[x+27,y-17],[x+27,y+7]],"#899d95","#5b7b78");
+ if(quest===4&&!relic){
+  ctx.save();ctx.shadowColor="#78f2e6";ctx.shadowBlur=20;
+  polygon([[x,y-58],[x-8,y-42],[x,y-20],[x+9,y-42]],"#75efe0","#429fa5");ctx.restore();
+  ellipse(x-3,y-42,3,11,"#effff0bb");
+ }
+}
 function questMarkerForElder(){
  if(quest===0||quest===3)return{text:"!",color:"#ffd35f",glow:true};
  if(quest===1||quest===4)return{text:"?",color:"#9c958c",glow:false};
