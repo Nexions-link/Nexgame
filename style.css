@@ -81,3 +81,7 @@
 .loot-item:active{background:linear-gradient(#7b6647,#4a4c31)}
 @media(max-width:380px){#panel.inventory-modal{padding:15px} .inventory-grid{gap:5px} .inventory-slot{height:56px} .slot-icon{font-size:27px}.bag-sockets{gap:4px}}
 @media(max-height:650px){#panel.inventory-modal{max-height:90dvh}.inventory-slot{height:54px}.bag-socket{min-height:54px}.bag-socket-icon{font-size:18px}}
+
+/* Alpha 0.2.6: keep targeting independent from the multitouch joystick. */
+#targetNext,#targetClear{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#targetNext{pointer-events:auto}
