@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · Modern 2.5D 0.4.3</title><style>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · Modern 2.5D 0.5</title><style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#15272c;color:#f8f2e4;font-family:system-ui,Arial,sans-serif;touch-action:none}
 button{font:inherit;touch-action:manipulation;-webkit-user-select:none;user-select:none;cursor:pointer}
@@ -45,7 +45,7 @@ canvas{display:block;width:100vw;height:100dvh}
 @media(max-height:620px){#controls{width:126px;height:126px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom))}#joystickKnob{left:30px;top:30px}#attack{width:74px;height:74px;bottom:calc(10px + env(safe-area-inset-bottom))}#interact{width:65px;height:65px;bottom:calc(92px + env(safe-area-inset-bottom))}#questTracker{top:calc(112px + env(safe-area-inset-top))}}
 </style></head><body>
 <canvas id="game"></canvas>
-<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.4.3 · Modern 2.5D</div></div>
+<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.5 · Modern 2.5D</div></div>
 <div id="area">☽ Сумеречная долина</div>
 <div id="questTracker"><strong id="questTitle">Новое приключение</strong><span id="questText">Поговорите со старостой у деревни.</span></div>
 <div id="topActions"><button id="pauseBtn" class="topBtn">⏸ Пауза</button><button id="bagBtn" class="topBtn">🎒 Рюкзак</button></div>
@@ -75,15 +75,18 @@ const $=id=>document.getElementById(id);
 const canvas=$("game"),ctx=canvas.getContext("2d"),keys=new Set();
 const TW=76,TH=38,WORLD=27,START_HP=100,SCREEN_SPEED=124;
 const joystick={pointer:null,x:0,y:0},stick=$("controls"),knob=$("joystickKnob");
-const player={x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,walk:0,motion:0};
+const player={x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,dir:2,walk:0,motion:0,animState:"idle"};
 let quest=0,kills=0,relic=false,paused=false,dialogOpen=false,last=performance.now(),vw=innerWidth,vh=innerHeight,cameraX=0,cameraY=0,elapsed=0,toastUntil=0;
 const SAVE_KEY="nexgame-rpg-v040",LEGACY_SAVE_KEY="nexgame-rpg-v030";
-function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({x:player.x,y:player.y,hp:player.hp,level:player.level,xp:player.xp,gold:player.gold,potions:player.potions,quest,kills,relic}))}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||localStorage.getItem(LEGACY_SAVE_KEY));if(!d)return;for(const k of ["x","y","hp","level","xp","gold","potions"]){if(Number.isFinite(d[k]))player[k]=d[k]}quest=Math.max(0,Math.min(6,d.quest|0));kills=Math.max(0,Math.min(3,d.kills|0));relic=!!d.relic;player.x=Math.max(-WORLD,Math.min(WORLD,player.x));player.y=Math.max(-WORLD,Math.min(WORLD,player.y));player.level=Math.max(1,player.level);player.maxHp=START_HP+(player.level-1)*15;player.hp=Math.max(1,Math.min(player.maxHp,player.hp))}catch(e){}}
+function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({x:player.x,y:player.y,hp:player.hp,level:player.level,xp:player.xp,gold:player.gold,potions:player.potions,dir:player.dir,quest,kills,relic}))}catch(e){}}
+function load(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||localStorage.getItem(LEGACY_SAVE_KEY));if(!d)return;for(const k of ["x","y","hp","level","xp","gold","potions"]){if(Number.isFinite(d[k]))player[k]=d[k]}quest=Math.max(0,Math.min(6,d.quest|0));kills=Math.max(0,Math.min(3,d.kills|0));relic=!!d.relic;if(Number.isInteger(d.dir)&&d.dir>=0&&d.dir<8)player.dir=d.dir;player.x=Math.max(-WORLD,Math.min(WORLD,player.x));player.y=Math.max(-WORLD,Math.min(WORLD,player.y));player.level=Math.max(1,player.level);player.maxHp=START_HP+(player.level-1)*15;player.hp=Math.max(1,Math.min(player.maxHp,player.hp))}catch(e){}}
 load();save();addEventListener("pagehide",save);
 function hash(x,y){const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n)}
 function iso(x,y){return{x:(x-y)*TW/2,y:(x+y)*TH/2}}
 function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+// Screen-space directions E, SE, S, SW, W, NW, N, NE.
+function directionFromVector(vx,vy){return(Math.round(Math.atan2(vy,vx)/(Math.PI/4))+8)%8}
+const DIRECTION_NAMES=["восток","юго-восток","юг","юго-запад","запад","северо-запад","север","северо-восток"];
 const npc=[
 {x:1,y:-1,name:"Староста Эйрин",type:"elder"},
 {x:-2,y:2,name:"Торговка Мира",type:"merchant"}
@@ -187,7 +190,7 @@ function togglePause(){
 function resetTestWorld(){
  if(!paused)return;
  clearControls();
- Object.assign(player,{x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,walk:0,motion:0});
+ Object.assign(player,{x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,dir:2,walk:0,motion:0,animState:"idle"});
  quest=0;kills=0;relic=false;elapsed=0;
  for(const e of enemies){
   e.x=e.sx;e.y=e.sy;e.hp=e.maxHp;e.hit=0;e.hitFlash=0;e.dead=0;
@@ -235,7 +238,7 @@ else if(quest===5){showDialog("Староста Эйрин","Старая печ
 else{showDialog("Староста Эйрин","Тихий Приют",["Покой долины ненадёжен. Но сегодня здесь есть кому её защитить.","Это конец первых сюжетных заданий. Мы продолжим историю в следующих обновлениях."]);choice("До встречи",closeDialog)}
 }
 function talkMerchant(){showDialog("Торговка Мира","Деревенские товары",["Путь опасен, странник. У меня есть лечебные настои.","Золото: "+player.gold+"."]);choice("Купить зелье лечения — 10 золотых",()=>{if(player.gold<10){toast("Недостаточно золота");return}player.gold-=10;player.potions++;closeDialog();toast("Куплено зелье лечения");save()});choice("До встречи",closeDialog,true)}
-function attack(){if(paused||dialogOpen||player.cooldown>0)return;player.cooldown=.48;player.flash=.2;let chosen=null,dist=2.0;for(const e of enemies){if(e.dead>0)continue;const d=distance(player,e);if(d<dist){chosen=e;dist=d}}if(!chosen)return;chosen.hp-=24;chosen.hitFlash=.15;if(chosen.hp<=0){chosen.dead=23;chosen.hp=0;player.gold+=3;earnXp(18);if(quest===1){kills=Math.min(3,kills+1);if(kills===3){quest=2;toast("Волки побеждены! Вернись к Эйрин")}}save()}}
+function attack(){if(paused||dialogOpen||player.cooldown>0)return;player.cooldown=.48;player.flash=.32;player.animState="attack";let chosen=null,dist=2.0;for(const e of enemies){if(e.dead>0)continue;const d=distance(player,e);if(d<dist){chosen=e;dist=d}}if(!chosen)return;chosen.hp-=24;chosen.hitFlash=.15;if(chosen.hp<=0){chosen.dead=23;chosen.hp=0;player.gold+=3;earnXp(18);if(quest===1){kills=Math.min(3,kills+1);if(kills===3){quest=2;toast("Волки побеждены! Вернись к Эйрин")}}save()}}
 function refreshHUD(){const hp=Math.max(0,Math.round(player.hp));$("hp").textContent=hp;$("maxHp").textContent=player.maxHp;$("level").textContent=player.level;$("gold").textContent=player.gold;$("xp").textContent=player.xp;$("xpNeed").textContent=levelXp();$("healthFill").style.width=100*player.hp/player.maxHp+"%";$("xpFill").style.width=100*player.xp/levelXp()+"%";
 let title="",msg="";if(quest===0){title="Начало пути";msg="Поговорите со старостой Эйрин (золотой знак)."}
 if(quest===1){title="Волки у дороги";msg="Победите волков: "+kills+"/3 · на востоке"}
@@ -247,11 +250,52 @@ if(quest===6){title="Долина ждёт";msg="Исследуйте мир. П
 $("questTitle").textContent=title;$("questText").textContent=msg;
 const n=nearbyNpc(),canRelic=nearRelic();$("interact").style.display=!paused&&!dialogOpen&&(!!n||canRelic)?"block":"none";$("interact").innerHTML=canRelic?"✦<br>Взять":"✦<br>Говорить";
 $("area").textContent=Math.hypot(player.x,player.y)<5.3?"☽ Деревня Тихий Приют":Math.hypot(player.x-relicSpot.x,player.y-relicSpot.y)<3.5?"☽ Забытые руины":"☽ Сумеречная долина"}
-function update(dt){elapsed+=dt;const kx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft")),ky=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));let vx=joystick.x+kx,vy=joystick.y+ky;const v=Math.hypot(vx,vy);if(v>1){vx/=v;vy/=v}if(v>.02){const dx=(vx/TW+vy/TH)*SCREEN_SPEED*dt,dy=(vy/TH-vx/TW)*SCREEN_SPEED*dt;const moved=moveWithCollisions(player,dx,dy,.26);if(Math.abs(vx)>.08)player.facing=vx>0?1:-1;if(moved){player.walk+=v*dt*11;player.motion=Math.min(1,(player.motion||0)+dt*10)}else player.motion=Math.max(0,(player.motion||0)-dt*10)}else{player.motion=Math.max(0,(player.motion||0)-dt*10)}
-player.cooldown=Math.max(0,player.cooldown-dt);player.flash=Math.max(0,player.flash-dt);
-for(const e of enemies){if(e.dead>0){e.dead-=dt;if(e.dead<=0){e.dead=0;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy}continue}e.hit-=dt;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);const pd=distance(player,e),home=Math.hypot(player.x-e.sx,player.y-e.sy);let targetX=e.sx,targetY=e.sy,spd=.44;if(pd<4.5&&home<6.0){targetX=player.x;targetY=player.y;spd=e.speed}const dx=targetX-e.x,dy=targetY-e.y,dist=Math.hypot(dx,dy);if(dist>.8){moveWithCollisions(e,dx/dist*spd*dt,dy/dist*spd*dt,.29)}if(pd<.8&&home<6&&e.hit<=0){player.hp-=9;e.hit=1.15;if(player.hp<=0){player.hp=player.maxHp;player.x=0;player.y=0;resetJoystick();toast("Ты очнулся в Тихом Приюте")}}}
-const p=iso(player.x,player.y);cameraX=p.x-vw/2;cameraY=p.y-vh*.51;
-refreshHUD();if(toastUntil&&performance.now()>toastUntil){$("toast").classList.remove("visible");toastUntil=0}}
+function update(dt){
+ elapsed+=dt;
+ const kx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft"));
+ const ky=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));
+ let vx=joystick.x+kx,vy=joystick.y+ky;
+ const intensity=Math.hypot(vx,vy);
+ if(intensity>1){vx/=intensity;vy/=intensity}
+ const strength=Math.min(intensity,1);
+ if(strength>.02){
+  // The pose uses the *screen* direction, independent of isometric world axes.
+  player.dir=directionFromVector(vx,vy);
+  if(Math.abs(vx)>.08)player.facing=vx>0?1:-1;
+  const dx=(vx/TW+vy/TH)*SCREEN_SPEED*dt,dy=(vy/TH-vx/TW)*SCREEN_SPEED*dt;
+  const moved=moveWithCollisions(player,dx,dy,.26);
+  if(moved){
+   player.walk+=strength*dt*12;
+   player.motion=Math.min(1,(player.motion||0)+dt*9);
+  }else player.motion=Math.max(0,(player.motion||0)-dt*12);
+ }else player.motion=Math.max(0,(player.motion||0)-dt*8);
+ player.cooldown=Math.max(0,player.cooldown-dt);
+ player.flash=Math.max(0,player.flash-dt);
+ player.animState=player.flash>0?"attack":player.motion>.12?"run":"idle";
+ for(const e of enemies){
+  if(e.dead>0){
+   e.dead-=dt;
+   if(e.dead<=0){e.dead=0;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy}
+   continue;
+  }
+  e.hit-=dt;
+  e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);
+  const pd=distance(player,e),home=Math.hypot(player.x-e.sx,player.y-e.sy);
+  let targetX=e.sx,targetY=e.sy,spd=.44;
+  if(pd<4.5&&home<6){targetX=player.x;targetY=player.y;spd=e.speed}
+  const dx=targetX-e.x,dy=targetY-e.y,dist=Math.hypot(dx,dy);
+  if(dist>.8)moveWithCollisions(e,dx/dist*spd*dt,dy/dist*spd*dt,.29);
+  if(pd<.8&&home<6&&e.hit<=0){
+   player.hp-=9;
+   e.hit=1.15;
+   if(player.hp<=0){player.hp=player.maxHp;player.x=0;player.y=0;resetJoystick();toast("Ты очнулся в Тихом Приюте")}
+  }
+ }
+ const p=iso(player.x,player.y);
+ cameraX=p.x-vw/2;cameraY=p.y-vh*.51;
+ refreshHUD();
+ if(toastUntil&&performance.now()>toastUntil){$("toast").classList.remove("visible");toastUntil=0}
+}
 function polygon(points,fill,stroke){ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}}
 function ellipse(x,y,rx,ry,color){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fillStyle=color;ctx.fill()}
 function line(ax,ay,bx,by,color,width){ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke()}
