@@ -30,10 +30,9 @@ https://nexions-link.github.io/Nexgame/
 ## Архив
 
 - [3D Alpha 0.2.4 — автоатака и боевая таргет-система](versions/alpha_0.2.4/)
-- [3D Alpha 0.2.3 — до обновления боевой системы](versions/alpha_0.2.3/)
-- [3D Alpha 0.2.4 — поворот джойстиком](versions/alpha_0.2.3/)
+- [3D Alpha 0.2.3 — поворот джойстиком](versions/alpha_0.2.3/)
 - [3D Alpha 0.2.2 — до изменения управления](versions/alpha_0.2.2/)
-- [3D Alpha 0.2.4 — автоследование камеры](versions/alpha_0.2.2/)
+- [3D Alpha 0.2.2 — автоследование камеры](versions/alpha_0.2.2/)
 - [3D Alpha 0.2.1 — до автоматического следования камеры](versions/alpha_0.2.1/)
 
 - [3D Alpha 0.1.1 — версия перед переходом к Мулгору](versions/NexGame_3D_Alpha_0.1.1.html)
