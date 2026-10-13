@@ -294,7 +294,22 @@ let lastMarker='';
 function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
  const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!target;if(target)$('interact').innerHTML=target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
- const valid=selected&&selected.dead<=0;$('targetFrame').hidden=!valid;$('zoneTitle').hidden=Boolean(valid);if(valid){$('targetName').textContent='Равнинный долгоног · 1';$('targetFill').style.width=selected.hp/selected.maxHp*100+'%';$('targetHp').textContent=Math.ceil(selected.hp)+' / '+selected.maxHp}
+ const valid=isAliveTarget(selected);
+ $('targetFrame').hidden=!valid;$('zoneTitle').hidden=Boolean(valid);
+ $('attack').classList.toggle('auto-attacking',autoAttack);
+ $('attack').setAttribute('aria-pressed',String(autoAttack));
+ $('attackLabel').textContent=autoAttack?'Стоп':'Автоатака';
+ $('targetNext').classList.toggle('target-selected',valid);
+ if(valid){
+  const dist=targetDistance(selected),problem=meleeFailure(selected);
+  $('targetName').textContent='Равнинный долгоног · 1';
+  $('targetFill').style.width=Math.max(0,selected.hp/selected.maxHp*100)+'%';
+  $('targetHp').textContent=Math.ceil(selected.hp)+' / '+selected.maxHp;
+  $('targetDistance').textContent='Дистанция: '+dist.toFixed(1).replace('.',',')+' м · удар до '+MELEE_RANGE.toFixed(1).replace('.',',')+' м';
+  const status=autoAttack?(problem?'Автоатака: '+problem.toLowerCase():'Автоатака включена'):(problem||'В зоне удара');
+  $('targetStatus').textContent=status;
+  $('targetStatus').className=problem?(problem.includes('далеко')?'target-far':'target-back'):(autoAttack?'target-active':'target-ready');
+ }
  const marker=state.quest===0||state.quest===3?'!':state.quest===2||state.quest===5?'?':'·';questMarker.visible=state.quest!==6;if(marker!==lastMarker){lastMarker=marker;const c=questMarker.material.map.image,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 72px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#3a2c19';ctx.fillStyle=marker==='·'?'#b4b395':'#ffe180';ctx.strokeText(marker,256,48);ctx.fillText(marker,256,48);questMarker.material.map.needsUpdate=true}relic.visible=state.quest===4;relicShadow.visible=relic.visible;
 }
 const minimap=$('minimap'),mapCtx=minimap.getContext('2d');
@@ -366,13 +381,25 @@ function animateCamera(dt){
 }
 const attackOverlay=$('attack').querySelector('.cooldown'),stompOverlay=$('stomp').querySelector('.cooldown');
 function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max(0,attackCooldown-dt);stompCooldown=Math.max(0,stompCooldown-dt);
- if(attackElapsed>=0){attackElapsed+=dt;if(attackElapsed>=.34&&!attackLanded){attackLanded=true;if(selected&&selected.dead<=0&&Math.hypot(state.x-selected.root.position.x,state.z-selected.root.position.z)<3.4)damageEnemy(selected,18+(state.level-1)*3)}if(attackElapsed>=.8)attackElapsed=-1}
+ if(attackElapsed>=0){
+  attackElapsed+=dt;
+  if(attackElapsed>=.34&&!attackLanded){
+   attackLanded=true;
+   if(isAliveTarget(swingTarget)&&!meleeFailure(swingTarget))damageEnemy(swingTarget,18+(state.level-1)*3);
+  }
+  if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null}
+ }
  if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){e.stunned=2.5;damageEnemy(e,6)}}if(stompElapsed>=.75)stompElapsed=-1}
- movement(dt);enemies.forEach(e=>updateEnemy(e,dt));animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);
+ movement(dt);enemies.forEach(e=>updateEnemy(e,dt));if(autoAttack)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
- selection.visible=Boolean(selected&&selected.dead<=0);if(selection.visible)selection.position.set(selected.root.position.x,heightAt(selected.root.position.x,selected.root.position.z)+.06,selected.root.position.z);
+ selection.visible=isAliveTarget(selected);
+ if(selection.visible){
+  selection.position.set(selected.root.position.x,heightAt(selected.root.position.x,selected.root.position.z)+.06,selected.root.position.z);
+  selection.material.color.setHex(meleeFailure(selected)?0xd97456:0xe9db84);
+  selection.material.opacity=autoAttack?.96:.79;
+ }
  shockAge+=dt;stompRing.visible=shockAge<.6;if(stompRing.visible){stompRing.scale.setScalar(1+shockAge*7);stompRing.material.opacity=(1-shockAge/.6)*.7}
- attackOverlay.style.transform='scaleY('+clamp(attackCooldown/.86,0,1)+')';stompOverlay.style.transform='scaleY('+clamp(stompCooldown/8,0,1)+')';$('rageFill').style.width=(1-clamp(attackCooldown/.86,0,1))*100+'%';
+ attackOverlay.style.transform='scaleY('+clamp(attackCooldown/SWING_PERIOD,0,1)+')';stompOverlay.style.transform='scaleY('+clamp(stompCooldown/8,0,1)+')';$('rageFill').style.width=(1-clamp(attackCooldown/SWING_PERIOD,0,1))*100+'%';
  if(hudClock>.12){hudClock=0;updateHUD();drawMap()}if(saveClock>6){saveClock=0;save()}
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));clearInput()});
