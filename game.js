@@ -252,7 +252,21 @@ for(const type of ['pointerup','pointercancel','lostpointercapture'])stick.addEv
 const canvas=renderer.domElement,pickRay=new THREE.Raycaster();canvas.style.touchAction='none';
 canvas.addEventListener('pointerdown',e=>{if(modalKind||look.id!==null)return;look.id=e.pointerId;look.selectOnly=e.pointerType==='touch'&&e.clientX<innerWidth*.35;look.x=look.startX=e.clientX;look.y=look.startY=e.clientY;cameraFollowCooldown=.85;canvas.setPointerCapture(e.pointerId);if(document.activeElement===cameraSlider)cameraSlider.blur()});
 canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;if(!look.selectOnly){cameraYaw-=(e.clientX-look.x)*.007;cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05)}look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85});
-canvas.addEventListener('pointerup',e=>{if(look.id!==e.pointerId)return;if(Math.hypot(e.clientX-look.startX,e.clientY-look.startY)<7){pickRay.setFromCamera(new THREE.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2),camera);const alive=enemies.filter(e=>e.dead<=0),hits=pickRay.intersectObjects(alive.map(e=>e.root),true);if(hits.length){let o=hits[0].object;while(o.parent&&o.parent!==scene)o=o.parent;setTarget(alive.find(e=>e.root===o)||null)}}look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85)});
+canvas.addEventListener('pointerup',e=>{
+ if(look.id!==e.pointerId)return;
+ if(Math.hypot(e.clientX-look.startX,e.clientY-look.startY)<7){
+  pickRay.setFromCamera(new THREE.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2),camera);
+  const visibleMobs=enemies.filter(enemy=>enemy.dead<=0||enemy.corpseAge>0);
+  const hits=pickRay.intersectObjects(visibleMobs.map(enemy=>enemy.root),true);
+  if(hits.length){
+   let obj=hits[0].object;
+   while(obj.parent&&obj.parent!==scene)obj=obj.parent;
+   const enemy=visibleMobs.find(m=>m.root===obj);
+   if(enemy){if(enemy.dead>0)showCorpseLoot(enemy);else setTarget(enemy)}
+  }
+ }
+ look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85);
+});
 for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(look.id===e.pointerId){look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85)}});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(!modalKind)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
 addEventListener('blur',clearInput);addEventListener('pagehide',()=>{clearInput();save()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();save()}});
@@ -269,13 +283,33 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
-function closeDialog(){modalKind=null;$('modal').hidden=true;clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
+function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal');clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
 function pause(){if(modalKind==='pause'){closeDialog();return}openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.4',['Мир поставлен на паузу. Твой путь начинается на равнинах Мулгора.','Передвижение — WASD или джойстик. Вращай камеру по свободной части экрана. Джойстик вверх/вниз — идти; влево/вправо — непрерывно поворачиваться. Приближение — ползунок или колёсико мыши.','Tab или кнопка «Цель» — выбрать врага. Касание существа тоже выбирает цель. 1 / пробел — включить/выключить автоатаку; вне дистанции герой ждёт без взмаха.','2 — громовая поступь. 3 — лечебный настой. E — разговор.','Автоследование камеры включается в меню управления; угол по вертикали сохраняется.'], 'pause');choice('Продолжить путь',closeDialog);choice('Начать заново',()=>{openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень и предметы этой версии Мулгора.']);choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt')},'alt')}
 function resetWorld(){state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};for(const e of enemies){e.hp=e.maxHp;e.dead=0;e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;e.root.visible=true;e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ)}hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();shockAge=9;cameraYaw=0;cameraPitch=.29;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
-function nearTarget(){for(const n of npcs)if(Math.hypot(state.x-n.x,state.z-n.z)<3.5)return{kind:'npc',npc:n};if(state.quest===4&&Math.hypot(state.x-35,state.z+11.8)<3.1)return{kind:'relic'};return null}
-function interact(){if(modalKind)return;const target=nearTarget();if(!target){msg('Подойди к жителю или предмету ближе');return}if(target.kind==='relic'){state.quest=5;state.relic=true;save();updateHUD();msg('Получено перо предков');return}if(target.npc.type==='mentor')mentorTalk();else traderTalk()}
+function isLootableCorpse(e){return !!e&&e.dead>0&&Array.isArray(e.loot)&&e.loot.length>0}
+function nearTarget(){
+ let closest=null,dist=3.5;
+ for(const n of npcs){const d=Math.hypot(state.x-n.x,state.z-n.z);if(d<dist){dist=d;closest={kind:'npc',npc:n}}}
+ for(const e of enemies)if(isLootableCorpse(e)){
+  const d=Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z);
+  if(d<dist&&d<LOOT_INTERACT_RANGE){dist=d;closest={kind:'corpse',enemy:e}}
+ }
+ if(state.quest===4){
+  const d=Math.hypot(state.x-35,state.z+11.8);
+  if(d<dist&&d<3.1)closest={kind:'relic'};
+ }
+ return closest;
+}
+function interact(){
+ if(modalKind)return;
+ const target=nearTarget();
+ if(!target){msg('Подойди к жителю или предмету ближе');return}
+ if(target.kind==='corpse'){showCorpseLoot(target.enemy);return}
+ if(target.kind==='relic'){state.quest=5;state.relic=true;save();updateHUD();msg('Получено перо предков');return}
+ if(target.npc.type==='mentor')mentorTalk();else traderTalk();
+}
 function xpNeed(){return 100+(state.level-1)*50}
 function experience(n){state.xp+=n;while(state.xp>=xpNeed()){state.xp-=xpNeed();state.level++;state.hp=120+(state.level-1)*20;msg('Новый уровень: '+state.level+'!')}}
 function mentorTalk(){const q=state.quest;
@@ -288,7 +322,96 @@ function mentorTalk(){const q=state.quest;
  else{openDialog('Путь продолжается','НАСТАВНИК КАМЕННЫЙ РОГ',['Ты прошёл первые испытания. Исследуй долину, тренируйся и возвращайся к костру. Впереди ещё много дорог.']);choice('До встречи',closeDialog)}
 }
 function traderTalk(){openDialog('Травница Тихая Заря','ПРИПАСЫ ЛАГЕРЯ',['Настой луговых трав восстанавливает 55 здоровья. Цена — 10 монет.','В твоём кошеле: '+state.gold+' монет.']);choice('Купить настой — 10 монет',()=>{if(state.gold<10){msg('Недостаточно монет');return}state.gold-=10;state.potions++;closeDialog();msg('Лечебный настой добавлен в рюкзак')});choice('До встречи',closeDialog,'alt')}
-function bag(){if(modalKind==='bag'){closeDialog();return}openDialog('Рюкзак странника','ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,['Походный топор — оружие молодого воина.','Кожаный пояс и накидка — начальное снаряжение.',state.relic?'Перо предков — предмет задания.':'Лечебных настоев: '+state.potions+'.','Монет: '+state.gold+'.'],'bag');choice('Выпить лечебный настой',()=>{if(heal(true))closeDialog()});choice('Закрыть рюкзак',closeDialog,'alt')}
+function bag(){
+ if(modalKind==='bag'){closeDialog();return}
+ openDialog('Рюкзак странника','ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,[],'bag');
+ renderInventory();
+ choice('🧪 Выпить лечебный настой ('+state.potions+')',()=>{if(heal(true))closeDialog()});
+ choice('Закрыть рюкзак',closeDialog,'alt');
+}
+function renderInventory(){
+ const body=$('mbody');body.replaceChildren();
+ const occupied=itemOccupancy(),capacity=inventoryCapacity();
+ const summary=document.createElement('div');summary.className='inventory-summary';
+ summary.textContent='Ячейки: '+occupied+' / '+capacity+' · Монеты: '+state.gold+' · Настои: '+state.potions;
+ body.appendChild(summary);
+ const grid=document.createElement('div');grid.className='inventory-grid';
+ const detail=document.createElement('div');detail.className='inventory-detail';
+ detail.textContent='Нажми на предмет, чтобы узнать о нём больше.';
+ for(let i=0;i<capacity;i++){
+  const item=state.inventory[i],cell=document.createElement('button');
+  cell.type='button';cell.className='inventory-slot'+(item?' occupied':' empty');
+  cell.setAttribute('aria-label',item?ITEM_CATALOG[item.id].name+', '+item.qty+' шт.':'Пустая ячейка '+(i+1));
+  if(item){
+   const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=ITEM_CATALOG[item.id].icon;
+   const count=document.createElement('span');count.className='slot-count';count.textContent=item.qty>1?String(item.qty):'';
+   cell.appendChild(icon);cell.appendChild(count);
+   cell.addEventListener('click',()=>{const def=ITEM_CATALOG[item.id];detail.textContent=def.name+' ×'+item.qty+' · '+def.quality+'. '+def.description});
+  }else{
+   const number=document.createElement('span');number.className='slot-empty-mark';number.textContent='·';
+   cell.appendChild(number);
+  }
+  grid.appendChild(cell);
+ }
+ body.appendChild(grid);body.appendChild(detail);
+ const title=document.createElement('div');title.className='bag-sockets-title';title.textContent='Дополнительные сумки (0 / 4)';body.appendChild(title);
+ const sockets=document.createElement('div');sockets.className='bag-sockets';
+ for(let i=0;i<EQUIPPED_BAG_SLOTS;i++){
+  const entry=state.bags[i],socket=document.createElement('div');
+  socket.className='bag-socket'+(entry?' equipped':'');
+  socket.setAttribute('aria-label',entry?'Сумка '+(i+1)+', '+entry.slots+' дополнительных мест':'Место для сумки '+(i+1)+', пока недоступно');
+  const glyph=document.createElement('span');glyph.className='bag-socket-icon';glyph.textContent=entry?'🎒':'＋';
+  const sub=document.createElement('span');sub.textContent=entry?'+'+entry.slots+' мест':'Сумка '+(i+1);
+  socket.appendChild(glyph);socket.appendChild(sub);sockets.appendChild(socket);
+ }
+ body.appendChild(sockets);
+ const note=document.createElement('p');note.className='bag-sockets-note';
+ note.textContent='Четыре места под сумки подготовлены. Сами сумки и их добычу добавим в следующих обновлениях.';
+ body.appendChild(note);
+}
+function finishLoot(e){
+ e.loot=[];e.lootMarker.visible=false;
+ closeDialog();msg('Тело обыскано');
+}
+function renderCorpseLoot(e){
+ if(!isLootableCorpse(e)){finishLoot(e);return}
+ const body=$('mbody');body.replaceChildren();$('choices').replaceChildren();
+ const intro=document.createElement('p');intro.className='loot-description';
+ intro.textContent='На теле равнинного долгонога найдена добыча. Нажми на предмет, чтобы положить его в рюкзак.';
+ body.appendChild(intro);
+ const list=document.createElement('div');list.className='loot-list';
+ for(let i=0;i<e.loot.length;i++){
+  const row=e.loot[i],def=ITEM_CATALOG[row.id],button=document.createElement('button');
+  button.className='loot-item';button.type='button';
+  button.textContent=def.icon+'  '+def.name+(row.qty>1?' ×'+row.qty:'');
+  button.setAttribute('aria-label','Взять '+def.name+', '+row.qty+' шт.');
+  button.addEventListener('click',()=>{
+   if(!storeItem(row)){msg('В рюкзаке недостаточно места');return}
+   e.loot.splice(i,1);
+   if(e.loot.length)renderCorpseLoot(e);else finishLoot(e);
+   msg('Получено: '+def.name+(row.qty>1?' ×'+row.qty:''));
+  });
+  list.appendChild(button);
+ }
+ body.appendChild(list);
+ choice('Забрать всё',()=>{
+  let grabbed=0;
+  for(let i=e.loot.length-1;i>=0;i--)if(storeItem(e.loot[i])){e.loot.splice(i,1);grabbed++}
+  if(!grabbed){msg('В рюкзаке недостаточно места');return}
+  if(e.loot.length)renderCorpseLoot(e);else finishLoot(e);
+  msg('Собрано предметов: '+grabbed);
+ });
+ choice('Закрыть',closeDialog,'alt');
+}
+function showCorpseLoot(e){
+ if(!e||e.dead<=0){msg('Тело уже исчезло');return}
+ if(Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)>LOOT_INTERACT_RANGE){
+  combatWarning('Слишком далеко',true);return;
+ }
+ if(!isLootableCorpse(e)){msg('На теле ничего нет');return}
+ openDialog('Добыча с долгонога','ОБЫСК ТЕЛА',[],'loot');
+ renderCorpseLoot(e);
+}
 function heal(fromBag=false){if(modalKind&&!fromBag)return false;if(state.potions<=0){msg('Лечебные настои закончились');return false}const max=120+(state.level-1)*20;if(state.hp>=max){msg('Здоровье уже полное');return false}state.hp=Math.min(max,state.hp+55);state.potions--;save();updateHUD();msg('Луговые травы восстановили здоровье');return true}
 // Melee combat: select first, validate distance and facing, then animate.
 const MELEE_RANGE=3.45,TARGET_RANGE=35,SWING_PERIOD=1.8;
@@ -379,7 +502,7 @@ const questLines=[['Первые шаги','Поговорите с настав
 let lastMarker='';
 function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
- const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!target;if(target)$('interact').innerHTML=target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
+ const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!target;if(target)$('interact').innerHTML=target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
  const valid=isAliveTarget(selected);
  $('targetFrame').hidden=!valid;$('zoneTitle').hidden=Boolean(valid);
  $('attack').classList.toggle('auto-attacking',autoAttack);
