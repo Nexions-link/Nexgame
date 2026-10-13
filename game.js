@@ -139,6 +139,7 @@ const giant=makePlainstrider(BOSS_X,BOSS_Z,enemies.length);
 giant.name='Грозоклюв — огромный долгоног';
 giant.boss=true;giant.baseScale=1.8;giant.maxHp=giant.hp=108;
 giant.root.scale.setScalar(giant.baseScale);
+giant.shadow.scale.setScalar(1.7);
 giant.nameTag=spriteText('Грозоклюв · Исполин','#f9bd91',27);
 giant.nameTag.scale.set(4.7,.84,1);scene.add(giant.nameTag);
 giant.nameTag.position.set(BOSS_X,heightAt(BOSS_X,BOSS_Z)+4.65,BOSS_Z);
