@@ -301,27 +301,69 @@ function questMarkerForElder(){
 }
 function drawNpc(n){
  const p=iso(n.x,n.y),x=p.x,y=p.y;
- ellipse(x,y+4,15,7,"#000a");
- polygon([[x-13,y-5],[x-11,y-34],[x,y-43],[x+12,y-33],[x+14,y-5]],n.type==="elder"?"#634d69":"#655345","#242029");
- ellipse(x,y-34,7,9,"#cfb19a");
- polygon([[x-10,y-38],[x,y-50],[x+10,y-38]],n.type==="elder"?"#9284a1":"#a08c75");
- if(n.type==="elder")line(x+12,y-27,x+20,y+1,"#c4a57d",3);
- if(n.type==="elder"){
-  const marker=questMarkerForElder();
-  if(marker){
-   ctx.save();
-   ctx.textAlign="center";
-   ctx.font="bold 27px Georgia";
-   if(marker.glow){ctx.shadowColor=marker.color;ctx.shadowBlur=11}
-   ctx.fillStyle=marker.color;
-   ctx.fillText(marker.text,x,y-61);
-   ctx.restore();
-  }
+ softShadow(x,y+1,19,7,.22);
+ const elder=n.type==="elder";
+ const robe=elder?"#7b8fc0":"#dd9c75",shade=elder?"#4e638f":"#ab745e";
+ // Boots and shaded robes for small stylized human characters.
+ ellipse(x-7,y-5,5,4,"#655b62");ellipse(x+7,y-5,5,4,"#655b62");
+ polygon([[x-14,y-5],[x-13,y-34],[x,y-47],[x+14,y-34],[x+16,y-5]],shade,"#405168");
+ polygon([[x-10,y-6],[x-7,y-37],[x,y-44],[x+5,y-34],[x+9,y-5]],robe);
+ ellipse(x,y-37,8,10,radial(x-4,y-41,15,"#f9dcc2","#a77f6d"));
+ leaf(x,y-49,10,5,elder?"#f2e5c5":"#785849",elder?"#bba993":"#664a43");
+ if(elder){line(x+13,y-27,x+23,y-1,"#b8a17b",3);ellipse(x+13,y-29,4,4,"#c9aa82")}
+ const marker=elder?questMarkerForElder():null;
+ if(marker){
+  ctx.save();ctx.textAlign="center";ctx.font="bold 28px Georgia";
+  if(marker.glow){ctx.shadowColor="#fff0a6";ctx.shadowBlur=12}
+  ctx.fillStyle=marker.color;ctx.fillText(marker.text,x,y-68);ctx.restore();
  }
- if(distance(player,n)<2.1){ctx.font="12px Georgia";ctx.textAlign="center";ctx.fillStyle="#ffda9b";ctx.fillText(n.name,x,y-83)}
+ if(distance(player,n)<2.1){
+  ctx.save();ctx.textAlign="center";ctx.font="bold 12px system-ui";ctx.strokeStyle="#2a424c";ctx.lineWidth=3;
+  ctx.strokeText(n.name,x,y-87);ctx.fillStyle="#fff8e7";ctx.fillText(n.name,x,y-87);ctx.restore();
+ }
 }
-function drawEnemy(e){if(e.dead>0)return;const p=iso(e.x,e.y),x=p.x,y=p.y;ellipse(x,y+2,19,8,"#000a");ellipse(x,y-13,18,12,(e.hitFlash||0)>0?"#a95a52":"#5e5a56");ellipse(x+9,y-15,11,9,"#79716a");polygon([[x+6,y-23],[x+12,y-36],[x+18,y-24]],"#635e5b");polygon([[x+18,y-24],[x+26,y-37],[x+28,y-15]],"#675e5b");ellipse(x+17,y-16,2,2,"#f3b569");line(x-13,y-7,x-23,y-11,"#5c595b",6);ctx.fillStyle="#110d12";ctx.fillRect(x-18,y-45,36,5);ctx.fillStyle="#c25356";ctx.fillRect(x-18,y-45,36*e.hp/e.maxHp,5)}
-function drawPlayer(){const p=iso(player.x,player.y),x=p.x,y=p.y,step=Math.sin(player.walk)*1.5;ellipse(x,y+6,19,8,"#030408bb");polygon([[x-17,y-4],[x-13,y-34+step],[x,y-42+step],[x+14,y-31+step],[x+17,y-4]],"#43566d","#121c29");polygon([[x-10,y-33+step],[x,y-50+step],[x+10,y-33+step],[x+5,y-22+step],[x-6,y-22+step]],"#87909e","#283246");ellipse(x,y-35+step,5,6,"#c8af9c");line(x+13,y-22+step,x+24,y-8+step,"#afb9c6",4);if(player.flash>0){ctx.globalAlpha=player.flash/.2;ctx.strokeStyle="#eac18c";ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(x,y,68,28,0,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1}}
+function drawEnemy(e){
+ if(e.dead>0)return;
+ const p=iso(e.x,e.y),x=p.x,y=p.y;
+ softShadow(x,y+2,23,8,.22);
+ const hurt=(e.hitFlash||0)>0;
+ // Four legs, a raised wolf's body, pointed ears and muzzle.
+ for(const lx of [-11,8])line(x+lx,y-10,x+lx-3,y+3,hurt?"#cb837d":"#655e66",5.5);
+ ellipse(x-2,y-22,24,13,radial(x-9,y-28,27,hurt?"#d9a09a":"#aaa2a0","#566578"));
+ ellipse(x+16,y-27,14,12,radial(x+12,y-33,18,"#b3a69c","#53626f"));
+ polygon([[x+8,y-36],[x+11,y-55],[x+20,y-38]],"#647583");
+ polygon([[x+20,y-37],[x+33,y-55],[x+34,y-29]],"#586d7c");
+ ellipse(x+29,y-20,12,7,"#aaa4a0");ellipse(x+34,y-22,2.5,2.5,"#34373f");
+ ellipse(x+20,y-30,2,2,"#f5e19a");
+ line(x-24,y-24,x-37,y-34,"#7e8c91",5);
+ if(e.hp<e.maxHp||distance(player,e)<3){
+  ctx.fillStyle="#243a40";ctx.fillRect(x-23,y-62,46,5);
+  ctx.fillStyle="#de6f6a";ctx.fillRect(x-23,y-62,46*e.hp/e.maxHp,5);
+ }
+}
+function drawPlayer(){
+ const p=iso(player.x,player.y),x=p.x,y=p.y;
+ const step=Math.sin(player.walk)*2,fac=player.facing;
+ softShadow(x,y+3,22,9,.25);
+ // Animated boots, layered cape and metallic tunic.
+ ellipse(x-8,y-5+(step>0?step:0),6,4,"#4c555d");
+ ellipse(x+8,y-5+(step<0?-step:0),6,4,"#4c555d");
+ polygon([[x-17,y-8],[x-18,y-42],[x-6,y-52],[x+15,y-40],[x+20,y-6]],"#526a85","#344f60");
+ polygon([[x-10,y-8],[x-9,y-40],[x+3,y-46],[x+12,y-36],[x+12,y-7]],"#87a8b6","#536c88");
+ polygon([[x-12,y-39],[x-19,y-30],[x-16,y-15],[x-9,y-18]],"#d2beac","#8c9999");
+ polygon([[x+11,y-39],[x+20,y-32],[x+16,y-17],[x+9,y-20]],"#c7b3a4","#6f8a8f");
+ ellipse(x,y-46+step*.23,9,11,radial(x-5,y-51,16,"#ffe0ba","#b88275"));
+ leaf(x,y-55,10,6,"#6f5450","#493e45");
+ polygon([[x-8,y-35],[x,y-44],[x+9,y-35],[x+7,y-17],[x-6,y-17]],"#507c8b","#365866");
+ ellipse(x,y-34,3.3,3.3,"#f8d28e");
+ line(x+15*fac,y-26,x+23*fac,y-10,"#b2c2cf",4);
+ line(x+23*fac,y-10,x+29*fac,y-34,"#e6f0e9",3);
+ if(player.flash>0){
+  ctx.save();ctx.globalAlpha=player.flash/.2;ctx.strokeStyle="#f6d68c";
+  ctx.lineWidth=5;ctx.shadowColor="#f6c66c";ctx.shadowBlur=12;
+  ctx.beginPath();ctx.ellipse(x,y,64,26,0,0,Math.PI*2);ctx.stroke();ctx.restore();
+ }
+}
 function drawGround(){
  const c=iso(player.x,player.y);
  for(let y=-WORLD;y<=WORLD;y++)for(let x=-WORLD;x<=WORLD;x++){
@@ -346,9 +388,31 @@ function drawGround(){
   }
  }
 }
-function draw(){ctx.fillStyle="#0d1215";ctx.fillRect(0,0,vw,vh);ctx.save();ctx.translate(-cameraX,-cameraY);drawGround();const center=iso(player.x,player.y);const inView=o=>{const p=iso(o.x,o.y);return Math.abs(p.x-center.x)<vw/2+110&&Math.abs(p.y-center.y)<vh/2+160};
-const drawables=[];for(const o of props)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawProp(o)});for(const o of houses)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawHouse(o)});for(const o of npc)drawables.push({z:o.x+o.y,draw:()=>drawNpc(o)});for(const e of enemies)if(e.dead<=0)drawables.push({z:e.x+e.y,draw:()=>drawEnemy(e)});drawables.push({z:relicSpot.x+relicSpot.y,draw:drawRelic});drawables.push({z:player.x+player.y,draw:drawPlayer});drawables.sort((a,b)=>a.z-b.z);for(const o of drawables)o.draw();ctx.restore();
-const vignette=ctx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.2,vw/2,vh/2,Math.max(vw,vh)*.78);vignette.addColorStop(0,"#0000");vignette.addColorStop(1,"#050409b8");ctx.fillStyle=vignette;ctx.fillRect(0,0,vw,vh)}
+function draw(){
+ const bg=ctx.createLinearGradient(0,0,0,vh);
+ bg.addColorStop(0,"#a6ced0");bg.addColorStop(1,"#d5e7c4");
+ ctx.fillStyle=bg;ctx.fillRect(0,0,vw,vh);
+ ctx.save();ctx.translate(-cameraX,-cameraY);drawGround();
+ const center=iso(player.x,player.y);
+ const inView=o=>{const p=iso(o.x,o.y);return Math.abs(p.x-center.x)<vw/2+120&&Math.abs(p.y-center.y)<vh/2+210};
+ const drawables=[];
+ for(const o of props)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawProp(o)});
+ for(const o of houses)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawHouse(o)});
+ for(const o of npc)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawNpc(o)});
+ for(const e of enemies)if(e.dead<=0&&inView(e))drawables.push({z:e.x+e.y,draw:()=>drawEnemy(e)});
+ if(inView(relicSpot))drawables.push({z:relicSpot.x+relicSpot.y,draw:drawRelic});
+ drawables.push({z:player.x+player.y,draw:drawPlayer});
+ drawables.sort((a,b)=>a.z-b.z);
+ for(const o of drawables)o.draw();
+ ctx.restore();
+ // Daylight gradient and soft, warm corners instead of Gothic near-black.
+ const sun=ctx.createRadialGradient(vw*.82,vh*.18,15,vw*.82,vh*.18,Math.max(vw,vh)*.95);
+ sun.addColorStop(0,"#fff8db20");sun.addColorStop(1,"#ffffff00");
+ ctx.fillStyle=sun;ctx.fillRect(0,0,vw,vh);
+ const vignette=ctx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.25,vw/2,vh/2,Math.max(vw,vh)*.88);
+ vignette.addColorStop(0,"#00000000");vignette.addColorStop(1,"#173b4544");
+ ctx.fillStyle=vignette;ctx.fillRect(0,0,vw,vh);
+}
 function frame(t){const dt=Math.min((t-last)/1000,.05);last=t;if(!paused&&!dialogOpen)update(dt);else refreshHUD();draw();requestAnimationFrame(frame)}
 let lastSave=performance.now();function autosave(t){if(t-lastSave>6500){lastSave=t;save()}requestAnimationFrame(autosave)}
 const p=iso(player.x,player.y);cameraX=p.x-innerWidth/2;cameraY=p.y-innerHeight*.51;refreshHUD();requestAnimationFrame(frame);requestAnimationFrame(autosave);
