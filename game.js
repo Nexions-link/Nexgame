@@ -1,4 +1,4 @@
-// NexGame 3D · Alpha 0.2.3 — a small, procedural Mulgore-inspired starting zone.
+// NexGame 3D · Alpha 0.2.4 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -144,7 +144,7 @@ state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(sta
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0},stick=$('stick'),nub=$('nub');
-let modalKind=null,selected=null,attackElapsed=-1,attackCooldown=0,attackLanded=false,stompElapsed=-1,stompCooldown=0,stompLanded=false,shockAge=9,clock=0,saveClock=0,hudClock=0,velocityX=0,velocityZ=0;
+let modalKind=null,selected=null,autoAttack=false,swingTarget=null,attackElapsed=-1,attackCooldown=0,attackLanded=false,stompElapsed=-1,stompCooldown=0,stompLanded=false,shockAge=9,clock=0,saveClock=0,hudClock=0,velocityX=0,velocityZ=0;
 let cameraYaw=0,cameraPitch=.29,cameraDistance=10.5,actualCameraDistance=10.5;
 let cameraFollow=false,cameraFollowCooldown=0;
 const cameraFollowStoreKey='nexgame-real3d-camera-follow',cameraFollowSwitch=$('cameraFollow');
@@ -178,6 +178,15 @@ addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='escape'){e.pr
 addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 let toastTimer;
 function msg(text,duration=2600){clearTimeout(toastTimer);$('toast').textContent=text;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),duration)}
+let combatWarningTimer=0,lastCombatWarning='',lastCombatWarningAt=-99;
+function hideCombatWarning(){clearTimeout(combatWarningTimer);$('combatError').classList.remove('show');lastCombatWarning=''}
+function combatWarning(text,force=false){
+ if(!force&&text===lastCombatWarning&&clock-lastCombatWarningAt<1.9)return;
+ lastCombatWarning=text;lastCombatWarningAt=clock;
+ const box=$('combatError');clearTimeout(combatWarningTimer);
+ box.textContent=text;box.classList.add('show');
+ combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
+}
 function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
 function closeDialog(){modalKind=null;$('modal').hidden=true;clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
@@ -199,9 +208,82 @@ function mentorTalk(){const q=state.quest;
 function traderTalk(){openDialog('Травница Тихая Заря','ПРИПАСЫ ЛАГЕРЯ',['Настой луговых трав восстанавливает 55 здоровья. Цена — 10 монет.','В твоём кошеле: '+state.gold+' монет.']);choice('Купить настой — 10 монет',()=>{if(state.gold<10){msg('Недостаточно монет');return}state.gold-=10;state.potions++;closeDialog();msg('Лечебный настой добавлен в рюкзак')});choice('До встречи',closeDialog,'alt')}
 function bag(){if(modalKind==='bag'){closeDialog();return}openDialog('Рюкзак странника','ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,['Походный топор — оружие молодого воина.','Кожаный пояс и накидка — начальное снаряжение.',state.relic?'Перо предков — предмет задания.':'Лечебных настоев: '+state.potions+'.','Монет: '+state.gold+'.'],'bag');choice('Выпить лечебный настой',()=>{if(heal(true))closeDialog()});choice('Закрыть рюкзак',closeDialog,'alt')}
 function heal(fromBag=false){if(modalKind&&!fromBag)return false;if(state.potions<=0){msg('Лечебные настои закончились');return false}const max=120+(state.level-1)*20;if(state.hp>=max){msg('Здоровье уже полное');return false}state.hp=Math.min(max,state.hp+55);state.potions--;save();updateHUD();msg('Луговые травы восстановили здоровье');return true}
-function nearestEnemy(range){let best=null,dist=range;for(const e of enemies){if(e.dead>0)continue;const d=Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z);if(d<dist){dist=d;best=e}}return best}
-function attack(){if(modalKind||attackCooldown>0||stompElapsed>=0)return;attackElapsed=0;attackCooldown=.86;attackLanded=false;if(!selected||selected.dead>0||Math.hypot(state.x-selected.root.position.x,state.z-selected.root.position.z)>3.3)selected=nearestEnemy(3.3);if(selected){hero.root.rotation.y=Math.atan2(selected.root.position.x-state.x,selected.root.position.z-state.z);state.yaw=hero.root.rotation.y}updateHUD()}
-function damageEnemy(e,amount){if(e.dead>0)return;e.hp-=amount;e.aggro=true;e.hit=.2;if(e.hp<=0){e.hp=0;e.dead=23;e.aggro=false;e.root.visible=false;e.shadow.visible=false;state.gold+=4;experience(22);if(state.quest===1){state.kills=Math.min(3,state.kills+1);if(state.kills===3){state.quest=2;msg('Обряд силы: вернись к наставнику')}}if(selected===e)selected=null;save()}updateHUD()}
+// Melee combat: select first, validate distance and facing, then animate.
+const MELEE_RANGE=3.45,TARGET_RANGE=35,SWING_PERIOD=1.8;
+function isAliveTarget(e){return !!e&&e.dead<=0&&e.hp>0&&enemies.includes(e)}
+function targetDistance(e){return Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)}
+function nearestEnemy(range=TARGET_RANGE){
+ let best=null,dist=range;
+ for(const e of enemies)if(isAliveTarget(e)){const d=targetDistance(e);if(d<dist){dist=d;best=e}}
+ return best;
+}
+function meleeFailure(e){
+ if(!isAliveTarget(e))return 'Нет цели';
+ const d=targetDistance(e);
+ if(d>MELEE_RANGE)return 'Цель слишком далеко';
+ if(d>.001){
+  const dx=e.root.position.x-state.x,dz=e.root.position.z-state.z;
+  const facing=Math.sin(hero.root.rotation.y)*dx+Math.cos(hero.root.rotation.y)*dz;
+  if(facing<d*.04)return 'Цель не перед вами';
+ }
+ return '';
+}
+function clearTarget(){
+ selected=null;autoAttack=false;swingTarget=null;
+ attackElapsed=-1;attackCooldown=0;
+ hideCombatWarning();updateHUD();
+}
+function setTarget(e){
+ if(!isAliveTarget(e)){clearTarget();return}
+ selected=e;hideCombatWarning();updateHUD();
+}
+function cycleTarget(step=1){
+ if(modalKind)return;
+ const candidates=enemies.filter(e=>isAliveTarget(e)&&targetDistance(e)<=TARGET_RANGE)
+   .sort((a,b)=>targetDistance(a)-targetDistance(b)||a.index-b.index);
+ if(!candidates.length){combatWarning('Нет доступных целей',true);return}
+ const current=candidates.indexOf(selected);
+ const next=current<0?candidates[0]:candidates[(current+step+candidates.length)%candidates.length];
+ setTarget(next);
+}
+function tryAutoSwing(){
+ if(!autoAttack||modalKind||stompElapsed>=0||attackElapsed>=0||attackCooldown>0)return false;
+ if(!isAliveTarget(selected)){autoAttack=false;selected=null;swingTarget=null;updateHUD();return false}
+ const fail=meleeFailure(selected);
+ if(fail){combatWarning(fail);return false}
+ attackElapsed=0;attackCooldown=SWING_PERIOD;attackLanded=false;swingTarget=selected;
+ hideCombatWarning();return true;
+}
+function attack(){
+ if(modalKind)return;
+ if(autoAttack){autoAttack=false;hideCombatWarning();updateHUD();return}
+ if(!isAliveTarget(selected)){
+  const e=nearestEnemy(TARGET_RANGE);
+  if(!e){combatWarning('Нет цели',true);return}
+  setTarget(e);
+ }
+ autoAttack=true;
+ const fail=meleeFailure(selected);
+ if(fail)combatWarning(fail,true);else tryAutoSwing();
+ updateHUD();
+}
+function damageEnemy(e,amount){
+ if(!isAliveTarget(e))return;
+ e.hp-=amount;e.aggro=true;e.hit=.22;
+ if(e.hp<=0){
+  e.hp=0;e.dead=23;e.aggro=false;e.root.visible=false;e.shadow.visible=false;
+  state.gold+=4;experience(22);
+  if(state.quest===1){
+   state.kills=Math.min(3,state.kills+1);
+   if(state.kills===3){state.quest=2;msg('Обряд силы: вернись к наставнику')}
+  }
+  if(selected===e){
+   selected=null;autoAttack=false;swingTarget=null;attackElapsed=-1;attackCooldown=0;hideCombatWarning();
+  }
+  save();
+ }
+ updateHUD();
+}
 function stomp(){if(modalKind||stompCooldown>0||attackElapsed>=0)return;stompElapsed=0;stompCooldown=8;stompLanded=false}
 $('attack').addEventListener('pointerdown',e=>{e.preventDefault();attack()});$('stomp').addEventListener('pointerdown',e=>{e.preventDefault();stomp()});
 // Native click covers keyboard activation without doubling pointer attacks.
