@@ -85,3 +85,40 @@
 /* Alpha 0.2.6: keep targeting independent from the multitouch joystick. */
 #targetNext,#targetClear{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 #targetNext{pointer-events:auto}
+
+
+/* Alpha 0.2.7: clean game HUD, smaller portrait, menu-only camera settings. */
+#playerFrame{padding-left:69px}
+.portrait{width:62px;height:62px;left:3px;top:8px;border-width:2px;outline-width:1px}
+#levelBadge{width:21px;height:21px;font-size:11px;right:-3px;bottom:-3px}
+.player-info{padding-left:4px;min-width:0}
+.unit-name{white-space:normal}
+#cameraControl.camera-settings{position:static!important;top:auto!important;right:auto!important;width:100%!important;z-index:auto!important;margin:15px 0 0;padding:15px 13px;background:#493b2540;border:1px solid #96734290;border-radius:5px;box-shadow:none;color:#44311d}
+#cameraControl.camera-settings .camera-label{font-size:14px;font-weight:bold;color:#4c381e}
+#cameraControl.camera-settings .camera-scale{color:#654e2f}
+#cameraControl.camera-settings .camera-follow-row{color:#4a3926;font-size:13px;padding-top:13px;margin-top:14px;border-color:#90704690}
+#cameraControl.camera-settings input[type="range"]{width:100%;touch-action:pan-x}
+#cameraControl.camera-settings .camera-follow-row input{touch-action:manipulation}
+#cameraControl.camera-settings .camera-follow-row input:checked{background:#66844a}
+.inventory-delete{width:100%;display:block;min-height:38px;margin-top:9px;background:#713e2d;color:#fff0da;border:1px solid #9a5c3e;border-radius:3px;font:12px/1.4 system-ui,sans-serif}
+.inventory-delete:active{background:#8c4232}
+.inventory-confirm{padding:10px 12px;margin-top:9px;border:1px solid #aa7758;background:#e5bc9990;color:#503023;font:12px/1.6 system-ui,sans-serif}
+.inventory-confirm .choice{margin-top:7px}
+.inventory-slot.active{outline:2px solid #dfad55;outline-offset:1px}
+#quest-progress{font:10px/1.5 system-ui,sans-serif;color:#e1c78b;margin:3px 0 6px;letter-spacing:.1px}
+#quest .quest-guidance{color:#f2b9a5;font:11px/1.45 system-ui,sans-serif;margin-top:7px}
+@media(max-width:850px){
+ #playerFrame{padding-left:62px}
+ .portrait{width:53px;height:53px;left:4px;top:10px}
+ .player-info{padding-left:2px}
+ #levelBadge{width:19px;height:19px;font-size:10px}
+}
+@media(max-width:360px){
+ #playerFrame{padding-left:58px}
+ .portrait{width:50px;height:50px;left:4px;top:11px}
+ .unit-name{font-size:13px}
+}
+@media(max-height:510px) and (min-width:600px){
+ #playerFrame{padding-left:60px}
+ .portrait{width:51px;height:51px;left:4px;top:8px}
+}
