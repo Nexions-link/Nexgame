@@ -182,7 +182,10 @@ function marker(x,z,kind){
  plane.scale.set(.75,.93,1);group.add(plane);return{group,plane,texture,obj};
 }
 const elderMark=marker(-1,-5,"!");
+let renderedQuestMarker=-1;
 function updateMarker(quest){
+ if(quest===renderedQuestMarker)return;
+ renderedQuestMarker=quest;
  if(quest===6){elderMark.group.visible=false;return}
  elderMark.group.visible=true;
  const c=elderMark.plane.material.map.image.getContext("2d");
