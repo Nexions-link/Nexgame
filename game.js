@@ -1,20 +1,39 @@
-// NexGame 3D · Alpha 0.2.7 — a small, procedural Mulgore-inspired starting zone.
+// NexGame 3D · Alpha 0.2.9 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
 catch(error){$('loadText').textContent='Не удалось загрузить 3D-движок. Проверь соединение и обнови страницу.';throw error}
 try{
 const clamp=THREE.MathUtils.clamp,TAU=Math.PI*2;
+const settingsKey='nexgame-settings-v1';
+const graphicsPresets={
+ economy:{pixelRatio:1,shadows:false,shadowSize:512,grass:.5},
+ balanced:{pixelRatio:1.5,shadows:true,shadowSize:1024,grass:1},
+ high:{pixelRatio:2,shadows:true,shadowSize:2048,grass:1}
+};
+const qualityDescriptions={
+ economy:'Меньше нагрузки: ниже чёткость, меньше травы, только мягкие тени под персонажами.',
+ balanced:'Баланс чёткости, динамических теней и нагрузки.',
+ high:'Более чёткое изображение и детальные динамические тени. Нагрузка выше.'
+};
+const settings={quality:'balanced',showFps:false,cameraPitch:.29};
+try{const saved=JSON.parse(localStorage.getItem(settingsKey));if(saved&&typeof saved==='object'){
+ if(typeof saved.quality==='string'&&Object.hasOwn(graphicsPresets,saved.quality))settings.quality=saved.quality;
+ if(typeof saved.showFps==='boolean')settings.showFps=saved.showFps;
+ if(Number.isFinite(saved.cameraPitch))settings.cameraPitch=clamp(saved.cameraPitch,.1,1.05);
+}}catch(e){}
+const saveSettings=()=>{try{localStorage.setItem(settingsKey,JSON.stringify(settings))}catch(e){}};
+const wrapYaw=yaw=>Math.atan2(Math.sin(yaw),Math.cos(yaw));
 const scene=new THREE.Scene();scene.background=new THREE.Color(0xaac9cd);scene.fog=new THREE.Fog(0xc1cbb0,65,166);
 const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.09,230);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'default'});
-renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=graphicsPresets[settings.quality].shadows;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
 $('scene').appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xe9ebc9,0x65502e,2.1));
 const sun=new THREE.DirectionalLight(0xffe4ad,2.8);sun.position.set(-30,48,22);sun.castShadow=true;
-sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:110});sun.shadow.bias=-.0004;sun.shadow.normalBias=.045;
+sun.shadow.mapSize.setScalar(graphicsPresets[settings.quality].shadowSize);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:110});sun.shadow.bias=-.0004;sun.shadow.normalBias=.045;
 scene.add(sun,sun.target);
 let seed=531;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
 const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t)};
@@ -96,30 +115,114 @@ fuse(world,true);
 const shadowTexture=texture((c,s)=>{const grad=c.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);grad.addColorStop(0,'rgba(22,22,10,.48)');grad.addColorStop(.4,'rgba(22,22,10,.24)');grad.addColorStop(1,'rgba(22,22,10,0)');c.fillStyle=grad;c.fillRect(0,0,s,s)},64);
 const shadowMat=new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false});
 function contactShadow(size){const m=mesh(scene,new THREE.PlaneGeometry(size,size),shadowMat,0,.04,0,1,1,1,false);m.rotation.x=-Math.PI/2;return m}
-function makeTauren({fur=0x795033,cloth=M.red,weapon=false,scale=1}={}){
- const root=group(scene),body=group(root,0,1.4,0),chest=group(body),neck=group(chest,0,1.22,.3),head=group(neck),pelt=material(fur),dark=material(0x382a20),muzzle=material(0xb49a72),hoof=material(0x302c25);
- ell(chest,pelt,0,.77,-.08,.95,.89,.57);ell(chest,dark,0,1.02,-.31,.79,.86,.39);ell(chest,pelt,0,.22,.05,.6,.52,.43);
- // Heavy, forward-set head, wide muzzle, swept horns and a dark mane.
- ell(head,pelt,0,.04,.12,.53,.61,.46);ell(head,muzzle,0,-.2,.55,.49,.29,.34);ell(head,dark,0,.46,-.08,.42,.33,.4);
- for(const s of [-1,1]){
-  ell(head,pelt,s*.58,.13,.07,.33,.15,.19).rotation.z=s*.2;
-  ell(head,dark,s*.24,.13,.48,.16,.083,.065).rotation.z=-s*.17;
-  ell(head,M.bone,s*.23,.11,.527,.065,.044,.025);ell(head,M.black,s*.225,.11,.553,.025,.039,.015);
-  ell(head,dark,s*.19,-.16,.842,.071,.045,.026);
-  const points=[new THREE.Vector3(s*.39,.34,-.06),new THREE.Vector3(s*.73,.35,-.12),new THREE.Vector3(s*.97,.6,-.14),new THREE.Vector3(s*.99,.91,-.04)];
-  for(let i=0;i<points.length-1;i++)rod(head,i===0?muzzle:M.bone,points[i].toArray(),points[i+1].toArray(),.19-i*.055,i===2?.008:.14-i*.055,8);
+// Shared, small painted maps: every Tauren and the inspection view reuse them.
+const taurenFurMap=texture((c,s)=>{
+ const g=c.createLinearGradient(0,0,0,s);g.addColorStop(0,'#97816a');g.addColorStop(.32,'#e0c49b');g.addColorStop(.7,'#d0ad7d');g.addColorStop(1,'#8e7154');c.fillStyle=g;c.fillRect(0,0,s,s);
+ for(let i=0;i<1050;i++){const x=((i*73)%257)/257*s,y=((i*139)%263)/263*s;c.strokeStyle=i%3?'#3c28151c':'#fff0c621';c.lineWidth=.8;c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x-2,y+3,x+(i%3)-1,y+6+(i%7));c.stroke()}
+},256);
+const hornMap=texture((c,s)=>{
+ const g=c.createLinearGradient(0,s,0,0);g.addColorStop(0,'#6c5036');g.addColorStop(.2,'#bfa780');g.addColorStop(.4,'#f2dfb5');g.addColorStop(.72,'#dfcaa0');g.addColorStop(.9,'#786046');g.addColorStop(1,'#352b23');c.fillStyle=g;c.fillRect(0,0,s,s);
+ for(let i=0;i<25;i++){c.fillStyle='#47301c12';c.fillRect(0,i*s/25,s,1)}
+});
+const taurenMaterials={mane:material(0x36261d,{map:taurenFurMap}),muzzle:material(0xc5a47b,{map:taurenFurMap}),nose:material(0x503b30),hoof:material(0x382e25),horn:material(0xffffff,{map:hornMap}),eye:material(0xc4944e),hide:material(0x68442c,{map:taurenFurMap}),trim:material(0x9a7450),ivory:material(0xc7b28a)};
+// Ring profiles form continuous tapered muscle volumes, instead of stacked balls.
+function taurenForm(parent,mat,rings,segments=14,power=1){
+ const positions=[],uv=[],indices=[];
+ for(let j=0;j<rings.length;j++){
+  const [y,rx,rz,cz=0,cx=0]=rings[j];
+  for(let i=0;i<=segments;i++){const a=i/segments*TAU,s=Math.sin(a),c=Math.cos(a);positions.push(cx+rx*Math.sign(s)*Math.abs(s)**power,y,cz+rz*Math.sign(c)*Math.abs(c)**power);uv.push(i/segments,j/(rings.length-1))}
  }
- const noseRing=mesh(head,new THREE.TorusGeometry(.09,.021,6,12),M.gold,.09,-.32,.85);noseRing.rotation.y=.12;
- const beard=mesh(head,G.cone,dark,0,-.6,.32,.26,.66,.25);beard.rotation.z=Math.PI;
- const braids=[];for(const s of [-1,1]){const b=group(head,s*.38,-.25,.29);ell(b,dark,0,-.23,0,.115,.38,.11);mesh(b,G.cylinder,M.teal,0,-.43,0,.12,.13,.12);braids.push(b)}
- mesh(body,G.cylinder,M.wood,0,-.05,0,.63,.19,.46);box(body,M.gold,0,-.04,.465,.28,.24,.08);
- // Front and back leather skirt panels; the leg joints remain free below them.
- for(const z of [-.39,.42]){const skirt=box(body,cloth,0,-.3,z,.77,.65,.1);skirt.rotation.x=z>0?-.1:.1;box(body,M.bone,0,-.25,z+(z>0?.07:-.07),.15,.47,.04)}
- const arms=[];for(const s of [-1,1]){const shoulder=group(chest,s*.95,.95,.02),elbow=group(shoulder,0,-.61,.015),hand=group(elbow,0,-.56,.035);ell(shoulder,pelt,0,-.13,0,.34,.48,.36);ell(shoulder,s===1?M.hideDark:cloth,0,.04,-.015,.43,.27,.4);ell(elbow,pelt,0,-.24,0,.28,.36,.29);mesh(elbow,G.cylinder,M.wood,0,-.44,0,.29,.19,.28);ell(hand,pelt,0,-.07,.01,.27,.23,.24);arms.push({shoulder,elbow,hand})}
- const legs=[];for(const s of [-1,1]){const hip=group(root,s*.43,1.4,0),knee=group(hip,0,-.72,0),foot=group(knee,0,-.68,0);ell(hip,pelt,0,-.22,0,.3,.45,.3);ell(knee,pelt,0,-.28,0,.23,.38,.23);for(const dx of [-.105,.105])box(foot,hoof,dx,-.04,.11,.195,.34,.53);legs.push({hip,knee,foot,sign:s})}
- const tail=group(body,0,.05,-.4);rod(tail,pelt,[0,0,0],[0,-.78,-.42],.065,.04);ell(tail,dark,0,-.8,-.44,.13,.22,.13);
- if(weapon){const axe=group(arms[1].hand,0,-.12,.03);rod(axe,M.wood,[0,-.8,0],[0,.77,0],.065);for(const y of [-.55,-.4,-.25])mesh(axe,G.cylinder,M.hideDark,0,y,0,.077,.08,.077);const blade=new THREE.Shape();blade.moveTo(-.08,.7);blade.lineTo(.39,.93);blade.quadraticCurveTo(.66,.6,.51,.26);blade.lineTo(.1,.4);blade.lineTo(-.08,.4);blade.closePath();const geo=new THREE.ExtrudeGeometry(blade,{depth:.11,bevelEnabled:true,bevelSize:.025,bevelThickness:.02,bevelSegments:1,steps:1});mesh(axe,geo,M.metal,0,0,-.055);mesh(axe,G.sphere,M.gold,0,.58,0,.13,.13,.13)}
- root.scale.setScalar(scale);fuse(root);const shadow=contactShadow(2.35*scale);
+ for(let j=0;j<rings.length-1;j++)for(let i=0;i<segments;i++){const a=j*(segments+1)+i,b=a+segments+1;indices.push(a,a+1,b,b,a+1,b+1)}
+ // End caps keep limbs solid when the camera rotates below them.
+ for(const [j,reverse] of [[0,false],[rings.length-1,true]]){
+  const [y,,,cz=0,cx=0]=rings[j],center=positions.length/3;positions.push(cx,y,cz);uv.push(.5,j?1:0);
+  for(let i=0;i<segments;i++){const a=j*(segments+1)+i;indices.push(center,reverse?a:a+1,reverse?a+1:a)}
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(parent,g,mat);
+}
+function taurenHorn(parent,sign){
+ const curve=new THREE.CatmullRomCurve3([[.43,.40,-.08],[.78,.43,-.18],[1.04,.63,-.22],[1.15,.97,-.13],[1.05,1.27,.04]].map(([x,y,z])=>new THREE.Vector3(x*sign,y,z)));
+ const p=[],uv=[],ix=[],steps=15,sides=8,up=new THREE.Vector3(0,0,1);
+ for(let i=0;i<=steps;i++){const t=i/steps,point=curve.getPoint(t),tangent=curve.getTangent(t),normal=new THREE.Vector3().crossVectors(tangent,up).normalize(),binormal=new THREE.Vector3().crossVectors(tangent,normal).normalize(),r=.205*(1-t)**.83+.003;
+  for(let j=0;j<=sides;j++){const a=j/sides*TAU,v=point.clone().addScaledVector(normal,Math.cos(a)*r).addScaledVector(binormal,Math.sin(a)*r);p.push(v.x,v.y,v.z);uv.push(j/sides,t)}
+ }
+ for(let i=0;i<steps;i++)for(let j=0;j<sides;j++){const a=i*(sides+1)+j,b=a+sides+1;ix.push(a,a+1,b,b,a+1,b+1)}
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();mesh(parent,g,taurenMaterials.horn);
+}
+function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
+ const T=taurenMaterials,pelt=material(fur,{map:taurenFurMap}),root=group(scene),body=group(root,0,1.4,0),chest=group(body),neck=group(chest,0,1.02,.48),head=group(neck);
+ // The shoulder hump rises above the low, forward-set bovine head.
+ taurenForm(chest,pelt,[[-.17,.47,.34,.03],[.15,.62,.43,.02],[.53,.89,.55,-.02],[.95,1.02,.6,-.12],[1.26,.87,.54,-.22],[1.49,.56,.39,-.28],[1.58,.2,.14,-.26]]);
+ ell(chest,T.mane,0,.99,-.41,.72,.81,.40);
+ // Pointed overlapping locks define the mane in profile and from behind.
+ for(let row=0;row<4;row++)for(let col=-2;col<=2;col++){const y=.35+row*.28,width=.22+row*.1,x=col*width*.42;const tuft=mesh(chest,G.cone,T.mane,x,y-.07*Math.abs(col),-.69-.08*Math.sin(row*.6),.14+row*.017,.40,.12);tuft.rotation.x=-.15;tuft.rotation.z=Math.PI-col*.10}
+ for(const s of [-1,1]){
+  ell(chest,pelt,s*.44,.86,.33,.53,.41,.28).rotation.z=-s*.16;
+  rod(chest,T.hide,[s*.62,.95,.51],[s*.44,.12,.41],.053,.052);
+  for(let i=0;i<3;i++)ell(chest,T.ivory,s*(.6-i*.035),.77-i*.14,.57,.055,.064,.038);
+ }
+ // Broad brow, sloping forehead, cheekbones and a long square muzzle.
+ taurenForm(head,pelt,[[-.44,.27,.23,.20],[-.29,.43,.33,.21],[.03,.5,.39,.1],[.31,.47,.36,.01],[.53,.36,.28,-.06],[.62,.15,.13,-.09]],16,.83);
+ ell(head,T.muzzle,0,-.37,.55,.45,.24,.43);
+ ell(head,T.muzzle,0,-.16,.64,.48,.24,.42);
+ ell(head,T.nose,0,-.11,.94,.40,.135,.15);
+ // A fine mouth line and separate lower lip keep the snout readable at play distance.
+ rod(head,T.nose,[-.32,-.40,.9],[.32,-.40,.9],.012,.012,6);
+ for(const s of [-1,1]){
+  ell(head,pelt,s*.39,-.12,.29,.19,.3,.23).rotation.z=-s*.2;
+  const ear=group(head,s*.49,.27,-.12);ear.rotation.z=s*.18;
+  ell(ear,pelt,s*.23,0,0,.37,.14,.17);ell(ear,T.muzzle,s*.25,.02,.117,.24,.074,.022);
+  ell(head,T.mane,s*.25,.16,.388,.178,.103,.049).rotation.z=s*.18;
+  ell(head,T.ivory,s*.251,.135,.424,.087,.032,.028);
+  ell(head,T.eye,s*.25,.134,.446,.041,.036,.016);ell(head,M.black,s*.247,.134,.459,.016,.03,.01);
+  const brow=ell(head,pelt,s*.27,.22,.42,.232,.086,.114);brow.rotation.z=s*.23;
+  ell(head,M.black,s*.245,-.095,1.06,.092,.046,.024).rotation.z=-s*.27;
+  taurenHorn(head,s);
+  // Cheek locks fall into two bead-bound braids, animated independently below.
+  for(let i=0;i<3;i++){const lock=mesh(head,G.cone,T.mane,s*(.42-i*.035),-.20-i*.14,.17,.17,.42,.16);lock.rotation.z=Math.PI+s*.2}
+ }
+ const fringe=mesh(head,G.cone,T.mane,0,.40,.15,.30,.40,.18);fringe.rotation.z=Math.PI;
+ const noseRing=mesh(head,new THREE.TorusGeometry(.115,.026,6,14),M.gold,0,-.28,1.067);noseRing.rotation.x=.1;
+ const beard=mesh(head,G.cone,T.mane,0,-.65,.44,.24,.58,.23);beard.rotation.z=Math.PI;
+ const braids=[];
+ for(const s of [-1,1]){const b=group(head,s*.39,-.35,.25);taurenForm(b,T.mane,[[-.55,.065,.067],[-.40,.095,.09],[-.1,.12,.11],[.04,.12,.10]],8);for(let i=0;i<3;i++)ell(b,T.mane,s*(i%2?.025:-.025),-.13-i*.12,0,.12,.095,.1);mesh(b,G.cylinder,M.teal,0,-.43,0,.10,.13,.10);mesh(b,G.cylinder,M.gold,0,-.49,0,.103,.025,.103);braids.push(b)}
+ // The plain travelling wraps are the base appearance, not equipped armor.
+ mesh(body,G.cylinder,T.hide,0,-.055,.015,.64,.24,.46);box(body,M.gold,0,-.05,.48,.31,.24,.07);box(body,T.hide,0,-.05,.525,.17,.13,.035);
+ for(const z of [-.4,.43]){const panel=group(body,0,0,z);panel.rotation.x=z>0?-.07:.07;taurenForm(panel,cloth,[[-.69,.37,.054],[-.53,.42,.055],[-.14,.50,.06]],10,.25);box(panel,T.trim,0,-.24,z>0?.069:-.069,.70,.08,.025);box(panel,T.ivory,0,-.44,z>0?.072:-.072,.065,.37,.025)}
+ const arms=[];
+ for(const s of [-1,1]){
+  const shoulder=group(chest,s*.99,.96,-.035),elbow=group(shoulder,s*.13,-.69,.015),hand=group(elbow,s*.025,-.69,.035);
+  ell(shoulder,pelt,s*.10,-.05,0,.48,.46,.47);
+  taurenForm(shoulder,pelt,[[-.74,.235,.24,.02,s*.13],[-.53,.33,.33,0,s*.13],[-.29,.39,.37,-.01,s*.06],[.04,.35,.34,0]],12);
+  taurenForm(elbow,pelt,[[-.68,.25,.24,.035,s*.025],[-.44,.33,.30,.025],[-.17,.35,.32,.01],[.04,.24,.25]],12);
+  mesh(elbow,G.cylinder,T.hide,s*.02,-.56,.03,.28,.23,.265);
+  for(const y of [-.66,-.47])mesh(elbow,G.cylinder,T.trim,s*.02,y,.03,.283,.033,.268);
+  ell(hand,pelt,0,-.1,.015,.29,.27,.25);
+  // Three heavy fingers and an opposed thumb give the hands a recognisable shape.
+  for(let i=0;i<3;i++){const x=(i-1)*.15;ell(hand,pelt,x,-.265,.08,.085,.17,.14);ell(hand,T.hoof,x,-.33,.18,.059,.073,.032)}
+  ell(hand,pelt,-s*.26,-.085,.18,.13,.18,.13).rotation.z=-s*.35;
+  arms.push({shoulder,elbow,hand});
+ }
+ const legs=[];
+ for(const s of [-1,1]){
+  const hip=group(root,s*.43,1.4,0),knee=group(hip,0,-.72,0),foot=group(knee,0,-.68,0);
+  taurenForm(hip,pelt,[[-.76,.21,.23],[-.48,.32,.32,-.05],[-.13,.38,.36,-.05],[.1,.30,.29]],12);
+  taurenForm(knee,pelt,[[-.66,.19,.21,-.01],[-.49,.205,.23,-.075],[-.21,.27,.28,-.09],[.04,.235,.24]],12);
+  // Cloven hooves have a real gap and a bevelled toe, with the old IK contact height.
+  for(const dx of [-.125,.125]){const toe=taurenForm(foot,T.hoof,[[-.205,.115,.255,.10,dx],[-.17,.12,.28,.105,dx],[.03,.106,.25,.09,dx],[.16,.086,.18,.035,dx]],8,.38);toe.castShadow=true}
+  for(let i=0;i<3;i++){const lock=mesh(knee,G.cone,pelt,(i-1)*.12,-.47,.035,.105,.30,.14);lock.rotation.z=Math.PI}
+  legs.push({hip,knee,foot,sign:s});
+ }
+ const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
+ if(weapon){
+  const axe=group(arms[1].hand,0,-.13,.11);axe.rotation.z=-.08;
+  rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
+  for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
+  const blade=new THREE.Shape();blade.moveTo(-.07,.84);blade.lineTo(.26,1.02);blade.quadraticCurveTo(.76,.98,.67,.49);blade.lineTo(.24,.35);blade.lineTo(.19,.54);blade.lineTo(-.07,.54);blade.closePath();
+  mesh(axe,new THREE.ExtrudeGeometry(blade,{depth:.1,bevelEnabled:true,bevelSize:.022,bevelThickness:.014,bevelSegments:1,steps:1}),M.metal,0,0,-.05);
+  rod(axe,T.ivory,[.65,.50,.01],[.65,.79,.01],.018,.018);ell(axe,M.gold,0,.69,0,.12,.15,.11);
+ }
+ root.scale.setScalar(scale);fuse(root);const shadow=contactShadow(2.7*scale);
  return{root,body,chest,neck,head,arms,legs,tail,braids,shadow,phase:0,scale,walk:0};
 }
 const hero=makeTauren({weapon:true});
@@ -196,8 +299,111 @@ const ITEM_CATALOG={
  charm:{name:'Полированная бусина',icon:'🔮',quality:'Необычный',description:'Редкая находка с узором, напоминающим облака.'},
  giantFeather:{name:'Перо Грозоклюва',icon:'🪶',quality:'Редкий',description:'Огромное багряное перо поверженного исполина.'}
 };
-const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null)};
-let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};
+const EQUIPMENT_SLOTS=[
+ {id:'head',name:'Голова',hint:'Шлемы и головные уборы',path:'M10 29V19a14 14 0 0 1 28 0v10l-8 5v-9H18v9z M24 5v13 M18 21h12'},
+ {id:'shoulders',name:'Плечи',hint:'Наплечники',path:'M5 17l11-7 8 7 8-7 11 7-3 15-12-4-4-7-4 7-12 4z M9 21l8-5 M31 16l8 5'},
+ {id:'chest',name:'Туловище',hint:'Нагрудники и кожаные куртки',path:'M16 7l8 5 8-5 10 12-8 6-3-5v21H17V20l-3 5-8-6z M19 17h10 M19 24h10 M19 31h10'},
+ {id:'wrists',name:'Запястья',hint:'Наручи',path:'M6 17l13-5 7 22-13 5z M24 13l13-5 7 22-13 5z M9 24l13-4 M27 20l13-4'},
+ {id:'hands',name:'Перчатки',hint:'Боевые перчатки',path:'M14 40l-3-15-4-8 5-3 6 7V9h5v12V6h5v15V9h5v14l2-11 5 2-4 21-5 5z M15 33h19'},
+ {id:'waist',name:'Пояс',hint:'Кожаные и металлические пояса',path:'M5 17h13v14H5z M30 17h13v14H30z M18 14h12v20H18z M22 20h5v8h-5z'},
+ {id:'legs',name:'Штаны',hint:'Штаны и поножи',path:'M12 7h24l2 34H27l-3-23-3 23H10z M12 13h24 M14 33h7 M27 33h9'},
+ {id:'feet',name:'Сапоги',hint:'Сапоги и защита копыт',path:'M7 7h13v23l5 5v6H5v-8l3-5z M28 7h13v23l4 5v6H26v-8l3-5z M8 16h12 M29 16h12 M6 35h16 M27 35h15'}
+];
+function emptyEquipment(){return Object.fromEntries(EQUIPMENT_SLOTS.map(slot=>[slot.id,null]))}
+function normalizeEquipment(input){
+ const normalized=emptyEquipment();
+ if(!input||typeof input!=='object'||Array.isArray(input))return normalized;
+ for(const slot of EQUIPMENT_SLOTS){const item=input[slot.id];if(item&&typeof item.id==='string'&&ITEM_CATALOG[item.id]?.slot===slot.id)normalized[slot.id]={id:item.id,qty:1}}
+ return normalized;
+}
+
+// A lazily created inspection scene shares the hero's meshes and materials.
+// It uses the existing WebGL renderer; opening the window never creates a second context.
+let characterView=null;
+function ensureCharacterView(){
+ if(characterView)return characterView;
+ const root=hero.root.clone(true),original=[],copies=[];hero.root.traverse(o=>original.push(o));root.traverse(o=>copies.push(o));
+ const map=new Map(original.map((o,i)=>[o,copies[i]])),copy=o=>map.get(o);
+ root.position.set(0,0,0);root.rotation.set(0,-.24,0);
+ const actor={...hero,root,body:copy(hero.body),chest:copy(hero.chest),neck:copy(hero.neck),head:copy(hero.head),tail:copy(hero.tail),shadow:new THREE.Object3D(),braids:hero.braids.map(copy),arms:hero.arms.map(a=>({shoulder:copy(a.shoulder),elbow:copy(a.elbow),hand:copy(a.hand)})),legs:hero.legs.map(l=>({hip:copy(l.hip),knee:copy(l.knee),foot:copy(l.foot),sign:l.sign})),phase:0,walk:0};
+ const stage=new THREE.Scene();stage.background=new THREE.Color(0x1b211d);stage.add(root);
+ stage.add(new THREE.HemisphereLight(0xf1ddb9,0x454733,2.3));
+ const key=new THREE.DirectionalLight(0xffddb0,3.3);key.position.set(-3,5,6);stage.add(key);
+ const rim=new THREE.DirectionalLight(0x9dc6bf,2.0);rim.position.set(3,4,-4);stage.add(rim);
+ const floor=mesh(stage,new THREE.CylinderGeometry(1.75,1.86,.10,40),material(0x454639),0,-.075,0,1,1,1,false);
+ floor.receiveShadow=false;
+ const shadow=mesh(stage,new THREE.PlaneGeometry(3.1,3.1),shadowMat,0,.009,0,1,1,1,false);shadow.rotation.x=-Math.PI/2;
+ const cam=new THREE.PerspectiveCamera(35,1,.1,30);
+ characterView={actor,scene:stage,camera:cam,yaw:-.24,time:0,nextFrame:0,canvas:null,context:null,drag:null};
+ return characterView;
+}
+function slotIcon(slot){return '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="'+slot.path+'" fill="currentColor" fill-opacity=".1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+function character(){
+ if(modalKind==='character'){closeDialog();return}
+ openDialog('Странник','ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,[],'character');
+ const view=ensureCharacterView();view.nextFrame=0;view.drag=null;
+ const body=$('mbody'),intro=document.createElement('div');intro.className='character-section-label';intro.textContent='ЭКИПИРОВКА';body.appendChild(intro);
+ const layout=document.createElement('div');layout.className='character-layout';
+ const left=document.createElement('div'),right=document.createElement('div');left.className=right.className='equipment-column';
+ const detail=document.createElement('div');detail.className='equipment-detail';detail.setAttribute('role','status');detail.setAttribute('aria-live','polite');detail.textContent='Выбери ячейку, чтобы узнать, что можно будет надеть.';
+ for(const [index,slot] of EQUIPMENT_SLOTS.entries()){
+  const item=state.equipment[slot.id],def=item?ITEM_CATALOG[item.id]:null,button=document.createElement('button');button.type='button';button.className='equipment-slot'+(item?' equipped':'');button.dataset.slot=slot.id;
+  button.setAttribute('aria-label',slot.name+': '+(def?def.name:'пусто'));button.setAttribute('aria-pressed','false');
+  button.innerHTML=slotIcon(slot);
+  const label=document.createElement('span');label.textContent=slot.name;button.appendChild(label);
+  const status=document.createElement('small');status.textContent=def?def.name:'Пусто';button.appendChild(status);
+  button.addEventListener('click',()=>{
+   for(const column of [left,right])for(const cell of column.children){cell.classList.remove('active');cell.setAttribute('aria-pressed','false')}
+   button.classList.add('active');button.setAttribute('aria-pressed','true');
+   detail.textContent=slot.name+' · '+(def?def.name+'. '+def.description:slot.hint+'. Ячейка свободна — подходящие вещи появятся позже.');
+  });
+  (index<4?left:right).appendChild(button);
+ }
+ const center=document.createElement('div');center.className='character-preview';
+ const preview=document.createElement('canvas');preview.className='character-canvas';preview.width=300;preview.height=380;preview.tabIndex=0;
+ preview.setAttribute('aria-label','3D-модель таурена. Поверни пальцем или клавишами влево и вправо.');preview.setAttribute('role','img');
+ view.canvas=preview;view.context=preview.getContext('2d');center.appendChild(preview);
+ preview.addEventListener('pointerdown',e=>{if(view.drag!==null||(e.button!==undefined&&e.button!==0))return;e.preventDefault();view.drag={id:e.pointerId,x:e.clientX};preview.setPointerCapture(e.pointerId)});
+ preview.addEventListener('pointermove',e=>{if(view.drag?.id!==e.pointerId)return;view.yaw+=(e.clientX-view.drag.x)*.012;view.drag.x=e.clientX;view.nextFrame=0});
+ for(const event of ['pointerup','pointercancel','lostpointercapture'])preview.addEventListener(event,e=>{if(view.drag?.id===e.pointerId)view.drag=null});
+ preview.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();e.stopPropagation();view.yaw+=e.key==='ArrowLeft'?-.2:.2;view.nextFrame=0}});
+ const controls=document.createElement('div');controls.className='character-rotate';
+ for(const [label,title,action] of [['↶','Повернуть влево',()=>view.yaw-=.35],['Спереди','Вернуть вид спереди',()=>view.yaw=0],['↷','Повернуть вправо',()=>view.yaw+=.35]]){
+  const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',title);button.addEventListener('click',()=>{action();view.nextFrame=0});controls.appendChild(button);
+ }
+ center.appendChild(controls);
+ const hint=document.createElement('span');hint.className='character-drag-hint';hint.textContent='Потяни, чтобы повернуть';center.appendChild(hint);
+ layout.appendChild(left);layout.appendChild(center);layout.appendChild(right);body.appendChild(layout);body.appendChild(detail);
+ const stats=document.createElement('dl');stats.className='character-stats';
+ for(const [label,value] of [['Здоровье',Math.ceil(state.hp)+' / '+(120+(state.level-1)*20)],['Урон удара',String(18+(state.level-1)*3)],['Скорость атаки',SWING_PERIOD.toFixed(1).replace('.',',')+' сек.']]){
+  const pair=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;pair.appendChild(dt);pair.appendChild(dd);stats.appendChild(pair);
+ }
+ body.appendChild(stats);
+ const note=document.createElement('p');note.className='character-note';note.textContent='8 мест для брони · '+Object.values(state.equipment).filter(Boolean).length+' занято. Походная одежда — базовый облик; вещи для этих ячеек появятся позже.';body.appendChild(note);
+ choice('Открыть рюкзак',bag,'alt');choice('Вернуться в мир',closeDialog);
+ preview.focus({preventScroll:true});
+}
+function renderCharacterPreview(t,dt){
+ const view=characterView;if(modalKind!=='character'||!view?.canvas||!view.context||t<view.nextFrame)return;
+ view.nextFrame=t+1000/24;view.time+=Math.max(dt,1/24);
+ const rect=view.canvas.getBoundingClientRect();if(rect.width<1||rect.height<1)return;
+ const w=Math.max(1,Math.min(Math.round(rect.width),innerWidth)),h=Math.max(1,Math.min(Math.round(rect.height),innerHeight)),ratio=renderer.getPixelRatio(),pw=Math.floor(w*ratio),ph=Math.floor(h*ratio);
+ if(view.canvas.width!==pw||view.canvas.height!==ph){view.canvas.width=pw;view.canvas.height=ph}
+ const aspect=w/h;view.camera.aspect=aspect;
+ // Fit both the horn tips and the broad arms on narrow phones.
+ const distance=Math.max(7.35,2.08/(Math.tan(35*Math.PI/360)*aspect));
+ view.camera.position.set(0,2.35,distance);view.camera.lookAt(0,1.92,0);view.camera.updateProjectionMatrix();
+ view.actor.root.rotation.y=view.yaw;animateTauren(view.actor,view.time,1/24);
+ const shadows=renderer.shadowMap.enabled;renderer.shadowMap.enabled=false;
+ try{
+  renderer.setViewport(0,0,w,h);renderer.setScissor(0,0,w,h);renderer.setScissorTest(true);renderer.render(view.scene,view.camera);
+  // Copy synchronously before the world render, including on Safari with preserveDrawingBuffer=false.
+  view.context.drawImage(renderer.domElement,0,renderer.domElement.height-ph,pw,ph,0,0,pw,ph);
+ }finally{renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);renderer.shadowMap.enabled=shadows}
+}
+
+const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:emptyEquipment()};
+let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:emptyEquipment()};
 function normalizeBags(input){
  return Array.from({length:EQUIPPED_BAG_SLOTS},(_,i)=>{
   const bag=Array.isArray(input)?input[i]:null;
@@ -252,13 +458,44 @@ function rollCorpseLoot(){
 
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
 state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);state.hp=clamp(state.hp,1,120+(state.level-1)*20);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
-state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
+state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);state.equipment=normalizeEquipment(state.equipment);
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
 let modalKind=null,selected=null,autoAttack=false,swingTarget=null,attackElapsed=-1,attackCooldown=0,attackLanded=false,stompElapsed=-1,stompCooldown=0,stompLanded=false,shockAge=9,clock=0,saveClock=0,hudClock=0,velocityX=0,velocityZ=0,lastCombatAt=-100;
-let cameraYaw=0,cameraPitch=.29,cameraDistance=10.5,actualCameraDistance=10.5;
+let cameraYaw=0,cameraPitch=settings.cameraPitch,cameraDistance=10.5,actualCameraDistance=10.5;
 let cameraFollow=false,cameraFollowCooldown=0;
+let fpsElapsed=0,fpsFrames=0;
+const fpsCounter=$('fpsCounter');
+function resetFps(){fpsElapsed=fpsFrames=0;if(fpsCounter.textContent!=='FPS —')fpsCounter.textContent='FPS —'}
+function setShowFps(enabled,persist=true){
+ settings.showFps=!!enabled;$('showFps').checked=settings.showFps;fpsCounter.hidden=!settings.showFps;resetFps();
+ if(persist)saveSettings();
+}
+function applyGraphics(){
+ const preset=graphicsPresets[settings.quality];
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,preset.pixelRatio));
+ const shadowsChanged=renderer.shadowMap.enabled!==preset.shadows;
+ renderer.shadowMap.enabled=preset.shadows;
+ if(sun.shadow.mapSize.x!==preset.shadowSize){
+  if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}
+  sun.shadow.mapSize.setScalar(preset.shadowSize);
+ }
+ if(shadowsChanged){
+  const materials=new Set();
+  scene.traverse(o=>{if(o.material)for(const m of (Array.isArray(o.material)?o.material:[o.material]))materials.add(m)});
+  for(const m of materials)m.needsUpdate=true;
+ }
+ renderer.shadowMap.needsUpdate=true;
+ grass.count=Math.floor(grassCount*preset.grass);
+ $('graphicsQuality').value=settings.quality;$('qualityHelp').textContent=qualityDescriptions[settings.quality];
+ resetFps();
+}
+function setGraphicsQuality(quality){if(!Object.hasOwn(graphicsPresets,quality))return;settings.quality=quality;applyGraphics();saveSettings()}
+$('graphicsQuality').addEventListener('change',e=>setGraphicsQuality(e.target.value));
+$('showFps').addEventListener('change',e=>setShowFps(e.target.checked));
+applyGraphics();setShowFps(settings.showFps,false);
+function rememberCameraPitch(){if(settings.cameraPitch!==cameraPitch){settings.cameraPitch=cameraPitch;saveSettings()}}
 const cameraFollowStoreKey='nexgame-real3d-camera-follow',cameraFollowSwitch=$('cameraFollow');
 const cameraSlider=$('cameraDistance');
 function setCameraDistance(value,persist=true){if(!Number.isFinite(value))return;cameraDistance=Math.round(clamp(value,4,22)*10)/10;cameraSlider.value=String(cameraDistance);const valueText=cameraDistance.toFixed(1).replace('.',',');$('cameraDistanceValue').textContent=valueText;cameraSlider.setAttribute('aria-valuetext',valueText);if(persist)try{localStorage.setItem(cameraStoreKey,String(cameraDistance))}catch(e){}}
@@ -272,16 +509,21 @@ function setCameraFollow(enabled,persist=true){
  if(persist)try{localStorage.setItem(cameraFollowStoreKey,cameraFollow?'1':'0')}catch(e){}
 }
 try{setCameraFollow(localStorage.getItem(cameraFollowStoreKey)==='1',false)}catch(e){setCameraFollow(false,false)}
+if(cameraFollow)cameraYaw=wrapYaw(hero.root.rotation.y+Math.PI);
 cameraFollowSwitch.addEventListener('change',()=>setCameraFollow(cameraFollowSwitch.checked));
-function resetStick(){joy.x=joy.y=0;joy.id=null;nub.style.transform='translate(0,0)'}
-function clearInput(){keys.clear();resetStick();look.id=null;velocityX=velocityZ=0}
+function resetStick(){const id=joy.id;joy.x=joy.y=0;joy.id=null;nub.style.transform='translate(0,0)';if(id!==null&&stick.hasPointerCapture(id))stick.releasePointerCapture(id)}
+function finishLook(){
+ const id=look.id;look.id=null;
+ if(id!==null){cameraFollowCooldown=.85;rememberCameraPitch();if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id)}
+}
+function clearInput(){keys.clear();resetStick();finishLook();velocityX=velocityZ=0;if(characterView?.drag){const id=characterView.drag.id;characterView.drag=null;if(characterView.canvas?.hasPointerCapture(id))characterView.canvas.releasePointerCapture(id)}}
 function stickMove(e){const r=stick.getBoundingClientRect(),radius=r.width*.3,dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height/2,len=Math.hypot(dx,dy),s=len>radius?radius/len:1;joy.x=Math.abs(dx*s)<3?0:dx*s/radius;joy.y=Math.abs(dy*s)<3?0:dy*s/radius;nub.style.transform=`translate(${dx*s}px,${dy*s}px)`}
 stick.addEventListener('pointerdown',e=>{if(modalKind||joy.id!==null)return;e.preventDefault();joy.id=e.pointerId;stick.setPointerCapture(e.pointerId);stickMove(e)});
 stick.addEventListener('pointermove',e=>{if(e.pointerId===joy.id){e.preventDefault();stickMove(e)}});
 for(const type of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(type,e=>{if(joy.id===e.pointerId)resetStick()});
 const canvas=renderer.domElement,pickRay=new THREE.Raycaster();canvas.style.touchAction='none';
 canvas.addEventListener('pointerdown',e=>{if(modalKind||look.id!==null)return;look.id=e.pointerId;look.selectOnly=e.pointerType==='touch'&&e.clientX<innerWidth*.35;look.x=look.startX=e.clientX;look.y=look.startY=e.clientY;cameraFollowCooldown=.85;canvas.setPointerCapture(e.pointerId);if(document.activeElement===cameraSlider)cameraSlider.blur()});
-canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;if(!look.selectOnly){cameraYaw-=(e.clientX-look.x)*.007;cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05)}look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85});
+canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;if(!look.selectOnly){cameraYaw=wrapYaw(cameraYaw-(e.clientX-look.x)*.007);cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05)}look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85});
 canvas.addEventListener('pointerup',e=>{
  if(look.id!==e.pointerId)return;
  if(Math.hypot(e.clientX-look.startX,e.clientY-look.startY)<7){
@@ -295,12 +537,23 @@ canvas.addEventListener('pointerup',e=>{
    if(enemy){if(enemy.dead>0)showCorpseLoot(enemy);else setTarget(enemy)}
   }
  }
- look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85);
+ finishLook();
 });
-for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(look.id===e.pointerId){look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85)}});
+for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(look.id===e.pointerId)finishLook()});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(!modalKind)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
-addEventListener('blur',clearInput);addEventListener('pagehide',()=>{clearInput();save()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();save()}});
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='escape'){e.preventDefault();if(modalKind)closeDialog();else if(selected)clearTarget();else pause();return}if(e.target===cameraSlider)return;if(e.target instanceof HTMLButtonElement&&(k===' '||k==='enter'))return;if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(k))e.preventDefault();if(modalKind)return;if(['1',' ','2','3','e','i','tab'].includes(k)){if(e.repeat)return;if(k==='1'||k===' ')attack();if(k==='2')stomp();if(k==='3')heal();if(k==='e')interact();if(k==='i')bag();if(k==='tab'){cycleTarget(e.shiftKey?-1:1)}return}keys.add(k)});
+addEventListener('blur',clearInput);addEventListener('pagehide',()=>{clearInput();save()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();save()}last=performance.now();resetFps()});
+addEventListener('keydown',e=>{
+ const k=e.code==='KeyC'?'c':e.key.toLowerCase();
+ if(k==='c'&&modalKind==='character'){e.preventDefault();if(!e.repeat)closeDialog();return}
+ if(k==='escape'){e.preventDefault();if(modalKind)closeDialog();else if(selected)clearTarget();else pause();return}
+ if(modalKind||e.target===cameraSlider)return;
+ if(e.target instanceof HTMLButtonElement&&(k===' '||k==='enter'))return;
+ if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(k))e.preventDefault();
+ if(['1',' ','2','3','e','i','c','tab'].includes(k)){
+  if(e.repeat)return;if(k==='1'||k===' ')attack();if(k==='2')stomp();if(k==='3')heal();if(k==='e')interact();if(k==='i')bag();if(k==='c')character();if(k==='tab')cycleTarget(e.shiftKey?-1:1);return;
+ }
+ keys.add(k);
+});
 addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 let toastTimer;
 function msg(text,duration=2600){clearTimeout(toastTimer);$('toast').textContent=text;$('toast').classList.add('show');toastTimer=setTimeout(()=>$('toast').classList.remove('show'),duration)}
@@ -313,30 +566,38 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('cameraControl').hidden=kind!=='settings';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('modalClose').hidden=kind!=='character';if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
-function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal');$('cameraControl').hidden=true;clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
+function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.7',
- ['Мир поставлен на паузу. Продолжи путь, открой настройки камеры или начни сначала.',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.9',
+ ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
   'W/S — идти вперёд и назад; A/D — непрерывно поворачивать; Tab — цель; 1 — автоатака.',
   'После победы обыщи тело долгонога. Рюкзак открывается клавишей I.'], 'pause');
  choice('▶ Продолжить путь',closeDialog);
+ choice('♙ Персонаж и экипировка',character);
  choice('⚙ Настройки камеры',cameraSettings);
+ choice('Графика и FPS',graphicsSettings);
  choice('Начать заново',()=>{
-  openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора.']);
+  openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора. Настройки камеры и графики сохранятся.']);
   choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt');
  },'alt');
 }
 function cameraSettings(){
  openDialog('Настройки камеры','ПОВОРОТ И РАССТОЯНИЕ',
- ['Настрой расстояние до героя и автоматическое следование за поворотами. Вертикальный угол остаётся под твоим управлением.'],'settings');
+ ['Следование плавно разворачивает камеру за спину, сохраняя наклон вверх или вниз. При вращении пальцем оно приостанавливается и возвращается после отпускания. Наклон и расстояние сохраняются после перезагрузки.'],'settings');
+ choice('← Назад в меню',pause,'alt');
+ choice('▶ Продолжить игру',closeDialog);
+}
+function graphicsSettings(){
+ openDialog('Графика и FPS','ПРОИЗВОДИТЕЛЬНОСТЬ',
+ ['Выбери качество для своего устройства. Настройки применяются сразу и сохраняются. FPS отображается в нижнем правом углу во время игры.'],'graphics');
  choice('← Назад в меню',pause,'alt');
  choice('▶ Продолжить игру',closeDialog);
 }
 function resetWorld(){
- state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};
+ state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:emptyEquipment()};
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
   e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;
@@ -344,7 +605,7 @@ function resetWorld(){
   e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
   e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
- }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;lastCombatAt=-100;hideCombatWarning();shockAge=9;cameraYaw=0;cameraPitch=.29;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
+ }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;lastCombatAt=-100;hideCombatWarning();shockAge=9;cameraYaw=0;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
 function isLootableCorpse(e){return !!e&&e.dead>0&&Array.isArray(e.loot)&&e.loot.length>0}
 function nearTarget(){
  let closest=null,dist=3.5;
@@ -663,7 +924,7 @@ function bindImmediateButton(id,action){
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
-$('heal').addEventListener('click',()=>heal());$('interact').addEventListener('click',interact);$('bag').addEventListener('click',bag);$('pause').addEventListener('click',pause);
+$('heal').addEventListener('click',()=>heal());$('interact').addEventListener('click',interact);$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
  ['Первые шаги','Поговорите с наставником у большого тотема.'],
  ['Обряд силы','Победите обычных долгоногов: 0 / 3'],
@@ -807,18 +1068,19 @@ function updateHealthRegen(dt){
 const camFocus=new THREE.Vector3(state.x,heightAt(state.x,state.z)+2.15,state.z),camTarget=new THREE.Vector3(),camDirection=new THREE.Vector3(),camRay=new THREE.Raycaster();
 function animateCamera(dt){
  // Follow only the yaw behind the character. Manual orbit remains available.
- if(cameraFollow){
+ if(cameraFollow&&!modalKind){
   cameraFollowCooldown=Math.max(0,cameraFollowCooldown-dt);
   if(!modalKind&&look.id===null&&cameraFollowCooldown<=0){
    const behindYaw=hero.root.rotation.y+Math.PI;
    const yawDifference=Math.atan2(Math.sin(behindYaw-cameraYaw),Math.cos(behindYaw-cameraYaw));
-   cameraYaw+=yawDifference*(1-Math.exp(-dt*3.8));
+   cameraYaw=wrapYaw(cameraYaw+yawDifference*(1-Math.exp(-dt*3.8)));
   }
  }
  camTarget.set(state.x,heightAt(state.x,state.z)+2.15,state.z);camFocus.lerp(camTarget,1-Math.exp(-dt*12));camDirection.set(Math.sin(cameraYaw)*Math.cos(cameraPitch),Math.sin(cameraPitch),Math.cos(cameraYaw)*Math.cos(cameraPitch));
- camRay.set(camFocus,camDirection);camRay.far=cameraDistance;let distance=cameraDistance;const hits=camRay.intersectObjects(cameraBlockers,false);if(hits.length)distance=Math.min(distance,Math.max(1.15,hits[0].distance-.35));
+ camRay.set(camFocus,camDirection);camRay.far=Math.max(cameraDistance,actualCameraDistance);let distance=camRay.far;const hits=camRay.intersectObjects(cameraBlockers,false);if(hits.length)distance=Math.min(distance,Math.max(1.15,hits[0].distance-.35));
  for(let d=1.1;d<distance;d+=.55){const x=camFocus.x+camDirection.x*d,z=camFocus.z+camDirection.z*d,y=camFocus.y+camDirection.y*d;if(y<heightAt(x,z)+.5){distance=Math.max(1.1,d-.55);break}}
- actualCameraDistance=distance<actualCameraDistance?distance:THREE.MathUtils.damp(actualCameraDistance,distance,8,dt);camera.position.copy(camFocus).addScaledVector(camDirection,actualCameraDistance);camera.position.y=Math.max(camera.position.y,heightAt(camera.position.x,camera.position.z)+.4);camera.lookAt(camFocus);
+ // Smooth user zoom; approaching an obstacle still retracts the camera immediately.
+ actualCameraDistance=Math.min(distance,THREE.MathUtils.damp(actualCameraDistance,Math.min(cameraDistance,distance),8,dt));camera.position.copy(camFocus).addScaledVector(camDirection,actualCameraDistance);camera.position.y=Math.max(camera.position.y,heightAt(camera.position.x,camera.position.z)+.4);camera.lookAt(camFocus);
  sun.position.set(state.x-30,48,state.z+22);sun.target.position.set(state.x,0,state.z);sun.target.updateMatrixWorld();
 }
 const attackOverlay=$('attack').querySelector('.cooldown'),stompOverlay=$('stomp').querySelector('.cooldown');
@@ -848,8 +1110,15 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
  attackOverlay.style.transform='scaleY('+clamp(attackCooldown/SWING_PERIOD,0,1)+')';stompOverlay.style.transform='scaleY('+clamp(stompCooldown/8,0,1)+')';$('rageFill').style.width=(1-clamp(attackCooldown/SWING_PERIOD,0,1))*100+'%';
  if(hudClock>.12){hudClock=0;updateHUD();drawMap()}if(saveClock>6){saveClock=0;save()}
 }
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));clearInput()});
-let last=performance.now();function frame(t){const dt=Math.min((t-last)/1000,.05);last=t;if(!document.hidden){if(!modalKind)update(dt);animateCamera(dt);renderer.render(scene,camera)}requestAnimationFrame(frame)}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);clearInput();resetFps()});
+function sampleFps(milliseconds){
+ if(!settings.showFps||modalKind||document.hidden||milliseconds<=0)return;
+ // Use real frame time: the physics timestep is capped and would overstate low FPS.
+ fpsElapsed+=milliseconds;fpsFrames++;
+ if(fpsElapsed>=1000){fpsCounter.textContent='FPS '+Math.round(fpsFrames*1000/fpsElapsed);fpsElapsed=fpsFrames=0}
+}
+let last=performance.now();function frame(t){const milliseconds=Math.max(0,t-last),dt=Math.min(milliseconds/1000,.05);last=t;if(!document.hidden){if(!modalKind)update(dt);animateCamera(dt);renderCharacterPreview(t,dt);renderer.render(scene,camera);sampleFps(milliseconds)}requestAnimationFrame(frame)}
 update(0);updateHUD();drawMap();animateCamera(1);renderer.render(scene,camera);requestAnimationFrame(frame);$('loader').remove();
 if(state.quest===0)msg('Мулгор. Поговори с наставником у большого тотема.',4400);
 }catch(error){const text=$('loadText');if(text)text.textContent='Ошибка запуска: '+String(error.message||error);throw error}
+

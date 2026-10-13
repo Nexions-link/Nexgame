@@ -100,6 +100,17 @@
 #cameraControl.camera-settings input[type="range"]{width:100%;touch-action:pan-x}
 #cameraControl.camera-settings .camera-follow-row input{touch-action:manipulation}
 #cameraControl.camera-settings .camera-follow-row input:checked{background:#66844a}
+#cameraControl.camera-settings .camera-label>span{color:#553b1f}
+.graphics-settings{margin:15px 0 0;padding:15px 13px;background:#493b2540;border:1px solid #96734290;border-radius:5px;color:#44311d}
+.quality-label{display:block;margin-bottom:8px;font:bold 14px Georgia,serif}
+#graphicsQuality{display:block;width:100%;max-width:100%;min-height:44px;padding:8px 10px;background:#f0dbad;color:#382b1b;border:1px solid #896b3e;border-radius:3px;font:13px system-ui,sans-serif;color-scheme:light;touch-action:manipulation}
+#graphicsQuality:focus-visible{outline:2px solid #554623;outline-offset:3px}
+.settings-help{display:block;margin-top:9px;font:12px/1.5 system-ui,sans-serif;color:#543d23}
+.graphics-settings .camera-follow-row{color:#4a3926;font-size:13px;padding-top:13px;margin-top:14px;border-color:#90704690}
+.camera-follow-row{min-height:44px}
+#build{display:flex;flex-direction:column;align-items:flex-end;gap:3px;z-index:10}
+#fpsCounter{font:bold 12px/1.4 system-ui,sans-serif;color:#fff0cb;text-shadow:0 1px 3px #17140b;background:#231e17c9;padding:3px 6px;border:1px solid #99804b77;border-radius:3px}
+@media(max-width:480px){#panel:not(.inventory-modal){padding:21px}#panel h2{font-size:26px}#panel p{font-size:14px;line-height:1.5}}
 .inventory-delete{width:100%;display:block;min-height:38px;margin-top:9px;background:#713e2d;color:#fff0da;border:1px solid #9a5c3e;border-radius:3px;font:12px/1.4 system-ui,sans-serif}
 .inventory-delete:active{background:#8c4232}
 .inventory-confirm{padding:10px 12px;margin-top:9px;border:1px solid #aa7758;background:#e5bc9990;color:#503023;font:12px/1.6 system-ui,sans-serif}
@@ -121,4 +132,72 @@
 @media(max-height:510px) and (min-width:600px){
  #playerFrame{padding-left:60px}
  .portrait{width:51px;height:51px;left:4px;top:8px}
+}
+
+/* Alpha 0.2.9 — character inspection and eight future armor sockets. */
+#top{display:grid;grid-template-columns:repeat(2,auto)}
+#character{grid-column:1/-1;color:#f3dc9d}
+#modalClose{position:absolute;right:12px;top:12px;width:36px;height:36px;border:1px solid #9b7f49;background:#2b2920;color:#e8d4a2;font:26px/1 Georgia;z-index:2}
+#panel.character-modal{width:min(720px,100%);padding:22px 24px 18px;background:radial-gradient(ellipse at 50% 8%,#3d3c2b,#181c18 72%);color:#e1d6b6;border:4px ridge #a88c54;max-height:calc(100dvh - 40px);scrollbar-color:#92794b #20231c}
+#panel.character-modal .panel-corner{display:none}
+#panel.character-modal .eyebrow{color:#b8a579;font:10px system-ui,sans-serif;letter-spacing:1.5px}
+#panel.character-modal h2{font-size:30px;color:#f3d898;margin:7px 40px 0 0}
+#panel.character-modal .ornament{margin:10px 0 12px;color:#9d8050;font-size:11px}
+.character-section-label{font:10px system-ui,sans-serif;color:#af9d72;letter-spacing:2px;text-align:center;margin-bottom:10px}
+.character-layout{display:grid;grid-template-columns:104px minmax(0,1fr) 104px;gap:16px;align-items:start}
+.equipment-column{display:grid;gap:8px}
+.equipment-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:78px;width:100%;padding:5px 3px;background:linear-gradient(135deg,#3f3b2c,#22271f);border:2px ridge #776a48;color:#b6a578;border-radius:3px;box-shadow:inset 0 0 11px #10161099;transition:border-color .15s,background .15s}
+.equipment-slot svg{display:block;width:34px;height:34px;filter:drop-shadow(0 2px 2px #10120c)}
+.equipment-slot span{font:12px/1.4 Georgia,serif;color:#dfcfaa}
+.equipment-slot small{font:9px/1.3 system-ui,sans-serif;color:#99947e;max-width:100%;overflow-wrap:anywhere}
+.equipment-slot:hover,.equipment-slot.active{border-color:#dec284;background:linear-gradient(140deg,#57503a,#2e3528);color:#efd395}
+.equipment-slot.equipped{border-color:#b5be8c}
+.character-preview{position:relative;min-width:0;align-self:center;background:#1b211d;border:1px solid #61583c;box-shadow:inset 0 0 50px #11171077}
+.character-canvas{display:block;width:100%;height:310px;cursor:grab;touch-action:none}
+.character-canvas:active{cursor:grabbing}
+.character-canvas:focus-visible{outline:1px solid #d7bc7d;outline-offset:-2px}
+.character-rotate{display:flex;justify-content:center;gap:5px;padding:5px 4px 3px}
+.character-rotate button{min-width:35px;min-height:30px;padding:3px 8px;border:1px solid #706448;background:#303329;color:#d5c496;font:12px Georgia,serif}
+.character-rotate button:first-child,.character-rotate button:last-child{font-size:20px}
+.character-drag-hint{display:block;color:#b2ae96;text-align:center;font:9px system-ui,sans-serif;padding:2px 2px 8px}
+.equipment-detail{min-height:48px;border-top:1px solid #70633b;border-bottom:1px solid #70633b;margin-top:14px;padding:9px 12px;font:12px/1.5 system-ui,sans-serif;color:#d5c7a8;background:#151c1699}
+.character-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:13px 0 10px;text-align:center}
+.character-stats>div+div{border-left:1px solid #695b39}
+.character-stats dt{font:10px/1.5 system-ui,sans-serif;color:#b6aa8e}
+.character-stats dd{font:18px/1.4 Georgia,serif;color:#e5d5a7;margin:0}
+#panel.character-modal p.character-note{font:10px/1.5 system-ui,sans-serif;color:#a3a28c;margin:7px 0 9px}
+#panel.character-modal #choices{display:flex;gap:8px}
+#panel.character-modal .choice{margin-top:5px;text-align:center;font:12px system-ui,sans-serif;min-height:40px}
+#panel.character-modal .choice.alt{background:#383c2d;color:#d3c499;border-color:#766b47}
+@media(max-width:520px){
+ #modal:has(.character-modal){padding:10px}
+ #panel.character-modal{padding:16px 10px 12px;max-height:calc(100dvh - 20px)}
+ #panel.character-modal h2{font-size:26px}
+ #panel.character-modal .eyebrow{font-size:9px;letter-spacing:.9px}
+ .character-layout{grid-template-columns:64px minmax(0,1fr) 64px;gap:6px}
+ .equipment-column{gap:6px}
+ .equipment-slot{min-height:67px;padding:4px 2px}
+ .equipment-slot svg{width:29px;height:29px}
+ .equipment-slot span{font-size:10px}
+ .equipment-slot small{font-size:8px}
+ .character-canvas{height:236px}
+ .character-rotate{gap:3px}
+ .character-rotate button{padding:3px 5px;min-width:29px}
+ .character-drag-hint{font-size:8px}
+ .equipment-detail{font-size:11px;margin-top:11px;padding:8px}
+ .character-stats dd{font-size:16px}
+ .character-stats dt{font-size:9px}
+}
+@media(max-width:360px){
+ .character-layout{grid-template-columns:58px minmax(0,1fr) 58px;gap:4px}
+ .character-canvas{height:234px}
+ .character-rotate button{padding:3px;min-width:26px}
+}
+@media(max-height:510px) and (min-width:600px){
+ #panel.character-modal{padding:12px 18px;max-height:calc(100dvh - 24px);width:min(640px,100%)}
+ #panel.character-modal h2{font-size:24px}
+ .character-layout{grid-template-columns:88px minmax(0,1fr) 88px}
+ .equipment-slot{min-height:63px;padding:3px}
+ .equipment-slot svg{width:25px;height:25px}
+ .character-canvas{height:230px}
 }
