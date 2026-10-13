@@ -113,8 +113,28 @@ for(const n of npcs){const name=spriteText(n.name,'#d9e2a1',25);scene.add(name);
 const questMarker=spriteText('!','#ffe180',72);questMarker.scale.set(2.5,1.6,1);scene.add(questMarker);
 const relic=group(scene,35,heightAt(35,-14)+1.7,-11.8);const featherMat=material(0x79c8ba,{emissive:0x2c5b45,emissiveIntensity:.5});ell(relic,featherMat,0,.15,0,.18,.48,.08);rod(relic,M.bone,[0,-.4,0],[0,.53,0],.025);const relicShadow=contactShadow(1);
 // Lightweight wildlife: animated joint groups, no skinned meshes or animation files.
-function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,hit:0,aggro:false,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
+function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
 const enemies=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[34,13]].map(([x,z],i)=>makePlainstrider(x,z,i));
+const CORPSE_DURATION=65,CORPSE_FALL_TIME=.85,LOOT_INTERACT_RANGE=3.3;
+const corpseLootTexture=texture((c,size)=>{
+ c.clearRect(0,0,size,size);
+ const glow=c.createRadialGradient(size/2,size/2,3,size/2,size/2,size*.46);
+ glow.addColorStop(0,'#fff7ccee');glow.addColorStop(.46,'#e7c46caa');glow.addColorStop(1,'#b88a3600');
+ c.fillStyle=glow;c.fillRect(0,0,size,size);
+ c.fillStyle='#fff2bc';c.strokeStyle='#8b6226';c.lineWidth=2;
+ c.beginPath();c.moveTo(size/2,size*.13);c.lineTo(size*.61,size*.4);
+ c.lineTo(size*.87,size/2);c.lineTo(size*.61,size*.6);
+ c.lineTo(size/2,size*.87);c.lineTo(size*.39,size*.6);
+ c.lineTo(size*.13,size/2);c.lineTo(size*.39,size*.4);
+ c.closePath();c.fill();c.stroke();
+},128);
+const corpseLootMaterial=new THREE.SpriteMaterial({map:corpseLootTexture,transparent:true,depthWrite:false,depthTest:true});
+for(const e of enemies){
+ e.corpseAge=0;e.loot=[];
+ e.lootMarker=new THREE.Sprite(corpseLootMaterial);
+ e.lootMarker.scale.set(.95,.95,1);
+ e.lootMarker.visible=false;scene.add(e.lootMarker);
+}
 const selection=mesh(scene,new THREE.RingGeometry(.8,.88,40),new THREE.MeshBasicMaterial({color:0xf6d580,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}),0,.07,0,1,1,1,false);selection.rotation.x=-Math.PI/2;selection.visible=false;
 const stompRing=mesh(scene,new THREE.RingGeometry(.85,1,48),new THREE.MeshBasicMaterial({color:0xe9c66b,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}),0,.08,0,1,1,1,false);stompRing.rotation.x=-Math.PI/2;
 function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0){
@@ -189,6 +209,15 @@ function storeItem(item){
   state.inventory[i]={id:item.id,qty:add};remaining-=add;
  }
  save();return true;
+}
+// Corpses do not always carry goods: 72% chance, occasionally two finds.
+function rollCorpseLoot(){
+ if(Math.random()>=.72)return [];
+ const r=Math.random();
+ const id=r<.42?'feather':r<.72?'beak':r<.94?'down':'charm';
+ const result=[{id,qty:id==='down'&&Math.random()<.38?2:1}];
+ if(Math.random()<.16)result.push({id:id==='feather'?'down':'feather',qty:1});
+ return result;
 }
 
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
@@ -324,7 +353,11 @@ function damageEnemy(e,amount){
  if(!isAliveTarget(e))return;
  e.hp-=amount;e.aggro=true;e.hit=.22;
  if(e.hp<=0){
-  e.hp=0;e.dead=23;e.aggro=false;e.root.visible=false;e.shadow.visible=false;
+  e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
+  e.loot=rollCorpseLoot();
+  e.root.visible=true;e.shadow.visible=true;
+  e.lootMarker.visible=e.loot.length>0;
+  e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.35,e.root.position.z);
   state.gold+=4;experience(22);
   if(state.quest===1){
    state.kills=Math.min(3,state.kills+1);
@@ -404,7 +437,29 @@ function movement(dt){
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,turn);
 }
 function revive(){state.hp=120+(state.level-1)*20;state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
-function updateEnemy(e,dt){if(e.dead>0){e.dead-=dt;if(e.dead<=0){e.dead=0;e.hp=e.maxHp;e.root.visible=e.shadow.visible=true;e.aggro=false;e.stunned=0;e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ)}return}
+function updateEnemy(e,dt){
+ if(e.dead>0){
+  e.dead=Math.max(0,e.dead-dt);e.corpseAge+=dt;
+  const fall=smooth(0,CORPSE_FALL_TIME,e.corpseAge);
+  // Tilt the whole bird onto the ground instead of instantly hiding it.
+  e.root.rotation.z=-1.34*fall;
+  e.root.position.y=heightAt(e.root.position.x,e.root.position.z)+.13*fall;
+  e.legs[0].rotation.x=-.55*fall;
+  e.legs[1].rotation.x=.3*fall;
+  if(e.lootMarker.visible){
+   e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.1+Math.sin(clock*3.6)*.13,e.root.position.z);
+  }
+  if(e.dead<=0){
+   e.dead=0;e.corpseAge=0;e.hp=e.maxHp;e.loot=[];
+   e.lootMarker.visible=false;e.root.visible=e.shadow.visible=true;
+   e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
+   e.root.rotation.z=0;e.root.scale.setScalar(1);
+   e.legs[0].rotation.x=e.legs[1].rotation.x=0;
+   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
+   e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
+  }
+  return;
+ }
  e.hit=Math.max(0,e.hit-dt);e.stunned=Math.max(0,e.stunned-dt);e.attackCd=Math.max(0,e.attackCd-dt);e.roamTime+=dt;const p=e.root.position,dist=Math.hypot(state.x-p.x,state.z-p.z),home=Math.hypot(state.x-e.spawnX,state.z-e.spawnZ);
  if(e.aggro&&(home>19||dist>22)){e.aggro=false;e.hp=e.maxHp}
  let tx=e.spawnX+Math.sin(e.roamTime*.18+e.index)*2.2,tz=e.spawnZ+Math.cos(e.roamTime*.14+e.index)*2.2,speed=.42;
