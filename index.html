@@ -1,707 +1,439 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · Modern 2.5D 0.5</title><style>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#152d35"><title>NexGame 3D · Alpha 0.1</title><style>
+:root{color-scheme:dark;--panel:#152330e8;--gold:#f3cf8b;--line:#a8c3b277}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#15272c;color:#f8f2e4;font-family:system-ui,Arial,sans-serif;touch-action:none}
-button{font:inherit;touch-action:manipulation;-webkit-user-select:none;user-select:none;cursor:pointer}
-canvas{display:block;width:100vw;height:100dvh}
-#hud{position:fixed;left:12px;top:calc(10px + env(safe-area-inset-top));min-width:185px;max-width:calc(100vw - 115px);padding:10px 12px;background:#1e3442e3;border:1px solid #a9c2bd99;border-radius:11px;pointer-events:none;box-shadow:0 3px 12px #0009}
-#heroName{font-family:Georgia,serif;font-size:15px;color:#f0dcb4;letter-spacing:.2px}
-#heroSub{font-size:10px;color:#b8ae9b;margin:2px 0 5px}
-.bar{height:9px;border-radius:6px;overflow:hidden;background:#09090d;border:1px solid #4d4140;margin-top:5px}.bar>span{display:block;height:100%;transition:width .15s}
-#healthFill{background:linear-gradient(90deg,#b14858,#ee6664)}#xpFill{background:linear-gradient(90deg,#69b1b5,#e2d877)}
-#healthLabel{font-size:10px;color:#dfc6bf;margin-top:2px}#xpLabel{font-size:10px;color:#dbbf85;margin-top:2px}
-#topActions{position:fixed;right:12px;top:calc(10px + env(safe-area-inset-top));display:flex;flex-direction:column;gap:7px;z-index:20}
-.topBtn{height:41px;min-width:84px;border:1px solid #8374578a;border-radius:10px;background:#25212aec;color:#e9dac3;font-size:13px;font-weight:650}
-#questTracker{position:fixed;left:12px;top:calc(116px + env(safe-area-inset-top));max-width:min(240px,59vw);padding:9px 11px;background:#203b46d5;border-left:3px solid #e0c27d;border-radius:6px;pointer-events:none;text-shadow:0 2px 5px #000;line-height:1.4}
-#questTracker strong{display:block;font:15px Georgia,serif;color:#e9cb8b}#questTracker span{font-size:12px;color:#e2d7c3}
-#area{position:fixed;top:calc(14px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);color:#dfcfaf;text-shadow:0 2px 8px #000;font:15px Georgia,serif;white-space:nowrap;pointer-events:none}
-#controls{position:fixed;left:18px;bottom:calc(22px + env(safe-area-inset-bottom));width:156px;height:156px;z-index:10;touch-action:none;-webkit-user-select:none;user-select:none}
-#joystickBase{position:absolute;inset:0;border-radius:50%;border:2px solid #aaa1a34a;background:radial-gradient(circle,#627b7699,#263e42df);box-shadow:0 6px 28px #0008,inset 0 0 20px #0008}
-#joystickKnob{position:absolute;width:66px;height:66px;left:45px;top:45px;border-radius:50%;border:2px solid #b7a3a68c;background:radial-gradient(circle at 35% 30%,#b4cfc4,#527376);box-shadow:0 3px 12px #000b;pointer-events:none;transform:translate(0,0)}
-#attack{position:fixed;right:18px;bottom:calc(22px + env(safe-area-inset-bottom));width:92px;height:92px;border-radius:50%;border:2px solid #cc8777b3;background:radial-gradient(circle at 35% 25%,#e47e6a,#a4494e);color:#ffecd9;font-weight:800;font-size:15px;z-index:11;box-shadow:0 5px 19px #000a}
-#interact{position:fixed;right:28px;bottom:calc(130px + env(safe-area-inset-bottom));width:76px;height:76px;border-radius:50%;border:2px solid #d1b678b3;background:radial-gradient(circle at 30% 20%,#e6bc7d,#9c7754);color:#ffedc1;font-size:13px;font-weight:750;z-index:11;display:none;box-shadow:0 5px 15px #000a}
-#toast{position:fixed;top:33%;left:50%;transform:translateX(-50%);padding:11px 18px;background:#171823eb;border:1px solid #a98b59;border-radius:9px;color:#ffe2a9;font-size:14px;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s;z-index:24;max-width:88vw}
-#toast.visible{opacity:1}
-#pauseOverlay{position:fixed;inset:0;z-index:16;display:none;align-items:center;justify-content:center;background:#080b11a8;pointer-events:none;backdrop-filter:blur(2px)}
-#pauseOverlay.visible{display:flex}
-#pauseCard{width:min(345px,calc(100vw - 36px));padding:24px;border:1px solid #88a6a0;border-radius:16px;background:linear-gradient(#35505b,#1e343f);box-shadow:0 15px 45px #000d;pointer-events:auto;text-align:center}
-#pauseCard h2{margin:0 0 12px;font:30px Georgia,serif;color:#eed8ac}
-#pauseCard p{margin:4px 0 17px;color:#cfc2b2;font-size:14px;line-height:1.5}
-.pauseAction{display:block;width:100%;min-height:46px;margin-top:10px;padding:10px 13px;border-radius:9px;border:1px solid #a08966;background:#423c33;color:#fff0d1;font-weight:700}
-.pauseAction.danger{border-color:#ab6462;background:#542d31;color:#ffe1dc}
-.pauseAction.secondary{border-color:#5e5961;background:#25262c;color:#d4c9bc}
-#pauseMenu[hidden],#resetConfirm[hidden]{display:none!important}
-#dialogShade{position:fixed;inset:0;background:#050507bb;z-index:30;display:none;align-items:center;justify-content:center;padding:18px;touch-action:manipulation}
-#dialogShade.visible{display:flex}
-#dialog{width:min(460px,100%);max-height:85dvh;overflow:auto;border:1px solid #9bafae;border-radius:15px;background:linear-gradient(#344c59,#1a303c);padding:22px;box-shadow:0 15px 55px #000e}
-#dialog h2{margin:0 0 6px;font:25px Georgia,serif;color:#edd29c}
-#dialog .subtitle{margin:0 0 16px;color:#afa5a0;font-size:12px}
-#dialog p{font-size:15px;line-height:1.55;margin:0 0 14px;color:#e0d7ca}
-#dialog .choice{display:block;width:100%;margin-top:9px;min-height:42px;border:1px solid #8ea8a8;border-radius:8px;background:#345562;color:#ffe4b4;text-align:left;padding:10px 12px;font-weight:650}
-#dialog .choice.secondary{background:#23252b;color:#d4c9b9;border-color:#5d5860}
-#dialog .item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #ffffff18;font-size:14px}
-#dialog .item:last-child{border-bottom:0}
-#dialog small{color:#b1a593}
-@media(max-width:680px){#area{top:calc(93px + env(safe-area-inset-top));font-size:12px}#hud{min-width:166px;padding:8px 10px}#questTracker{top:calc(137px + env(safe-area-inset-top));max-width:min(215px,62vw)}#questTracker strong{font-size:13px}#questTracker span{font-size:11px}}
-@media(max-height:620px){#controls{width:126px;height:126px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom))}#joystickKnob{left:30px;top:30px}#attack{width:74px;height:74px;bottom:calc(10px + env(safe-area-inset-bottom))}#interact{width:65px;height:65px;bottom:calc(92px + env(safe-area-inset-bottom))}#questTracker{top:calc(112px + env(safe-area-inset-top))}}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#8fb5bf;font-family:system-ui,-apple-system,sans-serif;color:#f5f1e9;touch-action:none;-webkit-user-select:none;user-select:none}
+canvas{display:block;width:100%;height:100%}
+button{font:inherit;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#scene{position:fixed;inset:0}
+#loader{position:fixed;inset:0;background:#14282de9;z-index:40;display:grid;place-items:center}
+#loadPanel{max-width:330px;padding:24px;text-align:center;line-height:1.6}
+#loadPanel h1{font:28px Georgia,serif;color:var(--gold);margin:0 0 8px}
+#loadPanel p{font-size:14px;color:#c9dedf}
+#hud{position:fixed;top:calc(12px + env(safe-area-inset-top));left:12px;min-width:186px;max-width:calc(100vw - 120px);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 5px 20px #15202a80;pointer-events:none}
+#name{font:18px Georgia,serif;color:#ffe6b8}#meta{font-size:11px;color:#bbd6cb;margin:3px 0 7px}
+.bar{height:10px;border-radius:8px;overflow:hidden;background:#101920;border:1px solid #587073}
+.fill{height:100%;transition:width .17s}
+#hpFill{background:linear-gradient(90deg,#bf4353,#f57b6a)}
+#xpFill{background:linear-gradient(90deg,#649aa7,#c7d98d)}
+.stat{font-size:11px;color:#d4e5e2;margin:3px 0 7px}
+#quest{position:fixed;top:calc(169px + env(safe-area-inset-top));left:12px;background:#142b35dd;border-left:3px solid #e7c480;padding:10px 12px;max-width:min(252px,65vw);border-radius:4px 9px 9px 4px;pointer-events:none;line-height:1.5}
+#quest b{font:16px Georgia,serif;color:#ffe2a4}#quest p{font-size:12px;margin:5px 0 0;color:#f0e6d0}
+#area{position:fixed;top:calc(16px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);font:17px Georgia,serif;color:#fff6dc;text-shadow:0 2px 8px #18382d;pointer-events:none;white-space:nowrap}
+#top{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;display:flex;flex-direction:column;gap:7px;z-index:8}
+.topButton{border-radius:10px;border:1px solid #a1b1a9;background:#223642ee;color:#f7efd9;min-width:92px;height:42px;font-size:13px;font-weight:700}
+#build{position:fixed;right:12px;top:calc(113px + env(safe-area-inset-top));font-size:11px;text-shadow:0 2px 6px #000;color:#f5f0df;pointer-events:none}
+#stick{position:fixed;bottom:calc(26px + env(safe-area-inset-bottom));left:20px;height:155px;width:155px;border:2px solid #c1d9cf88;border-radius:50%;background:radial-gradient(circle,#5b747290,#283f4a99);box-shadow:0 5px 21px #0007;z-index:8;touch-action:none}
+#nub{position:absolute;top:43px;left:43px;width:65px;height:65px;border-radius:50%;border:2px solid #deefdcaf;background:radial-gradient(circle at 30% 28%,#cbdfca,#729a9d);box-shadow:0 4px 13px #0008;pointer-events:none}
+#attack{position:fixed;right:18px;bottom:calc(24px + env(safe-area-inset-bottom));width:93px;height:93px;border-radius:50%;border:2px solid #f9bb9f;background:radial-gradient(circle at 32% 25%,#df8b73,#b85053);color:#fffbeb;font-weight:800;font-size:15px;z-index:8}
+#interact{position:fixed;right:28px;bottom:calc(135px + env(safe-area-inset-bottom));width:78px;height:78px;border-radius:50%;border:2px solid #e4d29c;background:radial-gradient(circle at 30% 22%,#e8c487,#8a714b);font-weight:800;font-size:13px;color:#fff8de;display:none;z-index:8}
+#cameraHint{position:fixed;bottom:calc(13px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);font-size:11px;color:#f7f2e6;text-shadow:0 2px 7px #000c;pointer-events:none;text-align:center;max-width:165px}
+#toast{position:fixed;top:35%;left:50%;transform:translateX(-50%);background:#203a46f0;border:1px solid #e8ca9b;border-radius:10px;padding:12px 15px;max-width:87vw;text-align:center;pointer-events:none;z-index:22;opacity:0;transition:opacity .2s}
+#toast.show{opacity:1}
+#modal{position:fixed;inset:0;background:#0e1820b8;z-index:30;display:none;align-items:center;justify-content:center;padding:18px;touch-action:manipulation}
+#modal.show{display:flex}
+#panel{width:min(450px,100%);max-height:85dvh;overflow:auto;background:linear-gradient(145deg,#314a57,#172e3b);border:1px solid #bba783;border-radius:15px;padding:21px;box-shadow:0 15px 55px #000c}
+#panel h2{font:27px Georgia,serif;color:#ffe0a6;margin:0 0 6px}
+#panel .sub{font-size:12px;color:#bfd1d1;margin-bottom:14px}
+#panel p{font-size:15px;line-height:1.55;margin:0 0 15px}
+.choice{width:100%;display:block;text-align:left;margin-top:10px;min-height:46px;border:1px solid #a1b5ae;border-radius:9px;background:#3e6064;color:#fff3d6;font-weight:700;padding:11px}
+.choice.alt{background:#293b47;color:#dedad1;border-color:#687f80}
+.choice.danger{background:#6c3842;border-color:#c78d91}
+@media(max-width:690px){#area{top:calc(115px + env(safe-area-inset-top));font-size:13px}#quest{top:calc(171px + env(safe-area-inset-top));max-width:60vw}#quest b{font-size:14px}#hud{min-width:165px}#cameraHint{display:none}}
+@media(max-height:650px){#stick{height:124px;width:124px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom))}#nub{top:28px;left:28px}#attack{height:78px;width:78px;bottom:calc(10px + env(safe-area-inset-bottom))}#interact{height:68px;width:68px;bottom:calc(95px + env(safe-area-inset-bottom))}}
 </style></head><body>
-<canvas id="game"></canvas>
-<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.5 · Modern 2.5D</div></div>
-<div id="area">☽ Сумеречная долина</div>
-<div id="questTracker"><strong id="questTitle">Новое приключение</strong><span id="questText">Поговорите со старостой у деревни.</span></div>
-<div id="topActions"><button id="pauseBtn" class="topBtn">⏸ Пауза</button><button id="bagBtn" class="topBtn">🎒 Рюкзак</button></div>
-<div id="pauseOverlay">
- <div id="pauseCard">
-  <div id="pauseMenu">
-   <h2>ПАУЗА</h2>
-   <p>Тестовая версия NexGame RPG</p>
-   <button id="resumeBtn" class="pauseAction">▶ Продолжить игру</button>
-   <button id="resetBtn" class="pauseAction danger">↺ Сбросить прогресс</button>
-  </div>
-  <div id="resetConfirm" hidden>
-   <h2>Начать сначала?</h2>
-   <p>Уровень, золото, инвентарь и все задания будут сброшены. Отменить это действие нельзя.</p>
-   <button id="confirmResetBtn" class="pauseAction danger">Да, сбросить весь прогресс</button>
-   <button id="cancelResetBtn" class="pauseAction secondary">Нет, оставить как есть</button>
-  </div>
- </div>
-</div>
-<div id="controls" aria-label="Виртуальный джойстик"><div id="joystickBase"></div><div id="joystickKnob"></div></div>
+<div id="scene"></div>
+<div id="loader"><div id="loadPanel"><h1>NexGame 3D</h1><p id="loadText">Подготавливаем трёхмерный мир...</p></div></div>
+<div id="hud"><div id="name">Странник <span id="lvl">1</span> ур.</div><div id="meta">Воин · <span id="gold">0</span> ● · <span id="potions">2</span> зелий</div><div class="bar"><div class="fill" id="hpFill"></div></div><div class="stat">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><div class="fill" id="xpFill"></div></div><div class="stat">Опыт: <span id="xp">0</span> / <span id="need">100</span></div></div>
+<div id="area">✧ Тихий Приют</div><div id="quest"><b id="qtitle">Начало пути</b><p id="qtext">Найдите старосту Эйрин.</p></div>
+<div id="top"><button class="topButton" id="pause">⏸ Пауза</button><button class="topButton" id="bag">🎒 Рюкзак</button></div>
+<div id="build">NexGame 3D · Alpha 0.1</div>
+<div id="stick"><div id="nub"></div></div>
 <button id="interact">✦<br>Говорить</button><button id="attack">⚔<br>АТАКА</button>
-<div id="toast" role="status"></div>
-<div id="dialogShade"><section id="dialog" role="dialog" aria-modal="true"><h2 id="dialogTitle"></h2><div id="dialogSub" class="subtitle"></div><div id="dialogBody"></div><div id="dialogChoices"></div></section></div>
-<script>
-"use strict";
+<div id="cameraHint">Вращай камеру пальцем по правой части экрана</div>
+<div id="toast"></div>
+<div id="modal"><div id="panel"><h2 id="mtitle"></h2><div class="sub" id="msub"></div><div id="mbody"></div><div id="actions"></div></div></div>
+<script type="module">
 const $=id=>document.getElementById(id);
-const canvas=$("game"),ctx=canvas.getContext("2d"),keys=new Set();
-const TW=76,TH=38,WORLD=27,START_HP=100,SCREEN_SPEED=124;
-const joystick={pointer:null,x:0,y:0},stick=$("controls"),knob=$("joystickKnob");
-const player={x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,dir:2,walk:0,motion:0,animState:"idle"};
-let quest=0,kills=0,relic=false,paused=false,dialogOpen=false,last=performance.now(),vw=innerWidth,vh=innerHeight,cameraX=0,cameraY=0,elapsed=0,toastUntil=0;
-const SAVE_KEY="nexgame-rpg-v040",LEGACY_SAVE_KEY="nexgame-rpg-v030";
-function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({x:player.x,y:player.y,hp:player.hp,level:player.level,xp:player.xp,gold:player.gold,potions:player.potions,dir:player.dir,quest,kills,relic}))}catch(e){}}
-function load(){try{const d=JSON.parse(localStorage.getItem(SAVE_KEY)||localStorage.getItem(LEGACY_SAVE_KEY));if(!d)return;for(const k of ["x","y","hp","level","xp","gold","potions"]){if(Number.isFinite(d[k]))player[k]=d[k]}quest=Math.max(0,Math.min(6,d.quest|0));kills=Math.max(0,Math.min(3,d.kills|0));relic=!!d.relic;if(Number.isInteger(d.dir)&&d.dir>=0&&d.dir<8)player.dir=d.dir;player.x=Math.max(-WORLD,Math.min(WORLD,player.x));player.y=Math.max(-WORLD,Math.min(WORLD,player.y));player.level=Math.max(1,player.level);player.maxHp=START_HP+(player.level-1)*15;player.hp=Math.max(1,Math.min(player.maxHp,player.hp))}catch(e){}}
-load();save();addEventListener("pagehide",save);
-function hash(x,y){const n=Math.sin(x*127.1+y*311.7)*43758.5453;return n-Math.floor(n)}
-function iso(x,y){return{x:(x-y)*TW/2,y:(x+y)*TH/2}}
-function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
-// Screen-space directions E, SE, S, SW, W, NW, N, NE.
-function directionFromVector(vx,vy){return(Math.round(Math.atan2(vy,vx)/(Math.PI/4))+8)%8}
-const DIRECTION_NAMES=["восток","юго-восток","юг","юго-запад","запад","северо-запад","север","северо-восток"];
-const npc=[
-{x:1,y:-1,name:"Староста Эйрин",type:"elder"},
-{x:-2,y:2,name:"Торговка Мира",type:"merchant"}
-];
-const relicSpot={x:12,y:-10};
-const houses=[{x:-4,y:-3,type:"house"},{x:4,y:-4,type:"house"},{x:-4,y:4,type:"house"}];
-const props=[];
-for(let y=-WORLD;y<=WORLD;y++)for(let x=-WORLD;x<=WORLD;x++){const h=hash(x,y),r=Math.hypot(x,y);if(r>5.2&&h>.87&&Math.hypot(x-relicSpot.x,y-relicSpot.y)>2.3&&Math.hypot(x+12,y+10)>3.6){props.push({x,y,type:h>.975?"ruin":h>.933?"tree":h>.9?"rock":"dead"})}}
-const enemies=[
-{x:7,y:5,sx:7,sy:5,hp:48,maxHp:48,speed:.85,hit:0,dead:0,seed:1},
-{x:9,y:2,sx:9,sy:2,hp:48,maxHp:48,speed:.82,hit:0,dead:0,seed:2},
-{x:6,y:-5,sx:6,sy:-5,hp:48,maxHp:48,speed:.8,hit:0,dead:0,seed:3},
-{x:11,y:6,sx:11,sy:6,hp:48,maxHp:48,speed:.82,hit:0,dead:0,seed:4},
-{x:13,y:-6,sx:13,sy:-6,hp:48,maxHp:48,speed:.84,hit:0,dead:0,seed:5},
-{x:-8,y:9,sx:-8,sy:9,hp:48,maxHp:48,speed:.8,hit:0,dead:0,seed:6}
-];
-// Solid footprints are deliberately smaller than crowns / rooftops:
-// the player can walk behind scenery, but not through trunks or walls.
+const sceneHost=$("scene");
+let THREE;
+try{THREE=await import("https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js")}
+catch(error){$("loadText").textContent="Не удалось загрузить 3D-движок. Проверь интернет-соединение и обнови страницу.";throw error}
+try{
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9ecfd7);scene.fog=new THREE.FogExp2(0x9ecfd7,.012);
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.08,165);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:"default"});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.24;
+sceneHost.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xe2f9ff,0x6c8b69,2.15));
+const sun=new THREE.DirectionalLight(0xffe2b3,2.55);sun.position.set(-18,32,16);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-32;sun.shadow.camera.right=32;sun.shadow.camera.top=32;sun.shadow.camera.bottom=-32;
+sun.shadow.camera.near=1;sun.shadow.camera.far=100;sun.shadow.bias=-.00015;scene.add(sun);
+const mat=(color,rough=.88)=>new THREE.MeshStandardMaterial({color,roughness:rough,metalness:0,flatShading:true});
+const M={ground:mat(0x7dac75),grass:mat(0x6da66b),path:mat(0xc7b28b),wood:mat(0x765d47),roof:mat(0xd18c71),wall:mat(0xf0dbb5),
+stone:mat(0x97a4a0),stoneDark:mat(0x677f7a),leaf:mat(0x69a370),leafLight:mat(0x99c587),
+blue:mat(0x527f9d),metal:mat(0xacc2c7,.4),skin:mat(0xe4b494),hair:mat(0x745548),red:mat(0x8c6d64),gold:mat(0xf5ce77,.5),
+wolf:mat(0x797879),wolfLight:mat(0xaea5a0),wolfDark:mat(0x514b50),white:mat(0xfaf2d6),trunk:mat(0x786349)};
+const make=(geometry,material,parent=scene,x=0,y=0,z=0,shadows=true)=>{const a=new THREE.Mesh(geometry,material);a.position.set(x,y,z);a.castShadow=shadows;a.receiveShadow=shadows;parent.add(a);return a};
+const box=(parent,w,h,d,m,x,y,z)=>make(new THREE.BoxGeometry(w,h,d),m,parent,x,y,z);
+const ball=(parent,r,m,x,y,z,width=10,height=8)=>make(new THREE.SphereGeometry(r,width,height),m,parent,x,y,z);
+const cone=(parent,r,h,m,x,y,z,n=4)=>{const obj=make(new THREE.ConeGeometry(r,h,n),m,parent,x,y,z);if(n===4)obj.rotation.y=Math.PI/4;return obj};
+const cyl=(parent,top,bottom,h,m,x,y,z,segments=8)=>make(new THREE.CylinderGeometry(top,bottom,h,segments),m,parent,x,y,z);
+const ground=make(new THREE.PlaneGeometry(112,112),M.ground,scene,0,0,0,false);
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;
+let seed=807;
+const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
 const colliders=[];
-for(const h of houses)colliders.push({kind:"box",x:h.x+.48,y:h.y+.48,halfX:.93,halfY:.93});
-for(const o of props){
- const radius=o.type==="tree"?.43:o.type==="dead"?.29:o.type==="rock"?.55:.55;
- colliders.push({kind:"circle",x:o.x,y:o.y,radius});
+const collision=(x,z,r)=>colliders.push({x,z,r});
+function clearAt(x,z,r=.33){
+ if(Math.abs(x)>51||Math.abs(z)>51)return false;
+ for(const o of colliders){const dx=x-o.x,dz=z-o.z;if(dx*dx+dz*dz<(r+o.r)*(r+o.r))return false}
+ return true;
 }
-for(const n of npc)colliders.push({kind:"circle",x:n.x,y:n.y,radius:.29});
-// Avoid foliage / rock accidentally covering a wolf's spawn position.
-for(let i=colliders.length-1;i>=0;i--){
- const c=colliders[i];
- if(c.kind==="circle"&&enemies.some(e=>Math.hypot(e.sx-c.x,e.sy-c.y)<.68)&&!npc.some(n=>n.x===c.x&&n.y===c.y)){
-  colliders.splice(i,1);
-  const idx=props.findIndex(p=>p.x===c.x&&p.y===c.y);
-  if(idx>=0)props.splice(idx,1);
+function pathTile(x,z,sx,sz){const p=make(new THREE.PlaneGeometry(sx,sz),M.path,scene,x,.015,z,false);p.rotation.x=-Math.PI/2;p.receiveShadow=true}
+pathTile(0,0,4.6,28);pathTile(5.5,11.5,15,3.2);
+function house(x,z,scale=1){
+ const g=new THREE.Group();g.position.set(x,0,z);g.scale.setScalar(scale);scene.add(g);
+ box(g,4.2,3.6,4.1,M.wall,0,1.8,0);
+ const roofL=box(g,3.2,.25,5.4,M.roof,-1.16,4.35,0);roofL.rotation.z=-.71;
+ const roofR=box(g,3.2,.25,5.4,M.roof,1.16,4.35,0);roofR.rotation.z=.71;
+ box(g,.75,1.6,.16,M.wood,0,.9,2.11);
+ box(g,.88,.9,.2,M.gold,-1.32,2.12,2.13);
+ box(g,.8,.9,.2,M.gold,1.32,2.12,2.13);
+ box(g,.55,1.25,.55,M.stone,1.1,5.22,-.8);
+ for(const fx of [-1.96,1.96])for(const fz of [-1.94,1.94])cyl(g,.12,.14,3.15,M.wood,fx,1.6,fz,6);
+ collision(x,z,2.6*scale);
+ return g;
+}
+house(-8,-5,1);house(8,-4,1);house(-9,7,.85);house(10,9,.96);
+function tree(x,z,size=1){
+ const g=new THREE.Group();g.position.set(x,0,z);g.scale.setScalar(size);scene.add(g);
+ cyl(g,.32,.45,3.6,M.trunk,0,1.8,0,7);
+ for(const [dx,dy,dz,r,m] of [[-1.1,4,-.2,1.5,M.leaf],[1.1,4.25,.4,1.65,M.leafLight],[0,5.15,0,1.83,M.leaf]])ball(g,r,m,dx,dy,dz,9,7);
+ collision(x,z,.58*size);
+}
+function rock(x,z,size=1){
+ const g=new THREE.Group();g.position.set(x,0,z);g.scale.setScalar(size);scene.add(g);
+ const b=make(new THREE.DodecahedronGeometry(1.1,0),M.stone,g,0,.8,0);b.scale.set(1.3,.7,1);
+ collision(x,z,.85*size);
+}
+function bush(x,z){const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);ball(g,.58,M.leaf,.1,.37,0,7,5);ball(g,.5,M.leafLight,-.36,.41,.12,7,5)}
+// World population avoids central streets and starting point.
+for(let i=0;i<95;i++){
+ const x=(rand()-.5)*94,z=(rand()-.5)*94;
+ if(Math.abs(x)<3.8&&z>-17&&z<19)continue;
+ if(Math.abs(z-11.5)<3&&x>-3&&x<14)continue;
+ if(Math.hypot(x,z)<13||Math.hypot(x-15,z-17)<5)continue;
+ if(!clearAt(x,z,3))continue;
+ if(rand()<.68)tree(x,z,.72+rand()*.65);else rock(x,z,.6+rand()*.8);
+}
+for(let i=0;i<100;i++){
+ const x=(rand()-.5)*80,z=(rand()-.5)*80;
+ if(clearAt(x,z,.6))bush(x,z);
+}
+function makeHumanoid(color=M.blue){
+ const root=new THREE.Group();
+ const hip=new THREE.Group();root.add(hip);
+ const torso=box(hip,.88,1.02,.48,color,0,1.58,0);
+ box(hip,.95,.17,.53,M.wood,0,1.06,0);
+ const chest=box(hip,.48,.43,.12,M.metal,0,1.67,.31);
+ ball(hip,.31,M.skin,0,2.32,0,10,8);
+ const hair=ball(hip,.33,M.hair,0,2.49,-.065,9,6);hair.scale.y=.55;
+ const nose=ball(hip,.075,M.skin,0,2.29,.31,7,6);
+ for(const sx of [-1,1])ball(hip,.04,M.wood,sx*.115,2.36,.306,6,6);
+ const arms=[],legs=[];
+ for(const sign of [-1,1]){
+  const ar=new THREE.Group();ar.position.set(sign*.62,1.99,0);hip.add(ar);
+  ball(ar,.24,M.metal,0,0,0);
+  box(ar,.27,.83,.28,color,0,-.42,0);
+  ball(ar,.14,M.skin,0,-.84,0);
+  arms.push(ar);
+  const leg=new THREE.Group();leg.position.set(sign*.26,1.0,0);root.add(leg);
+  box(leg,.33,.77,.38,M.blue,0,-.37,0);
+  box(leg,.36,.31,.53,M.wood,0,-.79,.1);
+  legs.push(leg);
  }
+ return{root,hip,torso,chest,arms,legs};
 }
-function collidesAt(x,y,radius=.26){
- if(x-radius < -WORLD+.1||x+radius > WORLD-.1||y-radius < -WORLD+.1||y+radius > WORLD-.1)return true;
- for(const o of colliders){
-  const dx=x-o.x,dy=y-o.y;
-  if(Math.abs(dx)>2.3||Math.abs(dy)>2.3)continue;
-  if(o.kind==="circle"){
-   const limit=radius+o.radius;
-   if(dx*dx+dy*dy<limit*limit)return true;
-  }else{
-   const nearestX=Math.max(-o.halfX,Math.min(dx,o.halfX));
-   const nearestY=Math.max(-o.halfY,Math.min(dy,o.halfY));
-   const ex=dx-nearestX,ey=dy-nearestY;
-   if(ex*ex+ey*ey<radius*radius)return true;
-  }
+const hero=makeHumanoid();
+scene.add(hero.root);
+hero.root.position.set(0,0,4);
+hero.root.rotation.y=Math.PI;
+const swordGroup=new THREE.Group();hero.arms[1].add(swordGroup);swordGroup.position.set(0,-.9,0);
+box(swordGroup,.13,.38,.14,M.wood,0,-.1,.0);
+box(swordGroup,.52,.1,.12,M.gold,0,-.33,0);
+const blade=box(swordGroup,.15,.83,.08,M.metal,0,-.73,0);
+const cape=make(new THREE.PlaneGeometry(1.07,1.36),new THREE.MeshStandardMaterial({color:0x3c597e,side:THREE.DoubleSide,roughness:1}),hero.hip,0,1.44,-.34);
+cape.rotation.x=-.2;
+const elder=makeHumanoid(mat(0x776c9a));scene.add(elder.root);elder.root.position.set(-1,0,-5);
+const merchant=makeHumanoid(mat(0xb78665));scene.add(merchant.root);merchant.root.position.set(2,0,2);
+const npc=[{x:-1,z:-5,name:"Староста Эйрин",group:elder.root,type:"elder"},{x:2,z:2,name:"Торговка Мира",group:merchant.root,type:"merchant"}];
+for(const n of npc)collision(n.x,n.z,.58);
+function marker(x,z,kind){
+ const group=new THREE.Group();scene.add(group);group.position.set(x,3.55,z);
+ const obj=make(new THREE.SphereGeometry(.12,8,6),M.gold,group,0,-.22,0,false);
+ const txt=document.createElement("canvas");txt.width=128;txt.height=160;
+ const t=txt.getContext("2d");t.textAlign="center";t.textBaseline="middle";
+ t.font="bold 116px Georgia";t.fillStyle="#ffe289";t.strokeStyle="#4c3825";t.lineWidth=5;
+ t.strokeText(kind,64,80);t.fillText(kind,64,80);
+ const texture=new THREE.CanvasTexture(txt);texture.colorSpace=THREE.SRGBColorSpace;
+ const plane=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false}));
+ plane.scale.set(.75,.93,1);group.add(plane);return{group,plane,texture,obj};
+}
+const elderMark=marker(-1,-5,"!");
+function updateMarker(quest){
+ if(quest===6){elderMark.group.visible=false;return}
+ elderMark.group.visible=true;
+ const c=elderMark.plane.material.map.image.getContext("2d");
+ c.clearRect(0,0,128,160);c.textAlign="center";c.textBaseline="middle";
+ c.font="bold 116px Georgia";c.strokeStyle="#4c3825";c.lineWidth=5;
+ const available=quest===0||quest===3,completed=quest===2||quest===5;
+ const symbol=available?"!":"?";
+ c.fillStyle=available||completed?"#ffe289":"#aaa9a2";
+ c.strokeText(symbol,64,80);c.fillText(symbol,64,80);
+ elderMark.plane.material.map.needsUpdate=true;
+}
+const altar=new THREE.Group();altar.position.set(15,0,17);scene.add(altar);
+cyl(altar,1.6,1.9,1,M.stone,0,.5,0,8);
+for(let a=0;a<4;a++){const rad=a*Math.PI/2;box(altar,.55,2,.55,M.stone,Math.cos(rad)*1.45,1,Math.sin(rad)*1.45)}
+const relicCrystal=make(new THREE.OctahedronGeometry(.53),mat(0x71e9de,.24),altar,0,2.13,0);
+const enemies=[];
+function createWolf(x,z){
+ const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);
+ const body=box(g,.72,.7,1.45,M.wolf,0,.82,0);
+ ball(g,.42,M.wolfLight,0,1.06,.67,8,6);
+ const muzzle=box(g,.37,.24,.52,M.wolfLight,0,.94,1.04);
+ for(const sx of [-1,1]){
+  cone(g,.19,.47,M.wolfDark,sx*.27,1.51,.64,4);
+  for(const sz of [-.44,.47])box(g,.18,.63,.22,M.wolfDark,sx*.28,.32,sz);
  }
- return false;
+ cone(g,.25,.65,M.wolf,0,1.16,-.92,5).rotation.x=-.8;
+ const hpBar=new THREE.Group();g.add(hpBar);hpBar.position.y=2;
+ const back=box(hpBar,1.05,.12,.05,M.wolfDark,0,0,0);back.castShadow=false;
+ const fill=box(hpBar,1,.085,.065,mat(0xdd6867),0,0,.052);fill.castShadow=false;hpBar.visible=false;
+ enemies.push({mesh:g,spawnX:x,spawnZ:z,hp:48,dead:0,hit:0,bar:hpBar,fill});
 }
-function moveWithCollisions(entity,dx,dy,radius=.26){
- if(!dx&&!dy)return false;
- const tx=entity.x+dx,ty=entity.y+dy;
- if(!collidesAt(tx,ty,radius)){
-  entity.x=tx;entity.y=ty;return true;
- }
- // Axis-separated fallback gives the analog stick smooth wall sliding.
- const steps=Math.abs(dx)>=Math.abs(dy)?[0,1]:[1,0];
- let moved=false;
- for(const axis of steps){
-  if(axis===0&&dx&&!collidesAt(entity.x+dx,entity.y,radius)){entity.x+=dx;moved=true}
-  else if(axis===1&&dy&&!collidesAt(entity.x,entity.y+dy,radius)){entity.y+=dy;moved=true}
- }
- return moved;
+createWolf(-5,-18);createWolf(0,-23);createWolf(5,-19);createWolf(12,18);createWolf(21,13);createWolf(20,22);
+const storeKey="nexgame-real3d-alpha01";
+const initial={x:0,z:4,hp:100,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,yaw:Math.PI};
+let state={...initial},paused=false,dialog=false,attackTimer=0,cooldown=0,animT=0,stepSmooth=0;
+try{const saved=JSON.parse(localStorage.getItem(storeKey));if(saved&&typeof saved==="object"){
+ for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k])state[k]=saved[k];
+ }}catch(e){}
+state.level=Math.max(1,Math.min(99,Math.floor(state.level)));
+state.hp=Math.max(1,Math.min(100+(state.level-1)*15,state.hp));
+state.quest=Math.max(0,Math.min(6,Math.floor(state.quest)));state.kills=Math.max(0,Math.min(3,state.kills));
+if(!Number.isFinite(state.x)||!Number.isFinite(state.z)||!clearAt(state.x,state.z,.28)){state.x=0;state.z=4}
+hero.root.position.set(state.x,0,state.z);hero.root.rotation.y=state.yaw;
+const save=()=>{try{localStorage.setItem(storeKey,JSON.stringify(state))}catch(e){}};
+addEventListener("pagehide",save);document.addEventListener("visibilitychange",()=>{if(document.hidden){clearInput();save()}});
+const keys=new Set(),stick=$("stick"),nub=$("nub"),joy={x:0,y:0,id:null};
+const look={id:null,x:0,y:0};let cameraYaw=0,cameraPitch=.37,cameraDistance=8.3;
+function resetStick(){joy.x=0;joy.y=0;joy.id=null;nub.style.transform="translate(0px,0px)"}
+function clearInput(){keys.clear();resetStick();look.id=null}
+function stickMove(e){
+ const r=stick.getBoundingClientRect(),radius=r.width*.3;
+ const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
+ const len=Math.hypot(dx,dy),scale=len>radius?radius/len:1;
+ const sx=dx*scale,sy=dy*scale;
+ joy.x=Math.abs(sx)<4?0:sx/radius;joy.y=Math.abs(sy)<4?0:sy/radius;
+ nub.style.transform="translate("+sx+"px,"+sy+"px)";
 }
-function ensurePlayerNotInWall(){
- if(!collidesAt(player.x,player.y))return;
- const startX=player.x,startY=player.y;
- for(let ring=.4;ring<7;ring+=.3){
-  for(let i=0;i<24;i++){
-   const angle=i*Math.PI/12;
-   const x=startX+ring*Math.cos(angle),y=startY+ring*Math.sin(angle);
-   if(!collidesAt(x,y)){player.x=x;player.y=y;return}
-  }
- }
- player.x=0;player.y=0;
-}
-ensurePlayerNotInWall();
-function resize(){vw=innerWidth;vh=innerHeight;const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(vw*d);canvas.height=Math.round(vh*d);ctx.setTransform(d,0,0,d,0,0)}
-addEventListener("resize",resize);resize();
-function resetJoystick(){joystick.pointer=null;joystick.x=0;joystick.y=0;knob.style.transform="translate(0px,0px)"}
-function clearControls(){keys.clear();resetJoystick()}
-addEventListener("blur",clearControls);document.addEventListener("visibilitychange",()=>{if(document.hidden){clearControls();save()}});addEventListener("pagehide",clearControls);
-function moveJoystick(e){const r=stick.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;const dx=e.clientX-cx,dy=e.clientY-cy,dist=Math.hypot(dx,dy),radius=r.width*.29,scale=dist>radius?radius/dist:1;const px=dx*scale,py=dy*scale;knob.style.transform="translate("+px+"px,"+py+"px)";joystick.x=dist<7?0:px/radius;joystick.y=dist<7?0:py/radius}
-stick.addEventListener("pointerdown",e=>{if(paused||dialogOpen||joystick.pointer!==null)return;e.preventDefault();joystick.pointer=e.pointerId;stick.setPointerCapture(e.pointerId);moveJoystick(e)});
-stick.addEventListener("pointermove",e=>{if(e.pointerId!==joystick.pointer)return;e.preventDefault();moveJoystick(e)});
-function releaseJoystick(e){if(e.pointerId===joystick.pointer){e.preventDefault();resetJoystick()}}
-stick.addEventListener("pointerup",releaseJoystick);stick.addEventListener("pointercancel",releaseJoystick);stick.addEventListener("lostpointercapture",releaseJoystick);stick.addEventListener("contextmenu",e=>e.preventDefault());
-document.addEventListener("selectstart",e=>{if(e.target.closest("button"))e.preventDefault()});
-function togglePause(){
- if(dialogOpen)return;
- paused=!paused;
- clearControls();
- $("pauseBtn").textContent=paused?"▶ Продолжить":"⏸ Пауза";
- $("pauseOverlay").classList.toggle("visible",paused);
- $("pauseMenu").hidden=false;
- $("resetConfirm").hidden=true;
- save();
-}
-function resetTestWorld(){
- if(!paused)return;
- clearControls();
- Object.assign(player,{x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,dir:2,walk:0,motion:0,animState:"idle"});
- quest=0;kills=0;relic=false;elapsed=0;
- for(const e of enemies){
-  e.x=e.sx;e.y=e.sy;e.hp=e.maxHp;e.hit=0;e.hitFlash=0;e.dead=0;
- }
- const p=iso(player.x,player.y);
- cameraX=p.x-vw/2;cameraY=p.y-vh*.51;
- toastUntil=0;$("toast").classList.remove("visible");
- paused=false;
- $("pauseBtn").textContent="⏸ Пауза";
- $("pauseOverlay").classList.remove("visible");
- $("pauseMenu").hidden=false;
- $("resetConfirm").hidden=true;
- refreshHUD();
- try{localStorage.removeItem(SAVE_KEY)}catch(e){}
- save();
- toast("Мир сброшен — можно проходить задания заново!");
-}
-$("pauseBtn").addEventListener("click",togglePause);
-$("resumeBtn").addEventListener("click",togglePause);
-$("resetBtn").addEventListener("click",()=>{if(!paused)return;$("pauseMenu").hidden=true;$("resetConfirm").hidden=false});
-$("cancelResetBtn").addEventListener("click",()=>{$("resetConfirm").hidden=true;$("pauseMenu").hidden=false});
-$("confirmResetBtn").addEventListener("click",resetTestWorld);
-$("attack").addEventListener("pointerdown",e=>{e.preventDefault();attack()});
-$("interact").addEventListener("click",interact);
-$("bagBtn").addEventListener("click",showBag);
-addEventListener("keydown",e=>{const k=e.key.toLowerCase();if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(k))e.preventDefault();if(k==="escape"&&!e.repeat){if(dialogOpen)closeDialog();else togglePause();return}if(k==="i"&&!e.repeat){showBag();return}if(k==="e"&&!e.repeat)interact();if(k===" "&&!e.repeat)attack();keys.add(k)});
+stick.addEventListener("pointerdown",e=>{if(paused||dialog||joy.id!==null)return;e.preventDefault();joy.id=e.pointerId;stick.setPointerCapture(e.pointerId);stickMove(e)});
+stick.addEventListener("pointermove",e=>{if(e.pointerId===joy.id){e.preventDefault();stickMove(e)}});
+for(const name of ["pointerup","pointercancel","lostpointercapture"])stick.addEventListener(name,e=>{if(e.pointerId===joy.id)resetStick()});
+renderer.domElement.style.touchAction="none";
+renderer.domElement.addEventListener("pointerdown",e=>{if(paused||dialog||look.id!==null||e.clientX<innerWidth*.35)return;look.id=e.pointerId;look.x=e.clientX;look.y=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)});
+renderer.domElement.addEventListener("pointermove",e=>{if(e.pointerId!==look.id)return;const dx=e.clientX-look.x,dy=e.clientY-look.y;look.x=e.clientX;look.y=e.clientY;cameraYaw-=dx*.008;cameraPitch=THREE.MathUtils.clamp(cameraPitch+dy*.005,.13,1.08)});
+for(const name of ["pointerup","pointercancel","lostpointercapture"])renderer.domElement.addEventListener(name,e=>{if(e.pointerId===look.id)look.id=null});
+renderer.domElement.addEventListener("contextmenu",e=>e.preventDefault());
+addEventListener("wheel",e=>{cameraDistance=THREE.MathUtils.clamp(cameraDistance+Math.sign(e.deltaY)*.55,5.5,12)},{passive:true});
+addEventListener("blur",clearInput);
+addEventListener("keydown",e=>{const key=e.key.toLowerCase();if(["arrowup","arrowdown","arrowleft","arrowright"," "].includes(key))e.preventDefault();
+ if(key==="escape"){if(dialog)closeDialog();else togglePause();return}
+ if(key===" "){if(!e.repeat)attack();return}
+ if(key==="e"){if(!e.repeat)interact();return}
+ if(key==="i"){if(!e.repeat)bag();return}
+ keys.add(key)});
 addEventListener("keyup",e=>keys.delete(e.key.toLowerCase()));
-function toast(message){$("toast").textContent=message;$("toast").classList.add("visible");toastUntil=performance.now()+2100}
-function choice(label,fn,secondary=false){const b=document.createElement("button");b.className="choice"+(secondary?" secondary":"");b.textContent=label;b.addEventListener("click",fn);$("dialogChoices").appendChild(b)}
-function showDialog(title,sub,paragraphs){clearControls();dialogOpen=true;$("dialogTitle").textContent=title;$("dialogSub").textContent=sub;$("dialogBody").replaceChildren();$("dialogChoices").replaceChildren();for(const line of paragraphs){const p=document.createElement("p");p.textContent=line;$("dialogBody").appendChild(p)}$("dialogShade").classList.add("visible")}
-function closeDialog(){dialogOpen=false;$("dialogShade").classList.remove("visible");save()}
-function showBag(){if(paused)return;if(dialogOpen){closeDialog();return}showDialog("Рюкзак странника","Инвентарь · "+player.gold+" золотых",["Потёртый меч — оружие воина.","Плащ странника — лёгкая походная одежда.",relic?"Древняя печать — находка из руин.":"Здесь появятся найденные предметы."]);choice("🧪 Зелье лечения × "+player.potions+" (+40 HP)",()=>{if(player.potions<1){toast("Зелий больше нет");return}if(player.hp>=player.maxHp){toast("Здоровье уже полное");return}player.potions--;player.hp=Math.min(player.maxHp,player.hp+40);closeDialog();toast("Здоровье восстановлено");save()});choice("Закрыть",closeDialog,true)}
-function levelXp(){return 100+(player.level-1)*45}
-function earnXp(amount){player.xp+=amount;while(player.xp>=levelXp()){player.xp-=levelXp();player.level++;player.maxHp=START_HP+(player.level-1)*15;player.hp=player.maxHp;toast("Новый уровень! "+player.level)}}
-function nearbyNpc(){return npc.find(n=>distance(player,n)<2.1)}
-function nearRelic(){return quest===4&&distance(player,relicSpot)<1.7}
-function interact(){if(paused||dialogOpen)return;const n=nearbyNpc();if(n){if(n.type==="elder")talkElder();else talkMerchant();return}if(nearRelic()){relic=true;quest=5;save();toast("Получена древняя печать!");return}toast("Рядом не с кем поговорить")}
-function talkElder(){
-if(quest===0){showDialog("Староста Эйрин","Деревня Тихий Приют · Задание",["Добро пожаловать в Сумеречную долину, странник. Последние дни на окраине рыщут одичавшие волки.","Поможешь защитить дорогу? Победи трёх волков за восточными воротами."]);choice("Принять: Волки у дороги",()=>{quest=1;kills=0;closeDialog();toast("Новое задание: Волки у дороги");save()});choice("Пока не готов",closeDialog,true)}
-else if(quest===1){showDialog("Староста Эйрин","Волки у дороги",["Дорога ещё опасна. Победи трёх волков к востоку от деревни.","Прогресс: "+kills+" из 3."]);choice("Я вернусь",closeDialog)}
-else if(quest===2){showDialog("Староста Эйрин","Волки у дороги · Выполнено",["Спасибо! Ты сделал путь безопаснее. Вот обещанная награда."]);choice("Забрать 25 золотых и 80 опыта",()=>{quest=3;player.gold+=25;earnXp(80);closeDialog();toast("Задание выполнено! +25 золота, +80 опыта");save()})}
-else if(quest===3){showDialog("Староста Эйрин","Новое задание · Старая печать",["В старых руинах на востоке хранилась каменная печать. Отправляйся к разбитому алтарю и принеси её мне.","Следуй к золотой метке в дальнем восточном краю долины."]);choice("Принять: Старая печать",()=>{quest=4;closeDialog();toast("Новое задание: Старая печать");save()});choice("Позже",closeDialog,true)}
-else if(quest===4){showDialog("Староста Эйрин","Старая печать",["Поищи печать у разрушенного алтаря к востоку от деревни."]);choice("Отправляюсь",closeDialog)}
-else if(quest===5){showDialog("Староста Эйрин","Старая печать · Выполнено",["Ты нашёл её! В этих руинах скрывается история долины. Мы ещё обязательно узнаем её."]);choice("Отдать печать: 40 золота и 110 опыта",()=>{quest=6;relic=false;player.gold+=40;earnXp(110);closeDialog();toast("Задание выполнено! +40 золота, +110 опыта");save()})}
-else{showDialog("Староста Эйрин","Тихий Приют",["Покой долины ненадёжен. Но сегодня здесь есть кому её защитить.","Это конец первых сюжетных заданий. Мы продолжим историю в следующих обновлениях."]);choice("До встречи",closeDialog)}
+function msg(t){$("toast").textContent=t;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),1900)}
+function xpNeed(){return 100+(state.level-1)*45}
+function experience(n){state.xp+=n;while(state.xp>=xpNeed()){state.xp-=xpNeed();state.level++;state.hp=100+(state.level-1)*15;msg("Новый уровень: "+state.level+"!")}}
+function hud(){
+ const max=100+(state.level-1)*15;
+ $("lvl").textContent=state.level;$("hp").textContent=Math.ceil(state.hp);$("maxHp").textContent=max;
+ $("xp").textContent=state.xp;$("need").textContent=xpNeed();$("gold").textContent=state.gold;$("potions").textContent=state.potions;
+ $("hpFill").style.width=Math.max(0,100*state.hp/max)+"%";$("xpFill").style.width=100*state.xp/xpNeed()+"%";
+ const quests=[
+ ["Начало пути","Поговорите со старостой Эйрин в деревне."],
+ ["Волки у дороги","Победите волков за деревней: "+state.kills+"/3"],
+ ["Волки у дороги","Вернитесь к старосте за наградой."],
+ ["Новое задание","Поговорите со старостой Эйрин."],
+ ["Старая печать","Найдите печать на алтаре к востоку."],
+ ["Старая печать","Отнесите печать старосте Эйрин."],
+ ["Долина ждёт","Исследуйте мир. Продолжение следует."]
+ ];
+ $("qtitle").textContent=quests[state.quest][0];$("qtext").textContent=quests[state.quest][1];
+ $("area").textContent=Math.hypot(state.x,state.z)<14?"✧ Деревня Тихий Приют":"✧ Сумеречная долина";
+ updateMarker(state.quest);
+ const target=nearTarget();$("interact").style.display=!paused&&!dialog&&target?"block":"none";
+ if(target)$("interact").innerHTML=target.kind==="relic"?"✦<br>Взять":"✦<br>Говорить";
+ relicCrystal.visible=state.quest===4&&!state.relic;
 }
-function talkMerchant(){showDialog("Торговка Мира","Деревенские товары",["Путь опасен, странник. У меня есть лечебные настои.","Золото: "+player.gold+"."]);choice("Купить зелье лечения — 10 золотых",()=>{if(player.gold<10){toast("Недостаточно золота");return}player.gold-=10;player.potions++;closeDialog();toast("Куплено зелье лечения");save()});choice("До встречи",closeDialog,true)}
-function attack(){if(paused||dialogOpen||player.cooldown>0)return;player.cooldown=.48;player.flash=.32;player.animState="attack";let chosen=null,dist=2.0;for(const e of enemies){if(e.dead>0)continue;const d=distance(player,e);if(d<dist){chosen=e;dist=d}}if(!chosen)return;chosen.hp-=24;chosen.hitFlash=.15;if(chosen.hp<=0){chosen.dead=23;chosen.hp=0;player.gold+=3;earnXp(18);if(quest===1){kills=Math.min(3,kills+1);if(kills===3){quest=2;toast("Волки побеждены! Вернись к Эйрин")}}save()}}
-function refreshHUD(){const hp=Math.max(0,Math.round(player.hp));$("hp").textContent=hp;$("maxHp").textContent=player.maxHp;$("level").textContent=player.level;$("gold").textContent=player.gold;$("xp").textContent=player.xp;$("xpNeed").textContent=levelXp();$("healthFill").style.width=100*player.hp/player.maxHp+"%";$("xpFill").style.width=100*player.xp/levelXp()+"%";
-let title="",msg="";if(quest===0){title="Начало пути";msg="Поговорите со старостой Эйрин (золотой знак)."}
-if(quest===1){title="Волки у дороги";msg="Победите волков: "+kills+"/3 · на востоке"}
-if(quest===2){title="Волки у дороги";msg="Вернитесь к старосте за наградой."}
-if(quest===3){title="Новое задание";msg="Поговорите со старостой Эйрин."}
-if(quest===4){title="Старая печать";msg="Найдите печать в восточных руинах."}
-if(quest===5){title="Старая печать";msg="Отнесите печать старосте Эйрин."}
-if(quest===6){title="Долина ждёт";msg="Исследуйте мир. Продолжение истории впереди."}
-$("questTitle").textContent=title;$("questText").textContent=msg;
-const n=nearbyNpc(),canRelic=nearRelic();$("interact").style.display=!paused&&!dialogOpen&&(!!n||canRelic)?"block":"none";$("interact").innerHTML=canRelic?"✦<br>Взять":"✦<br>Говорить";
-$("area").textContent=Math.hypot(player.x,player.y)<5.3?"☽ Деревня Тихий Приют":Math.hypot(player.x-relicSpot.x,player.y-relicSpot.y)<3.5?"☽ Забытые руины":"☽ Сумеречная долина"}
-function update(dt){
- elapsed+=dt;
- const kx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft"));
- const ky=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));
- let vx=joystick.x+kx,vy=joystick.y+ky;
- const intensity=Math.hypot(vx,vy);
- if(intensity>1){vx/=intensity;vy/=intensity}
- const strength=Math.min(intensity,1);
- if(strength>.02){
-  // The pose uses the *screen* direction, independent of isometric world axes.
-  player.dir=directionFromVector(vx,vy);
-  if(Math.abs(vx)>.08)player.facing=vx>0?1:-1;
-  const dx=(vx/TW+vy/TH)*SCREEN_SPEED*dt,dy=(vy/TH-vx/TW)*SCREEN_SPEED*dt;
-  const moved=moveWithCollisions(player,dx,dy,.26);
+function openDialog(title,sub,lines){clearInput();dialog=true;$("mtitle").textContent=title;$("msub").textContent=sub;$("mbody").replaceChildren();$("actions").replaceChildren();
+ for(const t of lines){const p=document.createElement("p");p.textContent=t;$("mbody").appendChild(p)}$("modal").classList.add("show")}
+function choice(text,action,type=""){const b=document.createElement("button");b.className="choice "+type;b.textContent=text;b.addEventListener("click",action);$("actions").appendChild(b)}
+function closeDialog(){dialog=false;$("modal").classList.remove("show");save();hud()}
+function nearTarget(){const dist=(x,z)=>Math.hypot(state.x-x,state.z-z);
+ for(const n of npc)if(dist(n.x,n.z)<2.8)return{kind:"npc",npc:n};
+ if(state.quest===4&&!state.relic&&dist(15,17)<2.9)return{kind:"relic"};
+ return null}
+function interact(){
+ if(paused||dialog)return;
+ const target=nearTarget();if(!target){msg("Подойдите ближе к NPC или предмету");return}
+ if(target.kind==="relic"){state.relic=true;state.quest=5;msg("Получена древняя печать");hud();save();return}
+ if(target.npc.type==="elder")elderTalk();else merchantTalk();
+}
+function elderTalk(){
+ const q=state.quest;
+ if(q===0){openDialog("Староста Эйрин","Деревня Тихий Приют · Задание",["Странник, за дорогой появились дикие волки. Помоги защитить жителей!","Победи трёх волков за пределами деревни."]);
+ choice("Принять: Волки у дороги",()=>{state.quest=1;state.kills=0;closeDialog();msg("Задание принято!")});choice("Позже",closeDialog,"alt")}
+ else if(q===1){openDialog("Староста Эйрин","Волки у дороги",["Нам всё ещё нужна помощь. Волков побеждено: "+state.kills+" из 3."]);choice("Продолжить",closeDialog)}
+ else if(q===2){openDialog("Староста Эйрин","Задание выполнено",["Ты очистил дорогу. Прими награду!"]);choice("Получить 25 золотых и 80 опыта",()=>{state.quest=3;state.gold+=25;experience(80);closeDialog();msg("Задание выполнено!")})}
+ else if(q===3){openDialog("Староста Эйрин","Новое задание",["На востоке долины стоит забытый алтарь. Найди там старую магическую печать."]);choice("Принять: Старая печать",()=>{state.quest=4;closeDialog();msg("Новое задание!")});choice("Позже",closeDialog,"alt")}
+ else if(q===4){openDialog("Староста Эйрин","Старая печать",["Ищи алтарь к востоку от деревни. На нём лежит светящийся предмет."]);choice("Хорошо",closeDialog)}
+ else if(q===5){openDialog("Староста Эйрин","Задание выполнено",["Ты нашёл древнюю печать! Это только начало исследований."]);choice("Отдать печать: 40 золотых и 110 опыта",()=>{state.quest=6;state.relic=false;state.gold+=40;experience(110);closeDialog();msg("Задание выполнено!")})}
+ else{openDialog("Староста Эйрин","Тихий Приют",["Спасибо за помощь, странник. Скоро в долине появятся новые приключения."]);choice("До встречи",closeDialog)}
+}
+function merchantTalk(){openDialog("Торговка Мира","Лавка у дороги",["Лечебный настой стоит 10 золотых. У тебя "+state.gold+" золотых."]);
+ choice("Купить зелье — 10 золотых",()=>{if(state.gold<10){msg("Недостаточно золота");return}state.gold-=10;state.potions++;closeDialog();msg("Зелье куплено")});choice("Закрыть",closeDialog,"alt")}
+function bag(){if(paused)return;if(dialog){closeDialog();return}
+ openDialog("Рюкзак странника","Предметы и снаряжение · "+state.gold+" золотых",["Потёртый меч — начальное оружие.","Доспех странника — лёгкая броня.",state.relic?"Древняя печать — предмет задания.":"Свободное место для находок."]);
+ choice("🧪 Выпить зелье лечения × "+state.potions,()=>{if(state.potions===0){msg("Нет зелий");return}if(state.hp>=100+(state.level-1)*15){msg("Здоровье уже полное");return}state.hp=Math.min(100+(state.level-1)*15,state.hp+40);state.potions--;closeDialog();msg("Здоровье восстановлено")});
+ choice("Закрыть",closeDialog,"alt")}
+function attack(){
+ if(paused||dialog||cooldown>0)return;
+ attackTimer=.36;cooldown=.55;
+ let best=null,dist=2.35;
+ for(const e of enemies){if(e.dead>0)continue;const d=Math.hypot(state.x-e.mesh.position.x,state.z-e.mesh.position.z);if(d<dist){best=e;dist=d}}
+ if(best){
+  best.hp-=24;best.hit=.17;
+  if(best.hp<=0){
+   best.dead=22;best.mesh.visible=false;best.hp=0;state.gold+=3;experience(18);
+   if(state.quest===1){state.kills=Math.min(3,state.kills+1);if(state.kills===3){state.quest=2;msg("Волки побеждены! Вернись к Эйрин")}}
+   save();
+  }
+ }
+}
+$("attack").addEventListener("pointerdown",e=>{e.preventDefault();attack()});
+$("interact").addEventListener("click",interact);$("bag").addEventListener("click",bag);
+function togglePause(){
+ if(dialog)return;paused=!paused;clearInput();
+ if(paused){
+  openDialog("Пауза","NexGame 3D · тестовая версия",["Мир остановлен. Можно продолжить или сбросить весь прогресс в 3D-прототипе."]);
+  choice("▶ Продолжить",()=>{closeDialog();paused=false});
+  choice("↻ Сбросить 3D-прогресс",()=>{openDialog("Начать сначала?","Подтверждение сброса",["Будут сброшены уровень, задания, золото, предметы и состояние врагов. Архивная 2.5D-игра не изменится."]);
+    choice("Да, сбросить",resetWorld,"danger");choice("Отмена",()=>{closeDialog();paused=false},"alt")},"danger");
+ }else{$("modal").classList.remove("show");dialog=false}
+ $("pause").textContent=paused?"▶ Пауза":"⏸ Пауза";
+}
+function resetWorld(){
+ state={...initial};cooldown=0;attackTimer=0;animT=0;stepSmooth=0;
+ for(const e of enemies){e.dead=0;e.hit=0;e.hp=48;e.mesh.visible=true;e.mesh.position.set(e.spawnX,0,e.spawnZ)}
+ hero.root.position.set(state.x,0,state.z);hero.root.rotation.y=state.yaw;
+ cameraYaw=0;cameraPitch=.37;clearInput();paused=false;closeDialog();$("pause").textContent="⏸ Пауза";hud();save();msg("3D-мир сброшен!")
+}
+$("pause").addEventListener("click",()=>{if(!paused&&dialog)return;if(paused){closeDialog();paused=false;$("pause").textContent="⏸ Пауза"}else togglePause()});
+function approachMovement(dt){
+ const axisX=joy.x+Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft"));
+ const axisZ=joy.y+Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));
+ const n=Math.hypot(axisX,axisZ),scale=n>1?1/n:1;
+ const fx=axisX*scale,fy=axisZ*scale;
+ const power=Math.min(n,1);
+ let moved=false;
+ if(power>.05){
+  const right=new THREE.Vector3(Math.cos(cameraYaw),0,-Math.sin(cameraYaw));
+  const forward=new THREE.Vector3(-Math.sin(cameraYaw),0,-Math.cos(cameraYaw));
+  const dir=new THREE.Vector3().addScaledVector(right,fx).addScaledVector(forward,-fy).normalize();
+  const dx=dir.x*4.25*dt*power,dz=dir.z*4.25*dt*power;
+  if(clearAt(state.x+dx,state.z+dz)){state.x+=dx;state.z+=dz;moved=true}
+  else if(clearAt(state.x+dx,state.z)){state.x+=dx;moved=true}
+  else if(clearAt(state.x,state.z+dz)){state.z+=dz;moved=true}
   if(moved){
-   player.walk+=strength*dt*12;
-   player.motion=Math.min(1,(player.motion||0)+dt*9);
-  }else player.motion=Math.max(0,(player.motion||0)-dt*12);
- }else player.motion=Math.max(0,(player.motion||0)-dt*8);
- player.cooldown=Math.max(0,player.cooldown-dt);
- player.flash=Math.max(0,player.flash-dt);
- player.animState=player.flash>0?"attack":player.motion>.12?"run":"idle";
+   const targetYaw=Math.atan2(dir.x,dir.z);
+   let da=((targetYaw-hero.root.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI;
+   hero.root.rotation.y+=da*Math.min(1,dt*12);
+   state.yaw=hero.root.rotation.y;
+  }
+ }
+ stepSmooth=THREE.MathUtils.damp(stepSmooth,moved?power:0,9,dt);
+ animT+=dt*(stepSmooth>.1?10.5:2);
+ const step=Math.sin(animT)*stepSmooth;
+ hero.legs[0].rotation.x=step*.52;hero.legs[1].rotation.x=-step*.52;
+ hero.arms[0].rotation.x=-step*.35;
+ hero.arms[1].rotation.x=attackTimer>0?-1.5+Math.sin((1-attackTimer/.36)*Math.PI)*1.8:step*.25;
+ hero.hip.position.y=.018*Math.sin(animT)*stepSmooth;
+ cape.rotation.x=-.2-stepSmooth*.19;
+ hero.root.position.set(state.x,0,state.z);
+}
+const camFocus=new THREE.Vector3(),camPos=new THREE.Vector3();
+function animateCamera(dt){
+ const target=new THREE.Vector3(state.x,1.56,state.z);
+ // Camera yaw is freely controlled: dragging the screen orbits the hero.
+ camPos.set(state.x+Math.sin(cameraYaw)*Math.cos(cameraPitch)*cameraDistance,
+            1.56+Math.sin(cameraPitch)*cameraDistance,
+            state.z+Math.cos(cameraYaw)*Math.cos(cameraPitch)*cameraDistance);
+ camera.position.lerp(camPos,Math.min(1,dt*8));
+ camFocus.lerp(target,Math.min(1,dt*11));
+ camera.lookAt(camFocus);
+ // Keep sun shadows concentrated on the area around the player.
+ sun.position.set(state.x-18,32,state.z+16);
+ sun.target.position.set(state.x,0,state.z);
+ sun.target.updateMatrixWorld();
+}
+let elapsed=0,last=performance.now(),saveClock=0;
+function update(dt){
+ elapsed+=dt;saveClock+=dt;cooldown=Math.max(0,cooldown-dt);attackTimer=Math.max(0,attackTimer-dt);
+ approachMovement(dt);
  for(const e of enemies){
-  if(e.dead>0){
-   e.dead-=dt;
-   if(e.dead<=0){e.dead=0;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy}
-   continue;
+  if(e.dead>0){e.dead-=dt;if(e.dead<=0){e.dead=0;e.hp=48;e.mesh.visible=true;e.mesh.position.set(e.spawnX,0,e.spawnZ)}continue}
+  e.hit=Math.max(0,e.hit-dt);
+  const v=e.mesh.position,dist=Math.hypot(state.x-v.x,state.z-v.z);
+  const home=Math.hypot(state.x-e.spawnX,state.z-e.spawnZ);
+  let tx=e.spawnX,tz=e.spawnZ,speed=.65;
+  if(dist<7&&home<10){tx=state.x;tz=state.z;speed=1.45}
+  const deltaX=tx-v.x,deltaZ=tz-v.z,d=Math.hypot(deltaX,deltaZ);
+  if(d>.9){
+   const dx=deltaX/d*speed*dt,dz=deltaZ/d*speed*dt;
+   if(clearAt(v.x+dx,v.z+dz,.3)){v.x+=dx;v.z+=dz}
+   else if(clearAt(v.x+dx,v.z,.3))v.x+=dx;
+   else if(clearAt(v.x,v.z+dz,.3))v.z+=dz;
+   e.mesh.rotation.y=Math.atan2(dx,dz);
   }
-  e.hit-=dt;
-  e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);
-  const pd=distance(player,e),home=Math.hypot(player.x-e.sx,player.y-e.sy);
-  let targetX=e.sx,targetY=e.sy,spd=.44;
-  if(pd<4.5&&home<6){targetX=player.x;targetY=player.y;spd=e.speed}
-  const dx=targetX-e.x,dy=targetY-e.y,dist=Math.hypot(dx,dy);
-  if(dist>.8)moveWithCollisions(e,dx/dist*spd*dt,dy/dist*spd*dt,.29);
-  if(pd<.8&&home<6&&e.hit<=0){
-   player.hp-=9;
-   e.hit=1.15;
-   if(player.hp<=0){player.hp=player.maxHp;player.x=0;player.y=0;resetJoystick();toast("Ты очнулся в Тихом Приюте")}
+  if(dist<1.32&&home<10&&e.hit===0){
+   state.hp-=8;e.hit=1.3;
+   if(state.hp<=0){state.hp=100+(state.level-1)*15;state.x=initial.x;state.z=initial.z;clearInput();msg("Ты очнулся в Тихом Приюте")}
   }
+  e.bar.visible=dist<6||e.hp<48;
+  e.fill.scale.x=e.hp/48;e.fill.position.x=-(1-e.hp/48)*.5;
+  e.bar.lookAt(camera.position);
  }
- const p=iso(player.x,player.y);
- cameraX=p.x-vw/2;cameraY=p.y-vh*.51;
- refreshHUD();
- if(toastUntil&&performance.now()>toastUntil){$("toast").classList.remove("visible");toastUntil=0}
+ relicCrystal.rotation.y+=dt;
+ relicCrystal.position.y=2.13+Math.sin(elapsed*2)*.2;
+ elderMark.group.position.y=3.55+Math.sin(elapsed*2.4)*.12;
+ hud();
+ if(saveClock>8){saveClock=0;save()}
 }
-function polygon(points,fill,stroke){ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}}
-function ellipse(x,y,rx,ry,color){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fillStyle=color;ctx.fill()}
-function line(ax,ay,bx,by,color,width){ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke()}
-function radial(cx,cy,r,inner,outer){
- const g=ctx.createRadialGradient(cx-r*.2,cy-r*.3,Math.max(1,r*.03),cx,cy,r);
- g.addColorStop(0,inner);g.addColorStop(1,outer);return g;
+function frame(t){
+ const dt=Math.min((t-last)/1000,.05);last=t;
+ if(!paused&&!dialog)update(dt);
+ animateCamera(dt);
+ renderer.render(scene,camera);
+ requestAnimationFrame(frame);
 }
-function softShadow(x,y,rx,ry,a=.23){
- ctx.save();ctx.fillStyle="rgba(27,47,51,"+a+")";ctx.shadowColor="#203d45";ctx.shadowBlur=13;
- ctx.beginPath();ctx.ellipse(x+10,y+8,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.restore();
-}
-// A tight shadow at each character's ground anchor, plus a soft outer shadow.
-function contactShadow(x,y,rx=17,ry=5){
- ctx.save();
- ctx.fillStyle="#294b4744";ctx.shadowColor="#1a3330";ctx.shadowBlur=9;
- ctx.beginPath();ctx.ellipse(x+5,y+3,rx+6,ry+3,0,0,Math.PI*2);ctx.fill();
- ctx.shadowBlur=0;ctx.fillStyle="#1c383a99";
- ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();
- ctx.restore();
-}
-function leaf(x,y,rx,ry,c1,c2){
- ctx.save();ctx.fillStyle=radial(x-5,y-4,Math.max(rx,ry)*1.2,c1,c2);
- ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.17,0,Math.PI*2);ctx.fill();
- ctx.strokeStyle="#c9ecb733";ctx.lineWidth=1;ctx.beginPath();
- ctx.ellipse(x-3,y-3,rx*.77,ry*.7,-.17,Math.PI*1.1,Math.PI*1.82);ctx.stroke();ctx.restore();
-}
-function windowGlow(x,y){
- ctx.save();ctx.shadowColor="#ffdf92";ctx.shadowBlur=12;ctx.fillStyle="#ffdfa1";
- ctx.beginPath();ctx.ellipse(x,y,3.5,5,0,0,Math.PI*2);ctx.fill();ctx.restore();
-}
-function plant(x,y,seed){
- const sw=(seed-.5)*8;
- line(x,y,x+sw-3,y-7,"#336d49",1.5);
- line(x,y,x+sw+4,y-9,"#4b8c52",1.4);
- if(seed>.83){ellipse(x+sw-3,y-9,2.2,2.2,"#e6ce80");ellipse(x+sw+3,y-10,1.7,1.7,"#f6f0c2")}
-}
-function drawProp(o){
- const p=iso(o.x,o.y),x=p.x,y=p.y;
- if(o.type==="rock"){
-  softShadow(x,y,23,9,.26);
-  polygon([[x-26,y-2],[x-12,y-23],[x+10,y-29],[x+26,y-8],[x+17,y+4],[x-13,y+5]],"#879899","#4b7271");
-  polygon([[x-12,y-23],[x+10,y-29],[x+6,y-5],[x-15,y-5]],"#bcc4b8");
-  polygon([[x+6,y-5],[x+10,y-29],[x+26,y-8],[x+17,y+4]],"#687e80");
-  line(x-10,y-19,x,y-23,"#ffffff64",1);
-  return;
- }
- if(o.type==="ruin"){
-  softShadow(x,y,24,11,.3);
-  polygon([[x-17,y],[x-17,y-46],[x+3,y-56],[x+3,y-10]],"#a2a49b","#516565");
-  polygon([[x+3,y-10],[x+3,y-56],[x+20,y-46],[x+20,y+3]],"#6f8582","#516565");
-  polygon([[x-17,y-46],[x+3,y-56],[x+20,y-46],[x,y-36]],"#d2c7af","#5b7471");
-  polygon([[x-9,y-12],[x-9,y-33],[x+3,y-39],[x+3,y-18]],"#456d6c");
-  return;
- }
- softShadow(x,y,29,11,.25);
- if(o.type==="dead"){
-  line(x,y,x-3,y-58,"#73655b",8);
-  line(x-3,y-44,x-24,y-74,"#897968",4);
-  line(x-3,y-39,x+21,y-70,"#857267",4);
-  line(x-5,y-57,x+8,y-91,"#837162",3);
-  return;
- }
- line(x+1,y+1,x-2,y-65,"#685b46",13);
- line(x-3,y-33,x-21,y-68,"#71624c",5);
- line(x-1,y-40,x+18,y-76,"#756a53",5);
- leaf(x-25,y-78,30,22,"#83bd70","#427d59");
- leaf(x+19,y-79,33,27,"#95c882","#4b8965");
- leaf(x-8,y-112,37,29,"#b5d88c","#568e62");
- leaf(x+6,y-111,24,18,"#c4e3a0","#80b477");
- ellipse(x-14,y-124,10,4,"#d8ecb067");
-}
-function drawHouse(o){
- const p=iso(o.x,o.y),x=p.x,y=p.y;
- softShadow(x,y+15,81,24,.4);
- // Volumetric building with a visible front and side wall.
- polygon([[x-67,y-44],[x,y-10],[x,y+47],[x-67,y+13]],"#ead9ae","#978a75");
- polygon([[x,y-10],[x+67,y-44],[x+67,y+13],[x,y+47]],"#c9b89d","#8b8a76");
- line(x-62,y-38,x-62,y+10,"#f9e9bd66",3);
- line(x+60,y-37,x+60,y+10,"#9b8b6d",3);
- // Stone chimney set behind the roof planes.
- polygon([[x+21,y-74],[x+21,y-127],[x+37,y-118],[x+37,y-66]],"#d2bfaa","#887d73");
- polygon([[x+37,y-66],[x+37,y-118],[x+48,y-110],[x+48,y-59]],"#ac9c91","#766f69");
- polygon([[x+19,y-127],[x+36,y-137],[x+50,y-128],[x+33,y-118]],"#f1e0c5","#95837c");
- // Warm red-tiled elevated hip roof, with overhanging eaves.
- const west=o.x<0?"#d78e69":"#ce795d",east=o.x<0?"#b7705a":"#b06d62";
- polygon([[x,y-132],[x-80,y-53],[x,y-10]],west,"#875949");
- polygon([[x,y-132],[x,y-10],[x+80,y-53]],east,"#805647");
- polygon([[x-80,y-53],[x,y-10],[x-2,y-4],[x-86,y-49]],"#b46c56","#925c4f");
- polygon([[x,y-10],[x+80,y-53],[x+86,y-49],[x+2,y-4]],"#965d51","#785047");
- line(x,y-132,x-80,y-53,"#f2b88d",3);
- line(x,y-132,x+80,y-53,"#e0a182",3);
- // A framed entrance and turquoise glass windows.
- polygon([[x+18,y+10],[x+18,y-15],[x+45,y-28],[x+45,y-2]],"#745b4b","#f2dfb0");
- polygon([[x+22,y+9],[x+22,y-11],[x+40,y-20],[x+40,y-2]],"#65544b");
- ellipse(x+37,y-11,2,3,"#f9e6b1");
- polygon([[x-47,y-4],[x-47,y-26],[x-21,y-14],[x-21,y+8]],"#fff2cf","#ad9b7e");
- polygon([[x-42,y-4],[x-42,y-19],[x-26,y-12],[x-26,y+3]],"#81bec5");
- line(x-34,y-17,x-34,y+2,"#f4e4be",2);
- windowGlow(x-34,y-8);
- for(let i=0;i<4;i++)plant(x-48+i*13,y+20+i*4,.84+i*.04);
-}
-function drawRelic(){
- const p=iso(relicSpot.x,relicSpot.y),x=p.x,y=p.y;
- softShadow(x,y+7,52,18,.33);
- ellipse(x,y+5,49,16,"#81948c");ellipse(x,y-1,40,13,"#b1bcb0");
- polygon([[x-31,y],[x-31,y-22],[x-8,y-32],[x-8,y-7]],"#b5b7ab","#758c86");
- polygon([[x-8,y-7],[x-8,y-32],[x+27,y-17],[x+27,y+7]],"#899d95","#5b7b78");
- if(quest===4&&!relic){
-  ctx.save();ctx.shadowColor="#78f2e6";ctx.shadowBlur=20;
-  polygon([[x,y-58],[x-8,y-42],[x,y-20],[x+9,y-42]],"#75efe0","#429fa5");ctx.restore();
-  ellipse(x-3,y-42,3,11,"#effff0bb");
- }
-}
-function questMarkerForElder(){
- if(quest===0||quest===3)return{text:"!",color:"#ffd35f",glow:true};
- if(quest===1||quest===4)return{text:"?",color:"#9c958c",glow:false};
- if(quest===2||quest===5)return{text:"?",color:"#ffd35f",glow:true};
- return null;
-}
-function drawNpc(n){
- const p=iso(n.x,n.y),x=p.x,y=p.y;
- contactShadow(x,y,16,4.7);
- const elder=n.type==="elder";
- const robe=elder?"#7b8fc0":"#dd9c75",shade=elder?"#4e638f":"#ab745e";
- // Boots and shaded robes for small stylized human characters.
- // Boots and ankles reach the projected ground plane.
- polygon([[x-10,y-14],[x-5,y-14],[x-4,y-2],[x-11,y+1]],"#695b60","#3b4a4d");
- polygon([[x+5,y-14],[x+11,y-14],[x+11,y+1],[x+4,y-2]],"#695b60","#3b4a4d");
- ellipse(x-8,y-1,6,3.8,"#65565a");ellipse(x+8,y-1,6,3.8,"#65565a");
- polygon([[x-14,y-5],[x-13,y-34],[x,y-47],[x+14,y-34],[x+16,y-5]],shade,"#405168");
- polygon([[x-10,y-6],[x-7,y-37],[x,y-44],[x+5,y-34],[x+9,y-5]],robe);
- ellipse(x,y-37,8,10,radial(x-4,y-41,15,"#f9dcc2","#a77f6d"));
- leaf(x,y-49,10,5,elder?"#f2e5c5":"#785849",elder?"#bba993":"#664a43");
- if(elder){line(x+13,y-27,x+23,y-1,"#b8a17b",3);ellipse(x+13,y-29,4,4,"#c9aa82")}
- const marker=elder?questMarkerForElder():null;
- if(marker){
-  ctx.save();ctx.textAlign="center";ctx.font="bold 28px Georgia";
-  if(marker.glow){ctx.shadowColor="#fff0a6";ctx.shadowBlur=12}
-  ctx.fillStyle=marker.color;ctx.fillText(marker.text,x,y-68);ctx.restore();
- }
- if(distance(player,n)<2.1){
-  ctx.save();ctx.textAlign="center";ctx.font="bold 12px system-ui";ctx.strokeStyle="#2a424c";ctx.lineWidth=3;
-  ctx.strokeText(n.name,x,y-87);ctx.fillStyle="#fff8e7";ctx.fillText(n.name,x,y-87);ctx.restore();
- }
-}
-function drawEnemy(e){
- if(e.dead>0)return;
- const p=iso(e.x,e.y),x=p.x,y=p.y;
- contactShadow(x,y,19,5);
- const hurt=(e.hitFlash||0)>0;
- // Four legs, a raised wolf's body, pointed ears and muzzle.
- for(const lx of [-11,8])line(x+lx,y-10,x+lx-3,y+3,hurt?"#cb837d":"#655e66",5.5);
- ellipse(x-2,y-22,24,13,radial(x-9,y-28,27,hurt?"#d9a09a":"#aaa2a0","#566578"));
- ellipse(x+16,y-27,14,12,radial(x+12,y-33,18,"#b3a69c","#53626f"));
- polygon([[x+8,y-36],[x+11,y-55],[x+20,y-38]],"#647583");
- polygon([[x+20,y-37],[x+33,y-55],[x+34,y-29]],"#586d7c");
- ellipse(x+29,y-20,12,7,"#aaa4a0");ellipse(x+34,y-22,2.5,2.5,"#34373f");
- ellipse(x+20,y-30,2,2,"#f5e19a");
- line(x-24,y-24,x-37,y-34,"#7e8c91",5);
- if(e.hp<e.maxHp||distance(player,e)<3){
-  ctx.fillStyle="#243a40";ctx.fillRect(x-23,y-62,46,5);
-  ctx.fillStyle="#de6f6a";ctx.fillRect(x-23,y-62,46*e.hp/e.maxHp,5);
- }
-}
-// Eight screen-space facings. Mirrors are used only for leftward views;
-// front, side, three-quarter and back have genuinely different silhouettes.
-function drawPlayer(){
- const p=iso(player.x,player.y),x=p.x,y=p.y;
- const dir=Number.isInteger(player.dir)?player.dir:2;
- const back=dir===5||dir===6||dir===7;
- const fullBack=dir===6,fullFront=dir===2;
- const sideView=dir===0||dir===4;
- const quarter=dir===1||dir===3||dir===5||dir===7;
- const mirror=dir===3||dir===4||dir===5?-1:1;
- const motion=player.motion||0;
- const attack=player.animState==="attack"||player.flash>0;
- const stride=Math.sin(player.walk||0)*4.3*motion;
- const armSwing=Math.sin(player.walk||0)*3.8*motion;
- const capeWave=Math.sin((player.walk||0)*.65)*2.2*motion;
- const breathing=(Math.sin(elapsed*2.4)*.6)*(1-motion);
- const bodyWidth=sideView?10:quarter?13:16;
- contactShadow(x,y,sideView?15:18,5);
- ctx.save();
- ctx.translate(x,y);
- ctx.scale(mirror,1);
-
- // The cloak, body and boots use one grounded origin.
- // Moving the feet relative to that point prevents accidental "levitation".
- const capeColor=ctx.createLinearGradient(-23,-51,16,-4);
- capeColor.addColorStop(0,"#7295a6");
- capeColor.addColorStop(.55,"#426a82");
- capeColor.addColorStop(1,"#294a68");
- const tail=back?2:0;
- const cloakTip=-2+tail;
- polygon([[-bodyWidth+2,-49],[-bodyWidth-8,-39],
-          [-bodyWidth-10-capeWave,-10],[-bodyWidth-4-capeWave,-3],
-          [6+capeWave,-5],[bodyWidth+2,-37]],capeColor,"#2e4b63");
- polygon([[-bodyWidth-8,-13],[-bodyWidth-7,-30],
-          [-bodyWidth-3-capeWave,-5],[-bodyWidth-7-capeWave,cloakTip]],
-         "#a3c0c33d");
-
- // Separate boots: the supporting sole remains at ground level,
- // while the other can lift just a couple of pixels during its stride.
- const stance=sideView?6:7.4;
- for(const foot of [-1,1]){
-  const phase=foot*stride;
-  const lift=Math.max(0,phase)*.38;
-  const offset=phase*.62;
-  const cx=foot*stance+offset;
-  const depth=foot===1&&back?-1.3:0;
-  const soleY=1-lift+depth;
-  polygon([[cx-4,-24],[cx+5,-24],[cx+6,-12],[cx-4,-12]],"#52677d","#385064");
-  polygon([[cx-5,-14],[cx+6,-14],[cx+6,-7],[cx-5,-7]],"#a8b9be","#557489");
-  polygon([[cx-6,-8],[cx+7,-8],[cx+9,soleY],[cx-8,soleY]],"#6d5247","#382f34");
-  line(cx-7,soleY,cx+8,soleY,"#302c33",1.5);
-  line(cx-4,-8,cx+5,-8,"#d0b59c",1.2);
- }
-
- // Idle breathing and a modest upper-body gait never displace the boots.
- ctx.save();
- ctx.translate(0,breathing+Math.abs(Math.sin(player.walk||0))*.55*motion);
-
- // Rear arm is partly hidden behind the breastplate or cape.
- const armOffset=armSwing*.47;
- polygon([[-bodyWidth+1,-46],[-bodyWidth-7,-39],
-          [-bodyWidth-5-armOffset,-23],[-bodyWidth+1-armOffset,-21],
-          [-bodyWidth+6,-37]],"#7c9ca8","#40596d");
- ellipse(-bodyWidth-3-armOffset,-21,4.6,5,"#dfb69a");
-
- const armor=ctx.createLinearGradient(-18,-51,22,-16);
- armor.addColorStop(0,"#e0e4de");armor.addColorStop(.46,"#8db4bc");
- armor.addColorStop(1,"#486c83");
- if(fullBack){
-  // The back view does not show facial features or a front breastplate.
-  polygon([[-17,-49],[-20,-33],[-15,-15],[15,-15],[19,-33],[16,-49]],
-          "#527b90","#29465e");
-  polygon([[-18,-43],[-19,-30],[-14,-14],[13,-14],[20,-30],[15,-43]],
-          capeColor,"#30566c");
-  polygon([[-4,-47],[5,-47],[10,-16],[-8,-16]],"#608ca0","#41647a");
-  polygon([[-9,-37],[0,-43],[9,-37],[0,-26]],"#d8c386","#8b7e66");
- }else if(back){
-  // Three-quarter rear: broad cloak, one bright shoulder and visible arm.
-  polygon([[-12,-51],[-18,-35],[-12,-16],[12,-16],[15,-39],[9,-50]],
-          "#577d92","#34536c");
-  polygon([[-13,-42],[-17,-28],[-10,-13],[4,-14],[12,-39]],
-          capeColor,"#32536b");
-  polygon([[2,-42],[11,-45],[14,-25],[7,-20]],"#87aab4","#4d768b");
-  polygon([[-9,-33],[-2,-37],[4,-32],[-2,-26]],"#c5bc92","#7b867e");
- }else if(sideView){
-  // Narrow profile: single shoulder, a slim plate and the sword arm.
-  polygon([[-9,-49],[-12,-39],[-8,-18],[9,-18],[12,-39],[7,-50]],
-          "#4a7386","#294f66");
-  polygon([[1,-48],[9,-44],[10,-24],[3,-20],[-1,-28]],armor,"#50768a");
-  polygon([[2,-40],[8,-43],[8,-26],[5,-23]],"#bee0d7","#648998");
- }else if(quarter){
-  // Three-quarter front reveals the edge of the armour and part of the cape.
-  polygon([[-13,-49],[-16,-35],[-11,-19],[11,-19],[17,-39],[10,-50]],
-          "#4a6880","#324c66");
-  polygon([[-9,-48],[1,-53],[10,-47],[13,-35],[9,-23],[-8,-23]],
-          armor,"#4a657d");
-  polygon([[2,-45],[10,-44],[11,-28],[4,-26]],"#426f86","#3d5b75");
-  polygon([[-8,-42],[1,-47],[4,-42],[2,-27],[-7,-29]],
-          "#a3d0cd","#4f788c");
- }else{
-  // Full frontal armour: symmetrical chest facets and breastplate jewel.
-  polygon([[-15,-48],[-18,-36],[-12,-18],[13,-18],[18,-36],[14,-48]],
-          "#56738a","#314e64");
-  polygon([[-11,-47],[-5,-52],[7,-52],[12,-46],[14,-35],[9,-23],[-10,-23],[-14,-35]],
-          armor,"#415e74");
-  polygon([[-10,-43],[0,-49],[0,-26],[-7,-27]],"#bfdbd3","#678e9a");
-  polygon([[0,-49],[10,-43],[8,-28],[0,-26]],"#6897a6","#416d86");
- }
- // Belt and polished shoulder plates.
- line(-bodyWidth+3,-20,bodyWidth-3,-20,"#654e44",5);
- ellipse(0,-20,4.2,3.2,"#e9c77c");
- const farShoulder=sideView?-9:-bodyWidth-1,nearShoulder=sideView?10:bodyWidth+1;
- ellipse(farShoulder,-45,sideView?7:9,7,"#668a9a");
- ellipse(farShoulder-1,-48,sideView?6:7,5.5,
-         radial(farShoulder-3,-50,12,"#d3e2da","#789da9"));
- ellipse(nearShoulder,-44,9.5,8,"#4c7289");
- ellipse(nearShoulder-1,-47,8,6,radial(nearShoulder-3,-50,12,"#e4e6de","#6c96a8"));
- polygon([[nearShoulder+3,-39],[nearShoulder+8,-30],
-          [nearShoulder+4,-25],[nearShoulder-2,-31]],"#8baeb6","#446d84");
-
- // Head silhouette: visible face, profile, or back of the head.
- const headX=sideView?3:quarter?2:0;
- const hair=ctx.createLinearGradient(-12,-72,13,-55);
- hair.addColorStop(0,"#876751");hair.addColorStop(1,"#493b39");
- ellipse(headX,-60,sideView?8.6:10,11.5,"#6a4c41");
- if(fullBack){
-  ellipse(0,-62,10,11.6,hair);
-  polygon([[-10,-63],[-12,-70],[-4,-77],[6,-75],[11,-67],[8,-61]],
-          "#75584b","#453535");
-  line(-6,-62,5,-62,"#b9927b",1.4);
- }else if(back){
-  ellipse(headX-1,-61,10,11.2,hair);
-  polygon([[-8,-66],[-10,-72],[-2,-76],[10,-73],[11,-64],[4,-61]],
-          "#6b5047","#463737");
-  ellipse(headX+7,-58,2.4,4,"#c89c83");
- }else{
-  ellipse(headX,-58,sideView?7:9.2,10.1,
-          radial(headX-4,-63,16,"#ffe9cf","#b88270"));
-  if(sideView){
-   polygon([[headX+3,-58],[headX+13,-55],[headX+4,-51]],
-           "#cd927e");
-   ellipse(headX+4,-60,1.5,1.5,"#443a39");
-   line(headX+6,-51,headX+10,-51,"#9c6c62",1.3);
-  }else if(quarter){
-   ellipse(headX+4,-59,1.6,1.6,"#463c39");
-   ellipse(headX-3,-60,1,1,"#6a4c42");
-   polygon([[headX+6,-57],[headX+10,-54],[headX+6,-52]],"#d9a18b");
-   line(headX,-51,headX+5,-51,"#a47065",1.1);
-  }else{
-   ellipse(headX-3.6,-59,1.4,1.5,"#443a39");
-   ellipse(headX+3.6,-59,1.4,1.5,"#443a39");
-   line(-1,-52,3,-52,"#a87468",1.2);
-  }
-  polygon([[headX-11,-65],[headX-10,-70],[headX-2,-76],
-           [headX+9,-72],[headX+11,-65],[headX+5,-68],[headX-3,-67]],
-          hair,"#443735");
-  polygon([[headX-10,-66],[headX-5,-74],[headX+1,-73],[headX-2,-66]],
-          "#97735d");
- }
- if(!back){
-  // Only the front and profile show the jewel on the chest.
-  ellipse(sideView?7:quarter?1:0,-38,3.3,3.5,"#f7d58c");
-  ellipse(sideView?6:quarter?0:-1,-39,1.3,1.5,"#fff9cd");
- }
- // Sword hand animates opposite the legs, then executes a real swing.
- const weaponX=sideView?15:quarter?20:22;
- const handY=-31-armSwing*.45;
- polygon([[weaponX-8,-39],[weaponX,-39],[weaponX+5,handY],
-          [weaponX-1,handY+2]],"#8dabb5","#436a7f");
- ctx.save();
- ctx.translate(weaponX,handY);
- const attackPhase=attack?1-Math.min(1,player.flash/.32):0;
- const weaponAngle=attack?(.22-2.22*Math.sin(attackPhase*Math.PI)):.18+Math.sin(elapsed*1.7)*.02;
- ctx.rotate(weaponAngle);
- ellipse(0,1,5.2,5.8,"#dcb393");
- line(0,4,0,12,"#5f473e",5);
- line(-8,12,8,12,"#e7c68d",3.5);
- polygon([[-3,12],[3,12],[5,29],[0,39],[-5,29]],"#eef3ef","#7d9cab");
- polygon([[-3,12],[0,39],[0,16]],"#ffffffaa");
- line(-2,15,-2,30,"#effcfff0",1.3);
- ctx.restore();
- if(attack){
-  ctx.save();
-  ctx.globalAlpha=Math.min(1,player.flash/.32)*.8;
-  ctx.shadowColor="#ffe4a1";ctx.shadowBlur=11;
-  ctx.strokeStyle="#fff0bc";ctx.lineWidth=4.5;
-  ctx.beginPath();ctx.ellipse(7,-31,45,22,-.15,Math.PI*1.14,Math.PI*1.9);ctx.stroke();
-  ctx.restore();
- }
- ctx.restore();
- ctx.restore();
-}
-function drawGround(){
- const c=iso(player.x,player.y);
- for(let y=-WORLD;y<=WORLD;y++)for(let x=-WORLD;x<=WORLD;x++){
-  const p=iso(x,y);
-  if(Math.abs(p.x-c.x)>vw/2+TW||Math.abs(p.y-c.y)>vh/2+TH)continue;
-  const h=hash(x,y),village=Math.hypot(x,y)<5.3;
-  const road=(Math.abs(y-x*.18)<1.3&&x>0&&x<14)||Math.hypot(x-relicSpot.x,y-relicSpot.y)<2;
-  const lake=Math.hypot(x+12,y+10)<3.5;
-  let color;
-  if(lake)color=h>.5?"#539dad":"#478d9f";
-  else if(road)color=h>.5?"#bcac85":"#b5a480";
-  else if(village)color=h>.5?"#83b890":"#7bac86";
-  else color=h>.87?"#78a96c":h>.63?"#69a779":h>.31?"#75b184":"#70aa79";
-  polygon([[p.x,p.y-TH/2],[p.x+TW/2,p.y],[p.x,p.y+TH/2],[p.x-TW/2,p.y]],color,road?"#a79a7b44":"#417d6530");
-  if(lake){
-   if(h>.72){line(p.x-11,p.y+3,p.x+6,p.y+3,"#b7edf087",1.2);line(p.x-5,p.y-4,p.x+9,p.y-4,"#b7edf071",1)}
-  }else if(road){
-   if(h>.75){ellipse(p.x-7,p.y+4,3,1.6,"#e5d7b199");ellipse(p.x+14,p.y-2,2,1,"#877b6599")}
-  }else{
-   if(h>.56)plant(p.x+(hash(x+7,y)*25-12),p.y+(hash(x,y+17)*13-7),h);
-   if(h>.93)ellipse(p.x+7,p.y-4,4,2.4,"#b4cfa477");
-  }
- }
-}
-function draw(){
- const bg=ctx.createLinearGradient(0,0,0,vh);
- bg.addColorStop(0,"#a6ced0");bg.addColorStop(1,"#d5e7c4");
- ctx.fillStyle=bg;ctx.fillRect(0,0,vw,vh);
- ctx.save();ctx.translate(-cameraX,-cameraY);drawGround();
- const center=iso(player.x,player.y);
- const inView=o=>{const p=iso(o.x,o.y);return Math.abs(p.x-center.x)<vw/2+120&&Math.abs(p.y-center.y)<vh/2+210};
- const drawables=[];
- for(const o of props)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawProp(o)});
- for(const o of houses)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawHouse(o)});
- for(const o of npc)if(inView(o))drawables.push({z:o.x+o.y,draw:()=>drawNpc(o)});
- for(const e of enemies)if(e.dead<=0&&inView(e))drawables.push({z:e.x+e.y,draw:()=>drawEnemy(e)});
- if(inView(relicSpot))drawables.push({z:relicSpot.x+relicSpot.y,draw:drawRelic});
- drawables.push({z:player.x+player.y,draw:drawPlayer});
- drawables.sort((a,b)=>a.z-b.z);
- for(const o of drawables)o.draw();
- ctx.restore();
- // Daylight gradient and soft, warm corners instead of Gothic near-black.
- const sun=ctx.createRadialGradient(vw*.82,vh*.18,15,vw*.82,vh*.18,Math.max(vw,vh)*.95);
- sun.addColorStop(0,"#fff8db20");sun.addColorStop(1,"#ffffff00");
- ctx.fillStyle=sun;ctx.fillRect(0,0,vw,vh);
- const vignette=ctx.createRadialGradient(vw/2,vh/2,Math.min(vw,vh)*.25,vw/2,vh/2,Math.max(vw,vh)*.88);
- vignette.addColorStop(0,"#00000000");vignette.addColorStop(1,"#173b4544");
- ctx.fillStyle=vignette;ctx.fillRect(0,0,vw,vh);
-}
-function frame(t){const dt=Math.min((t-last)/1000,.05);last=t;if(!paused&&!dialogOpen)update(dt);else refreshHUD();draw();requestAnimationFrame(frame)}
-let lastSave=performance.now();function autosave(t){if(t-lastSave>6500){lastSave=t;save()}requestAnimationFrame(autosave)}
-const p=iso(player.x,player.y);cameraX=p.x-innerWidth/2;cameraY=p.y-innerHeight*.51;refreshHUD();requestAnimationFrame(frame);requestAnimationFrame(autosave);
+addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65))});
+hud();animateCamera(1);requestAnimationFrame(frame);
+$("loader").remove();
+}catch(error){$("loadText").textContent="Ошибка запуска 3D-сцены: "+String(error.message||error);throw error}
 </script></body></html>
