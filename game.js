@@ -1,4 +1,4 @@
-// NexGame 3D · Alpha 0.2.5 — a small, procedural Mulgore-inspired starting zone.
+// NexGame 3D · Alpha 0.2.6 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -286,7 +286,7 @@ function combatWarning(text,force=false){
 function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal');clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
-function pause(){if(modalKind==='pause'){closeDialog();return}openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.4',['Мир поставлен на паузу. Твой путь начинается на равнинах Мулгора.','Передвижение — WASD или джойстик. Вращай камеру по свободной части экрана. Джойстик вверх/вниз — идти; влево/вправо — непрерывно поворачиваться. Приближение — ползунок или колёсико мыши.','Tab или кнопка «Цель» — выбрать врага. 1 / пробел — автоатака. После победы тело остаётся на земле и может содержать добычу: подойди к нему и нажми «Обыскать» или коснись тела.','2 — громовая поступь. 3 — лечебный настой. E — разговор и обыск. В рюкзаке 12 стартовых ячеек и четыре места для будущих сумок.','Автоследование камеры включается в меню управления; угол по вертикали сохраняется.'], 'pause');choice('Продолжить путь',closeDialog);choice('Начать заново',()=>{openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора.']);choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt')},'alt')}
+function pause(){if(modalKind==='pause'){closeDialog();return}openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.6',['Мир поставлен на паузу. Твой путь начинается на равнинах Мулгора.','Передвижение — WASD или джойстик. Вращай камеру по свободной части экрана. Джойстик вверх/вниз — идти; влево/вправо — непрерывно поворачиваться. Приближение — ползунок или колёсико мыши.','Tab или кнопка «Цель» — выбрать врага. 1 / пробел — автоатака. После победы тело остаётся на земле и может содержать добычу: подойди к нему и нажми «Обыскать» или коснись тела.','2 — громовая поступь. 3 — лечебный настой. E — разговор и обыск. В рюкзаке 12 стартовых ячеек и четыре места для будущих сумок.','Автоследование камеры включается в меню управления; угол по вертикали сохраняется.'], 'pause');choice('Продолжить путь',closeDialog);choice('Начать заново',()=>{openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора.']);choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt')},'alt')}
 function resetWorld(){
  state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};
  for(const e of enemies){
@@ -506,7 +506,21 @@ function stomp(){if(modalKind||stompCooldown>0||attackElapsed>=0)return;stompEla
 $('attack').addEventListener('pointerdown',e=>{e.preventDefault();attack()});$('stomp').addEventListener('pointerdown',e=>{e.preventDefault();stomp()});
 // Native click covers keyboard activation without doubling pointer attacks.
 for(const [id,fn] of [['attack',attack],['stomp',stomp]])$(id).addEventListener('click',e=>{if(e.detail===0)fn()});
-$('targetNext').addEventListener('click',()=>cycleTarget());$('targetClear').addEventListener('click',clearTarget);$('heal').addEventListener('click',()=>heal());$('interact').addEventListener('click',interact);$('bag').addEventListener('click',bag);$('pause').addEventListener('click',pause);
+// iPhone multi-touch: the target button must work while another pointer
+// owns the movement joystick. Native click may be suppressed by Safari then.
+function bindImmediateButton(id,action){
+ const button=$(id);
+ button.addEventListener('pointerdown',e=>{
+  if(e.button!==undefined&&e.button!==0)return;
+  e.preventDefault();e.stopPropagation();
+  action();
+ });
+ // Preserve keyboard/accessibility activation without firing twice on touch.
+ button.addEventListener('click',e=>{if(e.detail===0)action()});
+}
+bindImmediateButton('targetNext',()=>cycleTarget());
+bindImmediateButton('targetClear',clearTarget);
+$('heal').addEventListener('click',()=>heal());$('interact').addEventListener('click',interact);$('bag').addEventListener('click',bag);$('pause').addEventListener('click',pause);
 const questLines=[['Первые шаги','Поговорите с наставником\nу большого тотема.'],['Обряд силы','Равнинные долгоноги: 0 / 3'],['Обряд силы','Вернитесь к наставнику.'],['Следующее испытание','Поговорите с наставником.'],['Голос предков','Найдите перо у восточного тотема.'],['Голос предков','Отнесите перо наставнику.'],['Дороги Мулгора','Первые испытания пройдены.\nИсследуйте долину.']];
 let lastMarker='';
 function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
