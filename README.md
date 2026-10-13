@@ -25,6 +25,7 @@ https://nexions-link.github.io/Nexgame/
 
 ## Архив
 
+- [3D Alpha 0.2.2 — автоследование камеры](versions/alpha_0.2.2/)
 - [3D Alpha 0.2.1 — до автоматического следования камеры](versions/alpha_0.2.1/)
 
 - [3D Alpha 0.1.1 — версия перед переходом к Мулгору](versions/NexGame_3D_Alpha_0.1.1.html)
