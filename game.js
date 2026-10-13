@@ -1,4 +1,4 @@
-// NexGame 3D · Alpha 0.2.2 — a small, procedural Mulgore-inspired starting zone.
+// NexGame 3D · Alpha 0.2.3 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -146,7 +146,7 @@ const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e)
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0},stick=$('stick'),nub=$('nub');
 let modalKind=null,selected=null,attackElapsed=-1,attackCooldown=0,attackLanded=false,stompElapsed=-1,stompCooldown=0,stompLanded=false,shockAge=9,clock=0,saveClock=0,hudClock=0,velocityX=0,velocityZ=0;
 let cameraYaw=0,cameraPitch=.29,cameraDistance=10.5,actualCameraDistance=10.5;
-let cameraFollow=false,cameraFollowCooldown=0,movementReferenceYaw=null;
+let cameraFollow=false,cameraFollowCooldown=0;
 const cameraFollowStoreKey='nexgame-real3d-camera-follow',cameraFollowSwitch=$('cameraFollow');
 const cameraSlider=$('cameraDistance');
 function setCameraDistance(value,persist=true){if(!Number.isFinite(value))return;cameraDistance=Math.round(clamp(value,4,22)*10)/10;cameraSlider.value=String(cameraDistance);const valueText=cameraDistance.toFixed(1).replace('.',',');$('cameraDistanceValue').textContent=valueText;cameraSlider.setAttribute('aria-valuetext',valueText);if(persist)try{localStorage.setItem(cameraStoreKey,String(cameraDistance))}catch(e){}}
@@ -156,21 +156,20 @@ function setCameraFollow(enabled,persist=true){
  cameraFollow=!!enabled;
  cameraFollowSwitch.checked=cameraFollow;
  cameraFollowSwitch.setAttribute('aria-checked',String(cameraFollow));
- movementReferenceYaw=null;
  cameraFollowCooldown=0;
  if(persist)try{localStorage.setItem(cameraFollowStoreKey,cameraFollow?'1':'0')}catch(e){}
 }
 try{setCameraFollow(localStorage.getItem(cameraFollowStoreKey)==='1',false)}catch(e){setCameraFollow(false,false)}
 cameraFollowSwitch.addEventListener('change',()=>setCameraFollow(cameraFollowSwitch.checked));
 function resetStick(){joy.x=joy.y=0;joy.id=null;nub.style.transform='translate(0,0)'}
-function clearInput(){keys.clear();resetStick();look.id=null;velocityX=velocityZ=0;movementReferenceYaw=null}
+function clearInput(){keys.clear();resetStick();look.id=null;velocityX=velocityZ=0}
 function stickMove(e){const r=stick.getBoundingClientRect(),radius=r.width*.3,dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height/2,len=Math.hypot(dx,dy),s=len>radius?radius/len:1;joy.x=Math.abs(dx*s)<3?0:dx*s/radius;joy.y=Math.abs(dy*s)<3?0:dy*s/radius;nub.style.transform=`translate(${dx*s}px,${dy*s}px)`}
 stick.addEventListener('pointerdown',e=>{if(modalKind||joy.id!==null)return;e.preventDefault();joy.id=e.pointerId;stick.setPointerCapture(e.pointerId);stickMove(e)});
 stick.addEventListener('pointermove',e=>{if(e.pointerId===joy.id){e.preventDefault();stickMove(e)}});
 for(const type of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(type,e=>{if(joy.id===e.pointerId)resetStick()});
 const canvas=renderer.domElement,pickRay=new THREE.Raycaster();canvas.style.touchAction='none';
 canvas.addEventListener('pointerdown',e=>{if(modalKind||look.id!==null||(e.pointerType==='touch'&&e.clientX<innerWidth*.35))return;look.id=e.pointerId;look.x=look.startX=e.clientX;look.y=look.startY=e.clientY;cameraFollowCooldown=.85;canvas.setPointerCapture(e.pointerId);if(document.activeElement===cameraSlider)cameraSlider.blur()});
-canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;cameraYaw-=(e.clientX-look.x)*.007;cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05);look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85;if(cameraFollow&&movementReferenceYaw!==null)movementReferenceYaw=cameraYaw});
+canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;cameraYaw-=(e.clientX-look.x)*.007;cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05);look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85});
 canvas.addEventListener('pointerup',e=>{if(look.id!==e.pointerId)return;if(Math.hypot(e.clientX-look.startX,e.clientY-look.startY)<7){pickRay.setFromCamera(new THREE.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2),camera);const alive=enemies.filter(e=>e.dead<=0),hits=pickRay.intersectObjects(alive.map(e=>e.root),true);if(hits.length){let o=hits[0].object;while(o.parent&&o.parent!==scene)o=o.parent;selected=alive.find(e=>e.root===o)||null;updateHUD()}}look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85)});
 for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(look.id===e.pointerId){look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85)}});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(!modalKind)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
@@ -182,8 +181,8 @@ function msg(text,duration=2600){clearTimeout(toastTimer);$('toast').textContent
 function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
 function closeDialog(){modalKind=null;$('modal').hidden=true;clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
-function pause(){if(modalKind==='pause'){closeDialog();return}openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.2',['Мир поставлен на паузу. Твой путь начинается на равнинах Мулгора.','Передвижение — WASD или джойстик. Вращай камеру по свободной части экрана. Приближение — ползунок или колёсико мыши.','1 / пробел — удар топором. 2 — громовая поступь. 3 — лечебный настой. E — разговор.','Автоследование камеры включается в меню управления; угол по вертикали сохраняется.'], 'pause');choice('Продолжить путь',closeDialog);choice('Начать заново',()=>{openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень и предметы этой версии Мулгора.']);choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt')},'alt')}
-function resetWorld(){state={...initial};for(const e of enemies){e.hp=e.maxHp;e.dead=0;e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;e.root.visible=true;e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ)}hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;shockAge=9;cameraYaw=0;cameraPitch=.29;cameraFollowCooldown=0;movementReferenceYaw=null;closeDialog();msg('Новый путь начинается в лагере Нараче')}
+function pause(){if(modalKind==='pause'){closeDialog();return}openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.3',['Мир поставлен на паузу. Твой путь начинается на равнинах Мулгора.','Передвижение — WASD или джойстик. Вращай камеру по свободной части экрана. Джойстик вверх/вниз — идти; влево/вправо — непрерывно поворачиваться. Приближение — ползунок или колёсико мыши.','1 / пробел — удар топором. 2 — громовая поступь. 3 — лечебный настой. E — разговор.','Автоследование камеры включается в меню управления; угол по вертикали сохраняется.'], 'pause');choice('Продолжить путь',closeDialog);choice('Начать заново',()=>{openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень и предметы этой версии Мулгора.']);choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt')},'alt')}
+function resetWorld(){state={...initial};for(const e of enemies){e.hp=e.maxHp;e.dead=0;e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;e.root.visible=true;e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ)}hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;shockAge=9;cameraYaw=0;cameraPitch=.29;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
 function nearTarget(){for(const n of npcs)if(Math.hypot(state.x-n.x,state.z-n.z)<3.5)return{kind:'npc',npc:n};if(state.quest===4&&Math.hypot(state.x-35,state.z+11.8)<3.1)return{kind:'relic'};return null}
 function interact(){if(modalKind)return;const target=nearTarget();if(!target){msg('Подойди к жителю или предмету ближе');return}if(target.kind==='relic'){state.quest=5;state.relic=true;save();updateHUD();msg('Получено перо предков');return}if(target.npc.type==='mentor')mentorTalk();else traderTalk()}
 function xpNeed(){return 100+(state.level-1)*50}
@@ -218,16 +217,39 @@ function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textConten
 }
 const minimap=$('minimap'),mapCtx=minimap.getContext('2d');
 function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='#788252';c.fillRect(0,0,s,s);c.save();c.translate(s/2,s/2);c.fillStyle='#6d774b';for(let i=0;i<8;i++){c.beginPath();c.ellipse(Math.sin(i*1.6)*90,Math.cos(i*1.6)*90,38,17,i,0,TAU);c.fill()}c.translate(-state.x*k,-state.z*k);c.strokeStyle='#c0ae71';c.lineWidth=7;c.lineCap='round';for(const route of routes){c.beginPath();route.forEach(([x,z],i)=>i?c.lineTo(x*k,z*k):c.moveTo(x*k,z*k));c.stroke()}for(const p of mapLandmarks){c.fillStyle=p.color;c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.strokeStyle='#4e4e30';c.lineWidth=1;c.stroke()}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies)if(e.dead<=0){c.fillStyle=e.aggro?'#b94f35':'#d8c073';c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,2.5,0,TAU);c.fill()}if(state.quest<6){c.fillStyle='#fff397';c.font='bold 19px Georgia';c.textAlign='center';c.fillText(state.quest===2||state.quest===5?'?':'!',-1.5*k,-5*k-5)}if(state.quest===4){c.fillStyle='#a6ffeb';c.beginPath();c.arc(35*k,-11.8*k,5,0,TAU);c.fill()}c.restore();c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
-function movement(dt){const ax=joy.x+Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft')),az=joy.y+Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup')),len=Math.hypot(ax,az),scale=len>1?1/len:1;
- // Freeze the movement basis while camera auto-follow rotates, preventing spirals.
- if(!cameraFollow||len<=.05)movementReferenceYaw=null;
- else if(movementReferenceYaw===null)movementReferenceYaw=cameraYaw;
- const basisYaw=cameraFollow&&movementReferenceYaw!==null?movementReferenceYaw:cameraYaw;
- const fx=ax*scale,fz=az*scale,speed=stompElapsed>=0?0:4.05,dx=(Math.cos(basisYaw)*fx+Math.sin(basisYaw)*fz)*speed,dz=(-Math.sin(basisYaw)*fx+Math.cos(basisYaw)*fz)*speed;
- velocityX=THREE.MathUtils.damp(velocityX,dx,len>.05?8:14,dt);velocityZ=THREE.MathUtils.damp(velocityZ,dz,len>.05?8:14,dt);const prevX=state.x,prevZ=state.z,nx=state.x+velocityX*dt,nz=state.z+velocityZ*dt;
- if(clearAt(nx,nz)){state.x=nx;state.z=nz}else if(clearAt(nx,state.z)){state.x=nx;velocityZ=0}else if(clearAt(state.x,nz)){state.z=nz;velocityX=0}else velocityX=velocityZ=0;
- const travelled=Math.hypot(state.x-prevX,state.z-prevZ),moving=travelled>.00005;let turn=0;
- if(moving){const target=Math.atan2(state.x-prevX,state.z-prevZ),delta=Math.atan2(Math.sin(target-hero.root.rotation.y),Math.cos(target-hero.root.rotation.y));turn=delta;hero.root.rotation.y+=delta*(1-Math.exp(-dt*12));state.yaw=hero.root.rotation.y;hero.phase=(hero.phase+travelled/2.67)%1}
+function movement(dt){
+ // Classic-style controls: vertical stick walks along the hero's own heading,
+ // horizontal stick continuously ROTATES the hero while held.
+ // Both axes can be used simultaneously for walking arcs.
+ const ax=joy.x+Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));
+ const az=joy.y+Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
+ const turnInput=clamp(ax,-1,1),forwardInput=clamp(-az,-1,1);
+ const turnSpeed=2.45; // radians/second; not a target angle
+ let turn=0;
+ if(Math.abs(turnInput)>.04){
+  turn=-turnInput*turnSpeed*dt;
+  const nextYaw=hero.root.rotation.y+turn;
+  hero.root.rotation.y=Math.atan2(Math.sin(nextYaw),Math.cos(nextYaw));
+  state.yaw=hero.root.rotation.y;
+ }
+ const speed=stompElapsed>=0?0:4.05;
+ const forwardSpeed=forwardInput*speed;
+ const dx=Math.sin(hero.root.rotation.y)*forwardSpeed;
+ const dz=Math.cos(hero.root.rotation.y)*forwardSpeed;
+ if(Math.abs(forwardInput)<.04||speed===0){
+  // No drift when rotating on the spot or after releasing the stick.
+  velocityX=velocityZ=0;
+ }else{
+  velocityX=THREE.MathUtils.damp(velocityX,dx,10,dt);
+  velocityZ=THREE.MathUtils.damp(velocityZ,dz,10,dt);
+ }
+ const prevX=state.x,prevZ=state.z,nx=state.x+velocityX*dt,nz=state.z+velocityZ*dt;
+ if(clearAt(nx,nz)){state.x=nx;state.z=nz}
+ else if(clearAt(nx,state.z)){state.x=nx;velocityZ=0}
+ else if(clearAt(state.x,nz)){state.z=nz;velocityX=0}
+ else velocityX=velocityZ=0;
+ const travelled=Math.hypot(state.x-prevX,state.z-prevZ);
+ if(travelled>.00005)hero.phase=(hero.phase+travelled/2.67)%1;
  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,turn);
 }
