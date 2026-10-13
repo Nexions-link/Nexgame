@@ -143,7 +143,7 @@ try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved
 state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,6);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);state.hp=clamp(state.hp,1,120+(state.level-1)*20);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
-const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0},stick=$('stick'),nub=$('nub');
+const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
 let modalKind=null,selected=null,autoAttack=false,swingTarget=null,attackElapsed=-1,attackCooldown=0,attackLanded=false,stompElapsed=-1,stompCooldown=0,stompLanded=false,shockAge=9,clock=0,saveClock=0,hudClock=0,velocityX=0,velocityZ=0;
 let cameraYaw=0,cameraPitch=.29,cameraDistance=10.5,actualCameraDistance=10.5;
 let cameraFollow=false,cameraFollowCooldown=0;
@@ -168,8 +168,8 @@ stick.addEventListener('pointerdown',e=>{if(modalKind||joy.id!==null)return;e.pr
 stick.addEventListener('pointermove',e=>{if(e.pointerId===joy.id){e.preventDefault();stickMove(e)}});
 for(const type of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(type,e=>{if(joy.id===e.pointerId)resetStick()});
 const canvas=renderer.domElement,pickRay=new THREE.Raycaster();canvas.style.touchAction='none';
-canvas.addEventListener('pointerdown',e=>{if(modalKind||look.id!==null||(e.pointerType==='touch'&&e.clientX<innerWidth*.35))return;look.id=e.pointerId;look.x=look.startX=e.clientX;look.y=look.startY=e.clientY;cameraFollowCooldown=.85;canvas.setPointerCapture(e.pointerId);if(document.activeElement===cameraSlider)cameraSlider.blur()});
-canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;cameraYaw-=(e.clientX-look.x)*.007;cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05);look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85});
+canvas.addEventListener('pointerdown',e=>{if(modalKind||look.id!==null)return;look.id=e.pointerId;look.selectOnly=e.pointerType==='touch'&&e.clientX<innerWidth*.35;look.x=look.startX=e.clientX;look.y=look.startY=e.clientY;cameraFollowCooldown=.85;canvas.setPointerCapture(e.pointerId);if(document.activeElement===cameraSlider)cameraSlider.blur()});
+canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;if(!look.selectOnly){cameraYaw-=(e.clientX-look.x)*.007;cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05)}look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85});
 canvas.addEventListener('pointerup',e=>{if(look.id!==e.pointerId)return;if(Math.hypot(e.clientX-look.startX,e.clientY-look.startY)<7){pickRay.setFromCamera(new THREE.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2),camera);const alive=enemies.filter(e=>e.dead<=0),hits=pickRay.intersectObjects(alive.map(e=>e.root),true);if(hits.length){let o=hits[0].object;while(o.parent&&o.parent!==scene)o=o.parent;setTarget(alive.find(e=>e.root===o)||null)}}look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85)});
 for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(look.id===e.pointerId){look.id=null;cameraFollowCooldown=Math.max(cameraFollowCooldown,.85)}});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(!modalKind)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
