@@ -1,4 +1,4 @@
-// NexGame 3D · Alpha 0.2.4 — a small, procedural Mulgore-inspired starting zone.
+// NexGame 3D · Alpha 0.2.5 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -138,9 +138,62 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0){
  actor.shadow.position.set(actor.root.position.x,heightAt(actor.root.position.x,actor.root.position.z)+.055,actor.root.position.z);
 }
 const saveKey='nexgame-mulgore-alpha02',cameraStoreKey='nexgame-real3d-camera-distance';
-const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false};let state={...initial};
+// The starter backpack has 12 actual slots; four future bag sockets can add capacity.
+const BASE_INVENTORY_SLOTS=12,EQUIPPED_BAG_SLOTS=4,MAX_ITEM_STACK=20;
+const ITEM_CATALOG={
+ feather:{name:'Перо долгонога',icon:'🪶',quality:'Обычный',description:'Длинное крепкое перо равнинного долгонога.'},
+ beak:{name:'Клюв долгонога',icon:'🦴',quality:'Обычный',description:'Прочный клюв. Может пригодиться ремесленнику.'},
+ down:{name:'Мягкий пух',icon:'☁️',quality:'Обычный',description:'Тёплый и лёгкий пух с равнин.'},
+ charm:{name:'Полированная бусина',icon:'🔮',quality:'Необычный',description:'Редкая находка с узором, напоминающим облака.'}
+};
+const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null)};
+let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};
+function normalizeBags(input){
+ return Array.from({length:EQUIPPED_BAG_SLOTS},(_,i)=>{
+  const bag=Array.isArray(input)?input[i]:null;
+  return bag&&typeof bag.id==='string'&&Number.isInteger(bag.slots)&&bag.slots>=1&&bag.slots<=24?{id:bag.id,slots:bag.slots}:null;
+ });
+}
+function inventoryCapacity(){
+ return BASE_INVENTORY_SLOTS+state.bags.reduce((total,bag)=>total+(bag?bag.slots:0),0);
+}
+function normalizeInventory(input){
+ return Array.from({length:inventoryCapacity()},(_,i)=>{
+  const item=Array.isArray(input)?input[i]:null;
+  return item&&typeof item.id==='string'&&ITEM_CATALOG[item.id]&&Number.isFinite(item.qty)
+   ?{id:item.id,qty:clamp(Math.floor(item.qty),1,MAX_ITEM_STACK)}:null;
+ });
+}
+function itemOccupancy(){return state.inventory.reduce((sum,item)=>sum+(item?1:0),0)}
+function canStoreItem(item){
+ if(!item||!ITEM_CATALOG[item.id]||!Number.isInteger(item.qty)||item.qty<=0)return false;
+ let capacity=0;
+ for(const slot of state.inventory){
+  if(!slot)capacity+=MAX_ITEM_STACK;
+  else if(slot.id===item.id)capacity+=MAX_ITEM_STACK-slot.qty;
+  if(capacity>=item.qty)return true;
+ }
+ return false;
+}
+function storeItem(item){
+ // Atomic insertion: never delete dropped loot unless every unit fits.
+ if(!canStoreItem(item))return false;
+ let remaining=item.qty;
+ for(const slot of state.inventory){
+  if(!slot||slot.id!==item.id||remaining===0)continue;
+  const add=Math.min(MAX_ITEM_STACK-slot.qty,remaining);
+  slot.qty+=add;remaining-=add;
+ }
+ for(let i=0;i<state.inventory.length&&remaining>0;i++)if(!state.inventory[i]){
+  const add=Math.min(MAX_ITEM_STACK,remaining);
+  state.inventory[i]={id:item.id,qty:add};remaining-=add;
+ }
+ save();return true;
+}
+
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
 state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,6);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);state.hp=clamp(state.hp,1,120+(state.level-1)*20);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
+state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
@@ -191,7 +244,7 @@ function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
 function closeDialog(){modalKind=null;$('modal').hidden=true;clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
 function pause(){if(modalKind==='pause'){closeDialog();return}openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.4',['Мир поставлен на паузу. Твой путь начинается на равнинах Мулгора.','Передвижение — WASD или джойстик. Вращай камеру по свободной части экрана. Джойстик вверх/вниз — идти; влево/вправо — непрерывно поворачиваться. Приближение — ползунок или колёсико мыши.','Tab или кнопка «Цель» — выбрать врага. Касание существа тоже выбирает цель. 1 / пробел — включить/выключить автоатаку; вне дистанции герой ждёт без взмаха.','2 — громовая поступь. 3 — лечебный настой. E — разговор.','Автоследование камеры включается в меню управления; угол по вертикали сохраняется.'], 'pause');choice('Продолжить путь',closeDialog);choice('Начать заново',()=>{openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень и предметы этой версии Мулгора.']);choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt')},'alt')}
-function resetWorld(){state={...initial};for(const e of enemies){e.hp=e.maxHp;e.dead=0;e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;e.root.visible=true;e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ)}hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();shockAge=9;cameraYaw=0;cameraPitch=.29;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
+function resetWorld(){state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};for(const e of enemies){e.hp=e.maxHp;e.dead=0;e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;e.root.visible=true;e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ)}hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();shockAge=9;cameraYaw=0;cameraPitch=.29;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
 function nearTarget(){for(const n of npcs)if(Math.hypot(state.x-n.x,state.z-n.z)<3.5)return{kind:'npc',npc:n};if(state.quest===4&&Math.hypot(state.x-35,state.z+11.8)<3.1)return{kind:'relic'};return null}
 function interact(){if(modalKind)return;const target=nearTarget();if(!target){msg('Подойди к жителю или предмету ближе');return}if(target.kind==='relic'){state.quest=5;state.relic=true;save();updateHUD();msg('Получено перо предков');return}if(target.npc.type==='mentor')mentorTalk();else traderTalk()}
 function xpNeed(){return 100+(state.level-1)*50}
