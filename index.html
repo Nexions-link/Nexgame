@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · RPG 0.3</title><style>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · RPG 0.3.1</title><style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#090b10;color:#ece4d5;font-family:system-ui,Arial,sans-serif;touch-action:none}
 button{font:inherit;touch-action:manipulation;-webkit-user-select:none;user-select:none;cursor:pointer}
@@ -139,11 +139,58 @@ function line(ax,ay,bx,by,color,width){ctx.strokeStyle=color;ctx.lineWidth=width
 function drawProp(o){const p=iso(o.x,o.y),x=p.x,y=p.y;ellipse(x+8,y+7,24,10,"#0009");if(o.type==="rock"){polygon([[x-23,y],[x-12,y-18],[x+6,y-25],[x+22,y-7],[x+10,y+5],[x-13,y+7]],"#414247","#1c2328");polygon([[x-12,y-18],[x+6,y-25],[x+3,y-8],[x-16,y-3]],"#696c71");return}if(o.type==="ruin"){polygon([[x-16,y],[x-16,y-45],[x+4,y-56],[x+4,y-8]],"#47434a");polygon([[x+4,y-8],[x+4,y-56],[x+18,y-45],[x+18,y+2]],"#292a32");polygon([[x-16,y-45],[x+4,y-56],[x+18,y-45],[x-2,y-34]],"#757078");return}
 line(x,y,x-3,y-47,o.type==="tree"?"#201c1e":"#352b2c",o.type==="tree"?10:5);for(const [dx,dy] of [[-20,-64],[20,-72],[-12,-92],[9,-107]])line(x-3,y-47,x+dx,y+dy,"#332b2c",3);
 if(o.type==="tree"){for(const [dx,dy,r] of [[-16,-71,24],[15,-76,27],[-4,-103,27]]){ellipse(x+dx,y+dy,r,r*.73,"#17271f");ellipse(x+dx-5,y+dy-6,r*.7,r*.5,"#2d3a2d")}}}
-function drawHouse(o){const p=iso(o.x,o.y),x=p.x,y=p.y;ellipse(x+5,y+12,80,25,"#0008");polygon([[x-62,y-38],[x,y-7],[x,y+36],[x-62,y+3]],"#5f554b","#282528");polygon([[x,y-7],[x+62,y-38],[x+62,y+3],[x,y+36]],"#413c3b","#282528");polygon([[x-74,y-39],[x,y-86],[x+8,y-38],[x-62,y+2]],"#3c4146","#28262b");polygon([[x,y-86],[x+75,y-39],[x+62,y+2],[x+8,y-38]],"#282f36","#171a20");polygon([[x+17,y+14],[x+17,y-17],[x+35,y-8],[x+35,y+23]],"#17161a","#9b835b");ellipse(x+43,y-4,3,5,"#f0ac59");line(x-74,y-39,x,y-86,"#8b7770",3)}
+function drawHouse(o){
+ const p=iso(o.x,o.y),x=p.x,y=p.y;
+ const wallFront="#6e594c",wallSide="#51483f",roofWest="#6a4944",roofEast="#40313a";
+ ellipse(x+5,y+17,76,23,"#0009");
+ // Vertical exterior walls; their bases stay below the roofline.
+ polygon([[x-49,y-12],[x,y+12],[x,y+54],[x-49,y+29]],wallFront,"#2d2424");
+ polygon([[x,y+12],[x+49,y-12],[x+49,y+29],[x,y+54]],wallSide,"#2d2424");
+ // Two sloping roof faces, complete with a clearly defined ridge and overhanging eaves.
+ polygon([[x-61,y-18],[x,y-66],[x+3,y-30],[x-52,y+5]],roofWest,"#261e25");
+ polygon([[x,y-66],[x+61,y-18],[x+52,y+5],[x+3,y-30]],roofEast,"#261e25");
+ line(x-61,y-18,x,y-66,"#97736a",3);
+ line(x,y-66,x+61,y-18,"#856663",3);
+ line(x-52,y+5,x+3,y-30,"#2c2424",3);
+ line(x+3,y-30,x+52,y+5,"#2c2424",3);
+ // Stone chimney rises above the roof.
+ polygon([[x+16,y-46],[x+16,y-73],[x+28,y-67],[x+28,y-40]],"#777177","#39343a");
+ polygon([[x+28,y-40],[x+28,y-67],[x+36,y-63],[x+36,y-35]],"#4e4a52","#39343a");
+ polygon([[x+13,y-73],[x+26,y-81],[x+38,y-74],[x+26,y-66]],"#8e898d","#39343a");
+ // Door and glowing windows on the actual vertical walls.
+ polygon([[x+12,y+17],[x+12,y-9],[x+30,y],[x+30,y+27]],"#201b1a","#b89b72");
+ polygon([[x-33,y+8],[x-33,y-8],[x-17,y],[x-17,y+16]],"#1b2530","#d6ae68");
+ polygon([[x-11,y+20],[x-11,y+5],[x+3,y+12],[x+3,y+27]],"#1b2530","#d6ae68");
+ ellipse(x-25,y+5,3,4,"#e0ad61a0");
+}
 function drawRelic(){const p=iso(relicSpot.x,relicSpot.y),x=p.x,y=p.y;ellipse(x,y+8,48,17,"#070809bb");polygon([[x-24,y],[x-10,y-21],[x+7,y-24],[x+23,y+1]],"#515258","#272933");polygon([[x-10,y-21],[x+7,y-24],[x+11,y-5],[x-12,y-2]],"#77767d");if(quest===4){ellipse(x,y-33,13,18,"#d6ab5870");ellipse(x,y-40,6,10,"#ffd789");line(x,y-35,x,y-11,"#cba453",3)}}
-function drawNpc(n){const p=iso(n.x,n.y),x=p.x,y=p.y;ellipse(x,y+4,15,7,"#000a");polygon([[x-13,y-5],[x-11,y-34],[x,y-43],[x+12,y-33],[x+14,y-5]],n.type==="elder"?"#634d69":"#655345","#242029");ellipse(x,y-34,7,9,"#cfb19a");polygon([[x-10,y-38],[x,y-50],[x+10,y-38]],n.type==="elder"?"#9284a1":"#a08c75");if(n.type==="elder")line(x+12,y-27,x+20,y+1,"#c4a57d",3);
-if((n.type==="elder"&&[0,2,3,5].includes(quest))){ctx.save();ctx.shadowColor="#ffcf60";ctx.shadowBlur=11;ctx.fillStyle="#ffd369";ctx.font="bold 27px Georgia";ctx.textAlign="center";ctx.fillText("!",x,y-60);ctx.restore()}else if(n.type==="elder"&&[1,4].includes(quest)){ctx.fillStyle="#ccc7a9";ctx.font="bold 22px Georgia";ctx.textAlign="center";ctx.fillText("?",x,y-60)}
-if(distance(player,n)<2.1){ctx.font="12px Georgia";ctx.textAlign="center";ctx.fillStyle="#ffda9b";ctx.fillText(n.name,x,y-62)}}
+function questMarkerForElder(){
+ if(quest===0||quest===3)return{text:"!",color:"#ffd35f",glow:true};
+ if(quest===1||quest===4)return{text:"?",color:"#9c958c",glow:false};
+ if(quest===2||quest===5)return{text:"?",color:"#ffd35f",glow:true};
+ return null;
+}
+function drawNpc(n){
+ const p=iso(n.x,n.y),x=p.x,y=p.y;
+ ellipse(x,y+4,15,7,"#000a");
+ polygon([[x-13,y-5],[x-11,y-34],[x,y-43],[x+12,y-33],[x+14,y-5]],n.type==="elder"?"#634d69":"#655345","#242029");
+ ellipse(x,y-34,7,9,"#cfb19a");
+ polygon([[x-10,y-38],[x,y-50],[x+10,y-38]],n.type==="elder"?"#9284a1":"#a08c75");
+ if(n.type==="elder")line(x+12,y-27,x+20,y+1,"#c4a57d",3);
+ if(n.type==="elder"){
+  const marker=questMarkerForElder();
+  if(marker){
+   ctx.save();
+   ctx.textAlign="center";
+   ctx.font="bold 27px Georgia";
+   if(marker.glow){ctx.shadowColor=marker.color;ctx.shadowBlur=11}
+   ctx.fillStyle=marker.color;
+   ctx.fillText(marker.text,x,y-61);
+   ctx.restore();
+  }
+ }
+ if(distance(player,n)<2.1){ctx.font="12px Georgia";ctx.textAlign="center";ctx.fillStyle="#ffda9b";ctx.fillText(n.name,x,y-83)}
+}
 function drawEnemy(e){if(e.dead>0)return;const p=iso(e.x,e.y),x=p.x,y=p.y;ellipse(x,y+2,19,8,"#000a");ellipse(x,y-13,18,12,(e.hitFlash||0)>0?"#a95a52":"#5e5a56");ellipse(x+9,y-15,11,9,"#79716a");polygon([[x+6,y-23],[x+12,y-36],[x+18,y-24]],"#635e5b");polygon([[x+18,y-24],[x+26,y-37],[x+28,y-15]],"#675e5b");ellipse(x+17,y-16,2,2,"#f3b569");line(x-13,y-7,x-23,y-11,"#5c595b",6);ctx.fillStyle="#110d12";ctx.fillRect(x-18,y-45,36,5);ctx.fillStyle="#c25356";ctx.fillRect(x-18,y-45,36*e.hp/e.maxHp,5)}
 function drawPlayer(){const p=iso(player.x,player.y),x=p.x,y=p.y,step=Math.sin(player.walk)*1.5;ellipse(x,y+6,19,8,"#030408bb");polygon([[x-17,y-4],[x-13,y-34+step],[x,y-42+step],[x+14,y-31+step],[x+17,y-4]],"#43566d","#121c29");polygon([[x-10,y-33+step],[x,y-50+step],[x+10,y-33+step],[x+5,y-22+step],[x-6,y-22+step]],"#87909e","#283246");ellipse(x,y-35+step,5,6,"#c8af9c");line(x+13,y-22+step,x+24,y-8+step,"#afb9c6",4);if(player.flash>0){ctx.globalAlpha=player.flash/.2;ctx.strokeStyle="#eac18c";ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(x,y,68,28,0,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1}}
 function drawGround(){const c=iso(player.x,player.y);for(let y=-WORLD;y<=WORLD;y++)for(let x=-WORLD;x<=WORLD;x++){const p=iso(x,y);if(Math.abs(p.x-c.x)>vw/2+TW||Math.abs(p.y-c.y)>vh/2+TH)continue;const h=hash(x,y),village=Math.hypot(x,y)<5.2,road=(Math.abs(y-x*.18)<1.3&&x>0&&x<14)||Math.hypot(x-relicSpot.x,y-relicSpot.y)<2;const color=road?"#47403a":village?(h>.5?"#3b3c32":"#34382e"):h>.87?"#34333a":h>.63?"#28302d":h>.31?"#252c2a":"#202928";polygon([[p.x,p.y-TH/2],[p.x+TW/2,p.y],[p.x,p.y+TH/2],[p.x-TW/2,p.y]],color,"#131e20");if(h>.75&&!road){line(p.x-5,p.y+1,p.x-8,p.y-6,"#53604b66",1);line(p.x+3,p.y+5,p.x+7,p.y-3,"#53604b66",1)}}}
