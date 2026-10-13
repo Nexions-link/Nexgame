@@ -46,6 +46,25 @@ const terrainGeo=new THREE.PlaneGeometry(190,190,120,120);terrainGeo.rotateX(-Ma
 const tp=terrainGeo.attributes.position,colors=[];const ca=new THREE.Color(0x789044),cb=new THREE.Color(0xb1b76a),cc=new THREE.Color();
 for(let i=0;i<tp.count;i++){const x=tp.getX(i),z=tp.getZ(i);tp.setY(i,heightAt(x,z));cc.copy(ca).lerp(cb,.5+.24*Math.sin(x*.075+z*.04)+.13*Math.sin(x*.38-z*.22));colors.push(cc.r,cc.g,cc.b)}terrainGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));terrainGeo.computeVertexNormals();mesh(scene,terrainGeo,M.grass,0,0,0,1,1,1,false);
 const routes=[[[0,9],[-2,0],[-5,-12],[-8,-26],[-18,-42]],[[0,3],[13,5],[25,2],[38,-9]],[[0,9],[1,24],[12,37],[32,43]]];
+const SCOUT_X=12,SCOUT_Z=37,BOSS_X=39,BOSS_Z=47;
+const bossWaypoints=[[0,9],[1,24],[12,37],[32,43],[BOSS_X,BOSS_Z]];
+// Crimson dashes mark the final hunting route in both the 3D world and map.
+const bossGuide=new THREE.InstancedMesh(new THREE.BoxGeometry(.3,.05,1.0),
+ new THREE.MeshBasicMaterial({color:0xd43835,transparent:true,opacity:.92,depthWrite:false}),80);
+bossGuide.castShadow=false;bossGuide.receiveShadow=false;bossGuide.frustumCulled=false;
+const dashDummy=new THREE.Object3D();let guideCount=0;
+for(let step=0;step<bossWaypoints.length-1;step++){
+ const [ax,az]=bossWaypoints[step],[bx,bz]=bossWaypoints[step+1];
+ const dx=bx-ax,dz=bz-az,dist=Math.hypot(dx,dz),yaw=Math.atan2(dx,dz);
+ for(let d=.8;d<dist-.2;d+=2.15){
+  const x=ax+dx*d/dist,z=az+dz*d/dist;
+  dashDummy.position.set(x,heightAt(x,z)+.14,z);
+  dashDummy.rotation.set(0,yaw,0);dashDummy.updateMatrix();
+  bossGuide.setMatrixAt(guideCount++,dashDummy.matrix);
+ }
+}
+bossGuide.count=guideCount;bossGuide.instanceMatrix.needsUpdate=true;
+bossGuide.visible=false;scene.add(bossGuide);
 const pathSegments=[];
 function path(points,width){for(let k=0;k<points.length-1;k++){const [ax,az]=points[k],[bx,bz]=points[k+1];pathSegments.push({ax,az,bx,bz,width});const length=Math.hypot(bx-ax,bz-az),nx=-(bz-az)/length*width/2,nz=(bx-ax)/length*width/2,steps=Math.ceil(length),p=[],uv=[];for(let i=0;i<steps;i++){const coords=[];for(const t of [i/steps,(i+1)/steps])for(const side of [-1,1]){const x=ax+(bx-ax)*t+nx*side,z=az+(bz-az)*t+nz*side;coords.push([x,heightAt(x,z)+.032,z])}for(const id of [0,1,2,1,3,2]){p.push(...coords[id]);uv.push(0,0)}}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();mesh(world,geo,M.dirt,0,0,0,1,1,1,false)}}
 routes.forEach(r=>path(r,3.5));
@@ -115,6 +134,15 @@ const relic=group(scene,35,heightAt(35,-14)+1.7,-11.8);const featherMat=material
 // Lightweight wildlife: animated joint groups, no skinned meshes or animation files.
 function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
 const enemies=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[34,13]].map(([x,z],i)=>makePlainstrider(x,z,i));
+for(const enemy of enemies){enemy.name='Равнинный долгоног';enemy.baseScale=1;enemy.boss=false}
+const giant=makePlainstrider(BOSS_X,BOSS_Z,enemies.length);
+giant.name='Грозоклюв — огромный долгоног';
+giant.boss=true;giant.baseScale=1.8;giant.maxHp=giant.hp=108;
+giant.root.scale.setScalar(giant.baseScale);
+giant.nameTag=spriteText('Грозоклюв · Исполин','#f9bd91',27);
+giant.nameTag.scale.set(4.7,.84,1);scene.add(giant.nameTag);
+giant.nameTag.position.set(BOSS_X,heightAt(BOSS_X,BOSS_Z)+4.65,BOSS_Z);
+enemies.push(giant);
 const CORPSE_DURATION=65,CORPSE_FALL_TIME=.85,LOOT_INTERACT_RANGE=3.3;
 const corpseLootTexture=texture((c,size)=>{
  c.clearRect(0,0,size,size);
@@ -164,7 +192,8 @@ const ITEM_CATALOG={
  feather:{name:'Перо долгонога',icon:'🪶',quality:'Обычный',description:'Длинное крепкое перо равнинного долгонога.'},
  beak:{name:'Клюв долгонога',icon:'🦴',quality:'Обычный',description:'Прочный клюв. Может пригодиться ремесленнику.'},
  down:{name:'Мягкий пух',icon:'☁️',quality:'Обычный',description:'Тёплый и лёгкий пух с равнин.'},
- charm:{name:'Полированная бусина',icon:'🔮',quality:'Необычный',description:'Редкая находка с узором, напоминающим облака.'}
+ charm:{name:'Полированная бусина',icon:'🔮',quality:'Необычный',description:'Редкая находка с узором, напоминающим облака.'},
+ giantFeather:{name:'Перо Грозоклюва',icon:'🪶',quality:'Редкий',description:'Огромное багряное перо поверженного исполина.'}
 };
 const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null)};
 let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};
@@ -311,7 +340,7 @@ function resetWorld(){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
   e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;
   e.root.visible=true;e.shadow.visible=true;
-  e.root.rotation.z=0;e.root.scale.setScalar(1);
+  e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
   e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
  }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();shockAge=9;cameraYaw=0;cameraPitch=.29;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
@@ -464,7 +493,7 @@ function showCorpseLoot(e){
   combatWarning('Слишком далеко',true);return;
  }
  if(!isLootableCorpse(e)){msg('На теле ничего нет');return}
- openDialog('Добыча с долгонога','ОБЫСК ТЕЛА',[],'loot');
+ openDialog((e.name||'Добыча с долгонога'),'ОБЫСК ТЕЛА',[],'loot');
  renderCorpseLoot(e);
 }
 function heal(fromBag=false){if(modalKind&&!fromBag)return false;if(state.potions<=0){msg('Лечебные настои закончились');return false}const max=120+(state.level-1)*20;if(state.hp>=max){msg('Здоровье уже полное');return false}state.hp=Math.min(max,state.hp+55);state.potions--;save();updateHUD();msg('Луговые травы восстановили здоровье');return true}
@@ -532,7 +561,7 @@ function damageEnemy(e,amount){
  e.hp-=amount;e.aggro=true;e.hit=.22;
  if(e.hp<=0){
   e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
-  e.loot=rollCorpseLoot();
+  e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot()]:rollCorpseLoot();
   e.root.visible=true;e.shadow.visible=true;
   e.lootMarker.visible=e.loot.length>0;
   e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.35,e.root.position.z);
@@ -585,7 +614,7 @@ function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textConten
  $('targetNext').classList.toggle('target-selected',valid);
  if(valid){
   const dist=targetDistance(selected),problem=meleeFailure(selected);
-  $('targetName').textContent='Равнинный долгоног · 1';
+  $('targetName').textContent=selected.name+(selected.boss?' · Элитный':' · 1');
   $('targetFill').style.width=Math.max(0,selected.hp/selected.maxHp*100)+'%';
   $('targetHp').textContent=Math.ceil(selected.hp)+' / '+selected.maxHp;
   $('targetDistance').textContent='Дистанция: '+dist.toFixed(1).replace('.',',')+' м · удар до '+MELEE_RANGE.toFixed(1).replace('.',',')+' м';
@@ -636,6 +665,7 @@ function movement(dt){
 function revive(){state.hp=120+(state.level-1)*20;state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
  if(e.dead>0){
+  if(e.boss&&e.nameTag)e.nameTag.visible=false;
   e.dead=Math.max(0,e.dead-dt);e.corpseAge+=dt;
   const fall=smooth(0,CORPSE_FALL_TIME,e.corpseAge);
   // Tilt the whole bird onto the ground instead of instantly hiding it.
@@ -648,9 +678,9 @@ function updateEnemy(e,dt){
   }
   if(e.dead<=0){
    e.dead=0;e.corpseAge=0;e.hp=e.maxHp;e.loot=[];
-   e.lootMarker.visible=false;e.root.visible=e.shadow.visible=true;
+   e.lootMarker.visible=false;e.root.visible=e.shadow.visible=true;if(e.boss&&e.nameTag)e.nameTag.visible=true;
    e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
-   e.root.rotation.z=0;e.root.scale.setScalar(1);
+   e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
    e.legs[0].rotation.x=e.legs[1].rotation.x=0;
    e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
    e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
@@ -660,11 +690,12 @@ function updateEnemy(e,dt){
  e.hit=Math.max(0,e.hit-dt);e.stunned=Math.max(0,e.stunned-dt);e.attackCd=Math.max(0,e.attackCd-dt);e.roamTime+=dt;const p=e.root.position,dist=Math.hypot(state.x-p.x,state.z-p.z),home=Math.hypot(state.x-e.spawnX,state.z-e.spawnZ);
  if(e.aggro&&(home>19||dist>22)){e.aggro=false;e.hp=e.maxHp}
  let tx=e.spawnX+Math.sin(e.roamTime*.18+e.index)*2.2,tz=e.spawnZ+Math.cos(e.roamTime*.14+e.index)*2.2,speed=.42;
- if(e.aggro){tx=state.x;tz=state.z;speed=2.1}
+ if(e.aggro){tx=state.x;tz=state.z;speed=e.boss?1.75:2.1}
  const d=Math.hypot(tx-p.x,tz-p.z),oldX=p.x,oldZ=p.z;
- if(d>(e.aggro?1.75:.25)&&e.stunned===0){const dx=(tx-p.x)/d*speed*dt,dz=(tz-p.z)/d*speed*dt;if(clearAt(p.x+dx,p.z+dz,.36)){p.x+=dx;p.z+=dz}else if(clearAt(p.x+dx,p.z,.36))p.x+=dx;else if(clearAt(p.x,p.z+dz,.36))p.z+=dz;const goal=Math.atan2(dx,dz);e.root.rotation.y+=Math.atan2(Math.sin(goal-e.root.rotation.y),Math.cos(goal-e.root.rotation.y))*(1-Math.exp(-dt*6))}
- if(e.aggro&&dist<2.1&&e.attackCd===0&&e.stunned===0){state.hp-=9;e.attackCd=1.5;if(state.hp<=0)revive()}
- const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;e.body.rotation.x=e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
+ if(d>(e.aggro?(e.boss?2.75:1.75):.25)&&e.stunned===0){const dx=(tx-p.x)/d*speed*dt,dz=(tz-p.z)/d*speed*dt;if(clearAt(p.x+dx,p.z+dz,.36)){p.x+=dx;p.z+=dz}else if(clearAt(p.x+dx,p.z,.36))p.x+=dx;else if(clearAt(p.x,p.z+dz,.36))p.z+=dz;const goal=Math.atan2(dx,dz);e.root.rotation.y+=Math.atan2(Math.sin(goal-e.root.rotation.y),Math.cos(goal-e.root.rotation.y))*(1-Math.exp(-dt*6))}
+ if(e.aggro&&dist<(e.boss?3:2.1)&&e.attackCd===0&&e.stunned===0){state.hp-=e.boss?14:9;e.attackCd=e.boss?1.8:1.5;if(state.hp<=0)revive()}
+ if(e.boss&&e.nameTag){e.nameTag.visible=true;e.nameTag.position.set(p.x,heightAt(p.x,p.z)+4.65,p.z)}
+  const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;e.body.rotation.x=e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
  e.shadow.position.set(p.x,p.y+.055,p.z);
 }
 const camFocus=new THREE.Vector3(state.x,heightAt(state.x,state.z)+2.15,state.z),camTarget=new THREE.Vector3(),camDirection=new THREE.Vector3(),camRay=new THREE.Raycaster();
@@ -701,7 +732,7 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
  if(selection.visible){
   selection.position.set(selected.root.position.x,heightAt(selected.root.position.x,selected.root.position.z)+.06,selected.root.position.z);
   selection.material.color.setHex(meleeFailure(selected)?0xd97456:0xe9db84);
-  selection.material.opacity=autoAttack?.96:.79;
+  selection.material.opacity=autoAttack?.96:.79;selection.scale.setScalar(selected.boss?1.65:1);
  }
  shockAge+=dt;stompRing.visible=shockAge<.6;if(stompRing.visible){stompRing.scale.setScalar(1+shockAge*7);stompRing.material.opacity=(1-shockAge/.6)*.7}
  attackOverlay.style.transform='scaleY('+clamp(attackCooldown/SWING_PERIOD,0,1)+')';stompOverlay.style.transform='scaleY('+clamp(stompCooldown/8,0,1)+')';$('rageFill').style.width=(1-clamp(attackCooldown/SWING_PERIOD,0,1))*100+'%';
