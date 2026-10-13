@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · Modern 2.5D 0.4</title><style>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · Modern 2.5D 0.4.1</title><style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#15272c;color:#f8f2e4;font-family:system-ui,Arial,sans-serif;touch-action:none}
 button{font:inherit;touch-action:manipulation;-webkit-user-select:none;user-select:none;cursor:pointer}
@@ -45,7 +45,7 @@ canvas{display:block;width:100vw;height:100dvh}
 @media(max-height:620px){#controls{width:126px;height:126px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom))}#joystickKnob{left:30px;top:30px}#attack{width:74px;height:74px;bottom:calc(10px + env(safe-area-inset-bottom))}#interact{width:65px;height:65px;bottom:calc(92px + env(safe-area-inset-bottom))}#questTracker{top:calc(112px + env(safe-area-inset-top))}}
 </style></head><body>
 <canvas id="game"></canvas>
-<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.4 · Modern 2.5D</div></div>
+<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.4.1 · Modern 2.5D</div></div>
 <div id="area">☽ Сумеречная долина</div>
 <div id="questTracker"><strong id="questTitle">Новое приключение</strong><span id="questText">Поговорите со старостой у деревни.</span></div>
 <div id="topActions"><button id="pauseBtn" class="topBtn">⏸ Пауза</button><button id="bagBtn" class="topBtn">🎒 Рюкзак</button></div>
@@ -100,6 +100,69 @@ const enemies=[
 {x:13,y:-6,sx:13,sy:-6,hp:48,maxHp:48,speed:.84,hit:0,dead:0,seed:5},
 {x:-8,y:9,sx:-8,sy:9,hp:48,maxHp:48,speed:.8,hit:0,dead:0,seed:6}
 ];
+// Solid footprints are deliberately smaller than crowns / rooftops:
+// the player can walk behind scenery, but not through trunks or walls.
+const colliders=[];
+for(const h of houses)colliders.push({kind:"box",x:h.x+.48,y:h.y+.48,halfX:.93,halfY:.93});
+for(const o of props){
+ const radius=o.type==="tree"?.43:o.type==="dead"?.29:o.type==="rock"?.55:.55;
+ colliders.push({kind:"circle",x:o.x,y:o.y,radius});
+}
+for(const n of npc)colliders.push({kind:"circle",x:n.x,y:n.y,radius:.29});
+// Avoid foliage / rock accidentally covering a wolf's spawn position.
+for(let i=colliders.length-1;i>=0;i--){
+ const c=colliders[i];
+ if(c.kind==="circle"&&enemies.some(e=>Math.hypot(e.sx-c.x,e.sy-c.y)<.68)&&!npc.some(n=>n.x===c.x&&n.y===c.y)){
+  colliders.splice(i,1);
+  const idx=props.findIndex(p=>p.x===c.x&&p.y===c.y);
+  if(idx>=0)props.splice(idx,1);
+ }
+}
+function collidesAt(x,y,radius=.26){
+ if(x-radius < -WORLD+.1||x+radius > WORLD-.1||y-radius < -WORLD+.1||y+radius > WORLD-.1)return true;
+ for(const o of colliders){
+  const dx=x-o.x,dy=y-o.y;
+  if(Math.abs(dx)>2.3||Math.abs(dy)>2.3)continue;
+  if(o.kind==="circle"){
+   const limit=radius+o.radius;
+   if(dx*dx+dy*dy<limit*limit)return true;
+  }else{
+   const nearestX=Math.max(-o.halfX,Math.min(dx,o.halfX));
+   const nearestY=Math.max(-o.halfY,Math.min(dy,o.halfY));
+   const ex=dx-nearestX,ey=dy-nearestY;
+   if(ex*ex+ey*ey<radius*radius)return true;
+  }
+ }
+ return false;
+}
+function moveWithCollisions(entity,dx,dy,radius=.26){
+ if(!dx&&!dy)return false;
+ const tx=entity.x+dx,ty=entity.y+dy;
+ if(!collidesAt(tx,ty,radius)){
+  entity.x=tx;entity.y=ty;return true;
+ }
+ // Axis-separated fallback gives the analog stick smooth wall sliding.
+ const steps=Math.abs(dx)>=Math.abs(dy)?[0,1]:[1,0];
+ let moved=false;
+ for(const axis of steps){
+  if(axis===0&&dx&&!collidesAt(entity.x+dx,entity.y,radius)){entity.x+=dx;moved=true}
+  else if(axis===1&&dy&&!collidesAt(entity.x,entity.y+dy,radius)){entity.y+=dy;moved=true}
+ }
+ return moved;
+}
+function ensurePlayerNotInWall(){
+ if(!collidesAt(player.x,player.y))return;
+ const startX=player.x,startY=player.y;
+ for(let ring=.4;ring<7;ring+=.3){
+  for(let i=0;i<24;i++){
+   const angle=i*Math.PI/12;
+   const x=startX+ring*Math.cos(angle),y=startY+ring*Math.sin(angle);
+   if(!collidesAt(x,y)){player.x=x;player.y=y;return}
+  }
+ }
+ player.x=0;player.y=0;
+}
+ensurePlayerNotInWall();
 function resize(){vw=innerWidth;vh=innerHeight;const d=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(vw*d);canvas.height=Math.round(vh*d);ctx.setTransform(d,0,0,d,0,0)}
 addEventListener("resize",resize);resize();
 function resetJoystick(){joystick.pointer=null;joystick.x=0;joystick.y=0;knob.style.transform="translate(0px,0px)"}
@@ -184,9 +247,9 @@ if(quest===6){title="Долина ждёт";msg="Исследуйте мир. П
 $("questTitle").textContent=title;$("questText").textContent=msg;
 const n=nearbyNpc(),canRelic=nearRelic();$("interact").style.display=!paused&&!dialogOpen&&(!!n||canRelic)?"block":"none";$("interact").innerHTML=canRelic?"✦<br>Взять":"✦<br>Говорить";
 $("area").textContent=Math.hypot(player.x,player.y)<5.3?"☽ Деревня Тихий Приют":Math.hypot(player.x-relicSpot.x,player.y-relicSpot.y)<3.5?"☽ Забытые руины":"☽ Сумеречная долина"}
-function update(dt){elapsed+=dt;const kx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft")),ky=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));let vx=joystick.x+kx,vy=joystick.y+ky;const v=Math.hypot(vx,vy);if(v>1){vx/=v;vy/=v}if(v>.02){const dx=(vx/TW+vy/TH)*SCREEN_SPEED*dt,dy=(vy/TH-vx/TW)*SCREEN_SPEED*dt;player.x=Math.max(-WORLD+.5,Math.min(WORLD-.5,player.x+dx));player.y=Math.max(-WORLD+.5,Math.min(WORLD-.5,player.y+dy));player.facing=vx>=0?1:-1;player.walk+=v*dt*11}
+function update(dt){elapsed+=dt;const kx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft")),ky=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));let vx=joystick.x+kx,vy=joystick.y+ky;const v=Math.hypot(vx,vy);if(v>1){vx/=v;vy/=v}if(v>.02){const dx=(vx/TW+vy/TH)*SCREEN_SPEED*dt,dy=(vy/TH-vx/TW)*SCREEN_SPEED*dt;const moved=moveWithCollisions(player,dx,dy,.26);player.facing=vx>=0?1:-1;if(moved)player.walk+=v*dt*11}
 player.cooldown=Math.max(0,player.cooldown-dt);player.flash=Math.max(0,player.flash-dt);
-for(const e of enemies){if(e.dead>0){e.dead-=dt;if(e.dead<=0){e.dead=0;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy}continue}e.hit-=dt;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);const pd=distance(player,e),home=Math.hypot(player.x-e.sx,player.y-e.sy);let targetX=e.sx,targetY=e.sy,spd=.44;if(pd<4.5&&home<6.0){targetX=player.x;targetY=player.y;spd=e.speed}const dx=targetX-e.x,dy=targetY-e.y,dist=Math.hypot(dx,dy);if(dist>.8){e.x+=dx/dist*spd*dt;e.y+=dy/dist*spd*dt}if(pd<.8&&home<6&&e.hit<=0){player.hp-=9;e.hit=1.15;if(player.hp<=0){player.hp=player.maxHp;player.x=0;player.y=0;resetJoystick();toast("Ты очнулся в Тихом Приюте")}}}
+for(const e of enemies){if(e.dead>0){e.dead-=dt;if(e.dead<=0){e.dead=0;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy}continue}e.hit-=dt;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);const pd=distance(player,e),home=Math.hypot(player.x-e.sx,player.y-e.sy);let targetX=e.sx,targetY=e.sy,spd=.44;if(pd<4.5&&home<6.0){targetX=player.x;targetY=player.y;spd=e.speed}const dx=targetX-e.x,dy=targetY-e.y,dist=Math.hypot(dx,dy);if(dist>.8){moveWithCollisions(e,dx/dist*spd*dt,dy/dist*spd*dt,.29)}if(pd<.8&&home<6&&e.hit<=0){player.hp-=9;e.hit=1.15;if(player.hp<=0){player.hp=player.maxHp;player.x=0;player.y=0;resetJoystick();toast("Ты очнулся в Тихом Приюте")}}}
 const p=iso(player.x,player.y);cameraX=p.x-vw/2;cameraY=p.y-vh*.51;
 refreshHUD();if(toastUntil&&performance.now()>toastUntil){$("toast").classList.remove("visible");toastUntil=0}}
 function polygon(points,fill,stroke){ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}}
