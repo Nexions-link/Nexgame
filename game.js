@@ -510,13 +510,18 @@ for(const [id,fn] of [['attack',attack],['stomp',stomp]])$(id).addEventListener(
 // owns the movement joystick. Native click may be suppressed by Safari then.
 function bindImmediateButton(id,action){
  const button=$(id);
+ let lastPointerActivation=-1000;
  button.addEventListener('pointerdown',e=>{
   if(e.button!==undefined&&e.button!==0)return;
   e.preventDefault();e.stopPropagation();
+  lastPointerActivation=performance.now();
   action();
  });
- // Preserve keyboard/accessibility activation without firing twice on touch.
- button.addEventListener('click',e=>{if(e.detail===0)action()});
+ // Some Safari builds synthesize detail=0 clicks after a touch. Ignore those
+ // for a short grace period, but retain keyboard/accessibility activation.
+ button.addEventListener('click',e=>{
+  if(e.detail===0&&performance.now()-lastPointerActivation>450)action();
+ });
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
