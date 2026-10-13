@@ -1,4 +1,4 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · Modern 2.5D 0.4.1</title><style>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#090b10"><title>NexGame · Modern 2.5D 0.4.2</title><style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#15272c;color:#f8f2e4;font-family:system-ui,Arial,sans-serif;touch-action:none}
 button{font:inherit;touch-action:manipulation;-webkit-user-select:none;user-select:none;cursor:pointer}
@@ -45,7 +45,7 @@ canvas{display:block;width:100vw;height:100dvh}
 @media(max-height:620px){#controls{width:126px;height:126px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom))}#joystickKnob{left:30px;top:30px}#attack{width:74px;height:74px;bottom:calc(10px + env(safe-area-inset-bottom))}#interact{width:65px;height:65px;bottom:calc(92px + env(safe-area-inset-bottom))}#questTracker{top:calc(112px + env(safe-area-inset-top))}}
 </style></head><body>
 <canvas id="game"></canvas>
-<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.4.1 · Modern 2.5D</div></div>
+<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.4.2 · Modern 2.5D</div></div>
 <div id="area">☽ Сумеречная долина</div>
 <div id="questTracker"><strong id="questTitle">Новое приключение</strong><span id="questText">Поговорите со старостой у деревни.</span></div>
 <div id="topActions"><button id="pauseBtn" class="topBtn">⏸ Пауза</button><button id="bagBtn" class="topBtn">🎒 Рюкзак</button></div>
@@ -75,7 +75,7 @@ const $=id=>document.getElementById(id);
 const canvas=$("game"),ctx=canvas.getContext("2d"),keys=new Set();
 const TW=76,TH=38,WORLD=27,START_HP=100,SCREEN_SPEED=124;
 const joystick={pointer:null,x:0,y:0},stick=$("controls"),knob=$("joystickKnob");
-const player={x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,walk:0};
+const player={x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,walk:0,motion:0};
 let quest=0,kills=0,relic=false,paused=false,dialogOpen=false,last=performance.now(),vw=innerWidth,vh=innerHeight,cameraX=0,cameraY=0,elapsed=0,toastUntil=0;
 const SAVE_KEY="nexgame-rpg-v040",LEGACY_SAVE_KEY="nexgame-rpg-v030";
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({x:player.x,y:player.y,hp:player.hp,level:player.level,xp:player.xp,gold:player.gold,potions:player.potions,quest,kills,relic}))}catch(e){}}
@@ -187,7 +187,7 @@ function togglePause(){
 function resetTestWorld(){
  if(!paused)return;
  clearControls();
- Object.assign(player,{x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,walk:0});
+ Object.assign(player,{x:0,y:0,hp:100,maxHp:100,level:1,xp:0,gold:0,potions:2,flash:0,cooldown:0,facing:1,walk:0,motion:0});
  quest=0;kills=0;relic=false;elapsed=0;
  for(const e of enemies){
   e.x=e.sx;e.y=e.sy;e.hp=e.maxHp;e.hit=0;e.hitFlash=0;e.dead=0;
@@ -247,7 +247,7 @@ if(quest===6){title="Долина ждёт";msg="Исследуйте мир. П
 $("questTitle").textContent=title;$("questText").textContent=msg;
 const n=nearbyNpc(),canRelic=nearRelic();$("interact").style.display=!paused&&!dialogOpen&&(!!n||canRelic)?"block":"none";$("interact").innerHTML=canRelic?"✦<br>Взять":"✦<br>Говорить";
 $("area").textContent=Math.hypot(player.x,player.y)<5.3?"☽ Деревня Тихий Приют":Math.hypot(player.x-relicSpot.x,player.y-relicSpot.y)<3.5?"☽ Забытые руины":"☽ Сумеречная долина"}
-function update(dt){elapsed+=dt;const kx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft")),ky=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));let vx=joystick.x+kx,vy=joystick.y+ky;const v=Math.hypot(vx,vy);if(v>1){vx/=v;vy/=v}if(v>.02){const dx=(vx/TW+vy/TH)*SCREEN_SPEED*dt,dy=(vy/TH-vx/TW)*SCREEN_SPEED*dt;const moved=moveWithCollisions(player,dx,dy,.26);player.facing=vx>=0?1:-1;if(moved)player.walk+=v*dt*11}
+function update(dt){elapsed+=dt;const kx=Number(keys.has("d")||keys.has("arrowright"))-Number(keys.has("a")||keys.has("arrowleft")),ky=Number(keys.has("s")||keys.has("arrowdown"))-Number(keys.has("w")||keys.has("arrowup"));let vx=joystick.x+kx,vy=joystick.y+ky;const v=Math.hypot(vx,vy);if(v>1){vx/=v;vy/=v}if(v>.02){const dx=(vx/TW+vy/TH)*SCREEN_SPEED*dt,dy=(vy/TH-vx/TW)*SCREEN_SPEED*dt;const moved=moveWithCollisions(player,dx,dy,.26);if(Math.abs(vx)>.08)player.facing=vx>0?1:-1;if(moved){player.walk+=v*dt*11;player.motion=Math.min(1,(player.motion||0)+dt*10)}else player.motion=Math.max(0,(player.motion||0)-dt*10)}else{player.motion=Math.max(0,(player.motion||0)-dt*10)}
 player.cooldown=Math.max(0,player.cooldown-dt);player.flash=Math.max(0,player.flash-dt);
 for(const e of enemies){if(e.dead>0){e.dead-=dt;if(e.dead<=0){e.dead=0;e.hp=e.maxHp;e.x=e.sx;e.y=e.sy}continue}e.hit-=dt;e.hitFlash=Math.max(0,(e.hitFlash||0)-dt);const pd=distance(player,e),home=Math.hypot(player.x-e.sx,player.y-e.sy);let targetX=e.sx,targetY=e.sy,spd=.44;if(pd<4.5&&home<6.0){targetX=player.x;targetY=player.y;spd=e.speed}const dx=targetX-e.x,dy=targetY-e.y,dist=Math.hypot(dx,dy);if(dist>.8){moveWithCollisions(e,dx/dist*spd*dt,dy/dist*spd*dt,.29)}if(pd<.8&&home<6&&e.hit<=0){player.hp-=9;e.hit=1.15;if(player.hp<=0){player.hp=player.maxHp;player.x=0;player.y=0;resetJoystick();toast("Ты очнулся в Тихом Приюте")}}}
 const p=iso(player.x,player.y);cameraX=p.x-vw/2;cameraY=p.y-vh*.51;
@@ -406,26 +406,80 @@ function drawEnemy(e){
 }
 function drawPlayer(){
  const p=iso(player.x,player.y),x=p.x,y=p.y;
- const step=Math.sin(player.walk)*2,fac=player.facing;
- softShadow(x,y+3,22,9,.25);
- // Animated boots, layered cape and metallic tunic.
- ellipse(x-8,y-5+(step>0?step:0),6,4,"#4c555d");
- ellipse(x+8,y-5+(step<0?-step:0),6,4,"#4c555d");
- polygon([[x-17,y-8],[x-18,y-42],[x-6,y-52],[x+15,y-40],[x+20,y-6]],"#526a85","#344f60");
- polygon([[x-10,y-8],[x-9,y-40],[x+3,y-46],[x+12,y-36],[x+12,y-7]],"#87a8b6","#536c88");
- polygon([[x-12,y-39],[x-19,y-30],[x-16,y-15],[x-9,y-18]],"#d2beac","#8c9999");
- polygon([[x+11,y-39],[x+20,y-32],[x+16,y-17],[x+9,y-20]],"#c7b3a4","#6f8a8f");
- ellipse(x,y-46+step*.23,9,11,radial(x-5,y-51,16,"#ffe0ba","#b88275"));
- leaf(x,y-55,10,6,"#6f5450","#493e45");
- polygon([[x-8,y-35],[x,y-44],[x+9,y-35],[x+7,y-17],[x-6,y-17]],"#507c8b","#365866");
- ellipse(x,y-34,3.3,3.3,"#f8d28e");
- line(x+15*fac,y-26,x+23*fac,y-10,"#b2c2cf",4);
- line(x+23*fac,y-10,x+29*fac,y-34,"#e6f0e9",3);
- if(player.flash>0){
-  ctx.save();ctx.globalAlpha=player.flash/.2;ctx.strokeStyle="#f6d68c";
-  ctx.lineWidth=5;ctx.shadowColor="#f6c66c";ctx.shadowBlur=12;
-  ctx.beginPath();ctx.ellipse(x,y,64,26,0,0,Math.PI*2);ctx.stroke();ctx.restore();
+ const movement=player.motion||0,walkCycle=player.walk||0;
+ const bob=Math.sin(elapsed*2.2)*.6+Math.abs(Math.sin(walkCycle))*1.4*movement;
+ const stride=Math.sin(walkCycle)*4.8*movement;
+ const lean=Math.sin(walkCycle)*1.3*movement;
+ const facing=player.facing||1;
+ softShadow(x,y+3,25,10,.27);
+ ctx.save();
+ ctx.translate(x,y+bob);
+ ctx.scale(facing,1);
+ // Cloak is behind the boots and armour and sways during walking.
+ const cloak=ctx.createLinearGradient(-22,-52,17,0);
+ cloak.addColorStop(0,"#4e718a");
+ cloak.addColorStop(.55,"#375b70");
+ cloak.addColorStop(1,"#254354");
+ polygon([[-11,-43],[-23,-37],[-24+lean,-5],[-17+lean,1],[5,0],[15,-11],[13,-42]],cloak,"#294356");
+ polygon([[-22+lean,-8],[-16+lean,-18],[-15+lean,0],[-19+lean,2]],"#769bac66");
+ // Moving legs, reinforced knee guards and individually drawn leather boots.
+ for(const [bx,phase] of [[-8,stride],[8,-stride]]){
+  const footY=-1+Math.max(0,phase*.32);
+  polygon([[bx-5,-23],[bx+5,-23],[bx+5+phase*.2,-9],[bx-4+phase*.2,-8]],"#56677b","#384959");
+  polygon([[bx-5+phase*.22,-12],[bx+6+phase*.22,-12],[bx+6+phase*.22,-5],[bx-5+phase*.22,-5]],"#a4b7c1","#5b7686");
+  polygon([[bx-7+phase*.35,-7],[bx+8+phase*.35,-7],[bx+10+phase*.35,footY],[bx-8+phase*.35,footY]],"#654c45","#332e35");
+  line(bx-5+phase*.25,-3,bx+6+phase*.25,-3,"#b69370",1.5);
  }
+ // Rounded belt and metal breastplate, each with its own shaded surface.
+ polygon([[-13,-49],[-18,-37],[-13,-18],[12,-18],[18,-37],[12,-49]],"#5a697e","#314657");
+ const armor=ctx.createLinearGradient(-14,-54,15,-17);
+ armor.addColorStop(0,"#d9e1dc");armor.addColorStop(.5,"#789eac");armor.addColorStop(1,"#416779");
+ polygon([[-11,-46],[-5,-52],[10,-48],[13,-36],[9,-23],[-9,-23],[-13,-35]],armor,"#385468");
+ polygon([[-9,-42],[0,-48],[7,-43],[4,-28],[-6,-27]],"#aac5c4","#547b8a");
+ polygon([[4,-43],[11,-46],[12,-32],[6,-26]],"#3b7083","#385969");
+ line(-9,-21,10,-21,"#594842",5);
+ ellipse(0,-21,4.5,3,"#e6b76d");
+ // Strong shoulder silhouette, with rounded shiny pauldrons.
+ ellipse(-15,-45,10,8,"#4f7185");
+ ellipse(-18,-48,8,6,radial(-21,-51,11,"#c4dbd2","#658e9b"));
+ ellipse(15,-45,11,8,"#44677e");
+ ellipse(17,-48,8,6,radial(14,-52,11,"#d0dcd5","#688e9f"));
+ polygon([[-24,-46],[-19,-32],[-13,-28],[-11,-40]],"#b1c2bd","#607f88");
+ polygon([[13,-39],[17,-29],[22,-33],[23,-46]],"#a4babb","#577e91");
+ // Hair and facial features retain their shape at small mobile sizes.
+ ellipse(0,-59,10,11,"#58463c");
+ ellipse(0,-57,8.5,10,radial(-4,-62,16,"#fbe5cb","#b98470"));
+ ellipse(-3,-58,1.5,1.5,"#4e463d");
+ ellipse(4,-58,1.5,1.5,"#4e463d");
+ line(-1,-51,3,-51,"#986b62",1);
+ polygon([[-10,-63],[-9,-70],[-1,-74],[10,-69],[9,-63],[4,-67],[-3,-65]],"#513d37","#3e3030");
+ polygon([[-9,-65],[-6,-72],[0,-73],[-1,-65]],"#796053");
+ // Chest clasp at center catches the light.
+ ellipse(0,-39,3.8,4,"#f6ce83");
+ ellipse(-1,-40,1.6,1.9,"#fff3c2");
+ // Weapon rotates around the hand during attack.
+ const attackPhase=player.flash>0?1-Math.min(1,player.flash/.2):0;
+ const attacking=player.flash>0;
+ const swordAngle=attacking?(-.2-1.3*Math.sin(attackPhase*Math.PI)):-.28;
+ ctx.save();
+ ctx.translate(21,-32);
+ ctx.rotate(swordAngle);
+ // Hand, leather hilt, golden guard and tapered steel blade.
+ ellipse(0,0,5,6,"#dfbaa0");
+ line(1,-2,4,-18,"#614a43",5);
+ line(-5,-16,12,-19,"#e6c78d",3);
+ polygon([[4,-17],[-2,-22],[-1,-55],[6,-66],[11,-55],[9,-22]],"#f0f5e9","#879fac");
+ polygon([[4,-17],[6,-66],[6,-24]],"#ffffffaa");
+ line(1,-21,7,-21,"#ffffff99",1.2);
+ ctx.restore();
+ if(player.flash>0){
+  ctx.save();
+  ctx.globalAlpha=Math.min(1,player.flash/.2)*.8;
+  ctx.strokeStyle="#fff0b7";ctx.shadowColor="#ffeaa1";ctx.shadowBlur=12;ctx.lineWidth=5;
+  ctx.beginPath();ctx.ellipse(3,-13,55,29,-.2,Math.PI*1.1,Math.PI*1.95);ctx.stroke();
+  ctx.restore();
+ }
+ ctx.restore();
 }
 function drawGround(){
  const c=iso(player.x,player.y);
