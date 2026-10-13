@@ -623,8 +623,11 @@ function damageEnemy(e,amount){
   e.root.visible=true;e.shadow.visible=true;
   e.lootMarker.visible=e.loot.length>0;
   e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.35,e.root.position.z);
-  state.gold+=4;experience(22);
-  if(state.quest===1){
+  state.gold+=e.boss?12:4;experience(e.boss?70:22);
+  if(e.boss&&state.quest===10){
+   state.quest=11;msg('Грозоклюв повержен! Вернись к наставнику.');
+  }
+  if(state.quest===1&&!e.boss){
    state.kills=Math.min(3,state.kills+1);
    if(state.kills===3){state.quest=2;msg('Обряд силы: вернись к наставнику')}
   }
@@ -677,6 +680,13 @@ const questLines=[
 let lastMarker='';
 function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
+ const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
+ $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
+ const guide=$('questGuidance');
+ guide.hidden=state.quest!==7&&state.quest!==10;
+ if(state.quest===7)guide.textContent='Разведка: идите на юго-восток по дороге.';
+ if(state.quest===10)guide.textContent='Красный пунктир ведёт к Грозоклюву · 108 HP';
+ bossGuide.visible=state.quest===10;
  const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!target;if(target)$('interact').innerHTML=target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
  const valid=isAliveTarget(selected);
  $('targetFrame').hidden=!valid;$('zoneTitle').hidden=Boolean(valid);
@@ -694,10 +704,22 @@ function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textConten
   $('targetStatus').textContent=status;
   $('targetStatus').className=problem?(problem.includes('далеко')?'target-far':'target-back'):(autoAttack?'target-active':'target-ready');
  }
- const marker=state.quest===0||state.quest===3?'!':state.quest===2||state.quest===5?'?':'·';questMarker.visible=state.quest!==6;if(marker!==lastMarker){lastMarker=marker;const c=questMarker.material.map.image,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 72px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#3a2c19';ctx.fillStyle=marker==='·'?'#b4b395':'#ffe180';ctx.strokeText(marker,256,48);ctx.fillText(marker,256,48);questMarker.material.map.needsUpdate=true}relic.visible=state.quest===4;relicShadow.visible=relic.visible;
+ const marker=[0,3,6,9].includes(state.quest)?'!':[2,5,8,11].includes(state.quest)?'?':'·';questMarker.visible=state.quest!==12;if(marker!==lastMarker){lastMarker=marker;const c=questMarker.material.map.image,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 72px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#3a2c19';ctx.fillStyle=marker==='·'?'#b4b395':'#ffe180';ctx.strokeText(marker,256,48);ctx.fillText(marker,256,48);questMarker.material.map.needsUpdate=true}relic.visible=state.quest===4;relicShadow.visible=relic.visible;
 }
 const minimap=$('minimap'),mapCtx=minimap.getContext('2d');
-function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='#788252';c.fillRect(0,0,s,s);c.save();c.translate(s/2,s/2);c.fillStyle='#6d774b';for(let i=0;i<8;i++){c.beginPath();c.ellipse(Math.sin(i*1.6)*90,Math.cos(i*1.6)*90,38,17,i,0,TAU);c.fill()}c.translate(-state.x*k,-state.z*k);c.strokeStyle='#c0ae71';c.lineWidth=7;c.lineCap='round';for(const route of routes){c.beginPath();route.forEach(([x,z],i)=>i?c.lineTo(x*k,z*k):c.moveTo(x*k,z*k));c.stroke()}for(const p of mapLandmarks){c.fillStyle=p.color;c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.strokeStyle='#4e4e30';c.lineWidth=1;c.stroke()}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){c.fillStyle=e.aggro?'#b94f35':'#d8c073';c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,2.5,0,TAU);c.fill()}else if(isLootableCorpse(e)){c.fillStyle='#ffe6a0';c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,3.8,0,TAU);c.fill()}}if(state.quest<6){c.fillStyle='#fff397';c.font='bold 19px Georgia';c.textAlign='center';c.fillText(state.quest===2||state.quest===5?'?':'!',-1.5*k,-5*k-5)}if(state.quest===4){c.fillStyle='#a6ffeb';c.beginPath();c.arc(35*k,-11.8*k,5,0,TAU);c.fill()}c.restore();c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
+function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='#788252';c.fillRect(0,0,s,s);c.save();c.translate(s/2,s/2);c.fillStyle='#6d774b';for(let i=0;i<8;i++){c.beginPath();c.ellipse(Math.sin(i*1.6)*90,Math.cos(i*1.6)*90,38,17,i,0,TAU);c.fill()}c.translate(-state.x*k,-state.z*k);c.strokeStyle='#c0ae71';c.lineWidth=7;c.lineCap='round';for(const route of routes){c.beginPath();route.forEach(([x,z],i)=>i?c.lineTo(x*k,z*k):c.moveTo(x*k,z*k));c.stroke()}
+ if(state.quest===10){
+  c.save();c.setLineDash([7,5]);c.lineWidth=3;c.strokeStyle='#e8443e';c.beginPath();
+  bossWaypoints.forEach(([x,z],i)=>i?c.lineTo(x*k,z*k):c.moveTo(x*k,z*k));c.stroke();c.restore();
+ }
+ if(state.quest===7){
+  c.fillStyle='#fff0a9';c.beginPath();c.arc(SCOUT_X*k,SCOUT_Z*k,5,0,TAU);c.fill();
+ }
+ for(const p of mapLandmarks){c.fillStyle=p.color;c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.strokeStyle='#4e4e30';c.lineWidth=1;c.stroke()}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){
+  c.fillStyle=e.boss?'#d33f39':e.aggro?'#b94f35':'#d8c073';
+  c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,e.boss?5:2.5,0,TAU);c.fill();
+  if(e.boss&&state.quest===10){c.strokeStyle='#ffe4b5';c.lineWidth=1.5;c.stroke()}
+ }else if(isLootableCorpse(e)){c.fillStyle='#ffe6a0';c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,3.8,0,TAU);c.fill()}}if(state.quest<12){c.fillStyle='#fff397';c.font='bold 19px Georgia';c.textAlign='center';c.fillText([2,5,8,11].includes(state.quest)?'?':'!',-1.5*k,-5*k-5)}if(state.quest===4){c.fillStyle='#a6ffeb';c.beginPath();c.arc(35*k,-11.8*k,5,0,TAU);c.fill()}c.restore();c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
 function movement(dt){
  // Classic-style controls: vertical stick walks along the hero's own heading,
  // horizontal stick continuously ROTATES the hero while held.
@@ -798,7 +820,11 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
   if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null}
  }
  if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){e.stunned=2.5;damageEnemy(e,6)}}if(stompElapsed>=.75)stompElapsed=-1}
- movement(dt);enemies.forEach(e=>updateEnemy(e,dt));if(autoAttack)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);
+ movement(dt);
+ if(state.quest===7&&Math.hypot(state.x-SCOUT_X,state.z-SCOUT_Z)<5.2){
+  state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
+ }
+ enemies.forEach(e=>updateEnemy(e,dt));if(autoAttack)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
  selection.visible=isAliveTarget(selected);
  if(selection.visible){
