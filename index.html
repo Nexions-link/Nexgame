@@ -45,7 +45,7 @@ canvas{display:block;width:100vw;height:100dvh}
 @media(max-height:620px){#controls{width:126px;height:126px;left:10px;bottom:calc(10px + env(safe-area-inset-bottom))}#joystickKnob{left:30px;top:30px}#attack{width:74px;height:74px;bottom:calc(10px + env(safe-area-inset-bottom))}#interact{width:65px;height:65px;bottom:calc(92px + env(safe-area-inset-bottom))}#questTracker{top:calc(112px + env(safe-area-inset-top))}}
 </style></head><body>
 <canvas id="game"></canvas>
-<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div></div>
+<div id="hud"><div id="heroName">Странник <span id="level">1</span> ур.</div><div id="heroSub">Воин · <span id="gold">0</span> <span style="color:#e9b958">●</span></div><div class="bar"><span id="healthFill" style="width:100%"></span></div><div id="healthLabel">Здоровье: <span id="hp">100</span> / <span id="maxHp">100</span></div><div class="bar"><span id="xpFill" style="width:0%"></span></div><div id="xpLabel">Опыт: <span id="xp">0</span> / <span id="xpNeed">100</span></div><div style="font-size:10px;color:#c5dcd4;margin-top:5px">NexGame 0.4 · Modern 2.5D</div></div>
 <div id="area">☽ Сумеречная долина</div>
 <div id="questTracker"><strong id="questTitle">Новое приключение</strong><span id="questText">Поговорите со старостой у деревни.</span></div>
 <div id="topActions"><button id="pauseBtn" class="topBtn">⏸ Пауза</button><button id="bagBtn" class="topBtn">🎒 Рюкзак</button></div>
@@ -91,7 +91,7 @@ const npc=[
 const relicSpot={x:12,y:-10};
 const houses=[{x:-4,y:-3,type:"house"},{x:4,y:-4,type:"house"},{x:-4,y:4,type:"house"}];
 const props=[];
-for(let y=-WORLD;y<=WORLD;y++)for(let x=-WORLD;x<=WORLD;x++){const h=hash(x,y),r=Math.hypot(x,y);if(r>5.2&&h>.87&&Math.hypot(x-relicSpot.x,y-relicSpot.y)>2.3){props.push({x,y,type:h>.975?"ruin":h>.933?"tree":h>.9?"rock":"dead"})}}
+for(let y=-WORLD;y<=WORLD;y++)for(let x=-WORLD;x<=WORLD;x++){const h=hash(x,y),r=Math.hypot(x,y);if(r>5.2&&h>.87&&Math.hypot(x-relicSpot.x,y-relicSpot.y)>2.3&&Math.hypot(x+12,y+10)>3.6){props.push({x,y,type:h>.975?"ruin":h>.933?"tree":h>.9?"rock":"dead"})}}
 const enemies=[
 {x:7,y:5,sx:7,sy:5,hp:48,maxHp:48,speed:.85,hit:0,dead:0,seed:1},
 {x:9,y:2,sx:9,sy:2,hp:48,maxHp:48,speed:.82,hit:0,dead:0,seed:2},
