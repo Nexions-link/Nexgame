@@ -1,4 +1,4 @@
-// NexGame 3D · Alpha 0.2.6 — a small, procedural Mulgore-inspired starting zone.
+// NexGame 3D · Alpha 0.2.7 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -283,10 +283,28 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){clearInput();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('cameraControl').hidden=kind!=='settings';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
-function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal');clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
-function pause(){if(modalKind==='pause'){closeDialog();return}openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.6',['Мир поставлен на паузу. Твой путь начинается на равнинах Мулгора.','Передвижение — WASD или джойстик. Вращай камеру по свободной части экрана. Джойстик вверх/вниз — идти; влево/вправо — непрерывно поворачиваться. Приближение — ползунок или колёсико мыши.','Tab или кнопка «Цель» — выбрать врага. 1 / пробел — автоатака. После победы тело остаётся на земле и может содержать добычу: подойди к нему и нажми «Обыскать» или коснись тела.','2 — громовая поступь. 3 — лечебный настой. E — разговор и обыск. В рюкзаке 12 стартовых ячеек и четыре места для будущих сумок.','Автоследование камеры включается в меню управления; угол по вертикали сохраняется.'], 'pause');choice('Продолжить путь',closeDialog);choice('Начать заново',()=>{openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора.']);choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt')},'alt')}
+function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal');$('cameraControl').hidden=true;clearInput();if(document.activeElement instanceof HTMLButtonElement)document.activeElement.blur();save();updateHUD()}
+function pause(){
+ if(modalKind==='pause'){closeDialog();return}
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.7',
+ ['Мир поставлен на паузу. Продолжи путь, открой настройки камеры или начни сначала.',
+  'W/S — идти вперёд и назад; A/D — непрерывно поворачивать; Tab — цель; 1 — автоатака.',
+  'После победы обыщи тело долгонога. Рюкзак открывается клавишей I.'], 'pause');
+ choice('▶ Продолжить путь',closeDialog);
+ choice('⚙ Настройки камеры',cameraSettings);
+ choice('Начать заново',()=>{
+  openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора.']);
+  choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt');
+ },'alt');
+}
+function cameraSettings(){
+ openDialog('Настройки камеры','ПОВОРОТ И РАССТОЯНИЕ',
+ ['Настрой расстояние до героя и автоматическое следование за поворотами. Вертикальный угол остаётся под твоим управлением.'],'settings');
+ choice('← Назад в меню',pause,'alt');
+ choice('▶ Продолжить игру',closeDialog);
+}
 function resetWorld(){
  state={...initial,inventory:[...initial.inventory],bags:[...initial.bags]};
  for(const e of enemies){
@@ -338,6 +356,10 @@ function bag(){
  choice('🧪 Выпить лечебный настой ('+state.potions+')',()=>{if(heal(true))closeDialog()});
  choice('Закрыть рюкзак',closeDialog,'alt');
 }
+function discardInventorySlot(index){
+ if(!Number.isInteger(index)||index<0||index>=state.inventory.length||!state.inventory[index])return false;
+ state.inventory[index]=null;save();return true;
+}
 function renderInventory(){
  const body=$('mbody');body.replaceChildren();
  const occupied=itemOccupancy(),capacity=inventoryCapacity();
@@ -355,7 +377,31 @@ function renderInventory(){
    const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=ITEM_CATALOG[item.id].icon;
    const count=document.createElement('span');count.className='slot-count';count.textContent=item.qty>1?String(item.qty):'';
    cell.appendChild(icon);cell.appendChild(count);
-   cell.addEventListener('click',()=>{const def=ITEM_CATALOG[item.id];detail.textContent=def.name+' ×'+item.qty+' · '+def.quality+'. '+def.description});
+   cell.addEventListener('click',()=>{
+    const def=ITEM_CATALOG[item.id];
+    for(const button of grid.children)button.classList.remove('active');
+    cell.classList.add('active');
+    detail.replaceChildren();
+    const description=document.createElement('div');
+    description.textContent=def.name+' ×'+item.qty+' · '+def.quality+'. '+def.description;
+    detail.appendChild(description);
+    const del=document.createElement('button');
+    del.className='inventory-delete';del.type='button';del.textContent='🗑 Удалить предмет';
+    detail.appendChild(del);
+    del.addEventListener('click',()=>{
+     detail.replaceChildren();
+     const question=document.createElement('div');question.className='inventory-confirm';
+     question.textContent='Удалить '+def.name+' ×'+item.qty+'? Это действие нельзя отменить.';
+     const yes=document.createElement('button');yes.type='button';yes.className='choice danger';yes.textContent='Удалить безвозвратно';
+     const no=document.createElement('button');no.type='button';no.className='choice alt';no.textContent='Отмена';
+     yes.addEventListener('click',()=>{
+      if(!discardInventorySlot(i)){msg('Не удалось удалить предмет');return}
+      renderInventory();msg('Предмет удалён: '+def.name);
+     });
+     no.addEventListener('click',()=>{cell.click()});
+     question.appendChild(yes);question.appendChild(no);detail.appendChild(question);
+    });
+   });
   }else{
    const number=document.createElement('span');number.className='slot-empty-mark';number.textContent='·';
    cell.appendChild(number);
