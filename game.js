@@ -860,6 +860,10 @@ const canvas=renderer.domElement,pickRay=new THREE.Raycaster();canvas.style.touc
 // collectible objects, or clicking a battle target does not cancel it.
 function handleWorldTap(clientX,clientY,allowEmptyClear=true){
  if(modalKind)return 'blocked';
+ if(hotbarPending!==null){
+  cancelHotbarAssignment();
+  return 'assignment-cancelled';
+ }
  pickRay.setFromCamera(new THREE.Vector2(clientX/innerWidth*2-1,1-clientY/innerHeight*2),camera);
  const visibleMobs=enemies.filter(enemy=>enemy.dead<=0||enemy.corpseAge>0);
  const hitObjects=visibleMobs.flatMap(enemy=>enemy.nameTag?.visible!==false&&enemy.nameTag?
@@ -966,7 +970,7 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('panel').classList.toggle('journal-modal',kind==='journal');$('panel').classList.toggle('spellbook-modal',kind==='spellbook');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){if(hotbarPending!==null&&kind!=='spellbook')cancelHotbarAssignment();if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('panel').classList.toggle('journal-modal',kind==='journal');$('panel').classList.toggle('spellbook-modal',kind==='spellbook');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){
  // Every modal has a red X at the top. Do not add redundant bottom-row
  // close/continue buttons; keep real actions and navigation controls.
