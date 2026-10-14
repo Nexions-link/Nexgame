@@ -814,12 +814,13 @@ addEventListener('blur',clearInput);addEventListener('pagehide',()=>{clearInput(
 addEventListener('keydown',e=>{
  const k=e.code==='KeyC'?'c':e.key.toLowerCase();
  if(k==='c'&&modalKind==='character'){e.preventDefault();if(!e.repeat)closeDialog();return}
+  if(k==='j'&&modalKind==='journal'){e.preventDefault();if(!e.repeat)closeDialog();return}
  if(k==='escape'){e.preventDefault();if(modalKind)closeDialog();else if(selected)clearTarget();else pause();return}
  if(modalKind||e.target===cameraSlider)return;
  if(e.target instanceof HTMLButtonElement&&(k===' '||k==='enter'))return;
  if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(k))e.preventDefault();
- if(['1',' ','2','3','e','i','c','tab'].includes(k)){
-  if(e.repeat)return;if(k==='1'||k===' ')attack();if(k==='2')stomp();if(k==='3')heal();if(k==='e')interact();if(k==='i')bag();if(k==='c')character();if(k==='tab')cycleTarget(e.shiftKey?-1:1);return;
+ if(['1',' ','2','3','e','i','c','j','tab'].includes(k)){
+  if(e.repeat)return;if(k==='1'||k===' ')attack();if(k==='2')stomp();if(k==='3')heal();if(k==='e')interact();if(k==='i')bag();if(k==='c')character();if(k==='j')journal();if(k==='tab')cycleTarget(e.shiftKey?-1:1);return;
  }
  keys.add(k);
 });
@@ -835,13 +836,13 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('panel').classList.toggle('journal-modal',kind==='journal');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){
  // Every modal has a red X at the top. Do not add redundant bottom-row
  // close/continue buttons; keep real actions and navigation controls.
  if(fn===closeDialog)return;
  const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
-function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
+function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
  openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.4',
@@ -850,6 +851,7 @@ function pause(){
   'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
  choice('▶ Продолжить путь',closeDialog);
  choice('♙ Персонаж и экипировка',character);
+  choice('📜 Журнал заданий',journal);
  choice('⚙ Настройки камеры',cameraSettings);
  choice('Графика и FPS',graphicsSettings);
  choice('Начать заново',()=>{
@@ -1322,7 +1324,7 @@ bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
 // Gathering, looting and NPC interactions work with a second finger on iPhone.
 bindImmediateButton('interact',interact);
-$('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
+$('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('journal').addEventListener('click',journal);$('questJournalOpen').addEventListener('click',journal);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
  ['Первые шаги','Поговорите с наставником у большого тотема.'],
  ['Обряд силы','Победите обычных долгоногов: 0 / 3'],
