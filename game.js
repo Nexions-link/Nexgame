@@ -2200,6 +2200,8 @@ function updateChatControls(){
  $('chatPartyTab').disabled=!partyAvailable;
  $('chatWorldTab').setAttribute('aria-selected',String(chatChannel==='world'));
  $('chatPartyTab').setAttribute('aria-selected',String(chatChannel==='party'));
+ $('chatWorldTab').textContent='Мулгор'+(chatUnread.world?' · '+chatUnread.world:'');
+ $('chatPartyTab').textContent='Группа'+(chatUnread.party?' · '+chatUnread.party:'');
  $('chatInput').placeholder=!worldChatReady?'Ожидание чат-сервера...':
   chatChannel==='party'?'Сообщение группе...':'Сообщение Мулгору...';
  $('chatInput').disabled=!worldConnection?.connected()||!worldChatReady||
