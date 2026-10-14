@@ -41,7 +41,7 @@ const context={console,URLSearchParams,Math,Number,JSON,Date,Set,Map,Object,Floa
 vm.createContext(context);
 let source=fs.readFileSync(folder+'/game.js','utf8').replace(/^import \{([^}]+)\} from [^;]+;/, 'const {$1}=__DATA;').replace("THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')","THREE=__THREE");
 const exposed='scene,world,M,hero,mentor,trader,camera,camFocus,enemies,keys,joy,update,movement,frame,animateTauren,animateCamera,attack,stomp,heal,mentorTalk,closeDialog,resetWorld,clearAt,heightAt,save,setCameraDistance,setCameraFollow,openDialog,bag,renderInventory,discardInventorySlot,storeItem,canStoreItem,showCorpseLoot,damageEnemy,setTarget,cycleTarget,updateHealthRegen,initial,getState:()=>state,setState:s=>{state={...state,...s}},getSelected:()=>selected,getModal:()=>modalKind,getCamera:()=>({cameraYaw,cameraPitch,cameraDistance,cameraFollow}),setPitch:v=>cameraPitch=v';
-const extra=source.includes('function character()')?',settings,setGraphicsQuality,setShowFps,sampleFps,grass,grassCount,character,ensureCharacterView,renderCharacterPreview,normalizeEquipment,EQUIPMENT_SLOTS,getView:()=>characterView,armorer,npcs,interact,nearTarget,playerStats,rollMeleeDamage,incomingDamage,equipInventorySlot,unequipSlot,merchantTalk,renderMerchant,buyItem,sellItem,buyBackItem,rollCorpseLoot,normalizeInventory,ITEM_CATALOG,startingEquipment,getCombat:()=>({attackCooldown,attackElapsed}),setCombat:v=>{lastCombatAt=v?clock:-100;enemies.forEach(e=>e.aggro=false)}':'';
+const extra=source.includes('function character()')?',settings,setGraphicsQuality,setShowFps,sampleFps,grass,grassCount,character,ensureCharacterView,renderCharacterPreview,normalizeEquipment,EQUIPMENT_SLOTS,getView:()=>characterView,armorer,npcs,interact,nearTarget,playerStats,rollMeleeDamage,incomingDamage,equipInventorySlot,unequipSlot,merchantTalk,renderMerchant,buyItem,sellItem,buyBackItem,rollCorpseLoot,normalizeInventory,ITEM_CATALOG,startingEquipment,getCombat:()=>({attackCooldown,attackElapsed}),setCombat:v=>{lastCombatAt=v?clock:-100;enemies.forEach((e,i)=>e.aggro=!!v&&i===0&&e.dead<=0)}':'';
 source=source.replace("}catch(error){const text=$('loadText');",'globalThis.qa={'+exposed+extra+"};}catch(error){const text=$('loadText');");
 vm.runInContext(source,context);const q=context.qa;assert.ok(q,'game initialized');
 const checks=[];const check=(name,fn)=>{fn();checks.push(name)};
@@ -87,6 +87,29 @@ check('equipment can drop even if common-material roll fails; corpse looting doe
  reset();const original=Math.random;let rolls=[.02,0,.99];Math.random=()=>rolls.shift()??.99;
  try{assert.equal(q.rollCorpseLoot()[0].id,'chainVest');const e=q.enemies[0];q.setState({x:e.spawnX,z:e.spawnZ+1});rolls=[.02,0,.99];q.damageEnemy(e,999);assert.equal(e.loot[0].id,'chainVest');const copy=JSON.stringify(e.loot);q.showCorpseLoot(e);q.closeDialog();q.showCorpseLoot(e);assert.equal(JSON.stringify(e.loot),copy);findButton('Забрать всё').click();assert.equal(e.loot.length,0);assert.ok(q.getState().inventory.some(x=>x?.id==='chainVest'))}finally{Math.random=original}
 });
+check('looted chain belt equips immediately after the last kill, while backpack pauses the world',()=>{
+ reset();const e=q.enemies[0];q.setState({x:e.spawnX,z:e.spawnZ+1});q.damageEnemy(e,999);e.loot=[{id:'chainBelt',qty:1}];q.showCorpseLoot(e);findButton('Забрать всё').click();q.bag();
+ const beltCell=walk(ids.get('mbody')).find(el=>el.tagName==='BUTTON'&&el.getAttribute('aria-label')?.includes('Тонкий кольчужный пояс'));
+ assert.ok(beltCell);beltCell.click();const equip=findButton('Надеть · Пояс');assert.ok(equip);equip.click();
+ assert.equal(q.getState().equipment.waist?.id,'chainBelt','the looted belt must equip without closing the backpack and waiting');
+ assert.equal(q.playerStats().armor,24);q.save();assert.equal(JSON.parse(storage.get('nexgame-mulgore-alpha02')).equipment.waist.id,'chainBelt');
+ const backpackIcon=beltCell.children.find(el=>el.className==='slot-icon').textContent;q.character();
+ let waist=walk(ids.get('mbody')).find(el=>el.dataset.slot==='waist');const icon=waist.children.find(el=>el.className==='equipment-item-icon');
+ assert.ok(icon,'equipped belt must show an item image');assert.equal(icon.textContent,backpackIcon);assert.equal(icon.dataset.item,'chainBelt');assert.equal(waist.dataset.rarity,'poor');assert.equal(waist.children.find(el=>el.tagName==='SMALL').textContent,'Тонкий кольчужный пояс');
+ waist.click();findButton('Снять в рюкзак').click();waist=walk(ids.get('mbody')).find(el=>el.dataset.slot==='waist');assert.ok(!waist.children.some(el=>el.className==='equipment-item-icon'));assert.ok(waist.innerHTML.includes('<svg'));assert.equal(waist.children.find(el=>el.tagName==='SMALL').textContent,'Пусто');
+});
+check('another living attacker still prevents changing equipment; last kill releases the restriction',()=>{
+ reset();q.storeItem({id:'chainBelt',qty:1});q.setCombat(true);const first=q.enemies[0],second=q.enemies[1];second.aggro=true;
+ assert.equal(q.equipInventorySlot(0),false);q.damageEnemy(first,999);assert.equal(q.equipInventorySlot(0),false);assert.equal(q.getState().equipment.waist,null);
+ q.damageEnemy(second,999);assert.ok(q.equipInventorySlot(0));assert.equal(q.getState().equipment.waist.id,'chainBelt');
+});
+check('the first swing is combat even before impact; opening a bag cannot bypass it',()=>{
+ reset();const e=q.enemies[0];q.setState({x:e.spawnX,z:e.spawnZ+2});q.hero.root.position.set(q.getState().x,0,q.getState().z);q.hero.root.rotation.y=Math.PI;q.storeItem({id:'chainBelt',qty:1});q.setTarget(e);q.attack();assert.equal(e.aggro,false);q.bag();assert.equal(q.equipInventorySlot(0),false);assert.equal(q.getState().equipment.waist,null);
+});
+check('immediate post-fight equipment does not remove the five-second regeneration delay',()=>{
+ reset();q.setState({hp:60});q.damageEnemy(q.enemies[0],999);q.storeItem({id:'chainBelt',qty:1});assert.ok(q.equipInventorySlot(0));q.bag();const snapshot=JSON.stringify(q.getState());q.frame(10000);assert.equal(JSON.stringify(q.getState()),snapshot,'world and health still pause');q.closeDialog();
+ q.update(4.9);assert.equal(q.getState().hp,60);q.update(.11);assert.ok(q.getState().hp>60);assert.equal(q.getState().equipment.waist.id,'chainBelt');
+});
 check('new armorer is reachable, pass-through, distinct and actually opens trade',()=>{
  reset();assert.equal(q.npcs.length,3);assert.ok(q.clearAt(6,11));q.setState({x:6,z:11});assert.equal(q.nearTarget().npc.type,'armorer');q.interact();assert.equal(q.getModal(),'merchant');assert.equal(ids.get('panel').classList.contains('merchant-modal'),true);assert.equal(ids.get('modalClose').hidden,false);
  assert.equal(q.buyItem('chainVest'),false);q.setState({gold:40});const buy=findButton('Купить · 32');assert.ok(buy);q.renderMerchant();findButton('Купить · 32').click();assert.equal(q.getState().gold,8);assert.equal(q.getState().inventory[0].id,'chainVest');
@@ -123,7 +146,9 @@ check('sales, stale-button protection, persistent buyback and no buy/sell arbitr
 });
 check('10 UI slots, item comparison/equip actions, preview visual sync and shared resources',()=>{
  reset();q.setState({level:6});q.storeItem({id:'feebleSword',qty:1});q.storeItem({id:'infantryBear',qty:1});q.bag();const cells=walk(ids.get('mbody')).filter(x=>x.className.includes('inventory-slot')&&x.tagName==='BUTTON');cells[0].click();assert.ok(findButton('Надеть'));findButton('Надеть').click();assert.equal(q.getState().equipment.weapon.id,'feebleSword');q.equipInventorySlot(1);q.character();
- const buttons=walk(ids.get('mbody')).filter(x=>x.className.includes('equipment-slot'));assert.equal(buttons.length,10);assert.ok(buttons.find(x=>x.dataset.slot==='shield'));const view=q.getView();assert.equal(view.actor.root.getObjectByName('gear-sword').visible,true);assert.equal(view.actor.root.getObjectByName('gear-axe').visible,false);assert.equal(view.actor.root.getObjectByName('gear-shield').visible,true);
+ const buttons=walk(ids.get('mbody')).filter(x=>x.className.includes('equipment-slot'));assert.equal(buttons.length,10);assert.ok(buttons.find(x=>x.dataset.slot==='shield'));
+ for(const [slot,id] of [['weapon','feebleSword'],['shield','infantryBear']]){const button=buttons.find(x=>x.dataset.slot===slot),icon=button.children.find(x=>x.className==='equipment-item-icon');assert.equal(icon.dataset.item,id);assert.equal(icon.textContent,data.ITEM_CATALOG[id].icon);assert.equal(button.dataset.rarity,data.ITEM_CATALOG[id].rarity)}
+ const view=q.getView();assert.equal(view.actor.root.getObjectByName('gear-sword').visible,true);assert.equal(view.actor.root.getObjectByName('gear-axe').visible,false);assert.equal(view.actor.root.getObjectByName('gear-shield').visible,true);
  buttons.find(x=>x.dataset.slot==='shield').click();findButton('Снять в рюкзак').click();assert.equal(q.getState().equipment.shield,null);assert.equal(q.getView().actor.root.getObjectByName('gear-shield').visible,false);
  const saved=JSON.stringify(q.getState());q.frame(1200);assert.equal(JSON.stringify(q.getState()),saved);assert.equal(renderer.scissorTest,false);assert.equal(renderer.shadowMap.enabled,true);
 });
@@ -134,4 +159,4 @@ check('save reload retains items, explicit empty weapon, buyback and HP above ol
 check('quest, camera pitch and movement remain operational',()=>{
  reset();q.setPitch(.73);q.setCameraFollow(true);q.animateCamera(1);assert.equal(q.getCamera().cameraPitch,.73);q.keys.add('w');for(let i=0;i<40;i++)q.update(.05);q.keys.clear();assert.ok(q.getState().z<5);q.setState({quest:10});q.damageEnemy(q.enemies.find(e=>e.boss),999);assert.equal(q.getState().quest,11);assert.ok(q.enemies.find(e=>e.boss).loot.some(x=>x.id==='giantFeather'));
 });
-console.log(JSON.stringify({ok:true,version:'0.3.0',checks},null,2));
+console.log(JSON.stringify({ok:true,version:'0.3.1',checks},null,2));

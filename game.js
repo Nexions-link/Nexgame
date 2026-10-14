@@ -1,5 +1,5 @@
-import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.0';
-// NexGame 3D · Alpha 0.3.0 — a small, procedural Mulgore-inspired starting zone.
+import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.1';
+// NexGame 3D · Alpha 0.3.1 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -484,7 +484,9 @@ function character(){
  for(const [index,slot] of EQUIPMENT_SLOTS.entries()){
   const item=state.equipment[slot.id],def=item?ITEM_CATALOG[item.id]:null,button=document.createElement('button');button.type='button';button.className='equipment-slot'+(item?' equipped':'');button.dataset.slot=slot.id;if(def)button.dataset.rarity=def.rarity;
   button.setAttribute('aria-label',slot.name+': '+(def?def.name:'пусто'));button.setAttribute('aria-pressed','false');
-  button.innerHTML=slotIcon(slot);
+  if(def){
+   const icon=document.createElement('span');icon.className='equipment-item-icon';icon.textContent=def.icon;icon.dataset.item=item.id;icon.setAttribute('aria-hidden','true');button.appendChild(icon);
+  }else button.innerHTML=slotIcon(slot);
   const label=document.createElement('span');label.textContent=slot.name;button.appendChild(label);
   const status=document.createElement('small');status.textContent=def?def.name:'Пусто';button.appendChild(status);
   button.addEventListener('click',()=>{
@@ -716,7 +718,7 @@ function choice(label,fn,type=''){const button=document.createElement('button');
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.0',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.1',
  ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
   'W/S — идти вперёд и назад; A/D — непрерывно поворачивать; Tab — цель; 1 — автоатака.',
   'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
@@ -1092,7 +1094,7 @@ const questLines=[
  ['Все испытания пройдены','Вы завершили цепочку из пяти заданий.']
 ];
 let lastMarker='';
-function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('rageText').textContent=inCombat()?'В бою':state.hp<max?'Восстановление':'Готов к бою';$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
+function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('rageText').textContent=inCombat()?'В бою':state.hp<max?(clock-lastCombatAt<HEALTH_REGEN_DELAY?'Отдых после боя':'Восстановление'):'Готов к бою';$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
@@ -1210,10 +1212,15 @@ function updateEnemy(e,dt){
 // After leaving combat, health gradually returns without consuming potions.
 const HEALTH_REGEN_DELAY=5,HEALTH_REGEN_RATE=3;
 function inCombat(){
- return clock-lastCombatAt<HEALTH_REGEN_DELAY||enemies.some(e=>e.dead<=0&&e.aggro);
+ // Recent damage delays regeneration, but does not keep a finished fight active.
+ // Otherwise opening a paused loot/backpack window can lock equipment indefinitely.
+ const threat=enemies.some(e=>e.dead<=0&&e.hp>0&&e.aggro);
+ const swinging=attackElapsed>=0&&isAliveTarget(swingTarget);
+ const preparingStomp=stompElapsed>=0&&!stompLanded&&enemies.some(e=>isAliveTarget(e)&&targetDistance(e)<4.5);
+ return threat||swinging||preparingStomp;
 }
 function updateHealthRegen(dt){
- if(inCombat()||dt<=0)return;
+ if(inCombat()||clock-lastCombatAt<HEALTH_REGEN_DELAY||dt<=0)return;
  const max=playerStats().maxHp;
  if(state.hp<max)state.hp=Math.min(max,state.hp+HEALTH_REGEN_RATE*dt);
 }
