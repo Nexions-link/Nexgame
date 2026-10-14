@@ -412,6 +412,16 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  actor.shadow.position.set(actor.root.position.x,heightAt(actor.root.position.x,actor.root.position.z)+.055,actor.root.position.z);
 }
 const saveKey='nexgame-mulgore-alpha02',cameraStoreKey='nexgame-real3d-camera-distance';
+const playerNameKey='nexgame-character-name-v1';
+const sanitizePlayerName=name=>typeof name==='string'?
+ name.replace(/[<>\\u0000-\\u001f]/g,'').trim().slice(0,24):'';
+let characterName='';
+try{characterName=sanitizePlayerName(localStorage.getItem(playerNameKey))}catch{}
+if(!characterName){
+ characterName='Таурен '+String(Math.floor(1000+Math.random()*9000));
+ try{localStorage.setItem(playerNameKey,characterName)}catch{}
+}
+
 // The starter backpack has 12 actual slots; four future bag sockets can add capacity.
 const BASE_INVENTORY_SLOTS=12,EQUIPPED_BAG_SLOTS=4,MAX_ITEM_STACK=20;
 const EQUIPMENT_SLOTS=[
@@ -901,10 +911,14 @@ function handleWorldTap(clientX,clientY,allowEmptyClear=true){
  const visibleMobs=enemies.filter(enemy=>enemy.dead<=0||enemy.corpseAge>0);
  const hitObjects=visibleMobs.flatMap(enemy=>enemy.nameTag?.visible!==false&&enemy.nameTag?
   [enemy.root,enemy.nameTag]:[enemy.root]);
- const hits=pickRay.intersectObjects(hitObjects,true);
+ const otherPlayers=[...remotePlayers.entries()];
+ const interactive=otherPlayers.flatMap(([,player])=>[player.actor.root,player.nameTag]);
+ const hits=pickRay.intersectObjects([...hitObjects,...interactive],true);
  if(hits.length){
   let obj=hits[0].object;
   while(obj.parent&&obj.parent!==scene)obj=obj.parent;
+  const remote=otherPlayers.find(([,player])=>player.actor.root===obj||player.nameTag===obj);
+  if(remote){selectRemotePlayer(remote[0]);return 'player'}
   const enemy=visibleMobs.find(m=>m.root===obj||m.nameTag===obj);
   if(enemy){
    if(enemy.dead>0)showCorpseLoot(enemy);
@@ -927,7 +941,9 @@ function handleWorldTap(clientX,clientY,allowEmptyClear=true){
  ].filter(o=>o&&o.visible!==false);
  if(relic.visible)characters.push(relic);
  if(pickRay.intersectObjects(characters,true).length)return 'character';
- if(allowEmptyClear&&selected){clearTarget();return 'cleared'}
+ if(allowEmptyClear&&(selected||selectedPlayerId)){
+  clearTarget();selectRemotePlayer(null);return 'cleared';
+ }
  return 'empty';
 }
 canvas.addEventListener('pointerdown',e=>{
@@ -1508,6 +1524,8 @@ function clearTarget(){
 }
 function setTarget(e){
  if(!isAliveTarget(e)){clearTarget();return}
+ selectedPlayerId=null;
+ renderAllySelection();
  if(selected!==e)approach=null;
  selected=e;hideCombatWarning();updateHUD();
 }
