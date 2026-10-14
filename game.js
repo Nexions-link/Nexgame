@@ -1957,6 +1957,8 @@ function positionGroupHud(){
  hud.style.setProperty('--party-body-max-height',Math.max(30,maxHeight-34)+'px');
 }
 function toggleGroupHud(){
+ // The expanded chat temporarily folds the group tray; touching the group tab closes chat.
+ if(!chatCollapsed){setChatCollapsed(true);return}
  partyHudCollapsed=!partyHudCollapsed;
  try{localStorage.setItem(partyHudFoldKey,String(partyHudCollapsed))}catch{}
  lastPartyHudSignature='';renderGroupHud();
@@ -1967,25 +1969,26 @@ function renderGroupHud(){
   widget.hidden=true;lastPartyHudSignature='';widget.replaceChildren();return;
  }
  const members=currentParty.members.map(m=>({...m,...playerRosterEntry(m.id)}));
+ const folded=partyHudCollapsed||!chatCollapsed;
  const signature=JSON.stringify({
-  folded:partyHudCollapsed,roster:members.map(m=>
+  folded,roster:members.map(m=>
    [m.id,m.name,m.level,Math.round(m.hp||0),Math.round(m.maxHp||0)]),
   leader:currentParty.leaderId
  });
  if(!widget.hidden&&signature===lastPartyHudSignature)return;
  lastPartyHudSignature=signature;widget.hidden=false;widget.replaceChildren();
- widget.classList.toggle('party-hud-collapsed',partyHudCollapsed);
- widget.setAttribute('aria-expanded',String(!partyHudCollapsed));
+ widget.classList.toggle('party-hud-collapsed',folded);
+ widget.setAttribute('aria-expanded',String(!folded));
  const toggle=document.createElement('button');
  toggle.type='button';toggle.id='partyHudToggle';
- toggle.setAttribute('aria-expanded',String(!partyHudCollapsed));
- toggle.setAttribute('aria-label',partyHudCollapsed?'Развернуть группу':'Свернуть группу');
- toggle.title=partyHudCollapsed?'Развернуть группу':'Свернуть группу';
+ toggle.setAttribute('aria-expanded',String(!folded));
+ toggle.setAttribute('aria-label',folded?'Развернуть группу':'Свернуть группу');
+ toggle.title=folded?'Развернуть группу':'Свернуть группу';
  const chevron=document.createElement('span');chevron.className='party-hud-chevron';
- chevron.textContent=partyHudCollapsed?'‹':'›';
+ chevron.textContent=folded?'‹':'›';
  toggle.appendChild(chevron);
  toggle.addEventListener('click',toggleGroupHud);
- if(partyHudCollapsed){
+ if(folded){
   const icon=document.createElement('span');icon.className='party-hud-icon';icon.textContent='👥';
   const count=document.createElement('span');count.className='party-hud-count';
   count.textContent=members.length+'/5';
@@ -2218,6 +2221,8 @@ function setChatCollapsed(collapsed){
  try{localStorage.setItem(chatCollapsedKey,String(chatCollapsed))}catch{}
  if(!chatCollapsed)chatUnread[chatChannel]=0;
  updateChatControls();
+ // Avoid overlap with the party controls on narrow iPhone screens.
+ renderGroupHud();
 }
 function setChatChannel(channel){
  if(channel!=='world'&&channel!=='party')return;
