@@ -15,11 +15,11 @@ export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWel
    let m;try{m=JSON.parse(e.data)}catch{return}
    if(!m||typeof m!=='object')return;
    if(m.type==='welcome'){selfId=m.id;onWelcome?.(m);
-    if(Array.isArray(m.mobs))onMobs?.(m.mobs);
+    onMobs?.(Array.isArray(m.mobs)?m.mobs:[]);
    }
    else if(m.type==='snapshot'){
     if(Array.isArray(m.players))onPlayers?.(m.players.filter(p=>p.id!==selfId));
-    if(Array.isArray(m.mobs))onMobs?.(m.mobs);
+    onMobs?.(Array.isArray(m.mobs)?m.mobs:[]);
    }
    else if(m.type==='leave'&&typeof m.id==='string')onLeave?.(m.id);
   };
