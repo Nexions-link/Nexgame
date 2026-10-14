@@ -2159,7 +2159,7 @@ const CHAT_HISTORY_LIMIT=75;
 const chatHistory={world:[],party:[]};
 const chatUnread={world:0,party:0};
 const chatCollapsedKey='nexgame-chat-collapsed-v1';
-let chatCollapsed=true,chatChannel='world',worldChatReady=false;
+let chatCollapsed=true,chatChannel='world',worldChatReady=false,pendingChatMessage='';
 try{chatCollapsed=localStorage.getItem(chatCollapsedKey)!=='false'}catch{}
 function renderChatLog(){
  const log=$('chatMessages');if(!log||chatCollapsed)return;
@@ -2227,13 +2227,15 @@ function addChatLine(channel,line){
  if(!history)return;
  history.push(line);
  if(history.length>CHAT_HISTORY_LIMIT)history.splice(0,history.length-CHAT_HISTORY_LIMIT);
- if(chatCollapsed||chatChannel!==channel)chatUnread[channel]=Math.min(99,chatUnread[channel]+1);
+ if((chatCollapsed||chatChannel!==channel)&&line.fromId!==onlineSelfId)
+  chatUnread[channel]=Math.min(99,chatUnread[channel]+1);
  updateChatControls();
 }
 function receiveChatMessage(event){
  if(!event||!['world','party'].includes(event.channel)||typeof event.text!=='string')return;
  if(event.channel==='party'&&event.groupId!==currentParty.groupId)return;
  if(event.text.length>720)return;
+ if(event.fromId===onlineSelfId&&event.text===pendingChatMessage)pendingChatMessage='';
  addChatLine(event.channel,{
   fromId:event.fromId,name:String(event.name||'Странник').slice(0,24),
   text:event.text,at:event.at
@@ -2244,6 +2246,9 @@ function chatSystem(text,channel=currentParty.groupId?'party':'world'){
  addChatLine(channel,{system:true,text:String(text).slice(0,210),at:Date.now()});
 }
 function chatRejected(event){
+ const input=$('chatInput');
+ if(pendingChatMessage&&!input.value)input.value=pendingChatMessage;
+ pendingChatMessage='';
  const reason=String(event?.reason||'Сообщение не отправлено').slice(0,100);
  msg(reason,3300);
  chatSystem(reason,chatChannel);
@@ -2256,8 +2261,20 @@ function submitChatMessage(event){
  if(!worldConnection.sendChat(chatChannel,text)){
   msg('Чат недоступен без соединения с сервером');return;
  }
+ pendingChatMessage=text;
  input.value='';
  // Wait for the server echo: never fabricate a successful message locally.
+}
+function adjustChatForKeyboard(){
+ const viewport=window.visualViewport,dock=$('chatDock'),input=$('chatInput'),panel=$('chatPanel');
+ if(!viewport||!dock||!input||!panel)return;
+ const focused=document.activeElement===input;
+ const keyboardOverlap=Math.max(0,innerHeight-viewport.height-viewport.offsetTop);
+ const cssBottom=parseFloat(getComputedStyle(dock).bottom)||0;
+ const lift=focused&&keyboardOverlap>110?Math.max(0,keyboardOverlap-cssBottom+12):0;
+ dock.style.transform=lift?'translateY(-'+Math.round(lift)+'px)':'';
+ panel.style.height=focused&&keyboardOverlap>110?
+  Math.max(140,Math.min(230,Math.floor(viewport.height*.48)))+'px':'';
 }
 function initChatControls(){
  $('chatToggle').addEventListener('click',()=>setChatCollapsed(false));
@@ -2268,6 +2285,10 @@ function initChatControls(){
  $('chatInput').addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();$('chatInput').blur();setChatCollapsed(true)}
  });
+ $('chatInput').addEventListener('focus',()=>requestAnimationFrame(adjustChatForKeyboard));
+ $('chatInput').addEventListener('blur',adjustChatForKeyboard);
+ window.visualViewport?.addEventListener('resize',adjustChatForKeyboard);
+ window.visualViewport?.addEventListener('scroll',adjustChatForKeyboard);
  updateChatControls();
 }
 
