@@ -1,0 +1,14 @@
+{
+  "name": "nexgame",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/equipment.test.mjs",
+    "check": "node --check game.js && node --check items.js"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "0.1.100",
+    "three": "0.160.1"
+  }
+}

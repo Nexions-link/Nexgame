@@ -1,4 +1,5 @@
-// NexGame 3D · Alpha 0.2.9 — a small, procedural Mulgore-inspired starting zone.
+import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.0';
+// NexGame 3D · Alpha 0.3.0 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -215,12 +216,24 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  }
  const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
  if(weapon){
-  const axe=group(arms[1].hand,0,-.13,.11);axe.rotation.z=-.08;
+  const axe=group(arms[1].hand,0,-.13,.11);axe.name='gear-axe';axe.rotation.z=-.08;
   rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
   for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
   const blade=new THREE.Shape();blade.moveTo(-.07,.84);blade.lineTo(.26,1.02);blade.quadraticCurveTo(.76,.98,.67,.49);blade.lineTo(.24,.35);blade.lineTo(.19,.54);blade.lineTo(-.07,.54);blade.closePath();
   mesh(axe,new THREE.ExtrudeGeometry(blade,{depth:.1,bevelEnabled:true,bevelSize:.022,bevelThickness:.014,bevelSegments:1,steps:1}),M.metal,0,0,-.05);
   rod(axe,T.ivory,[.65,.50,.01],[.65,.79,.01],.018,.018);ell(axe,M.gold,0,.69,0,.12,.15,.11);
+  for(const kind of ['sword','dagger']){
+   const g=group(arms[1].hand,0,-.12,.12);g.name='gear-'+kind;
+   rod(g,M.wood,[0,-.23,0],[0,.21,0],.067);box(g,M.metal,0,.25,0,.43,.07,.12);
+   const length=kind==='sword'?1.12:.62;box(g,M.metal,0,.29+length/2,0,.16,length,.065);
+   const tip=mesh(g,G.cone,M.metal,0,.29+length+.09,0,.115,.22,.055);tip.rotation.y=Math.PI/4;g.visible=false;
+  }
+  const shield=group(arms[0].hand,-.12,-.02,.34);shield.name='gear-shield';
+  const disk=mesh(shield,new THREE.CylinderGeometry(.56,.56,.11,12),M.woodLight);disk.rotation.x=Math.PI/2;
+  mesh(shield,new THREE.TorusGeometry(.53,.04,5,16),M.metal,0,0,.075);
+  ell(shield,M.metal,0,0,.09,.16,.16,.08);
+  for(const x of [-.22,0,.22])box(shield,M.wood,x,0,.066,.018,.92,.013);
+  shield.visible=false;
  }
  root.scale.setScalar(scale);fuse(root);const shadow=contactShadow(2.7*scale);
  return{root,body,chest,neck,head,arms,legs,tail,braids,shadow,phase:0,scale,walk:0};
@@ -228,10 +241,12 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
 const hero=makeTauren({weapon:true});
 const mentor=makeTauren({fur:0x725438,cloth:M.teal,scale:.95});mentor.root.position.set(-1.5,heightAt(-1.5,-5),-5);mentor.root.rotation.y=.2;
 const trader=makeTauren({fur:0x978064,cloth:M.hideDark,scale:.89});trader.root.position.set(8,heightAt(8,1),1);trader.root.rotation.y=-.7;
-const npcs=[{x:-1.5,z:-5,name:'Наставник Каменный Рог',actor:mentor,type:'mentor'},{x:8,z:1,name:'Травница Тихая Заря',actor:trader,type:'trader'}];
+const armorer=makeTauren({fur:0x665043,cloth:M.woodLight,scale:.94});armorer.root.position.set(6,heightAt(6,11),11);armorer.root.rotation.y=-1.2;
+const npcs=[{x:6,z:11,name:'Борун Крепкая Ладонь',actor:armorer,type:'armorer'},{x:-1.5,z:-5,name:'Наставник Каменный Рог',actor:mentor,type:'mentor'},{x:8,z:1,name:'Травница Тихая Заря',actor:trader,type:'trader'}];
 // Friendly NPCs are interaction targets, not physical obstacles.
 function spriteText(text,color='#f9df91',size=32){const c=document.createElement('canvas');c.width=512;c.height=96;const ctx=c.getContext('2d');ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold '+size+'px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#302817';ctx.fillStyle=color;ctx.strokeText(text,256,48);ctx.fillText(text,256,48);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,transparent:true}));s.scale.set(4.3,.81,1);return s}
 for(const n of npcs){const name=spriteText(n.name,'#d9e2a1',25);scene.add(name);name.position.set(n.x,heightAt(n.x,n.z)+4.45,n.z)}
+const merchantLabel=spriteText('Оружие и доспехи', '#e5c574',23);merchantLabel.position.set(6,heightAt(6,11)+3.85,11);scene.add(merchantLabel);
 const questMarker=spriteText('!','#ffe180',72);questMarker.scale.set(2.5,1.6,1);scene.add(questMarker);
 const relic=group(scene,35,heightAt(35,-14)+1.7,-11.8);const featherMat=material(0x79c8ba,{emissive:0x2c5b45,emissiveIntensity:.5});ell(relic,featherMat,0,.15,0,.18,.48,.08);rod(relic,M.bone,[0,-.4,0],[0,.53,0],.025);const relicShadow=contactShadow(1);
 // Lightweight wildlife: animated joint groups, no skinned meshes or animation files.
@@ -292,13 +307,6 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0){
 const saveKey='nexgame-mulgore-alpha02',cameraStoreKey='nexgame-real3d-camera-distance';
 // The starter backpack has 12 actual slots; four future bag sockets can add capacity.
 const BASE_INVENTORY_SLOTS=12,EQUIPPED_BAG_SLOTS=4,MAX_ITEM_STACK=20;
-const ITEM_CATALOG={
- feather:{name:'Перо долгонога',icon:'🪶',quality:'Обычный',description:'Длинное крепкое перо равнинного долгонога.'},
- beak:{name:'Клюв долгонога',icon:'🦴',quality:'Обычный',description:'Прочный клюв. Может пригодиться ремесленнику.'},
- down:{name:'Мягкий пух',icon:'☁️',quality:'Обычный',description:'Тёплый и лёгкий пух с равнин.'},
- charm:{name:'Полированная бусина',icon:'🔮',quality:'Необычный',description:'Редкая находка с узором, напоминающим облака.'},
- giantFeather:{name:'Перо Грозоклюва',icon:'🪶',quality:'Редкий',description:'Огромное багряное перо поверженного исполина.'}
-};
 const EQUIPMENT_SLOTS=[
  {id:'head',name:'Голова',hint:'Шлемы и головные уборы',path:'M10 29V19a14 14 0 0 1 28 0v10l-8 5v-9H18v9z M24 5v13 M18 21h12'},
  {id:'shoulders',name:'Плечи',hint:'Наплечники',path:'M5 17l11-7 8 7 8-7 11 7-3 15-12-4-4-7-4 7-12 4z M9 21l8-5 M31 16l8 5'},
@@ -307,14 +315,141 @@ const EQUIPMENT_SLOTS=[
  {id:'hands',name:'Перчатки',hint:'Боевые перчатки',path:'M14 40l-3-15-4-8 5-3 6 7V9h5v12V6h5v15V9h5v14l2-11 5 2-4 21-5 5z M15 33h19'},
  {id:'waist',name:'Пояс',hint:'Кожаные и металлические пояса',path:'M5 17h13v14H5z M30 17h13v14H30z M18 14h12v20H18z M22 20h5v8h-5z'},
  {id:'legs',name:'Штаны',hint:'Штаны и поножи',path:'M12 7h24l2 34H27l-3-23-3 23H10z M12 13h24 M14 33h7 M27 33h9'},
- {id:'feet',name:'Сапоги',hint:'Сапоги и защита копыт',path:'M7 7h13v23l5 5v6H5v-8l3-5z M28 7h13v23l4 5v6H26v-8l3-5z M8 16h12 M29 16h12 M6 35h16 M27 35h15'}
+ {id:'feet',name:'Сапоги',hint:'Сапоги и защита копыт',path:'M7 7h13v23l5 5v6H5v-8l3-5z M28 7h13v23l4 5v6H26v-8l3-5z M8 16h12 M29 16h12 M6 35h16 M27 35h15'},
+ {id:'weapon',name:'Оружие',hint:'Одноручные топоры, мечи и кинжалы',path:'M8 40L36 8l6-2-2 7L16 37z M10 26l12 12 M7 41l4-4'},
+ {id:'shield',name:'Щит',hint:'Щиты для левой руки',path:'M8 10l16-5 16 5v14c0 10-16 20-16 20S8 34 8 24z M24 10v27 M14 16h20'}
 ];
 function emptyEquipment(){return Object.fromEntries(EQUIPMENT_SLOTS.map(slot=>[slot.id,null]))}
+function startingEquipment(){return {...emptyEquipment(),weapon:{id:'wornAxe',qty:1}}}
 function normalizeEquipment(input){
  const normalized=emptyEquipment();
  if(!input||typeof input!=='object'||Array.isArray(input))return normalized;
- for(const slot of EQUIPMENT_SLOTS){const item=input[slot.id];if(item&&typeof item.id==='string'&&ITEM_CATALOG[item.id]?.slot===slot.id)normalized[slot.id]={id:item.id,qty:1}}
+ for(const slot of EQUIPMENT_SLOTS){const item=input[slot.id];if(item&&typeof item.id==='string'&&ITEM_CATALOG[item.id]?.slot===slot.id&&state.level>=(ITEM_CATALOG[item.id].requiredLevel||1))normalized[slot.id]={id:item.id,qty:1}}
  return normalized;
+}
+
+function playerStats(equipment=state.equipment){return deriveStats(state.level,equipment)}
+function syncEquipmentVisuals(){
+ const weapon=ITEM_CATALOG[state.equipment.weapon?.id],shield=ITEM_CATALOG[state.equipment.shield?.id];
+ for(const root of [hero.root,characterView?.actor.root].filter(Boolean)){
+  for(const kind of ['axe','sword','dagger']){const model=root.getObjectByName('gear-'+kind);if(model)model.visible=weapon?.weaponKind===kind}
+  const model=root.getObjectByName('gear-shield');if(model){model.visible=!!shield;model.scale.setScalar(shield?.sourceId===2210 ? .8 : 1)}
+ }
+ if(characterView)characterView.nextFrame=0;
+}
+function rollMeleeDamage(rng=Math.random){const stats=playerStats();return Math.round(stats.damageMin+rng()*(stats.damageMax-stats.damageMin))}
+function incomingDamage(enemy,raw,rng=Math.random){
+ const stats=playerStats(),dx=enemy.root.position.x-state.x,dz=enemy.root.position.z-state.z;
+ const inFront=Math.sin(hero.root.rotation.y)*dx+Math.cos(hero.root.rotation.y)*dz>=0;
+ const blocked=stats.blockChance>0&&inFront&&rng()<stats.blockChance;
+ const damage=Math.max(blocked?0:1,Math.round(raw*(1-armorReduction(stats.armor,enemy.boss?5:1))-(blocked?stats.blockValue:0)));
+ if(blocked)msg('Блок щитом! Поглощено до '+stats.blockValue+' урона',1100);
+ return damage;
+}
+function finishEquipmentChange(){
+ // Swapping stamina items never heals; removing stamina clamps current health to the new cap.
+ state.hp=Math.min(state.hp,playerStats().maxHp);
+ autoAttack=false;attackElapsed=-1;swingTarget=null;attackCooldown=0;
+ syncEquipmentVisuals();save();updateHUD();
+}
+function equipInventorySlot(index,expected=state.inventory[index]){
+ const item=state.inventory[index],def=ITEM_CATALOG[item?.id];
+ if(!item||item!==expected||!def?.slot)return false;
+ if(inCombat()){msg('Сначала выйди из боя, чтобы сменить экипировку');return false}
+ if(state.level<(def.requiredLevel||1)){msg('Требуется уровень '+def.requiredLevel);return false}
+ // Exchange within the same backpack cell, including when all 12 cells are occupied.
+ const previous=state.equipment[def.slot];
+ state.equipment[def.slot]={id:item.id,qty:1};
+ state.inventory[index]=previous?{id:previous.id,qty:1}:null;
+ finishEquipmentChange();msg('Надето: '+def.name);return true;
+}
+function unequipSlot(slot,expected=state.equipment[slot]){
+ const item=state.equipment[slot];if(!item||item!==expected)return false;
+ if(inCombat()){msg('Сначала выйди из боя, чтобы снять экипировку');return false}
+ if(!storeItem({id:item.id,qty:1},false)){msg('Для снятой вещи нужно свободное место в рюкзаке');return false}
+ state.equipment[slot]=null;finishEquipmentChange();msg('Снято: '+ITEM_CATALOG[item.id].name);return true;
+}
+function refreshCharacter(){modalKind=null;character()}
+const coins=value=>value+' мон.';
+function itemStatText(def){
+ const parts=[];
+ if(def.damageMin)parts.push(def.damageMin+'–'+def.damageMax+' урона',def.speed.toFixed(2).replace('.',',')+' сек.',((def.damageMin+def.damageMax)/2/def.speed).toFixed(1).replace('.',',')+' урона/сек.');
+ if(def.armor)parts.push(def.armor+' брони');
+ if(def.strength)parts.push('+'+def.strength+' к силе');
+ if(def.stamina)parts.push('+'+def.stamina+' к выносливости');
+ if(def.block)parts.push('Блок: '+def.block);
+ return parts.join(' · ');
+}
+function showItemDetails(container,id,compare=false){
+ const def=ITEM_CATALOG[id];container.replaceChildren();
+ const card=document.createElement('div');card.className='item-tooltip';
+ const name=document.createElement('strong');name.className='item-name';name.dataset.rarity=def.rarity;name.textContent=def.icon+' '+def.name;card.appendChild(name);
+ for(const text of [def.quality+(def.slot?' · '+EQUIPMENT_SLOTS.find(s=>s.id===def.slot).name:''),itemStatText(def),def.description,'Продажа: '+coins(def.sell||0)]){
+  if(!text)continue;const row=document.createElement('div');row.textContent=text;card.appendChild(row);
+ }
+ if(def.requiredLevel>1){const level=document.createElement('div');level.textContent='Требуется уровень '+def.requiredLevel;level.className=state.level<def.requiredLevel?'item-requirement':'';card.appendChild(level)}
+ container.appendChild(card);
+ if(compare&&def.slot){
+  const before=playerStats(),after=playerStats({...state.equipment,[def.slot]:{id,qty:1}}),comparison=document.createElement('div');comparison.className='item-comparison';
+  const heading=document.createElement('div'),current=ITEM_CATALOG[state.equipment[def.slot]?.id];heading.textContent='Сейчас: '+(current?current.name:'пусто');comparison.appendChild(heading);
+  for(const [key,label] of [['maxHp','макс. здоровья'],['strength','силы'],['stamina','выносливости'],['armor','брони'],['dps','урона/сек.']]){
+   const delta=after[key]-before[key];if(Math.abs(delta)<.01)continue;
+   const row=document.createElement('div');row.className=delta>0?'stat-gain':'stat-loss';row.textContent=(delta>0?'+':'')+(key==='dps'?delta.toFixed(1):delta)+' '+label;comparison.appendChild(row);
+  }
+  container.appendChild(comparison);
+ }
+}
+function canTrade(){return Math.hypot(state.x-6,state.z-11)<3.5&&modalKind==='merchant'}
+function buyItem(id){
+ const def=ITEM_CATALOG[id];if(!canTrade()||!MERCHANT_STOCK.includes(id)||!def?.buy)return false;
+ if(state.gold<def.buy){msg('Недостаточно монет');return false}
+ if(!canStoreItem({id,qty:1})){msg('Освободи место в рюкзаке');return false}
+ storeItem({id,qty:1},false);state.gold-=def.buy;save();msg('Куплено: '+def.name);return true;
+}
+function sellItem(index,expected=state.inventory[index]){
+ const item=state.inventory[index],def=ITEM_CATALOG[item?.id];
+ if(!canTrade()||!item||item!==expected||!def?.sell)return false;
+ const price=def.sell*item.qty;
+ state.inventory[index]=null;state.gold+=price;
+ state.buyback.unshift({id:item.id,qty:item.qty,price});state.buyback=state.buyback.slice(0,12);
+ save();msg('Продано: '+def.name+' · +'+coins(price));return true;
+}
+function buyBackItem(index,expected=state.buyback[index]){
+ const item=state.buyback[index];if(!canTrade()||!item||item!==expected)return false;
+ if(state.gold<item.price){msg('Недостаточно монет');return false}
+ if(!canStoreItem(item)){msg('Освободи место в рюкзаке');return false}
+ storeItem({id:item.id,qty:item.qty},false);state.gold-=item.price;state.buyback.splice(index,1);save();msg('Предмет выкуплен обратно');return true;
+}
+function merchantTalk(){
+ openDialog('Борун Крепкая Ладонь','ОРУЖИЕ И ДОСПЕХИ',[],'merchant');renderMerchant('buy');
+}
+function renderMerchant(tab='buy',filter='all'){
+ const panel=$('panel'),scroll=panel.scrollTop,body=$('mbody');body.replaceChildren();$('choices').replaceChildren();
+ const summary=document.createElement('div');summary.className='merchant-wallet';summary.textContent='В кошеле: '+coins(state.gold)+' · Рюкзак: '+itemOccupancy()+' / '+inventoryCapacity();body.appendChild(summary);
+ const tabs=document.createElement('div');tabs.className='merchant-tabs';
+ for(const [key,label] of [['buy','Купить'],['sell','Продать'],['buyback','Выкупить']]){
+  const button=document.createElement('button');button.type='button';button.textContent=label;button.className=tab===key?'active':'';button.setAttribute('aria-pressed',String(tab===key));button.addEventListener('click',()=>renderMerchant(key));tabs.appendChild(button);
+ }body.appendChild(tabs);
+ const help=document.createElement('p');help.className='merchant-help';help.textContent=tab==='buy'?'Серые доспехи дают броню, оружие — урон. Купленную вещь надень из рюкзака.':tab==='sell'?'Можно продать всю стопку. Последние 12 продаж доступны для выкупа.':'Выкуп по цене продажи. Здесь сохраняются последние 12 проданных вещей или стопок.';body.appendChild(help);
+ if(tab==='buy'){
+  const filters=document.createElement('div');filters.className='merchant-filters';
+  for(const [key,label] of [['all','Всё'],['armor','Броня'],['weapon','Оружие'],['shield','Щиты']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.className=filter===key?'active':'';button.setAttribute('aria-pressed',String(filter===key));button.addEventListener('click',()=>renderMerchant(tab,key));filters.appendChild(button)}body.appendChild(filters);
+ }
+ const list=document.createElement('div');list.className='merchant-list';
+ const rows=tab==='buy'?MERCHANT_STOCK.filter(id=>filter==='all'||(filter==='armor'?!['weapon','shield'].includes(ITEM_CATALOG[id].slot):ITEM_CATALOG[id].slot===filter)).map(id=>({id,qty:1})):tab==='sell'?state.inventory.map((item,index)=>item?{...item,index,original:item}:null).filter(Boolean):state.buyback.map((item,index)=>({...item,index,original:item}));
+ for(const item of rows){
+  const def=ITEM_CATALOG[item.id],row=document.createElement('div');row.className='merchant-item';
+  const info=document.createElement('div'),name=document.createElement('strong');name.className='item-name';name.dataset.rarity=def.rarity;name.textContent=def.icon+' '+def.name+(item.qty>1?' ×'+item.qty:'');info.appendChild(name);
+  const stats=document.createElement('small');stats.textContent=itemStatText(def)||(def.description);info.appendChild(stats);
+  if(def.requiredLevel>1){const level=document.createElement('small');level.className=state.level<def.requiredLevel?'item-requirement':'';level.textContent='Уровень '+def.requiredLevel;info.appendChild(level)}
+  row.appendChild(info);
+  const price=tab==='buy'?def.buy:tab==='buyback'?item.price:def.sell*item.qty,button=document.createElement('button');button.type='button';button.className='trade-button';button.textContent=(tab==='buy'?'Купить':tab==='sell'?'Продать':'Выкупить')+' · '+coins(price);
+  button.setAttribute('aria-label',button.textContent+' — '+def.name);
+  button.disabled=tab!=='sell'&&(state.gold<price||!canStoreItem({id:item.id,qty:item.qty}));
+  button.addEventListener('click',()=>{const ok=tab==='buy'?buyItem(item.id):tab==='sell'?sellItem(item.index,item.original):buyBackItem(item.index,item.original);if(ok)renderMerchant(tab,filter)});row.appendChild(button);list.appendChild(row);
+ }
+ if(!rows.length){const empty=document.createElement('p');empty.textContent=tab==='sell'?'Рюкзак пуст. Экипировка на персонаже не продаётся.':'Пока нет проданных предметов.';list.appendChild(empty)}body.appendChild(list);
+ choice('Открыть рюкзак',bag,'alt');choice('До встречи',closeDialog);panel.scrollTop=scroll;
 }
 
 // A lazily created inspection scene shares the hero's meshes and materials.
@@ -345,9 +480,9 @@ function character(){
  const body=$('mbody'),intro=document.createElement('div');intro.className='character-section-label';intro.textContent='ЭКИПИРОВКА';body.appendChild(intro);
  const layout=document.createElement('div');layout.className='character-layout';
  const left=document.createElement('div'),right=document.createElement('div');left.className=right.className='equipment-column';
- const detail=document.createElement('div');detail.className='equipment-detail';detail.setAttribute('role','status');detail.setAttribute('aria-live','polite');detail.textContent='Выбери ячейку, чтобы узнать, что можно будет надеть.';
+ const detail=document.createElement('div');detail.className='equipment-detail';detail.setAttribute('role','status');detail.setAttribute('aria-live','polite');detail.textContent='Выбери вещь, чтобы посмотреть её свойства или снять. Новые вещи надеваются из рюкзака.';
  for(const [index,slot] of EQUIPMENT_SLOTS.entries()){
-  const item=state.equipment[slot.id],def=item?ITEM_CATALOG[item.id]:null,button=document.createElement('button');button.type='button';button.className='equipment-slot'+(item?' equipped':'');button.dataset.slot=slot.id;
+  const item=state.equipment[slot.id],def=item?ITEM_CATALOG[item.id]:null,button=document.createElement('button');button.type='button';button.className='equipment-slot'+(item?' equipped':'');button.dataset.slot=slot.id;if(def)button.dataset.rarity=def.rarity;
   button.setAttribute('aria-label',slot.name+': '+(def?def.name:'пусто'));button.setAttribute('aria-pressed','false');
   button.innerHTML=slotIcon(slot);
   const label=document.createElement('span');label.textContent=slot.name;button.appendChild(label);
@@ -355,9 +490,12 @@ function character(){
   button.addEventListener('click',()=>{
    for(const column of [left,right])for(const cell of column.children){cell.classList.remove('active');cell.setAttribute('aria-pressed','false')}
    button.classList.add('active');button.setAttribute('aria-pressed','true');
-   detail.textContent=slot.name+' · '+(def?def.name+'. '+def.description:slot.hint+'. Ячейка свободна — подходящие вещи появятся позже.');
+   if(def){
+    showItemDetails(detail,item.id);
+    const remove=document.createElement('button');remove.type='button';remove.className='choice alt';remove.textContent='Снять в рюкзак';remove.addEventListener('click',()=>{if(unequipSlot(slot.id,item))refreshCharacter()});detail.appendChild(remove);
+   }else detail.textContent=slot.name+' · '+slot.hint+'. Ячейка свободна.';
   });
-  (index<4?left:right).appendChild(button);
+  (index<4||slot.id==='weapon'?left:right).appendChild(button);
  }
  const center=document.createElement('div');center.className='character-preview';
  const preview=document.createElement('canvas');preview.className='character-canvas';preview.width=300;preview.height=380;preview.tabIndex=0;
@@ -375,11 +513,12 @@ function character(){
  const hint=document.createElement('span');hint.className='character-drag-hint';hint.textContent='Потяни, чтобы повернуть';center.appendChild(hint);
  layout.appendChild(left);layout.appendChild(center);layout.appendChild(right);body.appendChild(layout);body.appendChild(detail);
  const stats=document.createElement('dl');stats.className='character-stats';
- for(const [label,value] of [['Здоровье',Math.ceil(state.hp)+' / '+(120+(state.level-1)*20)],['Урон удара',String(18+(state.level-1)*3)],['Скорость атаки',SWING_PERIOD.toFixed(1).replace('.',',')+' сек.']]){
+ const attributes=playerStats();
+ for(const [label,value] of [['Здоровье',Math.ceil(state.hp)+' / '+attributes.maxHp],['Сила',attributes.strength],['Выносливость',attributes.stamina],['Броня',attributes.armor],['Сила атаки',attributes.attackPower],['Урон удара',Math.round(attributes.damageMin)+'–'+Math.round(attributes.damageMax)],['Скорость атаки',attributes.speed.toFixed(2).replace('.',',')+' сек.'],['Урон / сек.',attributes.dps.toFixed(1).replace('.',',')],['Блок щитом',attributes.blockChance?'5% · '+attributes.blockValue:'Нет щита']]){
   const pair=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;pair.appendChild(dt);pair.appendChild(dd);stats.appendChild(pair);
  }
  body.appendChild(stats);
- const note=document.createElement('p');note.className='character-note';note.textContent='8 мест для брони · '+Object.values(state.equipment).filter(Boolean).length+' занято. Походная одежда — базовый облик; вещи для этих ячеек появятся позже.';body.appendChild(note);
+ const note=document.createElement('p');note.className='character-note';note.textContent='10 ячеек · '+Object.values(state.equipment).filter(Boolean).length+' занято. +1 выносливости = +10 HP; +1 силы = +2 силы атаки. Броня снижает физический урон, щит блокирует атаки спереди. Оружие и щит видны на модели.';body.appendChild(note);
  choice('Открыть рюкзак',bag,'alt');choice('Вернуться в мир',closeDialog);
  preview.focus({preventScroll:true});
 }
@@ -402,8 +541,8 @@ function renderCharacterPreview(t,dt){
  }finally{renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);renderer.shadowMap.enabled=shadows}
 }
 
-const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:emptyEquipment()};
-let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:emptyEquipment()};
+const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
+let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
 function normalizeBags(input){
  return Array.from({length:EQUIPPED_BAG_SLOTS},(_,i)=>{
   const bag=Array.isArray(input)?input[i]:null;
@@ -417,7 +556,7 @@ function normalizeInventory(input){
  return Array.from({length:inventoryCapacity()},(_,i)=>{
   const item=Array.isArray(input)?input[i]:null;
   return item&&typeof item.id==='string'&&ITEM_CATALOG[item.id]&&Number.isFinite(item.qty)
-   ?{id:item.id,qty:clamp(Math.floor(item.qty),1,MAX_ITEM_STACK)}:null;
+   ?{id:item.id,qty:clamp(Math.floor(item.qty),1,itemStackLimit(item.id))}:null;
  });
 }
 function itemOccupancy(){return state.inventory.reduce((sum,item)=>sum+(item?1:0),0)}
@@ -425,40 +564,46 @@ function canStoreItem(item){
  if(!item||!ITEM_CATALOG[item.id]||!Number.isInteger(item.qty)||item.qty<=0)return false;
  let capacity=0;
  for(const slot of state.inventory){
-  if(!slot)capacity+=MAX_ITEM_STACK;
-  else if(slot.id===item.id)capacity+=MAX_ITEM_STACK-slot.qty;
+  if(!slot)capacity+=itemStackLimit(item.id);
+  else if(slot.id===item.id)capacity+=itemStackLimit(item.id)-slot.qty;
   if(capacity>=item.qty)return true;
  }
  return false;
 }
-function storeItem(item){
+function storeItem(item,persist=true){
  // Atomic insertion: never delete dropped loot unless every unit fits.
  if(!canStoreItem(item))return false;
  let remaining=item.qty;
  for(const slot of state.inventory){
   if(!slot||slot.id!==item.id||remaining===0)continue;
-  const add=Math.min(MAX_ITEM_STACK-slot.qty,remaining);
+  const add=Math.min(itemStackLimit(item.id)-slot.qty,remaining);
   slot.qty+=add;remaining-=add;
  }
  for(let i=0;i<state.inventory.length&&remaining>0;i++)if(!state.inventory[i]){
-  const add=Math.min(MAX_ITEM_STACK,remaining);
+  const add=Math.min(itemStackLimit(item.id),remaining);
   state.inventory[i]={id:item.id,qty:add};remaining-=add;
  }
- save();return true;
+ if(persist)save();return true;
 }
-// Corpses do not always carry goods: 72% chance, occasionally two finds.
-function rollCorpseLoot(){
- if(Math.random()>=.72)return [];
+// Equipment is independent of the common-material roll, never hidden behind its 72% gate.
+function rollCorpseLoot(enemy=null){
+ const equipment=rollEquipmentLoot(!!enemy?.boss),result=equipment?[equipment]:[];
+ if(Math.random()>=.72)return result;
  const r=Math.random();
  const id=r<.42?'feather':r<.72?'beak':r<.94?'down':'charm';
- const result=[{id,qty:id==='down'&&Math.random()<.38?2:1}];
+ result.push({id,qty:id==='down'&&Math.random()<.38?2:1});
  if(Math.random()<.16)result.push({id:id==='feather'?'down':'feather',qty:1});
  return result;
 }
 
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
-state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);state.hp=clamp(state.hp,1,120+(state.level-1)*20);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
-state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);state.equipment=normalizeEquipment(state.equipment);
+state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
+state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
+const needsStarterWeapon=!state.equipment||!Object.hasOwn(state.equipment,'weapon');
+state.equipment=normalizeEquipment(state.equipment);
+if(needsStarterWeapon)state.equipment.weapon={id:'wornAxe',qty:1};
+state.buyback=Array.isArray(state.buyback)?state.buyback.filter(row=>row&&ITEM_CATALOG[row.id]&&Number.isInteger(row.qty)&&row.qty>0&&row.qty<=itemStackLimit(row.id)&&row.price===ITEM_CATALOG[row.id].sell*row.qty).slice(0,12):[];
+state.hp=clamp(state.hp,1,playerStats().maxHp);syncEquipmentVisuals();
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
@@ -566,15 +711,15 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('modalClose').hidden=kind!=='character';if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('modalClose').hidden=!['character','merchant'].includes(kind);if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
-function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
+function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.2.9',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.0',
  ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
   'W/S — идти вперёд и назад; A/D — непрерывно поворачивать; Tab — цель; 1 — автоатака.',
-  'После победы обыщи тело долгонога. Рюкзак открывается клавишей I.'], 'pause');
+  'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
  choice('▶ Продолжить путь',closeDialog);
  choice('♙ Персонаж и экипировка',character);
  choice('⚙ Настройки камеры',cameraSettings);
@@ -597,7 +742,7 @@ function graphicsSettings(){
  choice('▶ Продолжить игру',closeDialog);
 }
 function resetWorld(){
- state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:emptyEquipment()};
+ state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
   e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;
@@ -605,7 +750,7 @@ function resetWorld(){
   e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
   e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
- }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;lastCombatAt=-100;hideCombatWarning();shockAge=9;cameraYaw=0;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
+ }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;syncEquipmentVisuals();attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;lastCombatAt=-100;hideCombatWarning();shockAge=9;cameraYaw=0;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
 function isLootableCorpse(e){return !!e&&e.dead>0&&Array.isArray(e.loot)&&e.loot.length>0}
 function nearTarget(){
  let closest=null,dist=3.5;
@@ -626,10 +771,10 @@ function interact(){
  if(!target){msg('Подойди к жителю или предмету ближе');return}
  if(target.kind==='corpse'){showCorpseLoot(target.enemy);return}
  if(target.kind==='relic'){state.quest=5;state.relic=true;save();updateHUD();msg('Получено перо предков');return}
- if(target.npc.type==='mentor')mentorTalk();else traderTalk();
+ if(target.npc.type==='mentor')mentorTalk();else if(target.npc.type==='armorer')merchantTalk();else traderTalk();
 }
 function xpNeed(){return 100+(state.level-1)*50}
-function experience(n){state.xp+=n;while(state.xp>=xpNeed()){state.xp-=xpNeed();state.level++;state.hp=120+(state.level-1)*20;msg('Новый уровень: '+state.level+'!')}}
+function experience(n){state.xp+=n;while(state.xp>=xpNeed()){state.xp-=xpNeed();state.level++;state.hp=playerStats().maxHp;msg('Новый уровень: '+state.level+'!')}}
 function mentorTalk(){
  const q=state.quest;
  if(q===0){
@@ -703,6 +848,8 @@ function bag(){
  openDialog('Рюкзак странника','ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,[],'bag');
  renderInventory();
  choice('🧪 Выпить лечебный настой ('+state.potions+')',()=>{if(heal(true))closeDialog()});
+ choice('Персонаж и экипировка',character,'alt');
+ if(Math.hypot(state.x-6,state.z-11)<3.5)choice('Вернуться к Боруну',merchantTalk,'alt');
  choice('Закрыть рюкзак',closeDialog,'alt');
 }
 function discardInventorySlot(index){
@@ -721,19 +868,22 @@ function renderInventory(){
  for(let i=0;i<capacity;i++){
   const item=state.inventory[i],cell=document.createElement('button');
   cell.type='button';cell.className='inventory-slot'+(item?' occupied':' empty');
+  if(item)cell.dataset.rarity=ITEM_CATALOG[item.id].rarity;
   cell.setAttribute('aria-label',item?ITEM_CATALOG[item.id].name+', '+item.qty+' шт.':'Пустая ячейка '+(i+1));
   if(item){
    const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=ITEM_CATALOG[item.id].icon;
    const count=document.createElement('span');count.className='slot-count';count.textContent=item.qty>1?String(item.qty):'';
    cell.appendChild(icon);cell.appendChild(count);
+   const label=document.createElement('span');label.className='slot-item-name';label.textContent=ITEM_CATALOG[item.id].name;cell.appendChild(label);
    cell.addEventListener('click',()=>{
     const def=ITEM_CATALOG[item.id];
     for(const button of grid.children)button.classList.remove('active');
     cell.classList.add('active');
-    detail.replaceChildren();
-    const description=document.createElement('div');
-    description.textContent=def.name+' ×'+item.qty+' · '+def.quality+'. '+def.description;
-    detail.appendChild(description);
+    showItemDetails(detail,item.id,true);
+    if(def.slot){
+     const equip=document.createElement('button');equip.className='choice equip-button';equip.type='button';equip.textContent=state.level<(def.requiredLevel||1)?'Нужен уровень '+def.requiredLevel:'Надеть · '+EQUIPMENT_SLOTS.find(slot=>slot.id===def.slot).name;
+     equip.disabled=state.level<(def.requiredLevel||1);equip.addEventListener('click',()=>{if(equipInventorySlot(i,item))renderInventory()});detail.appendChild(equip);
+    }
     const del=document.createElement('button');
     del.className='inventory-delete';del.type='button';del.textContent='🗑 Удалить предмет';
     detail.appendChild(del);
@@ -744,7 +894,7 @@ function renderInventory(){
      const yes=document.createElement('button');yes.type='button';yes.className='choice danger';yes.textContent='Удалить безвозвратно';
      const no=document.createElement('button');no.type='button';no.className='choice alt';no.textContent='Отмена';
      yes.addEventListener('click',()=>{
-      if(!discardInventorySlot(i)){msg('Не удалось удалить предмет');return}
+      if(state.inventory[i]!==item||!discardInventorySlot(i)){msg('Не удалось удалить предмет');return}
       renderInventory();msg('Предмет удалён: '+def.name);
      });
      no.addEventListener('click',()=>{cell.click()});
@@ -786,10 +936,11 @@ function renderCorpseLoot(e){
  const list=document.createElement('div');list.className='loot-list';
  for(let i=0;i<e.loot.length;i++){
   const row=e.loot[i],def=ITEM_CATALOG[row.id],button=document.createElement('button');
-  button.className='loot-item';button.type='button';
-  button.textContent=def.icon+'  '+def.name+(row.qty>1?' ×'+row.qty:'');
+  button.className='loot-item';button.type='button';button.dataset.rarity=def.rarity;
+  button.textContent=def.icon+'  '+def.name+(row.qty>1?' ×'+row.qty:'')+(def.slot?' — '+itemStatText(def)+(def.requiredLevel>1?' · Ур. '+def.requiredLevel:''):'');
   button.setAttribute('aria-label','Взять '+def.name+', '+row.qty+' шт.');
   button.addEventListener('click',()=>{
+   if(e.loot[i]!==row)return;
    if(!storeItem(row)){msg('В рюкзаке недостаточно места');return}
    e.loot.splice(i,1);
    if(e.loot.length)renderCorpseLoot(e);else finishLoot(e);
@@ -816,9 +967,9 @@ function showCorpseLoot(e){
  openDialog((e.name||'Добыча с долгонога'),'ОБЫСК ТЕЛА',[],'loot');
  renderCorpseLoot(e);
 }
-function heal(fromBag=false){if(modalKind&&!fromBag)return false;if(state.potions<=0){msg('Лечебные настои закончились');return false}const max=120+(state.level-1)*20;if(state.hp>=max){msg('Здоровье уже полное');return false}state.hp=Math.min(max,state.hp+55);state.potions--;save();updateHUD();msg('Луговые травы восстановили здоровье');return true}
+function heal(fromBag=false){if(modalKind&&!fromBag)return false;if(state.potions<=0){msg('Лечебные настои закончились');return false}const max=playerStats().maxHp;if(state.hp>=max){msg('Здоровье уже полное');return false}state.hp=Math.min(max,state.hp+55);state.potions--;save();updateHUD();msg('Луговые травы восстановили здоровье');return true}
 // Melee combat: select first, validate distance and facing, then animate.
-const MELEE_RANGE=3.45,TARGET_RANGE=35,SWING_PERIOD=1.8;
+const MELEE_RANGE=3.45,TARGET_RANGE=35;
 function isAliveTarget(e){return !!e&&e.dead<=0&&e.hp>0&&enemies.includes(e)}
 function targetDistance(e){return Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)}
 function nearestEnemy(range=TARGET_RANGE){
@@ -860,7 +1011,7 @@ function tryAutoSwing(){
  if(!isAliveTarget(selected)){autoAttack=false;selected=null;swingTarget=null;updateHUD();return false}
  const fail=meleeFailure(selected);
  if(fail){combatWarning(fail);return false}
- attackElapsed=0;attackCooldown=SWING_PERIOD;attackLanded=false;swingTarget=selected;
+ attackElapsed=0;attackCooldown=playerStats().speed;attackLanded=false;swingTarget=selected;
  hideCombatWarning();return true;
 }
 function attack(){
@@ -882,7 +1033,7 @@ function damageEnemy(e,amount){
  e.hp-=amount;e.aggro=true;e.hit=.22;
  if(e.hp<=0){
   e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
-  e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot()]:rollCorpseLoot();
+  e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
   e.root.visible=true;e.shadow.visible=true;
   e.lootMarker.visible=e.loot.length>0;
   e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.35,e.root.position.z);
@@ -941,7 +1092,7 @@ const questLines=[
  ['Все испытания пройдены','Вы завершили цепочку из пяти заданий.']
 ];
 let lastMarker='';
-function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('rageText').textContent=inCombat()?'В бою':state.hp<max?'Восстановление':'Готов к бою';$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
+function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('rageText').textContent=inCombat()?'В бою':state.hp<max?'Восстановление':'Готов к бою';$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
@@ -959,7 +1110,7 @@ function updateHUD(){const max=120+(state.level-1)*20;$('levelBadge').textConten
  $('targetNext').classList.toggle('target-selected',valid);
  if(valid){
   const dist=targetDistance(selected),problem=meleeFailure(selected);
-  $('targetName').textContent=selected.name+(selected.boss?' · Элитный':' · 1');
+  $('targetName').textContent=selected.name+(selected.boss?' · 5 · Элитный':' · 1');
   $('targetFill').style.width=Math.max(0,selected.hp/selected.maxHp*100)+'%';
   $('targetHp').textContent=Math.ceil(selected.hp)+' / '+selected.maxHp;
   $('targetDistance').textContent='Дистанция: '+dist.toFixed(1).replace('.',',')+' м · удар до '+MELEE_RANGE.toFixed(1).replace('.',',')+' м';
@@ -978,6 +1129,7 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
  if(state.quest===7){
   c.fillStyle='#fff0a9';c.beginPath();c.arc(SCOUT_X*k,SCOUT_Z*k,5,0,TAU);c.fill();
  }
+ c.fillStyle='#ffe397';c.fillRect(6*k-4,11*k-4,8,8);c.strokeStyle='#573c18';c.strokeRect(6*k-4,11*k-4,8,8);
  for(const p of mapLandmarks){c.fillStyle=p.color;c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.strokeStyle='#4e4e30';c.lineWidth=1;c.stroke()}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){
   c.fillStyle=e.boss?'#d33f39':e.aggro?'#b94f35':'#d8c073';
   c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,e.boss?5:2.5,0,TAU);c.fill();
@@ -1019,7 +1171,7 @@ function movement(dt){
  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,turn);
 }
-function revive(){lastCombatAt=clock;state.hp=120+(state.level-1)*20;state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
+function revive(){lastCombatAt=clock;state.hp=playerStats().maxHp;state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
  if(e.dead>0){
   if(e.boss&&e.nameTag)e.nameTag.visible=false;
@@ -1050,7 +1202,7 @@ function updateEnemy(e,dt){
  if(e.aggro){tx=state.x;tz=state.z;speed=e.boss?1.75:2.1}
  const d=Math.hypot(tx-p.x,tz-p.z),oldX=p.x,oldZ=p.z;
  if(d>(e.aggro?(e.boss?2.75:1.75):.25)&&e.stunned===0){const dx=(tx-p.x)/d*speed*dt,dz=(tz-p.z)/d*speed*dt;if(clearAt(p.x+dx,p.z+dz,.36)){p.x+=dx;p.z+=dz}else if(clearAt(p.x+dx,p.z,.36))p.x+=dx;else if(clearAt(p.x,p.z+dz,.36))p.z+=dz;const goal=Math.atan2(dx,dz);e.root.rotation.y+=Math.atan2(Math.sin(goal-e.root.rotation.y),Math.cos(goal-e.root.rotation.y))*(1-Math.exp(-dt*6))}
- if(e.aggro&&dist<(e.boss?3:2.1)&&e.attackCd===0&&e.stunned===0){lastCombatAt=clock;state.hp-=e.boss?14:9;e.attackCd=e.boss?1.8:1.5;if(state.hp<=0)revive()}
+ if(e.aggro&&dist<(e.boss?3:2.1)&&e.attackCd===0&&e.stunned===0){lastCombatAt=clock;state.hp-=incomingDamage(e,e.boss?14:9);e.attackCd=e.boss?1.8:1.5;if(state.hp<=0)revive()}
  if(e.boss&&e.nameTag){e.nameTag.visible=true;e.nameTag.position.set(p.x,heightAt(p.x,p.z)+4.65,p.z)}
   const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;e.body.rotation.x=e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
  e.shadow.position.set(p.x,p.y+.055,p.z);
@@ -1062,7 +1214,7 @@ function inCombat(){
 }
 function updateHealthRegen(dt){
  if(inCombat()||dt<=0)return;
- const max=120+(state.level-1)*20;
+ const max=playerStats().maxHp;
  if(state.hp<max)state.hp=Math.min(max,state.hp+HEALTH_REGEN_RATE*dt);
 }
 const camFocus=new THREE.Vector3(state.x,heightAt(state.x,state.z)+2.15,state.z),camTarget=new THREE.Vector3(),camDirection=new THREE.Vector3(),camRay=new THREE.Raycaster();
@@ -1089,7 +1241,7 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
   attackElapsed+=dt;
   if(attackElapsed>=.34&&!attackLanded){
    attackLanded=true;
-   if(isAliveTarget(swingTarget)&&!meleeFailure(swingTarget))damageEnemy(swingTarget,18+(state.level-1)*3);
+   if(isAliveTarget(swingTarget)&&!meleeFailure(swingTarget))damageEnemy(swingTarget,rollMeleeDamage());
   }
   if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null}
  }
@@ -1098,7 +1250,7 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
  if(state.quest===7&&Math.hypot(state.x-SCOUT_X,state.z-SCOUT_Z)<5.2){
   state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
  }
- enemies.forEach(e=>updateEnemy(e,dt));updateHealthRegen(dt);if(autoAttack)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);
+ enemies.forEach(e=>updateEnemy(e,dt));updateHealthRegen(dt);if(autoAttack)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
  selection.visible=isAliveTarget(selected);
  if(selection.visible){
@@ -1107,7 +1259,7 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
   selection.material.opacity=autoAttack?.96:.79;selection.scale.setScalar(selected.boss?1.65:1);
  }
  shockAge+=dt;stompRing.visible=shockAge<.6;if(stompRing.visible){stompRing.scale.setScalar(1+shockAge*7);stompRing.material.opacity=(1-shockAge/.6)*.7}
- attackOverlay.style.transform='scaleY('+clamp(attackCooldown/SWING_PERIOD,0,1)+')';stompOverlay.style.transform='scaleY('+clamp(stompCooldown/8,0,1)+')';$('rageFill').style.width=(1-clamp(attackCooldown/SWING_PERIOD,0,1))*100+'%';
+ attackOverlay.style.transform='scaleY('+clamp(attackCooldown/playerStats().speed,0,1)+')';stompOverlay.style.transform='scaleY('+clamp(stompCooldown/8,0,1)+')';$('rageFill').style.width=(1-clamp(attackCooldown/playerStats().speed,0,1))*100+'%';
  if(hudClock>.12){hudClock=0;updateHUD();drawMap()}if(saveClock>6){saveClock=0;save()}
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);clearInput();resetFps()});
