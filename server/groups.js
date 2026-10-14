@@ -70,6 +70,9 @@ export function createPartyManager({players,send,now=Date.now}){
   if(!party)return false;
   party.members=party.members.filter(member=>member!==id);
   if(online(id)&&!disconnected)send(id,state(id));
+  const departed=players.get(id)?.name||'Странник';
+  for(const member of party.members)if(online(member))send(member,{type:'partyNotice',
+   message:departed+(disconnected?' отключился и покинул группу':' покинул группу')});
   if(party.members.length<=1){
    groups.delete(party.id);
    for(const member of party.members){
@@ -77,16 +80,24 @@ export function createPartyManager({players,send,now=Date.now}){
     if(online(member))send(member,state(member));
    }
   }else{
-   if(party.leaderId===id)party.leaderId=party.members[0];
+   if(party.leaderId===id){
+    party.leaderId=party.members[0];
+    for(const member of party.members)if(online(member))send(member,{type:'partyNotice',
+     message:'Новый лидер группы: '+(players.get(party.leaderId)?.name||'Странник')});
+   }
    notify(party);
   }
   return true;
+ }
+ function getMemberIds(id){
+  const party=groups.get(membership.get(id));
+  return party?[...party.members]:null;
  }
  function renamed(id){
   const party=groups.get(membership.get(id));
   notify(party);
  }
  return {invite,respond,leave,disconnect:id=>leave(id,{disconnected:true}),
-  renamed,state,getPartyId:id=>membership.get(id)||null,
+  renamed,state,getPartyId:id=>membership.get(id)||null,getMemberIds,
   info:()=>({groups:groups.size,pending:pending.size})};
 }
