@@ -699,3 +699,56 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #playerFrame .portrait{top:18px}
  #playerFrame #resourceBar.bar.rage>span{font-size:8px}
 }
+
+
+/* NexGame Alpha 0.3.5.25 — touch-first player targeting and ephemeral 5-person groups. */
+#playerName{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px/17px Georgia,serif;color:#f9eac3;margin-bottom:2px}
+#top #partyOpen{border-color:#a6aa73;color:#f1e6bd}
+#allyFrame{position:fixed;left:315px;top:calc(28px + var(--safe-top));width:215px;z-index:7;padding:10px 34px 10px 11px;border-color:#648b7d;pointer-events:auto}
+#allyFrame #allyClear{position:absolute;top:4px;right:4px;width:27px;height:27px;background:#332d22;border:1px solid #a18d59;color:#ffe2a2;font:23px/20px Georgia}
+#allyName{display:block;font:bold 13px/1.35 Georgia;color:#cef4dc;word-break:break-word}
+#allyLevel{display:block;font:10px/1.3 system-ui,sans-serif;color:#d4cba9;margin:3px 0 7px}
+.ally-health{height:10px;background:#252a21;border:1px solid #9d956b;border-radius:3px;overflow:hidden}
+#allyHpFill{display:block;background:linear-gradient(#68a86a,#346744);height:100%;width:100%}
+#allyHpText{display:block;font:10px system-ui,sans-serif;color:#d9d7ac;margin-top:3px}
+#allyInvite{width:100%;min-height:33px;margin-top:9px;padding:5px 6px;border:1px solid #9aa975;background:linear-gradient(#496d58,#25382e);border-radius:3px;color:#f1eac6;font:bold 11px/1.2 system-ui,sans-serif}
+#allyInvite:disabled{opacity:.55}
+#partyHud{position:fixed;z-index:8;top:calc(255px + var(--safe-top));right:12px;width:min(185px,44vw);max-height:min(210px,38dvh);overflow:auto;border:1px solid #84926b;background:#1b261cdb;box-shadow:0 3px 15px #0008;border-radius:5px;padding:5px 6px;touch-action:pan-y}
+#partyHudTitle{font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.6px;color:#f3e1b3;margin-bottom:4px}
+.party-hud-member{display:block;width:100%;border:0;border-top:1px solid #a6af7a33;background:transparent;padding:4px 0;text-align:left;color:#dfefda;font:10px system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.party-hud-member:active{background:#4b6548}
+.party-hud-member .party-hud-health{display:block;width:100%;height:4px;background:#252820;margin-top:3px;border-radius:4px;overflow:hidden}
+.party-hud-member .party-hud-health i{display:block;background:#71a65d;height:100%}
+#partyInvitation{position:fixed;top:32%;left:50%;transform:translateX(-50%);z-index:55;width:min(92vw,350px);background:linear-gradient(#3a3527,#1b271f);color:#f6eacb;border:2px solid #b6a16b;border-radius:8px;box-shadow:0 12px 40px #000c;padding:17px;touch-action:pan-y}
+#partyInviteTitle{display:block;font:bold 19px Georgia;color:#e9dbaf;margin-bottom:8px}
+#partyInviteMessage{margin:0 0 15px;font:13px/1.5 system-ui,sans-serif;overflow-wrap:anywhere}
+.party-invite-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.party-invite-actions button{min-height:43px;border:1px solid #ad9c68;border-radius:4px;background:#3b6648;color:#fff0c8;font:bold 13px system-ui,sans-serif}
+.party-invite-actions #partyDecline{background:#643c30}
+.party-editor{display:flex;align-items:end;gap:7px;margin:8px 0 14px}
+.party-editor label{display:flex;flex:1;min-width:0;flex-direction:column;gap:5px;font:12px system-ui,sans-serif;color:#5b4529}
+#partyNameInput{min-width:0;width:100%;height:43px;padding:7px 9px;background:#fff2d4;color:#352b1f;border:1px solid #998250;border-radius:4px;touch-action:manipulation;-webkit-user-select:text;user-select:text;font:15px system-ui,sans-serif}
+.party-editor button{min-height:43px;white-space:nowrap;border:1px solid #826e43;border-radius:4px;background:#46553b;color:#f9e6bf;padding:8px;font:700 12px system-ui,sans-serif}
+.party-panel-section{font:bold 12px/1.4 system-ui,sans-serif;color:#62471e;margin:13px 0 5px}
+.party-panel-note{font:12px/1.5 system-ui,sans-serif;color:#634c32;margin:4px 0 8px}
+.party-panel-roster{display:flex;flex-direction:column;gap:5px;margin:8px 0}
+.party-panel-roster-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;background:#ebd6ad;border:1px solid #ae9161;color:#463722;border-radius:4px;font:12px system-ui,sans-serif}
+.party-panel-roster-row b{font-weight:600}
+@media(max-width:850px){
+ #allyFrame{left:15px;top:calc(96px + var(--safe-top));width:192px}
+ #partyHud{top:calc(244px + var(--safe-top));right:8px;width:min(156px,41vw)}
+ #top #partyOpen{grid-column:1/-1}
+ #top{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #top .smallButton{min-width:0}
+}
+@media(max-width:360px){
+ #allyFrame{left:10px;width:185px}
+ #partyHud{top:calc(236px + var(--safe-top));width:142px}
+ #top{right:8px;gap:3px}
+ #top .smallButton{font-size:10px;padding:5px 4px}
+}
+@media(max-height:510px) and (min-width:600px){
+ #allyFrame{left:252px;top:62px;width:185px}
+ #partyHud{top:175px;right:10px;max-height:170px}
+ #top #partyOpen{grid-column:auto}
+}
