@@ -1,4 +1,5 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.33';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.37';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.37';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
 import {createWorldPresence} from './online.js?v=0.3.5.36';
@@ -17,14 +18,14 @@ try{
 const clamp=THREE.MathUtils.clamp,TAU=Math.PI*2;
 const settingsKey='nexgame-settings-v1';
 const graphicsPresets={
- economy:{pixelRatio:1,shadows:false,shadowSize:512,grass:.5},
- balanced:{pixelRatio:1.5,shadows:true,shadowSize:1024,grass:1},
- high:{pixelRatio:2,shadows:true,shadowSize:2048,grass:1}
+ economy:{pixelRatio:1,shadows:false,shadowSize:512,grass:.40,flowers:.35,shrubs:.35},
+ balanced:{pixelRatio:1.5,shadows:true,shadowSize:1024,grass:.75,flowers:.72,shrubs:.7},
+ high:{pixelRatio:2,shadows:true,shadowSize:2048,grass:1,flowers:1,shrubs:1}
 };
 const qualityDescriptions={
- economy:'Меньше нагрузки: ниже чёткость, меньше травы, только мягкие тени под персонажами.',
- balanced:'Баланс чёткости, динамических теней и нагрузки.',
- high:'Более чёткое изображение и детальные динамические тени. Нагрузка выше.'
+ economy:'Меньше нагрузки: ниже чёткость, меньше травы и цветов, мягкие тени.',
+ balanced:'Баланс чёткости, теней, травы, цветов и кустарников.',
+ high:'Полная плотность растений, высокая чёткость и детальные тени.'
 };
 const settings={quality:'balanced',showFps:false,cameraPitch:.29};
 try{const saved=JSON.parse(localStorage.getItem(settingsKey));if(saved&&typeof saved==='object'){
@@ -34,15 +35,15 @@ try{const saved=JSON.parse(localStorage.getItem(settingsKey));if(saved&&typeof s
 }}catch(e){}
 const saveSettings=()=>{try{localStorage.setItem(settingsKey,JSON.stringify(settings))}catch(e){}};
 const wrapYaw=yaw=>Math.atan2(Math.sin(yaw),Math.cos(yaw));
-const scene=new THREE.Scene();scene.background=createSkyMap(THREE);scene.fog=new THREE.Fog(0xc7d8d6,72,174);
+const scene=new THREE.Scene();scene.background=createSkyMap(THREE);scene.fog=new THREE.Fog(0xd2d9ce,76,174);
 const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.09,230);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'default'});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=graphicsPresets[settings.quality].shadows;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;
 $('scene').appendChild(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xd9e8f0,0x716044,1.7));
-const sun=new THREE.DirectionalLight(0xffe3b3,2.65);sun.position.set(-30,48,22);sun.castShadow=true;
+scene.add(new THREE.HemisphereLight(0xe7e9d8,0x78684b,1.45));
+const sun=new THREE.DirectionalLight(0xffd9a8,2.45);sun.position.set(-30,48,22);sun.castShadow=true;
 sun.shadow.mapSize.setScalar(graphicsPresets[settings.quality].shadowSize);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:110});sun.shadow.bias=-.0004;sun.shadow.normalBias=.045;
 scene.add(sun,sun.target);
 let seed=531;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
@@ -257,10 +258,10 @@ function tree(x,z,scale){const y=heightAt(x,z),g=group(world,x,y,z);g.scale.setS
 for(const [x,z,s] of [[-26,21,1.2],[25,22,1],[34,-26,.95],[-34,-30,1.15],[9,49,1.2],[-39,40,1.1],[46,31,1.3],[50,-8,.8],[-47,-7,1.1]])tree(x,z,s);
 const pond=mesh(world,new THREE.CircleGeometry(6,36),M.water,26,heightAt(26,29)+.05,29,1,1,1,false);pond.rotation.x=-Math.PI/2;pond.scale.set(1.4,.72,1);
 // Shallow water is traversable: actors follow the terrain beneath its surface.
-// Sparse, instanced grass keeps the large meadow inexpensive on phones.
-const grassGeo=new THREE.BufferGeometry();grassGeo.setAttribute('position',new THREE.Float32BufferAttribute([-.18,0,0,.03,.7,.03,.16,0,0,0,0,-.17,.04,.52,0,0,0,.18],3));grassGeo.computeVertexNormals();
-const grass=new THREE.InstancedMesh(grassGeo,material(0x718643,{side:THREE.DoubleSide}),1100),dummy=new THREE.Object3D();let grassCount=0;
-for(let i=0;i<1900&&grassCount<1100;i++){const x=(rand()-.5)*139,z=(rand()-.5)*139;if(!clearAt(x,z,.15)||interiorZones.some(zone=>isInsideRect(x,z,zone,1))||onPath(x,z)||Math.hypot(x+5,z-4)<8)continue;dummy.position.set(x,heightAt(x,z),z);dummy.rotation.y=rand()*TAU;dummy.scale.setScalar(.45+rand()*.75);dummy.updateMatrix();grass.setMatrixAt(grassCount,dummy.matrix);grass.setColorAt(grassCount,new THREE.Color().setHSL(.17+rand()*.055,.35,.31+rand()*.14));grassCount++}grass.count=grassCount;grass.instanceMatrix.needsUpdate=true;scene.add(grass);
+// Clustered instanced meadow: 1 grass draw call, 3 flower batches, 1 shrub batch.
+const meadow=createMeadowDecorations(THREE,{
+ scene,heightAt,clearAt,onPath,interiorZones,isInsideRect
+});
 fuse(world,true);
 // Soft contact shadows stay directly on the terrain underneath each actor.
 const shadowTexture=texture((c,s)=>{const grad=c.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);grad.addColorStop(0,'rgba(22,22,10,.48)');grad.addColorStop(.4,'rgba(22,22,10,.24)');grad.addColorStop(1,'rgba(22,22,10,0)');c.fillStyle=grad;c.fillRect(0,0,s,s)},64);
@@ -991,7 +992,7 @@ function applyGraphics(){
   for(const m of materials)m.needsUpdate=true;
  }
  renderer.shadowMap.needsUpdate=true;
- grass.count=Math.floor(grassCount*preset.grass);
+ meadow.applyDensity(preset);
  $('graphicsQuality').value=settings.quality;$('qualityHelp').textContent=qualityDescriptions[settings.quality];
  resetFps();
 }
