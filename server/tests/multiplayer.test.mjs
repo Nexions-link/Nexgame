@@ -24,7 +24,7 @@ async function ready(port,timeout=8000){
 }
 async function connect(port){
  const ws=new WebSocket('ws://127.0.0.1:'+port);
- const snapshots=new Map(),combats=[],credits=[],enemyAttacks=[],partyStates=[],partyInvites=[],partyNotices=[];let welcome=null;
+ const snapshots=new Map(),combats=[],credits=[],enemyAttacks=[],partyStates=[],partyInvites=[],partyNotices=[],chatMessages=[],chatRejected=[];let welcome=null;
  ws.on('message',message=>{
   const payload=JSON.parse(String(message));
   if(payload.type==='welcome')welcome=payload;
@@ -37,9 +37,11 @@ async function connect(port){
   if(payload.type==='partyState')partyStates.push(payload);
   if(payload.type==='partyInvite')partyInvites.push(payload);
   if(payload.type==='partyNotice')partyNotices.push(payload);
+  if(payload.type==='chat')chatMessages.push(payload);
+  if(payload.type==='chatRejected')chatRejected.push(payload);
  });
  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
- return {ws,snapshots,combats,credits,enemyAttacks,partyStates,partyInvites,partyNotices,getWelcome:()=>welcome};
+ return {ws,snapshots,combats,credits,enemyAttacks,partyStates,partyInvites,partyNotices,chatMessages,chatRejected,getWelcome:()=>welcome};
 }
 
 test('two players receive identical mob states on the same world tick', {timeout:14000},async()=>{
@@ -52,7 +54,7 @@ test('two players receive identical mob states on the same world tick', {timeout
  let a,b;
  try{
   const health=await ready(port);
-  assert.equal(health.protocol,4);
+  assert.equal(health.protocol,5);
   assert.equal(health.mobs,9);
   a=await connect(port);b=await connect(port);
   await new Promise(resolve=>setTimeout(resolve,650));
@@ -137,5 +139,49 @@ test('two real WebSockets invite, accept, rename and dissolve a party on disconn
   assert.equal(a.partyStates.at(-1)?.groupId,null);
  }finally{
   a?.ws.close();b?.ws.close();child.kill('SIGTERM');
+ }
+});
+
+test('world messages reach all, party chat stays private, and spoofed names are ignored',
+ {timeout:14000},async()=>{
+ const port=await freePort();
+ const child=spawn(process.execPath,['index.js'],{
+  cwd:new URL('../',import.meta.url),
+  env:{...process.env,PORT:String(port)},stdio:'ignore'
+ });
+ let a,b,c;
+ try{
+  const health=await ready(port);assert.equal(health.protocol,5);
+  a=await connect(port);b=await connect(port);c=await connect(port);
+  await new Promise(resolve=>setTimeout(resolve,85));
+  const aid=a.getWelcome().id,bid=b.getWelcome().id;
+  a.ws.send(JSON.stringify({type:'join',name:'Гром',x:0,z:10,yaw:0}));
+  b.ws.send(JSON.stringify({type:'join',name:'Друг',x:0,z:10,yaw:0}));
+  c.ws.send(JSON.stringify({type:'join',name:'Посторонний',x:0,z:10,yaw:0}));
+  await new Promise(resolve=>setTimeout(resolve,80));
+  a.ws.send(JSON.stringify({type:'chatSend',channel:'world',text:'Всем привет!',name:'Не Гром'}));
+  await new Promise(resolve=>setTimeout(resolve,95));
+  assert.equal(a.chatMessages.length,1);
+  assert.equal(b.chatMessages.length,1);
+  assert.equal(c.chatMessages.length,1);
+  assert.equal(c.chatMessages[0].name,'Гром');
+  assert.equal(c.chatMessages[0].fromId,aid);
+  a.ws.send(JSON.stringify({type:'partyInvite',targetId:bid}));
+  await new Promise(resolve=>setTimeout(resolve,85));
+  b.ws.send(JSON.stringify({type:'partyRespond',fromId:aid,accept:true}));
+  await new Promise(resolve=>setTimeout(resolve,1100));
+  b.ws.send(JSON.stringify({type:'chatSend',channel:'party',text:'Только друзьям'}));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  assert.equal(a.chatMessages.filter(m=>m.channel==='party').length,1);
+  assert.equal(b.chatMessages.filter(m=>m.channel==='party').length,1);
+  assert.equal(c.chatMessages.filter(m=>m.channel==='party').length,0);
+  c.ws.send(JSON.stringify({type:'chatSend',channel:'party',text:'Я не в группе'}));
+  await new Promise(resolve=>setTimeout(resolve,100));
+  assert.ok(c.chatRejected.some(m=>m.reason.includes('группу')));
+  b.ws.send(JSON.stringify({type:'partyLeave'}));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  assert.ok(a.partyNotices.some(m=>m.message.includes('покинул группу')));
+ }finally{
+  a?.ws.close();b?.ws.close();c?.ws.close();child.kill('SIGTERM');
  }
 });
