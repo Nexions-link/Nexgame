@@ -45,6 +45,14 @@ wss.on('connection',ws=>{
   if(!data||typeof data!=='object')return;
   if(data.type==='join'){
    const name=cleanName(data.name);if(name)player.name=name;
+   // Initialize the player's first position from an existing browser save.
+   // Coordinates are provisional until server-authoritative movement is added.
+   if(finite(data.x,-1000,1000)&&finite(data.z,-1000,1000)){
+    player.x=data.x;player.z=data.z;
+   }
+   if(finite(data.yaw,-Math.PI*4,Math.PI*4))player.yaw=data.yaw;
+   if(integer(data.level,1,60))player.level=data.level;
+   player.updatedAt=Date.now();
    return;
   }
   if(data.type!=='move')return;
