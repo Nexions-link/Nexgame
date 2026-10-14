@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import * as Three from 'three';
 const folder=process.argv[2]||fileURLToPath(new URL('../',import.meta.url));
 const data=await import('../items.js');
+const skills=await import('../skills.js');
 class Element{
  constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.style={};this.children=[];this.listeners={};this.hidden=false;this.dataset={};this.attributes={};this.className='';this.value='10.5';this.min='4';this.max='22';this._width=300;this._height=150;
   this.classList={add:(...names)=>{this.className=[...new Set([...this.className.split(' '),...names])].join(' ')},remove:(...names)=>{this.className=this.className.split(' ').filter(x=>!names.includes(x)).join(' ')},toggle:(name,force)=>{const on=force??!this.className.split(' ').includes(name);this.classList[on?'add':'remove'](name);return on},contains:name=>this.className.split(' ').includes(name)};
@@ -37,9 +38,12 @@ class Renderer{
  setViewport(...args){this.viewport=args}setScissor(...args){this.scissor=args}setScissorTest(b){this.scissorTest=b}
  render(scene,camera){this.calls.push(scene);scene.updateMatrixWorld(true);camera.updateMatrixWorld(true)}
 }
-const context={console,URLSearchParams,Math,Number,JSON,Date,Set,Map,Object,Float32Array,performance:{now:()=>now},innerWidth:1280,innerHeight:720,devicePixelRatio:1.5,requestAnimationFrame(){},setTimeout(){},clearTimeout(){},HTMLButtonElement:Element,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},document,addEventListener:(k,fn)=>events[k]=fn,__DATA:data,__THREE:{...Three,WebGLRenderer:Renderer}};
+const context={console,URLSearchParams,Math,Number,JSON,Date,Set,Map,Object,Float32Array,performance:{now:()=>now},innerWidth:1280,innerHeight:720,devicePixelRatio:1.5,requestAnimationFrame(){},setTimeout(){},clearTimeout(){},HTMLButtonElement:Element,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},document,addEventListener:(k,fn)=>events[k]=fn,__DATA:data,__SKILLS:skills,__THREE:{...Three,WebGLRenderer:Renderer}};
 vm.createContext(context);
-let source=fs.readFileSync(folder+'/game.js','utf8').replace(/^import \{([^}]+)\} from [^;]+;/, 'const {$1}=__DATA;').replace("THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')","THREE=__THREE");
+let source=fs.readFileSync(folder+'/game.js','utf8')
+ .replace(/^import \{([^}]+)\} from ['"]\.\/items\.js[^'"]+['"];/m,'const {$1}=__DATA;')
+ .replace(/^import \{([^}]+)\} from ['"]\.\/skills\.js[^'"]+['"];/m,'const {$1}=__SKILLS;')
+ .replace("THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')","THREE=__THREE");
 const exposed='scene,world,M,hero,mentor,trader,camera,camFocus,enemies,keys,joy,update,movement,frame,animateTauren,animateCamera,attack,stomp,heal,mentorTalk,closeDialog,resetWorld,clearAt,heightAt,save,setCameraDistance,setCameraFollow,openDialog,bag,renderInventory,discardInventorySlot,storeItem,canStoreItem,showCorpseLoot,damageEnemy,setTarget,cycleTarget,updateHealthRegen,initial,getState:()=>state,setState:s=>{state={...state,...s}},getSelected:()=>selected,getModal:()=>modalKind,getCamera:()=>({cameraYaw,cameraPitch,cameraDistance,cameraFollow}),setPitch:v=>cameraPitch=v';
 const extra=source.includes('function character()')?',settings,setGraphicsQuality,setShowFps,sampleFps,grass,grassCount,character,ensureCharacterView,renderCharacterPreview,normalizeEquipment,EQUIPMENT_SLOTS,getView:()=>characterView,armorer,npcs,interact,nearTarget,playerStats,rollMeleeDamage,incomingDamage,equipInventorySlot,unequipSlot,merchantTalk,renderMerchant,buyItem,sellItem,buyBackItem,rollCorpseLoot,normalizeInventory,ITEM_CATALOG,startingEquipment,getCombat:()=>({attackCooldown,attackElapsed}),setCombat:v=>{lastCombatAt=v?clock:-100;enemies.forEach((e,i)=>e.aggro=!!v&&i===0&&e.dead<=0)}':'';
 source=source.replace("}catch(error){const text=$('loadText');",'globalThis.qa={'+exposed+extra+"};}catch(error){const text=$('loadText');");
