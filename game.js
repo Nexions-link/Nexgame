@@ -2076,7 +2076,7 @@ function update(dt){
   selection.material.opacity=autoAttack?.96:.79;selection.scale.setScalar(selected.boss?1.65:selected.trainingDummy?1.2:1);
  }
  shockAge+=dt;stompRing.visible=shockAge<.6;if(stompRing.visible){stompRing.scale.setScalar(1+shockAge*7);stompRing.material.opacity=(1-shockAge/.6)*.7}
- updateHotbarVisuals();
+ // Update hotbar overlays through the HUD at ~8 Hz to avoid redundant DOM work on iPhone.
  if(hudClock>.12){hudClock=0;updateHUD();drawMap()}if(saveClock>6){saveClock=0;save()}
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);clearInput();resetFps()});
