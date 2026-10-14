@@ -1295,8 +1295,7 @@ function bindImmediateButton(id,action){
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
-// Gathering, looting and NPC interactions should also work under a held joystick.
-bindImmediateButton('interact',interact);
+// Gathering, looting and NPC interactions work with a second finger on iPhone.
 bindImmediateButton('interact',interact);
 $('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
