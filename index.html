@@ -21,7 +21,7 @@
    const response=await fetch(url.href,{cache:'no-store'});
    if(!response.ok)return;
    const html=await response.text();
-   const match=html.match(/NexGame\\s*[·]\\s*Alpha\\s*(\\d+\\.\\d+\\.\\d+\\.\\d+)/);
+   const match=html.match(/NexGame\s*[·]\s*Alpha\s*(\d+\.\d+\.\d+\.\d+)/);
    if(!match||match[1]===current)return;
    const newer=match[1].split('.').map(Number);
    const older=current.split('.').map(Number);
