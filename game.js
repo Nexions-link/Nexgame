@@ -1,5 +1,5 @@
-import {createWorldPresence} from './online.js?v=0.3.5.24';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.24';
+import {createWorldPresence} from './online.js?v=0.3.5.25';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.25';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -2363,16 +2363,34 @@ const worldConnection=createWorldPresence({
  onMobAttack:applyMobAttack,
  onKillCredit:applySharedKillCredit,
  onCombatRejected:showSharedCombatError,
+ onPartyState:applyPartyState,
+ onPartyInvite:receivePartyInvite,
+ onPartyNotice:notice=>{if(notice?.message)msg(notice.message,3600)},
+ onNameChanged:event=>{
+  if(event?.name&&event.name!==characterName){
+   characterName=sanitizePlayerName(event.name);
+   try{localStorage.setItem(playerNameKey,characterName)}catch{}
+   $('playerName').textContent=characterName;
+  }
+ },
  onLeave:removeRemotePlayer,
  getPosition:()=>({
-  x:state.x,z:state.z,yaw:state.yaw,level:state.level,
+  name:characterName,x:state.x,z:state.z,yaw:state.yaw,level:state.level,
+  hp:state.hp,maxHp:playerStats().maxHp,
   equipment:Object.fromEntries(Object.entries(state.equipment||{}).filter(([,item])=>item?.id).map(([slot,item])=>[slot,item.id])),
   moving:Math.abs(joy.x)+Math.abs(joy.y)>0||keys.has('w')||keys.has('arrowup')
  })
 });
+$('partyOpen').addEventListener('click',openPartyDialog);
+$('allyInvite').addEventListener('click',()=>inviteRemotePlayer(selectedPlayerId));
+$('allyClear').addEventListener('click',()=>selectRemotePlayer(null));
+$('partyAccept').addEventListener('click',()=>respondToPartyInvite(true));
+$('partyDecline').addEventListener('click',()=>respondToPartyInvite(false));
 
 let lastMarker='';
-function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();updateHotbarVisuals();
+function updateHUD(){const max=playerStats().maxHp;
+ $('playerName').textContent=characterName;
+ renderAllySelection();renderGroupHud();$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();updateHotbarVisuals();
  const klass=getClassDefinition(state.classId);
  $('className').textContent='Таурен · '+klass.name;
  $('rageFill').style.width=(100*state.resource/klass.resourceMax)+'%';
