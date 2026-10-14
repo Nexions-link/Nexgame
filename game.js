@@ -1340,6 +1340,115 @@ const questLines=[
  ['Грозоклюв, вожак стада','Грозоклюв повержен! Вернитесь к наставнику.'],
  ['Все испытания пройдены','Вы завершили цепочку из пяти заданий.']
 ];
+/* Quest journal: compute all categories from existing save-state fields.
+   No migration and no duplicate quest-completion flags are needed. */
+const MAIN_JOURNAL=[
+ {title:'Первые шаги',description:'Познакомься с наставником Каменный Рог у большого тотема лагеря Нараче.',objective:'Поговорить с наставником.',npc:'Наставник Каменный Рог',reward:''},
+ {title:'Обряд силы',description:'Докажи, что готов защищать родные равнины. На тропе встречаются обычные долгоноги.',objective:'Победить трёх равнинных долгоногов и вернуться в лагерь.',npc:'Наставник Каменный Рог',reward:'25 монет · 80 опыта'},
+ {title:'Голос предков',description:'У древнего тотема на востоке лежит перо предков. Принеси его наставнику.',objective:'Найти перо предков и отнести наставнику.',npc:'Наставник Каменный Рог',reward:'40 монет · 110 опыта'},
+ {title:'Следы исполина',description:'На дальних пастбищах заметили огромные птичьи следы. Разведай юго-восточную дорогу.',objective:'Достичь дальнего участка тропы и вернуться.',npc:'Наставник Каменный Рог',reward:'50 монет · 95 опыта'},
+ {title:'Грозоклюв, вожак стада',description:'Громадный долгоног угрожает пастбищам. Красная пунктирная линия укажет путь к нему.',objective:'Победить Грозоклюва и вернуться к наставнику.',npc:'Наставник Каменный Рог',reward:'90 монет · 190 опыта'}
+];
+let journalTab='current';
+const journalOpenItems=new Set();
+function journalQuestEntries(){
+ const result=[],q=state.quest;
+ const completeAt=[1,3,6,9,12],offeredAt=[0,-1,3,6,9],startedAt=[-1,1,4,7,10];
+ for(let i=0;i<MAIN_JOURNAL.length;i++){
+  const status=q>=completeAt[i]?'completed':
+   q===offeredAt[i]?'available':
+   startedAt[i]>=0&&q>=startedAt[i]&&q<completeAt[i]?'current':null;
+  if(!status)continue;
+  let progress=status==='completed'?'Завершено и сдано наставнику.':
+   status==='available'?'Доступно у наставника.':'Выполняется.';
+  if(status==='current'){
+   if(i===1)progress=q===2?'3 / 3 · Можно сдать наставнику.':'Долгоноги: '+state.kills+' / 3.';
+   if(i===2)progress=q===5?'Перо найдено · Вернись к наставнику.':'Перо предков: 0 / 1.';
+   if(i===3)progress=q===8?'Дальний участок разведан · Вернись в лагерь.':'Доберись до дальнего участка дороги.';
+   if(i===4)progress=q===11?'Грозоклюв повержен · Вернись к наставнику.':'Грозоклюв: 0 / 1 · Следуй по красному пунктиру.';
+  }
+  result.push({id:'main-'+i,chain:'Испытания Нараче',status,progress,...MAIN_JOURNAL[i]});
+ }
+ for(let i=1;i<=3;i++){
+  const quest=GATHER_QUESTS[i],stage=state.gatherStage;
+  const status=stage>i?'completed':stage===i?'current':i===1&&stage===0?'available':null;
+  if(!status)continue;
+  const amount=status==='completed'?quest.count:gatherQuestCount(i);
+  const progress=status==='completed'?'Завершено · Ингредиенты переданы травнице.':
+   status==='available'?'Доступно у травницы Тихой Зари.':
+   'Собрано '+amount+' / '+quest.count+(amount>=quest.count?' · Можно сдавать травнице.':' · '+quest.hint);
+  result.push({id:'gather-'+i,chain:'Дары Мулгора',status,title:quest.title,
+   description:quest.intro,objective:'Собрать '+quest.count+' шт.: '+ITEM_CATALOG[quest.item].name+'.',
+   npc:'Травница Тихая Заря',progress,reward:quest.gold+' монет · '+quest.xp+' опыта'});
+ }
+ return result;
+}
+function journal(){
+ if(modalKind==='journal'){closeDialog();return}
+ openDialog('Журнал заданий','ИСТОРИЯ ТВОИХ ПРИКЛЮЧЕНИЙ',[],'journal');
+ renderJournal();
+}
+function renderJournal(){
+ if(modalKind!=='journal')return;
+ const all=journalQuestEntries(),body=$('mbody');
+ body.replaceChildren();
+ const tabs=document.createElement('div');tabs.className='journal-tabs';
+ tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Состояние заданий');
+ const names={current:'Текущие',available:'Доступные',completed:'Пройденные'};
+ for(const [key,label] of Object.entries(names)){
+  const button=document.createElement('button'),total=all.filter(x=>x.status===key).length;
+  button.type='button';button.className='journal-tab';button.id='journal-tab-'+key;
+  button.setAttribute('role','tab');button.setAttribute('aria-selected',String(journalTab===key));
+  button.setAttribute('aria-controls','journal-list');
+  button.textContent=label+' ('+total+')';
+  button.addEventListener('click',()=>{journalTab=key;renderJournal()});
+  tabs.appendChild(button);
+ }
+ body.appendChild(tabs);
+ const list=document.createElement('div');list.id='journal-list';list.className='journal-list';
+ list.setAttribute('role','tabpanel');list.setAttribute('aria-labelledby','journal-tab-'+journalTab);
+ const entries=all.filter(x=>x.status===journalTab);
+ if(!entries.length){
+  const empty=document.createElement('div');empty.className='journal-empty';
+  empty.textContent=journalTab==='current'?'Нет активных заданий. Посмотри вкладку «Доступные».':
+   journalTab==='available'?'Сейчас нет новых заданий. Продолжай выполнять текущие.':
+   'Ты ещё не завершил ни одного задания.';
+  list.appendChild(empty);
+ }
+ let lastChain='';
+ for(const entry of entries){
+  if(entry.chain!==lastChain){
+   const group=document.createElement('div');group.className='journal-chain-label';
+   group.textContent=entry.chain;list.appendChild(group);lastChain=entry.chain;
+  }
+  const details=document.createElement('details');details.className='journal-entry';
+  details.dataset.status=entry.status;details.open=journalOpenItems.has(entry.id);
+  details.addEventListener('toggle',()=>{
+   if(details.open)journalOpenItems.add(entry.id);
+   else journalOpenItems.delete(entry.id);
+  });
+  const summary=document.createElement('summary');
+  const title=document.createElement('span');title.className='journal-entry-title';
+  title.textContent=entry.title;
+  const status=document.createElement('span');status.className='journal-entry-status';
+  status.textContent=entry.status==='completed'?'✓ Завершено':entry.status==='available'?'! Доступно':'● Активно';
+  summary.appendChild(title);summary.appendChild(status);
+  details.appendChild(summary);
+  const content=document.createElement('div');content.className='journal-entry-body';
+  for(const [line,kind] of [
+    [entry.description,'journal-entry-description'],
+    ['Цель: '+entry.objective,'journal-entry-objective'],
+    [entry.progress,'journal-entry-meta'],
+    ['NPC: '+entry.npc,'journal-entry-meta'],
+    [entry.reward?'Награда: '+entry.reward:'','journal-entry-reward']
+  ]){
+   if(!line)continue;
+   const p=document.createElement('p');p.className=kind;p.textContent=line;content.appendChild(p);
+  }
+  details.appendChild(content);list.appendChild(details);
+ }
+ body.appendChild(list);
+}
 let lastMarker='';
 function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('rageText').textContent=inCombat()?'В бою':state.hp<max?(clock-lastCombatAt<HEALTH_REGEN_DELAY?'Отдых после боя':'Восстановление'):'Готов к бою';$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
