@@ -461,3 +461,147 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #dummyReady{font-size:9px}
  #dummyReset{margin-top:4px;padding:3px}
 }
+
+
+/* Alpha 0.3.5.3: iPhone-first spellbook, assignable 8-slot hotbar and raised joystick. */
+#actionsBar{
+ position:fixed;left:50%;right:auto;bottom:calc(19px + var(--safe-bottom));
+ transform:translateX(-50%);box-sizing:border-box;
+ display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:auto;
+ width:min(740px,calc(100vw - 12px));padding:6px 7px 7px;gap:4px;
+ align-items:center;justify-items:stretch;
+ border:2px ridge #b69a5f;border-radius:3px;z-index:9;
+ background:linear-gradient(#4e4434ed,#24251ced);
+}
+#actionsBar .hotbar-slot{
+ position:relative;display:flex;flex-direction:column;align-items:center;
+ justify-content:center;box-sizing:border-box;width:100%;min-width:0;height:59px;
+ padding:3px 1px 2px;overflow:hidden;isolation:isolate;
+ border:2px ridge #9f8654;border-radius:3px;
+ background:radial-gradient(ellipse at 50% 23%,#6d5a3b,#26291e);
+ color:#f3dfad;cursor:pointer;touch-action:none;
+ -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+#actionsBar .hotbar-slot:active{filter:brightness(1.25)}
+#actionsBar .hotbar-slot.is-empty{border-color:#80745399;background:#11191393}
+#actionsBar .hotbar-slot.auto-attacking{border-color:#e5b95e;background:linear-gradient(#69582d,#4d451d);box-shadow:0 0 9px #e6bb5d77,inset 0 0 0 1px #ffc965}
+#actionsBar .hotbar-slot.insufficient{filter:saturate(.6)}
+#actionsBar .hotbar-slot svg{height:37px;width:min(90%,42px);flex:0 0 37px;margin:0;filter:drop-shadow(0 2px 2px #0009)}
+.hotbar-emoji{font-size:28px;line-height:35px;flex:0 0 35px;text-shadow:0 1px 3px #000}
+.hotbar-slot-key{position:absolute;left:2px;top:1px;font:10px/1 system-ui,sans-serif;z-index:4;color:#f4d588;text-shadow:0 1px 2px #000;padding:1px 2px}
+.hotbar-slot-name{font:9px/1.1 system-ui,sans-serif;max-width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:#f0dfbd;z-index:4}
+.hotbar-slot-empty{font:22px/1 Georgia,serif;color:#8f845c99}
+.hotbar-slot-count{position:absolute;right:2px;bottom:1px;background:#111c13d1;color:#ffe4a4;padding:1px 2px;border-radius:2px;font:bold 11px/1 system-ui,sans-serif;z-index:4}
+.hotbar-slot-cooldown,.hotbar-slot-global{
+ position:absolute;inset:0;pointer-events:none;transform:scaleY(0);transform-origin:top;z-index:2
+}
+.hotbar-slot-cooldown{background:#050b09c7;border-bottom:2px solid #e8c67baa}
+.hotbar-slot-global{background:#d7c39065;z-index:3}
+#actionsBar.is-assigning .hotbar-slot{border-color:#dccc85;box-shadow:inset 0 0 0 1px #dfba6077}
+#actionsBar.is-assigning .hotbar-slot::after{content:'+';position:absolute;right:2px;top:1px;z-index:5;
+ color:#ffe3a0;font:bold 12px/1 system-ui,sans-serif;text-shadow:0 1px 2px #000}
+#actionsBar.is-assigning .hotbar-slot:active{background:#847447}
+#hotbarUtilities{position:fixed;right:18px;bottom:calc(105px + var(--safe-bottom));
+ z-index:10;display:flex;gap:6px;align-items:stretch}
+#hotbarUtilities .quick-tool{display:flex;align-items:center;justify-content:center;gap:6px;
+ height:42px;min-width:77px;padding:5px 10px;
+ border:2px ridge #ab935a;border-radius:4px;background:linear-gradient(#524833ee,#25291be8);
+ color:#f3dbaa;font:12px/1.2 Georgia,serif;box-shadow:0 3px 11px #0006;
+ touch-action:none;user-select:none;-webkit-user-select:none}
+#hotbarUtilities .quick-tool svg{width:27px;height:27px}
+#hotbarUtilities .quick-tool .quick-tool-emoji{font-size:24px;line-height:1}
+#hotbarUtilities .quick-tool.target-selected{border-color:#e5c46a;background:linear-gradient(#776435,#374631)}
+#hotbarUtilities .quick-tool:active{filter:brightness(1.25)}
+#hotbarAssign{position:fixed;bottom:calc(160px + var(--safe-bottom));left:50%;
+ transform:translateX(-50%);z-index:12;display:flex;align-items:center;justify-content:center;
+ gap:9px;max-width:calc(100vw - 20px);width:max-content;padding:7px 9px;
+ border:1px solid #e6bd73;border-radius:5px;background:#2c2b1df0;
+ color:#ffe6b1;box-shadow:0 3px 17px #0009;text-align:center;font:12px/1.4 system-ui,sans-serif}
+#hotbarAssign[hidden]{display:none!important}
+#hotbarAssignText{min-width:0}
+#hotbarCancel{flex-shrink:0;min-height:33px;padding:4px 7px;color:#ffe7c1;
+ border:1px solid #b57659;border-radius:3px;background:#743c2d;font:11px/1.3 system-ui,sans-serif;touch-action:none}
+#stick{width:106px;height:106px;left:25px;bottom:calc(144px + var(--safe-bottom));z-index:10}
+#nub{width:49px;height:49px;left:calc(50% - 24.5px);top:calc(50% - 24.5px)}
+#interact{bottom:calc(197px + var(--safe-bottom));right:18px;left:auto;transform:none}
+#xpWrap{position:fixed;bottom:calc(6px + var(--safe-bottom));left:50%;
+ right:auto;width:min(732px,calc(100vw - 16px));height:6px;transform:translateX(-50%);
+ box-shadow:0 0 5px #0008;z-index:9}
+#xpText{top:-15px;color:#e9d9b1}
+#help{bottom:calc(95px + var(--safe-bottom));left:50%;white-space:normal;max-width:400px;text-align:center}
+#build{bottom:calc(97px + var(--safe-bottom));right:12px}
+#panel.spellbook-modal{width:min(555px,100%);max-height:90dvh;padding:22px 24px 24px}
+.spellbook-intro{font:13px/1.55 system-ui,sans-serif!important;color:#53402a;margin:5px 0 11px!important}
+.spellbook-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:10px 0 14px}
+.spellbook-tab{min-height:43px;padding:7px;border:2px solid #907346;border-radius:3px;
+ background:#cfb885;color:#483820;font:bold 13px/1.3 system-ui,sans-serif}
+.spellbook-tab[aria-selected="true"]{background:#3e492d;color:#ffefb6;border-color:#b6a269}
+.spellbook-list{display:flex;flex-direction:column;gap:7px}
+.spellbook-entry{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;
+ border:1px solid #937448;border-radius:4px;padding:8px 10px;
+ background:linear-gradient(#5b503a,#323c28);color:#f7e2ae;
+ box-shadow:0 2px 7px #29201533;text-align:left;touch-action:manipulation}
+.spellbook-entry:active{background:#75613b}
+.spellbook-entry-icon{display:flex;justify-content:center;align-items:center;
+ flex:0 0 46px;width:46px;height:45px;border:1px solid #ad9862;border-radius:3px;
+ background:#292d25;font-size:28px}
+.spellbook-entry-icon svg{width:38px;height:38px}
+.spellbook-entry-content{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.spellbook-entry-title{font:14px/1.25 Georgia,serif;color:#ffe9b2}
+.spellbook-entry-desc{font:11px/1.35 system-ui,sans-serif;color:#ded0ac}
+.spellbook-entry-meta{font:10px/1.3 system-ui,sans-serif;color:#d7c17d}
+.spellbook-entry-use{flex:0 0 auto;color:#f4da98;font:bold 17px system-ui,sans-serif}
+.spellbook-remove{margin-top:7px;background:linear-gradient(#7c4e34,#493226);border-color:#ab7556}
+.spellbook-help{font:11px/1.45 system-ui,sans-serif!important;color:#725736!important;margin:10px 0 0!important}
+@media(max-width:850px){
+ #actionsBar{left:50%;right:auto;transform:translateX(-50%);width:calc(100vw - 8px);
+  bottom:calc(17px + var(--safe-bottom));display:grid;grid-template-columns:repeat(8,minmax(0,1fr));
+  grid-template-rows:auto;grid-auto-rows:auto;gap:3px;padding:4px 5px 5px;box-sizing:border-box}
+ #actionsBar .hotbar-slot{height:54px}
+ #actionsBar .hotbar-slot svg{width:min(90%,33px);height:33px;flex-basis:33px}
+ #actionsBar .hotbar-slot-name{display:none}
+ #actionsBar .hotbar-slot-key{font-size:9px}
+ #actionsBar .hotbar-slot-count{font-size:10px}
+ #hotbarUtilities{right:12px;bottom:calc(91px + var(--safe-bottom));gap:5px}
+ #hotbarUtilities .quick-tool{height:40px;min-width:69px;padding:5px 7px;font-size:11px}
+ #hotbarUtilities .quick-tool svg{width:22px;height:22px}
+ #hotbarUtilities .quick-tool .quick-tool-emoji{font-size:21px}
+ #stick{left:16px;bottom:calc(127px + var(--safe-bottom));width:94px;height:94px}
+ #nub{width:44px;height:44px;left:calc(50% - 22px);top:calc(50% - 22px)}
+ #interact{bottom:calc(182px + var(--safe-bottom));right:13px;left:auto;transform:none}
+ #hotbarAssign{bottom:calc(141px + var(--safe-bottom));font-size:11px}
+ #xpWrap{bottom:calc(5px + var(--safe-bottom));width:calc(100vw - 12px)}
+ #xpText{display:none}
+ #help{display:none}
+ #build{right:7px;bottom:calc(136px + var(--safe-bottom));font-size:8px;z-index:5}
+ #panel.spellbook-modal{width:min(480px,100%);padding:17px 16px 19px;max-height:92dvh}
+ .spellbook-entry{min-height:64px;gap:9px;padding:7px}
+ .spellbook-entry-icon{flex-basis:41px;width:41px;height:43px}
+ .spellbook-entry-icon svg{width:33px;height:33px}
+ .spellbook-entry-title{font-size:13px}
+}
+@media(max-width:360px){
+ #actionsBar{gap:2px;padding:3px 4px}
+ #actionsBar .hotbar-slot{height:49px}
+ #actionsBar .hotbar-slot svg{height:28px;flex-basis:28px}
+ .hotbar-emoji{font-size:22px;flex-basis:30px;line-height:30px}
+ #hotbarUtilities{right:8px;bottom:calc(84px + var(--safe-bottom))}
+ #stick{left:11px;width:88px;height:88px;bottom:calc(119px + var(--safe-bottom))}
+ #nub{width:42px;height:42px;left:calc(50% - 21px);top:calc(50% - 21px)}
+ #interact{bottom:calc(170px + var(--safe-bottom))}
+ #hotbarAssign{bottom:calc(136px + var(--safe-bottom))}
+}
+@media(max-height:510px) and (min-width:600px){
+ #actionsBar{left:50%;right:auto;bottom:calc(14px + var(--safe-bottom));
+  transform:translateX(-50%);width:min(720px,calc(100vw - 16px));grid-template-columns:repeat(8,minmax(0,1fr));grid-auto-rows:auto}
+ #actionsBar .hotbar-slot{height:48px}
+ #actionsBar .hotbar-slot svg{height:28px;flex-basis:28px}
+ #actionsBar .hotbar-slot-name{display:none}
+ #hotbarUtilities{right:20px;bottom:calc(78px + var(--safe-bottom))}
+ #stick{left:20px;bottom:calc(105px + var(--safe-bottom));width:83px;height:83px}
+ #nub{width:38px;height:38px;left:calc(50% - 19px);top:calc(50% - 19px)}
+ #interact{right:14px;bottom:calc(129px + var(--safe-bottom))}
+ #hotbarAssign{bottom:calc(120px + var(--safe-bottom))}
+ #xpWrap{bottom:calc(4px + var(--safe-bottom));width:min(720px,calc(100vw - 20px))}
+ #build{bottom:calc(130px + var(--safe-bottom))}
+}
