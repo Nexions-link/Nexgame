@@ -2025,6 +2025,16 @@ function updateWildlife(dt){
   else updateEnemy(enemy,dt);
  }
 }
+function updateOnlineSceneWhileMenuOpen(dt){
+ // Pause only local gameplay, not the shared-world display behind an open menu.
+ animateRemotePlayers(dt);
+ if(!sharedMobsConnected)return;
+ for(const enemy of enemies){
+  if(enemy.trainingDummy||enemy.dead>0||enemy.aggro)continue;
+  const target=sharedMobTargets.get(enemy.index);
+  if(target)animateSharedMob(enemy,dt,target);
+ }
+}
 const worldConnection=createWorldPresence({
  url:WORLD_WS_URL,
  onStatus:status=>{
@@ -2324,7 +2334,7 @@ function sampleFps(milliseconds){
  fpsElapsed+=milliseconds;fpsFrames++;
  if(fpsElapsed>=1000){fpsCounter.textContent='FPS '+Math.round(fpsFrames*1000/fpsElapsed);fpsElapsed=fpsFrames=0}
 }
-let last=performance.now();function frame(t){const milliseconds=Math.max(0,t-last),dt=Math.min(milliseconds/1000,.05);last=t;if(!document.hidden){if(!modalKind)update(dt);animateCamera(dt);renderCharacterPreview(t,dt);renderer.render(scene,camera);sampleFps(milliseconds)}requestAnimationFrame(frame)}
+let last=performance.now();function frame(t){const milliseconds=Math.max(0,t-last),dt=Math.min(milliseconds/1000,.05);last=t;if(!document.hidden){if(!modalKind)update(dt);else updateOnlineSceneWhileMenuOpen(dt);animateCamera(dt);renderCharacterPreview(t,dt);renderer.render(scene,camera);sampleFps(milliseconds)}requestAnimationFrame(frame)}
 update(0);updateHUD();drawMap();animateCamera(1);renderer.render(scene,camera);requestAnimationFrame(frame);$('loader').remove();
 if(state.quest===0)msg('Мулгор. Поговори с наставником у большого тотема.',4400);
 }catch(error){const text=$('loadText');if(text)text.textContent='Ошибка запуска: '+String(error.message||error);throw error}
