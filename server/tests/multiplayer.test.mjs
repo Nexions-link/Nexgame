@@ -24,16 +24,19 @@ async function ready(port,timeout=8000){
 }
 async function connect(port){
  const ws=new WebSocket('ws://127.0.0.1:'+port);
- const snapshots=new Map();let welcome=null;
+ const snapshots=new Map(),combats=[],credits=[],enemyAttacks=[];let welcome=null;
  ws.on('message',message=>{
   const payload=JSON.parse(String(message));
   if(payload.type==='welcome')welcome=payload;
   if(payload.type==='snapshot'&&Number.isInteger(payload.tick)){
    snapshots.set(payload.tick,payload);
   }
+  if(payload.type==='combat')combats.push(payload);
+  if(payload.type==='killCredit')credits.push(payload);
+  if(payload.type==='mobAttack')enemyAttacks.push(payload);
  });
  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
- return {ws,snapshots,getWelcome:()=>welcome};
+ return {ws,snapshots,combats,credits,enemyAttacks,getWelcome:()=>welcome};
 }
 
 test('two players receive identical mob states on the same world tick', {timeout:14000},async()=>{
@@ -46,7 +49,7 @@ test('two players receive identical mob states on the same world tick', {timeout
  let a,b;
  try{
   const health=await ready(port);
-  assert.equal(health.protocol,2);
+  assert.equal(health.protocol,3);
   assert.equal(health.mobs,9);
   a=await connect(port);b=await connect(port);
   await new Promise(resolve=>setTimeout(resolve,650));
@@ -59,6 +62,39 @@ test('two players receive identical mob states on the same world tick', {timeout
    assert.equal(am.length,9);
    assert.deepEqual(am,bm,'mobs and animation phases must match at tick '+tick);
   }
+ }finally{
+  a?.ws.close();b?.ws.close();child.kill('SIGTERM');
+ }
+});
+
+test('two real WebSockets land hits on the same creature and both receive kill credit',
+ {timeout:12000},async()=>{
+ const port=await freePort(),child=spawn(process.execPath,['index.js'],{
+  cwd:new URL('../',import.meta.url),
+  env:{...process.env,PORT:String(port)},stdio:'ignore'
+ });
+ let a,b;
+ try{
+  await ready(port);
+  a=await connect(port);b=await connect(port);
+  const join={type:'join',x:-9,z:-23,yaw:0,level:60,equipment:{weapon:'wornAxe'}};
+  a.ws.send(JSON.stringify(join));b.ws.send(JSON.stringify(join));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  a.ws.send(JSON.stringify({type:'attack',abilityId:'thunderStomp'}));
+  b.ws.send(JSON.stringify({type:'attack',abilityId:'thunderStomp'}));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  a.ws.send(JSON.stringify({type:'attack',abilityId:'autoAttack',mobId:0}));
+  await new Promise(resolve=>setTimeout(resolve,350));
+  assert.ok(a.combats.some(event=>event.hits.some(hit=>hit.id===0&&hit.dead)),
+   'player A sees server-confirmed mob death');
+  assert.ok(b.combats.some(event=>event.hits.some(hit=>hit.id===0&&hit.dead)),
+   'player B sees exactly the same death');
+  assert.equal(a.credits.filter(c=>c.mobId===0).length,1);
+  assert.equal(b.credits.filter(c=>c.mobId===0).length,1);
+  assert.equal(a.credits[0].life,b.credits[0].life);
+  const snapshots=[...a.snapshots.values()].filter(packet=>packet.mobs[0]?.dead);
+  assert.ok(snapshots.length,'dead mob persists in authoritative snapshots');
+  assert.equal(snapshots.at(-1).mobs[0].hp,0);
  }finally{
   a?.ws.close();b?.ws.close();child.kill('SIGTERM');
  }
