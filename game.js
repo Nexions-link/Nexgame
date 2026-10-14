@@ -414,7 +414,7 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
 const saveKey='nexgame-mulgore-alpha02',cameraStoreKey='nexgame-real3d-camera-distance';
 const playerNameKey='nexgame-character-name-v1';
 const sanitizePlayerName=name=>typeof name==='string'?
- name.replace(/[<>\\u0000-\\u001f]/g,'').trim().slice(0,24):'';
+ name.replace(/[<>\u0000-\u001f]/g,'').trim().slice(0,24):'';
 let characterName='';
 try{characterName=sanitizePlayerName(localStorage.getItem(playerNameKey))}catch{}
 if(!characterName){
