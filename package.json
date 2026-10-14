@@ -1,11 +1,11 @@
 {
   "name": "nexgame",
-  "version": "0.3.5",
+  "version": "0.3.5-1",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/skills.test.mjs && node tests/equipment.test.mjs",
-    "check": "node --check game.js && node --check items.js && node --check skills.js && node --check tests/skills.test.mjs && node --check tests/equipment.test.mjs"
+    "test": "node tests/skills.test.mjs && node tests/training.test.mjs && node tests/equipment.test.mjs",
+    "check": "node --check game.js && node --check items.js && node --check skills.js && node --check training.js && node --check tests/skills.test.mjs && node --check tests/training.test.mjs && node --check tests/equipment.test.mjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
