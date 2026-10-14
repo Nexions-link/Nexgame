@@ -1,5 +1,6 @@
-import {createWorldPresence} from './online.js?v=0.3.5.26';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.26';
+import {createWorldPresence} from './online.js?v=0.3.5.27';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.27';
+import {projectPartyMember} from './party-map.js?v=0.3.5.27';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1017,6 +1018,10 @@ addEventListener('keydown',e=>{
  if(e.target?.matches?.('input,textarea,[contenteditable="true"]'))return;
  const k=e.code==='KeyC'?'c':e.key.toLowerCase();
  if(k==='g'){e.preventDefault();if(!e.repeat)openPartyDialog();return}
+ if(k==='enter'&&!modalKind&&!e.repeat&&!(e.target instanceof HTMLButtonElement)){
+  e.preventDefault();setChatCollapsed(false);$('chatInput').focus();return;
+ }
+ if(k==='escape'&&!chatCollapsed){e.preventDefault();setChatCollapsed(true);return}
  if(k==='c'&&modalKind==='character'){e.preventDefault();if(!e.repeat)closeDialog();return}
   if(k==='j'&&modalKind==='journal'){e.preventDefault();if(!e.repeat)closeDialog();return}
  if(k==='b'&&modalKind==='spellbook'){e.preventDefault();if(!e.repeat)closeDialog();return}
@@ -2116,9 +2121,15 @@ function openPartyDialog(){
 }
 function applyPartyState(data){
  if(!data||!Array.isArray(data.members))return;
+ const previousGroup=currentParty.groupId;
  currentParty={groupId:typeof data.groupId==='string'?data.groupId:null,
   leaderId:typeof data.leaderId==='string'?data.leaderId:null,
   members:data.members.filter(m=>m&&typeof m.id==='string').slice(0,5)};
+ if(previousGroup!==currentParty.groupId){
+  chatHistory.party.length=0;chatUnread.party=0;
+  if(currentParty.groupId)chatSystem('Групповой чат доступен','party');
+ }
+ updateChatControls();
  renderGroupHud();renderAllySelection();
  if(modalKind==='party')renderPartyDialog();
 }
@@ -2148,7 +2159,7 @@ const CHAT_HISTORY_LIMIT=75;
 const chatHistory={world:[],party:[]};
 const chatUnread={world:0,party:0};
 const chatCollapsedKey='nexgame-chat-collapsed-v1';
-let chatCollapsed=true,chatChannel='world';
+let chatCollapsed=true,chatChannel='world',worldChatReady=false;
 try{chatCollapsed=localStorage.getItem(chatCollapsedKey)!=='false'}catch{}
 function renderChatLog(){
  const log=$('chatMessages');if(!log||chatCollapsed)return;
@@ -2188,8 +2199,10 @@ function updateChatControls(){
  $('chatPartyTab').disabled=!partyAvailable;
  $('chatWorldTab').setAttribute('aria-selected',String(chatChannel==='world'));
  $('chatPartyTab').setAttribute('aria-selected',String(chatChannel==='party'));
- $('chatInput').placeholder=chatChannel==='party'?'Сообщение группе...':'Сообщение Мулгору...';
- $('chatInput').disabled=!worldConnection?.connected()||(chatChannel==='party'&&!partyAvailable);
+ $('chatInput').placeholder=!worldChatReady?'Ожидание чат-сервера...':
+  chatChannel==='party'?'Сообщение группе...':'Сообщение Мулгору...';
+ $('chatInput').disabled=!worldConnection?.connected()||!worldChatReady||
+  (chatChannel==='party'&&!partyAvailable);
  $('chatSend').disabled=$('chatInput').disabled;
  $('chatHeader').querySelector('strong').textContent=chatChannel==='party'?'Чат группы':'Чат Мулгора';
  const unread=chatUnread.world+chatUnread.party;
@@ -2531,18 +2544,30 @@ const worldConnection=createWorldPresence({
  onStatus:status=>{
   worldNetworkStatus=status;
   if(status==='online')mobNetworkStatus='ожидание';
+  if(status==='offline'||status==='solo')worldChatReady=false;
   showWorldNetworkStatus();
+  // Connecting is emitted synchronously before worldConnection is initialized.
+  if(status!=='connecting')updateChatControls();
  },
  onPlayers:updateRemoteSnapshot,
  onMobs:updateSharedMobTargets,
- onWelcome:welcome=>{onlineSelfId=welcome.id;},
+ onWelcome:welcome=>{
+  onlineSelfId=welcome.id;
+  worldChatReady=Number(welcome.protocol)>=5;
+  if(!worldChatReady)chatSystem('Ожидание обновления Render для работы чата','world');
+  updateChatControls();
+ },
  onCombat:applySharedCombat,
  onMobAttack:applyMobAttack,
  onKillCredit:applySharedKillCredit,
  onCombatRejected:showSharedCombatError,
  onPartyState:applyPartyState,
  onPartyInvite:receivePartyInvite,
- onPartyNotice:notice=>{if(notice?.message)msg(notice.message,3600)},
+ onPartyNotice:notice=>{
+  if(notice?.message){msg(notice.message,3600);chatSystem(notice.message,'world')}
+ },
+ onChat:receiveChatMessage,
+ onChatRejected:chatRejected,
  onNameChanged:event=>{
   if(event?.name&&event.name!==characterName){
    characterName=sanitizePlayerName(event.name);
@@ -2563,6 +2588,7 @@ $('allyInvite').addEventListener('click',()=>inviteRemotePlayer(selectedPlayerId
 $('allyClear').addEventListener('click',()=>selectRemotePlayer(null));
 $('partyAccept').addEventListener('click',()=>respondToPartyInvite(true));
 $('partyDecline').addEventListener('click',()=>respondToPartyInvite(false));
+initChatControls();
 
 let lastMarker='';
 function updateHUD(){const max=playerStats().maxHp;
