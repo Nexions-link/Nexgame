@@ -7,6 +7,7 @@ import * as Three from 'three';
 const folder=process.argv[2]||fileURLToPath(new URL('../',import.meta.url));
 const data=await import('../items.js');
 const skills=await import('../skills.js');
+const training=await import('../training.js');
 class Element{
  constructor(tag='div',id=''){this.tagName=tag.toUpperCase();this.id=id;this.style={};this.children=[];this.listeners={};this.hidden=false;this.dataset={};this.attributes={};this.className='';this.value='10.5';this.min='4';this.max='22';this._width=300;this._height=150;
   this.classList={add:(...names)=>{this.className=[...new Set([...this.className.split(' '),...names])].join(' ')},remove:(...names)=>{this.className=this.className.split(' ').filter(x=>!names.includes(x)).join(' ')},toggle:(name,force)=>{const on=force??!this.className.split(' ').includes(name);this.classList[on?'add':'remove'](name);return on},contains:name=>this.className.split(' ').includes(name)};
@@ -38,14 +39,15 @@ class Renderer{
  setViewport(...args){this.viewport=args}setScissor(...args){this.scissor=args}setScissorTest(b){this.scissorTest=b}
  render(scene,camera){this.calls.push(scene);scene.updateMatrixWorld(true);camera.updateMatrixWorld(true)}
 }
-const context={console,URLSearchParams,Math,Number,JSON,Date,Set,Map,Object,Float32Array,performance:{now:()=>now},innerWidth:1280,innerHeight:720,devicePixelRatio:1.5,requestAnimationFrame(){},setTimeout(){},clearTimeout(){},HTMLButtonElement:Element,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},document,addEventListener:(k,fn)=>events[k]=fn,__DATA:data,__SKILLS:skills,__THREE:{...Three,WebGLRenderer:Renderer}};
+const context={console,URLSearchParams,Math,Number,JSON,Date,Set,Map,Object,Float32Array,performance:{now:()=>now},innerWidth:1280,innerHeight:720,devicePixelRatio:1.5,requestAnimationFrame(){},setTimeout(){},clearTimeout(){},HTMLButtonElement:Element,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},document,addEventListener:(k,fn)=>events[k]=fn,__DATA:data,__SKILLS:skills,__TRAINING:training,__THREE:{...Three,WebGLRenderer:Renderer}};
 vm.createContext(context);
 let source=fs.readFileSync(folder+'/game.js','utf8')
  .replace(/^import \{([^}]+)\} from ['"]\.\/items\.js[^'"]+['"];/m,'const {$1}=__DATA;')
  .replace(/^import \{([^}]+)\} from ['"]\.\/skills\.js[^'"]+['"];/m,'const {$1}=__SKILLS;')
+ .replace(/^import \{([^}]+)\} from ['"]\.\/training\.js[^'"]+['"];/m,'const {$1}=__TRAINING;')
  .replace("THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')","THREE=__THREE");
 const exposed='scene,world,M,hero,mentor,trader,camera,camFocus,enemies,keys,joy,update,movement,frame,animateTauren,animateCamera,attack,stomp,heal,mentorTalk,closeDialog,resetWorld,clearAt,heightAt,save,setCameraDistance,setCameraFollow,openDialog,bag,renderInventory,discardInventorySlot,storeItem,canStoreItem,showCorpseLoot,damageEnemy,setTarget,cycleTarget,updateHealthRegen,initial,getState:()=>state,setState:s=>{state={...state,...s}},getSelected:()=>selected,getModal:()=>modalKind,getCamera:()=>({cameraYaw,cameraPitch,cameraDistance,cameraFollow}),setPitch:v=>cameraPitch=v';
-const extra=source.includes('function character()')?',settings,setGraphicsQuality,setShowFps,sampleFps,grass,grassCount,character,ensureCharacterView,renderCharacterPreview,normalizeEquipment,EQUIPMENT_SLOTS,getView:()=>characterView,armorer,npcs,interact,nearTarget,playerStats,rollMeleeDamage,incomingDamage,equipInventorySlot,unequipSlot,merchantTalk,renderMerchant,buyItem,sellItem,buyBackItem,rollCorpseLoot,normalizeInventory,ITEM_CATALOG,startingEquipment,getCombat:()=>({attackCooldown,attackElapsed}),setCombat:v=>{lastCombatAt=v?clock:-100;enemies.forEach((e,i)=>e.aggro=!!v&&i===0&&e.dead<=0)}':'';
+const extra=source.includes('function character()')?',settings,setGraphicsQuality,setShowFps,sampleFps,grass,grassCount,character,ensureCharacterView,renderCharacterPreview,normalizeEquipment,EQUIPMENT_SLOTS,getView:()=>characterView,armorer,npcs,interact,nearTarget,playerStats,rollMeleeDamage,incomingDamage,trainingDummy,applyTrainingHit,updateTrainingTarget,trainingDps,resetTrainingTarget,equipInventorySlot,unequipSlot,merchantTalk,renderMerchant,buyItem,sellItem,buyBackItem,rollCorpseLoot,normalizeInventory,ITEM_CATALOG,startingEquipment,getCombat:()=>({attackCooldown,attackElapsed}),setCombat:v=>{lastCombatAt=v?clock:-100;enemies.forEach((e,i)=>e.aggro=!!v&&i===0&&e.dead<=0)}':'';
 source=source.replace("}catch(error){const text=$('loadText');",'globalThis.qa={'+exposed+extra+"};}catch(error){const text=$('loadText');");
 vm.runInContext(source,context);const q=context.qa;assert.ok(q,'game initialized');
 const checks=[];const check=(name,fn)=>{fn();checks.push(name)};
@@ -163,4 +165,28 @@ check('save reload retains items, explicit empty weapon, buyback and HP above ol
 check('quest, camera pitch and movement remain operational',()=>{
  reset();q.setPitch(.73);q.setCameraFollow(true);q.animateCamera(1);assert.equal(q.getCamera().cameraPitch,.73);q.keys.add('w');for(let i=0;i<40;i++)q.update(.05);q.keys.clear();assert.ok(q.getState().z<5);q.setState({quest:10});q.damageEnemy(q.enemies.find(e=>e.boss),999);assert.equal(q.getState().quest,11);assert.ok(q.enemies.find(e=>e.boss).loot.some(x=>x.id==='giantFeather'));
 });
-console.log(JSON.stringify({ok:true,version:'0.3.1',checks},null,2));
+check('training dummy is immortal, harmless, lootless and gives rage without quest rewards',()=>{
+ reset();const d=q.trainingDummy,initialGold=q.getState().gold,initialXp=q.getState().xp,initialQuest=q.getState().quest;
+ assert.ok(q.enemies.includes(d));assert.equal(d.name,'Тренировочный манекен');
+ assert.equal(d.hp,99999);assert.equal(d.trainingDummy,true);assert.equal(d.aggro,false);
+ assert.ok(q.clearAt(d.spawnX,d.spawnZ-2), 'approachable from path side');
+ q.setState({x:d.spawnX,z:d.spawnZ-2,yaw:0});
+ q.hero.root.position.set(d.spawnX,0,d.spawnZ-2);q.hero.root.rotation.y=0;
+ q.setTarget(d);assert.equal(q.getSelected(),d);
+ const hp=d.hp;q.damageEnemy(d,35,'autoAttack');
+ assert.equal(d.hp,hp-35);assert.equal(d.trainingStats.lastDamage,35);
+ assert.equal(d.trainingStats.hits,1);assert.equal(d.aggro,false);
+ assert.equal(q.getState().resource,12);
+ assert.equal(q.getState().gold,initialGold);assert.equal(q.getState().xp,initialXp);
+ assert.equal(q.getState().quest,initialQuest);assert.equal(d.loot.length,0);
+ q.damageEnemy(d,500000,'heavyStrike');
+ assert.equal(d.hp,1);assert.equal(d.dead,0);assert.ok(q.getSelected()===d);
+ q.update(3.1);assert.equal(d.hp,99999);assert.equal(d.dead,0);
+ assert.equal(d.trainingStats.restored,true);assert.equal(d.trainingStats.hits,2);
+ assert.equal(d.aggro,false);
+ q.damageEnemy(d,23,'autoAttack');
+ assert.equal(d.hp,99976);assert.equal(d.trainingStats.hits,1);
+ assert.equal(d.trainingStats.totalDamage,23);
+ q.resetWorld();assert.equal(d.hp,99999);assert.equal(d.trainingStats.hits,0);
+});
+console.log(JSON.stringify({ok:true,version:'0.3.5.1',checks},null,2));
