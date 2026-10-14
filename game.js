@@ -592,7 +592,7 @@ function ensureCharacterView(){
 function slotIcon(slot){return '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="'+slot.path+'" fill="currentColor" fill-opacity=".1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
 function character(){
  if(modalKind==='character'){closeDialog();return}
- openDialog('Странник','ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,[],'character');
+ openDialog(characterName,'ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,[],'character');
  const view=ensureCharacterView();view.nextFrame=0;view.drag=null;
  const body=$('mbody'),intro=document.createElement('div');intro.className='character-section-label';intro.textContent='ЭКИПИРОВКА';body.appendChild(intro);
  const layout=document.createElement('div');layout.className='character-layout';
@@ -2086,6 +2086,7 @@ function removeRemotePlayer(id){
  scene.remove(remote.actor.root,remote.actor.shadow,remote.nameTag);
  remote.nameTag.material.map.dispose();remote.nameTag.material.dispose();
  remotePlayers.delete(id);
+ if(selectedPlayerId===id){selectedPlayerId=null;renderAllySelection()}
 }
 function updateRemoteSnapshot(list){
  if(!Array.isArray(list))return;
@@ -2100,9 +2101,20 @@ function updateRemoteSnapshot(list){
    actor.root.position.set(p.x,heightAt(p.x,p.z),p.z);actor.root.rotation.y=p.yaw;
    const nameTag=spriteText(String(p.name||'Странник').slice(0,24),'#c3f1ff',26);
    scene.add(nameTag);
-   remote={actor,nameTag,x:p.x,z:p.z,yaw:p.yaw,lastX:p.x,lastZ:p.z,moving:false,attackAge:-1,stompAge:-1};
+   remote={actor,nameTag,name:String(p.name||'Странник').slice(0,24),level:p.level||1,hp:p.hp,maxHp:p.maxHp,
+    x:p.x,z:p.z,yaw:p.yaw,lastX:p.x,lastZ:p.z,moving:false,attackAge:-1,stompAge:-1};
    remotePlayers.set(p.id,remote);
   }
+  const name=String(p.name||'Странник').slice(0,24);
+  const level=Number.isInteger(p.level)?p.level:remote.level;
+  if(remote.name!==name||remote.level!==level){
+   scene.remove(remote.nameTag);
+   remote.nameTag.material.map.dispose();remote.nameTag.material.dispose();
+   remote.nameTag=spriteText(name+' · '+level,'#c3f1ff',26);scene.add(remote.nameTag);
+  }
+  remote.name=name;remote.level=level;
+  remote.hp=Number.isFinite(p.hp)?p.hp:remote.hp;
+  remote.maxHp=Number.isFinite(p.maxHp)?p.maxHp:remote.maxHp;
   remote.x=p.x;remote.z=p.z;remote.yaw=p.yaw;remote.moving=!!p.moving;
  }
  for(const id of remotePlayers.keys())if(!visible.has(id))removeRemotePlayer(id);
