@@ -1493,13 +1493,167 @@ function damageEnemy(e,amount,source='autoAttack'){
  updateHUD();
 }
 function stomp(){return castAbility('thunderStomp')}
-$('attack').addEventListener('pointerdown',e=>{e.preventDefault();attack()});$('stomp').addEventListener('pointerdown',e=>{e.preventDefault();stomp()});
-// Native click covers keyboard activation without doubling pointer attacks.
-for(const [id,fn] of [['attack',attack],['stomp',stomp]])$(id).addEventListener('click',e=>{if(e.detail===0)fn()});
+// Customizable action bar: the spellbook is the only source of assignments.
+// Buttons are generated once per layout change, then updated without reflow.
+const HOTBAR_ART={
+ autoAttack:'<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M13 39L36 10" stroke="#714520" stroke-width="7"/><path d="M22 12L36 5L45 19L35 25L29 20L22 22Z" fill="#c5c8b6" stroke="#ece2be" stroke-width="2"/><path d="M10 35L16 40" stroke="#e9bf72" stroke-width="4"/></svg>',
+ thunderStomp:'<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M15 5L32 5L30 24L38 32L35 36L13 36L10 31L17 21Z" fill="#b6a383" stroke="#e6cd94" stroke-width="2"/><path d="M4 35L13 42M44 35L36 43M24 39L24 47" stroke="#edc968" stroke-width="3"/></svg>',
+ heavyStrike:'<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 40L35 9" stroke="#83532c" stroke-width="6" stroke-linecap="round"/><path d="M20 9L34 5L44 15L35 23L26 20L21 24" fill="#b9c2c7" stroke="#e8dfc3" stroke-width="2"/><path d="M7 28L19 40" stroke="#cf9b4d" stroke-width="4"/><path d="M34 30L44 30M37 24L46 21" stroke="#ffc36a" stroke-width="2" stroke-linecap="round"/></svg>',
+ healingPotion:'<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M19 6L29 6L29 16Q42 27 36 38Q24 44 12 38Q6 27 19 16Z" fill="#742d28" stroke="#d5b976" stroke-width="2"/><path d="M15 26L33 26L34 36Q24 41 14 36Z" fill="#bf5344"/><path d="M18 7L30 7" stroke="#a5834d" stroke-width="6"/></svg>'
+};
+const HOTBAR_SHORT={autoAttack:'Авто',thunderStomp:'Поступь',heavyStrike:'Рубящий',healingPotion:'Настой'};
+function hotbarActionName(entry){
+ if(entry?.kind==='clear')return 'пустую ячейку';
+ return actionDefinition(entry,state.classId,state.level)?.name||'умение';
+}
+function updateHotbarAssignmentPrompt(){
+ const active=hotbarPending!==null;
+ $('hotbarAssign').hidden=!active;
+ $('actionsBar').classList.toggle('is-assigning',active);
+ $('hotbarAssignText').textContent=active?
+  'Выбери ячейку 1–8 для '+(hotbarPending.kind==='clear'?'удаления умения':'«'+hotbarActionName(hotbarPending)+'»'):'';
+}
+function cancelHotbarAssignment(){
+ if(hotbarPending===null)return;
+ hotbarPending=null;updateHotbarAssignmentPrompt();
+}
+function beginHotbarAssignment(entry){
+ if(entry?.kind!=='clear'&&!actionDefinition(entry,state.classId,state.level))return;
+ if(modalKind==='spellbook')closeDialog();
+ hotbarPending=entry;updateHotbarAssignmentPrompt();
+ msg(entry?.kind==='clear'?'Выбери ячейку, которую нужно очистить':
+  'Выбери ячейку 1–8 для «'+hotbarActionName(entry)+'»');
+}
+function assignSelectedHotbarSlot(index){
+ if(hotbarPending===null)return false;
+ if(!Number.isInteger(index)||index<0||index>=HOTBAR_SLOT_COUNT)return false;
+ const entry=hotbarPending.kind==='clear'?null:hotbarPending;
+ state.actionBar=assignHotbarSlot(state.actionBar,index,entry,state.classId,state.level);
+ hotbarPending=null;
+ updateHotbarAssignmentPrompt();
+ save();renderHotbar();
+ msg(entry?'Ячейка '+(index+1)+': '+hotbarActionName(entry):
+  'Ячейка '+(index+1)+' очищена');
+ return true;
+}
+function useHotbarSlot(index){
+ if(!Number.isInteger(index)||index<0||index>=HOTBAR_SLOT_COUNT)return false;
+ if(hotbarPending!==null)return assignSelectedHotbarSlot(index);
+ if(modalKind||gatherCast)return false;
+ const entry=state.actionBar[index],info=actionDefinition(entry,state.classId,state.level);
+ if(!info){spellbook();return false}
+ if(info.kind==='ability')return info.id==='autoAttack'?attack():castAbility(info.abilityId);
+ if(info.kind==='item'&&info.id==='healingPotion')return heal();
+ return false;
+}
+function renderHotbar(){
+ const bar=$('actionsBar');bar.replaceChildren();
+ hotbarButtons.length=0;hotbarVisuals.length=0;
+ for(let i=0;i<HOTBAR_SLOT_COUNT;i++){
+  const entry=state.actionBar[i];
+  const info=actionDefinition(entry,state.classId,state.level);
+  const button=document.createElement('button');
+  button.type='button';button.className='hotbar-slot'+(info?'':' is-empty');
+  button.dataset.slot=String(i);
+  button.setAttribute('aria-label','Ячейка '+(i+1)+': '+(info?info.name:'пустая. Открыть книгу заклинаний'));
+  button.title=info?info.name+' — '+info.description:'Пустая ячейка — выбери умение из книги';
+  if(info){
+   button.innerHTML='<span class="hotbar-slot-key">'+(i+1)+'</span>'+
+    (HOTBAR_ART[info.id]||'<span class="hotbar-emoji">'+(info.icon||'✦')+'</span>')+
+    '<span class="hotbar-slot-name">'+(HOTBAR_SHORT[info.id]||info.name)+'</span>'+
+    '<span class="hotbar-slot-count"></span>'+
+    '<i class="hotbar-slot-cooldown"></i><i class="hotbar-slot-global"></i>';
+  }else{
+   button.innerHTML='<span class="hotbar-slot-key">'+(i+1)+'</span><span class="hotbar-slot-empty">＋</span>';
+  }
+  bindImmediateButton(button,()=>useHotbarSlot(i));
+  bar.appendChild(button);hotbarButtons.push(button);
+  hotbarVisuals.push(info?{
+   cooldown:button.querySelector('.hotbar-slot-cooldown'),
+   gcd:button.querySelector('.hotbar-slot-global'),
+   count:button.querySelector('.hotbar-slot-count')
+  }:null);
+ }
+ updateHotbarAssignmentPrompt();
+ updateHotbarVisuals();
+}
+function updateHotbarVisuals(){
+ for(let i=0;i<HOTBAR_SLOT_COUNT;i++){
+  const button=hotbarButtons[i],visual=hotbarVisuals[i];
+  if(!button||!visual)continue;
+  const info=actionDefinition(state.actionBar[i],state.classId,state.level);
+  if(!info)continue;
+  const def=getAbilityDefinition(info.abilityId);
+  const item=info.kind==='item';
+  const cd=info.id==='autoAttack'?attackCooldown:
+   abilityCooldown(abilityRuntime,info.abilityId);
+  const full=info.id==='autoAttack'?playerStats().speed:def?.cooldown||0;
+  visual.cooldown.style.transform='scaleY('+(full?clamp(cd/full,0,1):0)+')';
+  visual.gcd.style.transform='scaleY('+(def?.gcd?clamp(abilityRuntime.gcd/1.5,0,1):0)+')';
+  visual.count.textContent=item?String(state.potions):'';
+  button.classList.toggle('auto-attacking',info.id==='autoAttack'&&autoAttack);
+  button.classList.toggle('insufficient',item?state.potions<=0:!!def?.resourceCost&&state.resource<def.resourceCost);
+  button.setAttribute('aria-pressed',String(info.id==='autoAttack'&&autoAttack));
+  if(info.id==='autoAttack')button.title=autoAttack?'Остановить автоатаку':info.name;
+ }
+}
+function spellbook(){
+ if(modalKind==='spellbook'){closeDialog();return}
+ if(hotbarPending!==null)cancelHotbarAssignment();
+ openDialog('Книга заклинаний','УМЕНИЯ И АКТИВИРУЕМЫЕ ПРЕДМЕТЫ',[],'spellbook');
+ renderSpellbook();
+}
+function renderSpellbook(){
+ if(modalKind!=='spellbook')return;
+ const body=$('mbody');body.replaceChildren();
+ const intro=document.createElement('p');intro.className='spellbook-intro';
+ intro.textContent='Нажми на умение или предмет, затем выбери ячейку 1–8 внизу экрана.';
+ body.appendChild(intro);
+ const tabs=document.createElement('div');tabs.className='spellbook-tabs';
+ tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Раздел книги');
+ for(const [key,name] of [['abilities','Способности'],['items','Предметы']]){
+  const tab=document.createElement('button');tab.type='button';tab.className='spellbook-tab';
+  tab.textContent=name;tab.setAttribute('role','tab');
+  tab.setAttribute('aria-selected',String(spellbookTab===key));
+  tab.addEventListener('click',()=>{spellbookTab=key;renderSpellbook()});
+  tabs.appendChild(tab);
+ }
+ body.appendChild(tabs);
+ const list=document.createElement('div');list.className='spellbook-list';
+ const available=availableHotbarActions(state.classId,state.level);
+ const entries=spellbookTab==='items'?available.items:available.abilities;
+ for(const info of entries){
+  const button=document.createElement('button');button.type='button';button.className='spellbook-entry';
+  button.setAttribute('aria-label','Выбрать '+info.name+' для панели');
+  const icon=document.createElement('span');icon.className='spellbook-entry-icon';
+  icon.innerHTML=HOTBAR_ART[info.id]||'<span class="hotbar-emoji">'+(info.icon||'✦')+'</span>';
+  const textBlock=document.createElement('span');textBlock.className='spellbook-entry-content';
+  const title=document.createElement('span');title.className='spellbook-entry-title';title.textContent=info.name;
+  const description=document.createElement('span');description.className='spellbook-entry-desc';description.textContent=info.description;
+  const meta=document.createElement('span');meta.className='spellbook-entry-meta';
+  meta.textContent=info.kind==='item'?'В наличии: '+state.potions:
+   (info.resourceCost?info.resourceCost+' ярости · ':'')+
+   (info.cooldown?('Кулдаун '+info.cooldown+' с · '):'')+'Уровень '+(getAbilityDefinition(info.id)?.level||1);
+  const arrow=document.createElement('span');arrow.className='spellbook-entry-use';arrow.textContent='➜';
+  textBlock.appendChild(title);textBlock.appendChild(description);textBlock.appendChild(meta);
+  button.appendChild(icon);button.appendChild(textBlock);button.appendChild(arrow);
+  button.addEventListener('click',()=>beginHotbarAssignment(actionEntry(info.kind,info.id)));
+  list.appendChild(button);
+ }
+ const remove=document.createElement('button');remove.type='button';
+ remove.className='spellbook-entry spellbook-remove';
+ remove.setAttribute('aria-label','Очистить выбранную ячейку панели');
+ remove.textContent='✕  Очистить ячейку панели';
+ remove.addEventListener('click',()=>beginHotbarAssignment({kind:'clear'}));
+ list.appendChild(remove);body.appendChild(list);
+ const note=document.createElement('p');note.className='spellbook-help';
+ note.textContent='Назначения сохраняются автоматически. Зелья тратятся из общего запаса рюкзака. Одна способность может занимать несколько ячеек.';
+ body.appendChild(note);
+}
 // iPhone multi-touch: the target button must work while another pointer
 // owns the movement joystick. Native click may be suppressed by Safari then.
 function bindImmediateButton(id,action){
- const button=$(id);
+ const button=typeof id==='string'?$(id):id;
  let lastPointerActivation=-1000;
  button.addEventListener('pointerdown',e=>{
   if(e.button!==undefined&&e.button!==0)return;
@@ -1520,12 +1674,13 @@ bindImmediateButton('dummyReset',()=>{
  trainingDummy.hit=0;trainingDummy.root.rotation.z=0;
  updateHUD();msg('Тренировочный манекен: замер урона сброшен');
 });
-bindImmediateButton('strike',strike);
-bindImmediateButton('heal',()=>heal());
+bindImmediateButton('spellbookButton',spellbook);
+bindImmediateButton('hotbarCancel',cancelHotbarAssignment);
 // Touch controls also work with a second finger while the joystick is held.
 bindImmediateButton('interact',interact);
 bindImmediateButton('journal',journal);
 bindImmediateButton('questJournalOpen',journal);
+renderHotbar();
 $('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
  ['Первые шаги','Поговорите с наставником у большого тотема.'],
