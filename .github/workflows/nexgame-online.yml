@@ -1,8 +1,15 @@
 name: NexGame Online CI
 
+# A release is published by changing app.html LAST, after game.js/imports/style.css.
+# Do not test half-written multi-file releases after each individual file update.
 on:
   push:
     branches: [main]
+    paths:
+      - 'app.html'
+      - 'server/**'
+      - '.github/workflows/nexgame-online.yml'
+  pull_request:
     paths:
       - 'game.js'
       - 'index.html'
@@ -18,21 +25,16 @@ on:
       - 'server/**'
       - 'items.js'
       - '.github/workflows/nexgame-online.yml'
-  pull_request:
-    paths:
-      - 'game.js'
-      - 'index.html'
-      - 'app.html'
-      - 'tests/bootstrap.test.mjs'
-      - 'style.css'
-      - 'tests/hud-layout.test.mjs'
-      - 'online.js'
-      - 'party-map.js'
-      - 'tests/party-map.test.mjs'
-      - 'tests/online-population.test.mjs'
-      - 'server/**'
-      - 'items.js'
-      - '.github/workflows/nexgame-online.yml'
+  workflow_dispatch:
+
+# Only the newest push to a branch needs a full check. In-progress obsolete
+# releases are cancelled instead of reporting spurious failures to the user.
+concurrency:
+  group: nexgame-online-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   shared-world:
