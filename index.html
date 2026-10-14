@@ -10,7 +10,7 @@
 <script>
 /* Fetch the published entrypoint afresh, and bypass Safari's cached HTML when a release appears. */
 (function(){
- const current='0.3.5.29';
+ const current='0.3.5.30';
  let checking=false;
  async function checkForUpdate(){
   if(checking||document.hidden||!navigator.onLine)return;
@@ -37,8 +37,35 @@
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkForUpdate()});
 })();
 </script>
-<title>NexGame · Мулгор · Alpha 0.3.5.29</title>
-<link rel="stylesheet" href="./style.css?v=0.3.5.29">
+<title>NexGame · Мулгор · Alpha 0.3.5.30</title>
+<link rel="stylesheet" href="./style.css?v=0.3.5.30">
+<!-- Critical sizing for icon toolbar: must work even when Safari serves an older style.css. -->
+<style id="hud-toolbar-failsafe">
+#top{
+ display:grid;
+ grid-template-columns:repeat(5,minmax(0,1fr));
+ width:min(210px,52vw);gap:4px
+}
+#top #partyOpen{grid-column:auto}
+#top .smallButton{
+ width:100%;min-width:0;height:38px;min-height:38px;
+ display:grid;place-items:center;padding:0;line-height:1;
+ overflow:hidden
+}
+#top .smallButton svg{
+ display:block;width:22px;height:22px;max-width:22px;max-height:22px;
+ fill:none;stroke:currentColor;stroke-width:1.9;
+ stroke-linecap:round;stroke-linejoin:round
+}
+@media(max-width:760px){
+ #top{
+  top:calc(20px + var(--safe-top,0px) + var(--hud-row-height,90px));
+  right:calc(8px + env(safe-area-inset-right,0px));
+  width:min(200px,52vw)
+ }
+}
+@media(max-width:360px){#top{width:min(180px,53vw)}}
+</style>
 </head>
 <body>
 <div id="scene" aria-label="Трёхмерный мир Мулгора"></div>
@@ -88,19 +115,19 @@
  <div id="gatherQuestTracker" hidden><span id="gatherQuestStage">Сбор · 1 / 3</span><b id="gatherQuestTitle"></b><p id="gatherQuestText"></p></div></aside>
 <nav id="top" aria-label="Основные действия персонажа">
  <button class="smallButton" id="partyOpen" type="button" aria-label="Группа (G)" title="Группа (G)">
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3"/><path d="M3.5 19v-2a5.5 5.5 0 0 1 11 0v2M17 11a3 3 0 1 0-1.5-5.6M17 13a5 5 0 0 1 4 5v1"/></svg>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:block;width:22px;height:22px;max-width:22px;max-height:22px;flex:none"><circle cx="9" cy="8" r="3"/><path d="M3.5 19v-2a5.5 5.5 0 0 1 11 0v2M17 11a3 3 0 1 0-1.5-5.6M17 13a5 5 0 0 1 4 5v1"/></svg>
  </button>
  <button class="smallButton" id="character" type="button" aria-label="Персонаж (C)" title="Персонаж (C)">
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20v-2a7 7 0 0 1 14 0v2H5Z"/></svg>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:block;width:22px;height:22px;max-width:22px;max-height:22px;flex:none"><circle cx="12" cy="7.5" r="3.5"/><path d="M5 20v-2a7 7 0 0 1 14 0v2H5Z"/></svg>
  </button>
  <button class="smallButton" id="journal" type="button" aria-label="Задания (J)" title="Задания (J)">
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3.5h11.5a2 2 0 0 1 2 2v15H7.5A3.5 3.5 0 0 1 4 17V6a2.5 2.5 0 0 1 2-2.5Z"/><path d="M4 17a3.5 3.5 0 0 1 3.5-3.5H19M9 8h6M9 11h5"/></svg>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:block;width:22px;height:22px;max-width:22px;max-height:22px;flex:none"><path d="M6 3.5h11.5a2 2 0 0 1 2 2v15H7.5A3.5 3.5 0 0 1 4 17V6a2.5 2.5 0 0 1 2-2.5Z"/><path d="M4 17a3.5 3.5 0 0 1 3.5-3.5H19M9 8h6M9 11h5"/></svg>
  </button>
  <button class="smallButton" id="bag" type="button" aria-label="Рюкзак (I)" title="Рюкзак (I)">
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="7" width="14" height="14" rx="3"/><path d="M9 7V5a3 3 0 0 1 6 0v2M8 12h8v6H8zM3 12v5M21 12v5"/></svg>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:block;width:22px;height:22px;max-width:22px;max-height:22px;flex:none"><rect x="5" y="7" width="14" height="14" rx="3"/><path d="M9 7V5a3 3 0 0 1 6 0v2M8 12h8v6H8zM3 12v5M21 12v5"/></svg>
  </button>
  <button class="smallButton" id="pause" type="button" aria-label="Меню (Esc)" title="Меню (Esc)">
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" style="display:block;width:22px;height:22px;max-width:22px;max-height:22px;flex:none"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>
  </button>
 </nav>
 
@@ -142,7 +169,7 @@
 <div id="actionsBar" role="toolbar" aria-label="Панель из восьми настраиваемых ячеек"></div>
 <div id="xpWrap"><div id="xpFill"></div><span id="xpText">Опыт 0 / 100</span></div>
 <div id="help">1–8 — панель · Enter — чат · G — группа · B — книга · Tab — цель · I — рюкзак</div>
-<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Мир: одиночный</span><span>NexGame · Alpha 0.3.5.29</span></div>
+<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Мир: одиночный</span><span>NexGame · Alpha 0.3.5.30</span></div>
 <div id="combatError" role="status" aria-live="polite"></div><div id="toast" role="status"></div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" hidden><div id="panel"><button id="modalClose" type="button" aria-label="Закрыть окно">×</button><div class="panel-corner">◆</div><span class="eyebrow" id="msub"></span><h2 id="mtitle"></h2><div class="ornament">━━━━ ◆ ━━━━</div><div id="mbody"></div><section id="cameraControl" class="camera-settings" hidden aria-label="Настройки камеры">
   <div class="camera-label"><label for="cameraDistance">Расстояние до персонажа</label><span id="cameraDistanceValue">10,5</span></div>
@@ -163,7 +190,7 @@
   <label class="camera-follow-row" for="showFps"><input id="showFps" type="checkbox" role="switch" aria-describedby="fpsHelp"><span>Показывать FPS</span></label>
   <small id="fpsHelp" class="settings-help">Частота кадров во время игры. На паузе счётчик приостановлен.</small>
  </section><div id="choices"></div></div></div>
-<script type="module" src="./game.js?v=0.3.5.29"></script>
+<script type="module" src="./game.js?v=0.3.5.30"></script>
 </body>
 </html>
 
