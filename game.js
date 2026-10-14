@@ -223,10 +223,13 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
    const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(0,-Math.PI/2,-.08,'YXZ');
   rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
   for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
-  // Keep the original axe-head profile; rotate the entire weapon so its cutting edge faces forward.
-   const blade=new THREE.Shape();blade.moveTo(-.07,.84);blade.lineTo(.26,1.02);blade.quadraticCurveTo(.76,.98,.67,.49);blade.lineTo(.24,.35);blade.lineTo(.19,.54);blade.lineTo(-.07,.54);blade.closePath();
-  mesh(axe,new THREE.ExtrudeGeometry(blade,{depth:.1,bevelEnabled:true,bevelSize:.022,bevelThickness:.014,bevelSegments:1,steps:1}),M.metal,0,0,-.05);
-  rod(axe,T.ivory,[.65,.50,.01],[.65,.79,.01],.018,.018);ell(axe,M.gold,0,.69,0,.12,.15,.11);
+  // Move the complete axe head to the opposite end of the haft (local -Y).
+  // Preserve the blade silhouette, weapon rotation and right-hand grip.
+  const axeHead=group(axe,0,-1.4,0);
+  const blade=new THREE.Shape();blade.moveTo(-.07,.84);blade.lineTo(.26,1.02);blade.quadraticCurveTo(.76,.98,.67,.49);blade.lineTo(.24,.35);blade.lineTo(.19,.54);blade.lineTo(-.07,.54);blade.closePath();
+  mesh(axeHead,new THREE.ExtrudeGeometry(blade,{depth:.1,bevelEnabled:true,bevelSize:.022,bevelThickness:.014,bevelSegments:1,steps:1}),M.metal,0,0,-.05);
+  rod(axeHead,T.ivory,[.65,.50,.01],[.65,.79,.01],.018,.018);
+  ell(axeHead,M.gold,0,.69,0,.12,.15,.11);
   for(const kind of ['sword','dagger']){
    const g=group(arms[1].hand,0,-.23,.135);g.name='gear-'+kind;
    rod(g,M.wood,[0,-.23,0],[0,.21,0],.067);box(g,M.metal,0,.25,0,.43,.07,.12);
