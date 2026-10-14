@@ -1227,7 +1227,53 @@ function showCorpseLoot(e){
  openDialog((e.name||'Добыча с долгонога'),'ОБЫСК ТЕЛА',[],'loot');
  renderCorpseLoot(e);
 }
-function heal(fromBag=false){if(modalKind&&!fromBag)return false;if(state.potions<=0){msg('Лечебные настои закончились');return false}const max=playerStats().maxHp;if(state.hp>=max){msg('Здоровье уже полное');return false}state.hp=Math.min(max,state.hp+55);state.potions--;save();updateHUD();msg('Луговые травы восстановили здоровье');return true}
+// One shared class/ability gateway for melee skills, area effects and consumables.
+function abilityContext(def,options={}){
+ const living=isAliveTarget(selected);
+ let facing=false;
+ if(living){
+  const dx=selected.root.position.x-state.x,dz=selected.root.position.z-state.z;
+  facing=Math.sin(hero.root.rotation.y)*dx+Math.cos(hero.root.rotation.y)*dz>=Math.hypot(dx,dz)*.04;
+ }
+ return {classId:state.classId,level:state.level,resource:state.resource,
+  runtime:abilityRuntime,hasTarget:living,range:living?targetDistance(selected):Infinity,
+  facing,hasConsumable:state.potions>0,needsHealing:state.hp<playerStats().maxHp,...options};
+}
+function gainClassResource(amount){
+ if(state.classId!=='warrior'||amount<=0)return;
+ state.resource=changeResource(state.resource,amount,state.classId);
+}
+function castAbility(id,options={}){
+ const def=getAbilityDefinition(id);
+ if(!def)return false;
+ const fromBag=options.fromBag===true;
+ if(gatherCast||(modalKind&&!(id==='healingPotion'&&fromBag)))return false;
+ if(id==='autoAttack')return attack();
+ // A weapon swing or stomp cannot play two mutually incompatible animations.
+ if((id==='heavyStrike'||id==='thunderStomp')&&(attackElapsed>=0||stompElapsed>=0)){
+  combatWarning('Дождитесь окончания удара',true);return false;
+ }
+ const result=activateAbility(def,abilityContext(def));
+ if(!result.ok){
+  if(id==='healingPotion')msg(result.error);else combatWarning(result.error,true);
+  return false;
+ }
+ state.resource=result.resource;
+ if(id==='heavyStrike'){
+  attackElapsed=0;attackLanded=false;swingTarget=selected;swingAbilityId=id;
+ }else if(id==='thunderStomp'){
+  stompElapsed=0;stompLanded=false;
+  stompCooldown=abilityCooldown(abilityRuntime,id);
+ }else if(id==='healingPotion'){
+  state.hp=Math.min(playerStats().maxHp,state.hp+55);state.potions--;
+  msg('Луговые травы восстановили здоровье');
+ }
+ hideCombatWarning();save();updateHUD();
+ return true;
+}
+function heal(fromBag=false){return castAbility('healingPotion',{fromBag})}
+function strike(){return castAbility('heavyStrike')}
+
 // Melee combat: select first, validate distance and facing, then animate.
 const MELEE_RANGE=3.45,TARGET_RANGE=35;
 function isAliveTarget(e){return !!e&&e.dead<=0&&e.hp>0&&enemies.includes(e)}
@@ -1267,25 +1313,29 @@ function cycleTarget(step=1){
  setTarget(next);
 }
 function tryAutoSwing(){
- if(!autoAttack||modalKind||stompElapsed>=0||attackElapsed>=0||attackCooldown>0)return false;
+ if(!autoAttack||modalKind||gatherCast||stompElapsed>=0||attackElapsed>=0||attackCooldown>0)return false;
  if(!isAliveTarget(selected)){autoAttack=false;selected=null;swingTarget=null;updateHUD();return false}
- const fail=meleeFailure(selected);
+ const fail=abilityFailure(getAbilityDefinition('autoAttack'),abilityContext(getAbilityDefinition('autoAttack')));
  if(fail){combatWarning(fail);return false}
- attackElapsed=0;attackCooldown=playerStats().speed;attackLanded=false;swingTarget=selected;
+ attackElapsed=0;attackCooldown=playerStats().speed;attackLanded=false;swingTarget=selected;swingAbilityId='autoAttack';
  hideCombatWarning();return true;
 }
 function attack(){
- if(modalKind||gatherCast)return;
- if(autoAttack){autoAttack=false;hideCombatWarning();updateHUD();return}
+ if(modalKind||gatherCast)return false;
+ if(autoAttack){autoAttack=false;hideCombatWarning();updateHUD();return true}
  if(!isAliveTarget(selected)){
   const e=nearestEnemy(TARGET_RANGE);
-  if(!e){combatWarning('Нет цели',true);return}
+  if(!e){combatWarning('Нет цели',true);return false}
   setTarget(e);
  }
+ // Autoattack can be armed while out of melee range, but never swings there.
+ const def=getAbilityDefinition('autoAttack');
+ const reason=abilityFailure(def,abilityContext(def,{range:null,facing:true}));
+ if(reason){combatWarning(reason,true);return false}
  autoAttack=true;
  const fail=meleeFailure(selected);
  if(fail)combatWarning(fail,true);else tryAutoSwing();
- updateHUD();
+ updateHUD();return true;
 }
 function damageEnemy(e,amount){
  if(!isAliveTarget(e))return;
@@ -1312,7 +1362,7 @@ function damageEnemy(e,amount){
  }
  updateHUD();
 }
-function stomp(){if(modalKind||gatherCast||stompCooldown>0||attackElapsed>=0)return;stompElapsed=0;stompCooldown=8;stompLanded=false}
+function stomp(){return castAbility('thunderStomp')}
 $('attack').addEventListener('pointerdown',e=>{e.preventDefault();attack()});$('stomp').addEventListener('pointerdown',e=>{e.preventDefault();stomp()});
 // Native click covers keyboard activation without doubling pointer attacks.
 for(const [id,fn] of [['attack',attack],['stomp',stomp]])$(id).addEventListener('click',e=>{if(e.detail===0)fn()});
