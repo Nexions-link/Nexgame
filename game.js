@@ -1,5 +1,5 @@
-import {createWorldPresence} from './online.js?v=0.3.5.21';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.21';
+import {createWorldPresence} from './online.js?v=0.3.5.22';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.22';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1895,7 +1895,8 @@ function renderJournal(){
  }
  body.appendChild(list);
 }
-// Online stage 1: shared player presence only; solo mobs, combat and loot remain local.
+// Online stage 2a: remote player presence + shared server-driven idle wildlife.
+// Combat, loot, aggro and personal quest progress still stay local until stage 2b.
 const remotePlayers=new Map();
 function removeRemotePlayer(id){
  const remote=remotePlayers.get(id);if(!remote)return;
@@ -1938,10 +1939,64 @@ function animateRemotePlayers(dt){
   remote.nameTag.position.set(position.x,position.y+4.4,position.z);
  }
 }
+// Wildlife snapshots use the same stable mob indexes as the local world model.
+// Keep a local fallback so the game remains playable during Render cold starts.
+let sharedMobTargets=new Map(),sharedMobsConnected=false;
+function updateSharedMobTargets(snapshot){
+ if(snapshot===null){
+  sharedMobsConnected=false;sharedMobTargets.clear();return;
+ }
+ if(!Array.isArray(snapshot))return;
+ const next=new Map();
+ for(const row of snapshot){
+  const mob=enemies[row?.id];
+  if(!mob||mob.trainingDummy||!Number.isInteger(row.id)||
+     !Number.isFinite(row.x)||!Number.isFinite(row.z)||!Number.isFinite(row.yaw))continue;
+  if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>10)continue;
+  next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw});
+ }
+ // Only switch to server-driven movement after receiving a full, valid snapshot.
+ if(next.size!==enemies.filter(mob=>!mob.trainingDummy).length)return;
+ sharedMobTargets=next;sharedMobsConnected=true;
+}
+function animateSharedMob(e,dt,target){
+ const p=e.root.position,oldX=p.x,oldZ=p.z;
+ const lerp=1-Math.exp(-Math.max(0,dt)*9);
+ p.x+=(target.x-p.x)*lerp;p.z+=(target.z-p.z)*lerp;
+ const turn=Math.atan2(Math.sin(target.yaw-e.root.rotation.y),Math.cos(target.yaw-e.root.rotation.y));
+ e.root.rotation.y+=turn*lerp;
+ p.y=heightAt(p.x,p.z);
+ e.hit=Math.max(0,e.hit-dt);
+ e.stunned=Math.max(0,e.stunned-dt);
+ e.attackCd=Math.max(0,e.attackCd-dt);
+ const moved=Math.hypot(p.x-oldX,p.z-oldZ);
+ e.phase+=moved*4;
+ const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));
+ e.legs[0].rotation.x=stride*.48*power;
+ e.legs[1].rotation.x=-stride*.48*power;
+ e.body.position.y=1.23+Math.abs(stride)*.025*power;
+ e.body.rotation.x=0;
+ e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
+ e.shadow.position.set(p.x,p.y+.055,p.z);
+ if(e.boss&&e.nameTag){
+  e.nameTag.visible=true;
+  e.nameTag.position.set(p.x,p.y+4.65,p.z);
+ }
+}
+function updateWildlife(dt){
+ for(const enemy of enemies){
+  // A local fight still uses existing logic; authoritative shared combat comes next.
+  const target=sharedMobsConnected&&!enemy.trainingDummy&&enemy.dead<=0&&!enemy.aggro
+   ?sharedMobTargets.get(enemy.index):null;
+  if(target)animateSharedMob(enemy,dt,target);
+  else updateEnemy(enemy,dt);
+ }
+}
 const worldConnection=createWorldPresence({
  url:WORLD_WS_URL,
  onStatus:status=>{const el=$('onlineStatus');if(el)el.textContent=status==='online'?'Мир: онлайн':status==='connecting'?'Мир: подключение':status==='solo'?'Мир: одиночный':'Мир: нет связи';},
  onPlayers:updateRemoteSnapshot,
+ onMobs:updateSharedMobTargets,
  onLeave:removeRemotePlayer,
  getPosition:()=>({x:state.x,z:state.z,yaw:state.yaw,level:state.level,moving:Math.abs(joy.x)+Math.abs(joy.y)>0||keys.has('w')||keys.has('arrowup')})
 });
@@ -2213,7 +2268,7 @@ function update(dt){
  if(state.quest===7&&Math.hypot(state.x-SCOUT_X,state.z-SCOUT_Z)<5.2){
   state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
  }
- animateRemotePlayers(dt);enemies.forEach(e=>updateEnemy(e,dt));if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
+ animateRemotePlayers(dt);updateWildlife(dt);if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);herbalistMarker.position.set(8,heightAt(8,1)+5.65+Math.sin(clock*2.1)*.1,1);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
  selection.visible=isAliveTarget(selected);
  if(selection.visible){
