@@ -605,3 +605,70 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #xpWrap{bottom:calc(4px + var(--safe-bottom));width:min(720px,calc(100vw - 20px))}
  #build{bottom:calc(130px + var(--safe-bottom))}
 }
+
+/* Alpha 0.3.5.5 — compact twin-corner HUD for portrait iPhone.
+   Keep every existing HUD field, combat feedback and training metrics. */
+#playerFrame{
+ left:calc(10px + env(safe-area-inset-left,0px));top:calc(10px + var(--safe-top));
+ width:min(44vw,218px);height:64px;min-height:64px;
+ padding:6px 7px 6px 51px;border-radius:9px;border-width:1px;
+ z-index:8;
+}
+#playerFrame .portrait{left:5px;top:10px;width:42px;height:42px;border-width:2px;outline-width:0}
+#playerFrame #levelBadge{width:17px;height:17px;font-size:9px;right:-4px;bottom:-5px}
+#playerFrame .player-info{padding-left:0;min-width:0}
+#playerFrame .unit-name{font-size:12px;line-height:14px;overflow:hidden;text-overflow:ellipsis}
+#playerFrame .unit-name>span{font-size:9px;line-height:11px;margin:0 0 3px;overflow:hidden;text-overflow:ellipsis}
+#playerFrame .bar{height:11px}
+#playerFrame .bar>span{font-size:9px;line-height:9px}
+#playerFrame .bar.rage{height:6px;margin-top:4px}
+#playerFrame #combatState{font-size:8px;line-height:10px;margin-top:3px;overflow:hidden;text-overflow:ellipsis}
+#targetFrame,#targetFrame.dummy-target{
+ position:fixed;left:auto;right:calc(10px + env(safe-area-inset-right,0px));
+ top:calc(10px + var(--safe-top));width:min(44vw,218px);
+ min-height:64px;padding:7px 25px 7px 9px;
+ border-radius:9px;border-width:1px;z-index:8;
+}
+#targetName{font-size:12px;line-height:14px;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#targetFrame .bar{height:11px}
+#targetFrame .bar>span{font-size:9px;line-height:9px}
+#targetDistance{font-size:9px;line-height:12px;margin-top:4px}
+#targetStatus{font-size:9px;line-height:12px;min-height:0;margin-top:2px}
+#targetClear{top:4px;right:4px;width:22px;height:22px;line-height:18px;font-size:19px;border-radius:5px}
+#zoneTitle{top:calc(88px + var(--safe-top));left:50%;z-index:3}
+#zoneTitle>span{font-size:16px}
+#zoneTitle>small{font-size:7px;margin-top:2px}
+#minimapFrame{top:calc(102px + var(--safe-top));right:calc(13px + env(safe-area-inset-right,0px));width:96px;height:96px}
+#top{top:calc(214px + var(--safe-top));right:10px}
+#quest,#targetFrame:not([hidden])~#quest,#targetFrame.dummy-target:not([hidden])~#quest{
+ top:calc(102px + var(--safe-top));left:12px;width:min(45vw,215px);
+}
+#targetFrame.dummy-target #dummyStats{margin-top:5px;padding-top:5px;font-size:10px}
+#targetFrame.dummy-target .dummy-metrics{grid-template-columns:1fr 1fr;gap:2px 4px;font-size:9px}
+@media(max-width:480px){
+ #playerFrame{width:calc((100vw - 30px)/2)}
+ #targetFrame,#targetFrame.dummy-target{width:calc((100vw - 30px)/2)}
+ #targetDistance{font-size:8px;letter-spacing:-.2px}
+ #targetFrame.dummy-target{width:min(54vw,218px);top:calc(10px + var(--safe-top))}
+ #zoneTitle{top:calc(83px + var(--safe-top))}
+ #minimapFrame{top:calc(112px + var(--safe-top));width:82px;height:82px;right:13px}
+ #top{top:calc(207px + var(--safe-top));right:8px}
+ #quest,#targetFrame:not([hidden])~#quest,#targetFrame.dummy-target:not([hidden])~#quest{top:calc(110px + var(--safe-top));left:10px;width:calc(100vw - 128px);max-width:210px}
+}
+@media(max-width:360px){
+ #playerFrame{padding-left:43px}
+ #playerFrame .portrait{width:36px;height:36px;top:13px;left:3px}
+ #playerFrame .unit-name{font-size:11px}
+ #playerFrame .unit-name>span{font-size:8px}
+ #targetFrame,#targetFrame.dummy-target{padding-left:6px;padding-right:23px}
+ #targetName{font-size:11px}
+ #targetFrame.dummy-target{width:54vw}
+}
+@media(max-height:510px) and (min-width:600px){
+ #playerFrame{width:205px;height:62px;top:calc(8px + var(--safe-top))}
+ #targetFrame,#targetFrame.dummy-target{top:calc(8px + var(--safe-top));width:205px}
+ #zoneTitle{top:calc(12px + var(--safe-top))}
+ #minimapFrame{top:calc(78px + var(--safe-top));width:76px;height:76px}
+ #top{top:calc(165px + var(--safe-top))}
+ #quest,#targetFrame:not([hidden])~#quest,#targetFrame.dummy-target:not([hidden])~#quest{top:calc(85px + var(--safe-top))}
+}
