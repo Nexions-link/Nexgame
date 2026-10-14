@@ -1,6 +1,7 @@
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
-// NexGame 3D · Alpha 0.3.5 — a small, procedural Mulgore-inspired starting zone.
+import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
+// NexGame 3D · Alpha 0.3.5.1 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -288,6 +289,71 @@ giant.nameTag=spriteText('Грозоклюв · Исполин','#f9bd91',27);
 giant.nameTag.scale.set(4.7,.84,1);scene.add(giant.nameTag);
 giant.nameTag.position.set(BOSS_X,heightAt(BOSS_X,BOSS_Z)+4.65,BOSS_Z);
 enemies.push(giant);
+// A distinct stationary training target, not a bird with boosted HP.
+// Build it from cheap procedural geometry so it renders on mobile Safari.
+function makeTrainingDummy(){
+ const {x,z,maxHp}=TRAINING_DUMMY;
+ const root=group(scene,x,heightAt(x,z),z);
+ const straw=material(0xc7a36a),strawLight=material(0xe3bf7b),
+  strawDark=material(0x99764b),rope=material(0x947447);
+ const base=group(root);
+ box(base,M.wood,-.63,.13,0,.24,.26,1.55);
+ box(base,M.wood,.63,.13,0,.24,.26,1.55);
+ box(base,M.wood,0,.15,0,1.9,.22,.22);
+ rod(base,M.woodLight,[-.64,.3,0],[-.64,2.54,0],.105,.10);
+ rod(base,M.woodLight,[.64,.3,0],[.64,2.54,0],.105,.10);
+ rod(base,M.wood,[-.74,2.44,0],[.74,2.44,0],.14,.12);
+ const body=group(root,0,1.45,0);
+ ell(body,straw,0,0,0,.66,.85,.39);
+ ell(body,strawLight,0,.85,0,.41,.44,.38);
+ ell(body,strawDark,0,.17,.30,.49,.22,.12);
+ for(const y of [-.48,.55]){
+  const band=mesh(body,new THREE.TorusGeometry(.62,.045,5,20),rope,0,y,0);
+  band.rotation.x=Math.PI/2;band.scale.y=.64;
+ }
+ rod(body,M.woodLight,[-1.24,.45,0],[1.24,.45,0],.12);
+ for(const side of [-1,1]){
+  ell(body,strawLight,side*.82,.38,0,.32,.22,.22);
+  for(let i=0;i<4;i++){
+   const tip=mesh(body,G.cone,strawLight,side*(.93+i*.1),.36,.02,.06,.25,.055);
+   tip.rotation.z=side*(i%2?.45:-.45);
+  }
+ }
+ // Hand-painted concentric target plate facing the walk-in side of camp.
+ const rings=[
+  {r:.53,mat:M.woodDark||M.wood,z:.429},
+  {r:.43,mat:M.bone,z:.441},
+  {r:.32,mat:M.red,z:.453},
+  {r:.215,mat:strawLight,z:.465},
+  {r:.102,mat:M.red,z:.478}
+ ];
+ for(const ring of rings){
+  const disc=mesh(body,new THREE.CylinderGeometry(ring.r,ring.r,.022,24),ring.mat,0,.01,ring.z);
+  disc.rotation.x=Math.PI/2;
+ }
+ for(let i=-2;i<=2;i++){
+  const tuft=mesh(body,G.cone,strawLight,i*.16,1.17,-.02,.13,.42,.12);
+  tuft.rotation.z=Math.PI+i*.08;
+ }
+ fuse(root);
+ const shadow=contactShadow(2.25);
+ shadow.position.set(x,heightAt(x,z)+.055,z);
+ const nameTag=spriteText(TRAINING_DUMMY.name,'#f4dfa6',26);
+ nameTag.scale.set(4.7,.82,1);
+ nameTag.position.set(x,heightAt(x,z)+4.04,z);
+ scene.add(nameTag);
+ const unit={kind:'trainingDummy',trainingDummy:true,passive:true,immortal:true,
+  noLoot:true,noXp:true,noQuest:true,name:TRAINING_DUMMY.name,boss:false,
+  root,shadow,nameTag,spawnX:x,spawnZ:z,
+  hp:maxHp,maxHp,dead:0,corpseAge:0,loot:[],hit:0,
+  aggro:false,stunned:0,attackCd:0,phase:0,roamTime:0,index:enemies.length,
+  baseScale:1,trainingStats:createTrainingStats()};
+ // Keep a physical pillar, yet leave room to walk around and attack it.
+ obstacle(x,z,.64,3.2);
+ return unit;
+}
+const trainingDummy=makeTrainingDummy();
+enemies.push(trainingDummy);
 const CORPSE_DURATION=65,CORPSE_FALL_TIME=.85,LOOT_INTERACT_RANGE=3.3;
 const corpseLootTexture=texture((c,size)=>{
  c.clearRect(0,0,size,size);
