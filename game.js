@@ -1332,9 +1332,11 @@ function bindImmediateButton(id,action){
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
-// Gathering, looting and NPC interactions work with a second finger on iPhone.
+// Touch controls also work with a second finger while the joystick is held.
 bindImmediateButton('interact',interact);
-$('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('journal').addEventListener('click',journal);$('questJournalOpen').addEventListener('click',journal);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
+bindImmediateButton('journal',journal);
+bindImmediateButton('questJournalOpen',journal);
+$('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
  ['Первые шаги','Поговорите с наставником у большого тотема.'],
  ['Обряд силы','Победите обычных долгоногов: 0 / 3'],
