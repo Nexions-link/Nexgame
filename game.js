@@ -1945,8 +1945,10 @@ function positionGroupHud(){
  const anchor=Math.ceil(menu.bottom+gap);
  // Keep the party tray below inventory/quest/menu buttons and above the hotbar.
  const available=Math.max(60,Math.floor(actionTop-anchor-12));
+ const maxHeight=Math.min(240,available);
  hud.style.top=anchor+'px';
- hud.style.maxHeight=Math.min(240,available)+'px';
+ hud.style.maxHeight=maxHeight+'px';
+ hud.style.setProperty('--party-body-max-height',Math.max(30,maxHeight-34)+'px');
 }
 function toggleGroupHud(){
  partyHudCollapsed=!partyHudCollapsed;
