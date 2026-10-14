@@ -1114,3 +1114,44 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #allyFrame:not([hidden])~#quest{top:calc(18px + var(--safe-top) + var(--hud-row-height))}
  #top{top:calc(18px + var(--safe-top) + var(--hud-row-height))}
 }
+
+
+/* Keep the selected unit and optional training telemetry inside the center cell:
+   tall dummy stats must never cover quests, the minimap or menu controls. */
+@media(min-width:761px){
+ #hudTop{
+  grid-template-columns:minmax(0,1fr) minmax(0,240px) minmax(0,1fr);
+  justify-content:stretch
+ }
+ #hudTop #playerFrame{max-width:240px;justify-self:start}
+ #hudTop #minimapFrame{justify-self:end}
+}
+#hudTop #targetFrame,#hudTop #targetFrame.dummy-target{
+ height:94px;min-height:94px;max-height:94px;
+ overflow-y:auto;overflow-x:hidden;
+ overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#a68d59 transparent
+}
+#hudTop #targetFrame.dummy-target #dummyStats{overflow:visible}
+#hudTop #targetFrame.dummy-target::after{
+ content:'↕';position:sticky;display:block;bottom:0;
+ margin-left:auto;width:10px;color:#e5c78c;
+ font:700 12px/1 system-ui,sans-serif;pointer-events:none
+}
+@media(max-width:760px){
+ #hudTop #allyFrame{
+  height:94px;max-height:94px;min-height:94px;
+  padding:5px 24px 5px 5px;overflow-y:auto;overflow-x:hidden
+ }
+ #hudTop #allyName{font-size:11px;line-height:13px}
+ #hudTop #allyLevel{font-size:8px;line-height:10px;margin:2px 0 3px}
+ #hudTop .ally-health{height:8px}
+ #hudTop #allyHpText{font-size:8px;line-height:10px;margin-top:2px}
+ #hudTop #allyInvite{
+  min-height:27px;margin-top:3px;padding:3px 2px;
+  font-size:9px;line-height:1.15
+ }
+}
+@media(max-height:510px) and (min-width:600px){
+ #hudTop #targetFrame,#hudTop #targetFrame.dummy-target,
+ #hudTop #allyFrame{height:90px;min-height:90px;max-height:90px}
+}
