@@ -858,11 +858,13 @@ function handleWorldTap(clientX,clientY,allowEmptyClear=true){
  if(modalKind)return 'blocked';
  pickRay.setFromCamera(new THREE.Vector2(clientX/innerWidth*2-1,1-clientY/innerHeight*2),camera);
  const visibleMobs=enemies.filter(enemy=>enemy.dead<=0||enemy.corpseAge>0);
- const hits=pickRay.intersectObjects(visibleMobs.map(enemy=>enemy.root),true);
+ const hitObjects=visibleMobs.flatMap(enemy=>enemy.nameTag?.visible!==false&&enemy.nameTag?
+  [enemy.root,enemy.nameTag]:[enemy.root]);
+ const hits=pickRay.intersectObjects(hitObjects,true);
  if(hits.length){
   let obj=hits[0].object;
   while(obj.parent&&obj.parent!==scene)obj=obj.parent;
-  const enemy=visibleMobs.find(m=>m.root===obj);
+  const enemy=visibleMobs.find(m=>m.root===obj||m.nameTag===obj);
   if(enemy){
    if(enemy.dead>0)showCorpseLoot(enemy);
    else setTarget(enemy);
