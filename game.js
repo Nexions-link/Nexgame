@@ -822,8 +822,8 @@ addEventListener('keydown',e=>{
  if(modalKind||e.target===cameraSlider)return;
  if(e.target instanceof HTMLButtonElement&&(k===' '||k==='enter'))return;
  if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(k))e.preventDefault();
- if(['1',' ','2','3','e','i','c','j','tab'].includes(k)){
-  if(e.repeat)return;if(k==='1'||k===' ')attack();if(k==='2')stomp();if(k==='3')heal();if(k==='e')interact();if(k==='i')bag();if(k==='c')character();if(k==='j')journal();if(k==='tab')cycleTarget(e.shiftKey?-1:1);return;
+ if(['1',' ','2','3','4','e','i','c','j','tab'].includes(k)){
+  if(e.repeat)return;if(k==='1'||k===' ')attack();if(k==='2')stomp();if(k==='3')heal();if(k==='4')strike();if(k==='e')interact();if(k==='i')bag();if(k==='c')character();if(k==='j')journal();if(k==='tab')cycleTarget(e.shiftKey?-1:1);return;
  }
  keys.add(k);
 });
@@ -878,6 +878,7 @@ function resetWorld(){
  cancelGather();
  for(const node of gatherNodes){node.pending=false;node.readyAt=0;node.root.visible=false}
  state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
+ abilityRuntime.gcd=0;abilityRuntime.cooldowns=Object.create(null);swingAbilityId='autoAttack';
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
   e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;
@@ -1387,11 +1388,13 @@ function bindImmediateButton(id,action){
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
+bindImmediateButton('strike',strike);
+bindImmediateButton('heal',()=>heal());
 // Touch controls also work with a second finger while the joystick is held.
 bindImmediateButton('interact',interact);
 bindImmediateButton('journal',journal);
 bindImmediateButton('questJournalOpen',journal);
-$('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
+$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
  ['Первые шаги','Поговорите с наставником у большого тотема.'],
  ['Обряд силы','Победите обычных долгоногов: 0 / 3'],
@@ -1517,7 +1520,18 @@ function renderJournal(){
  body.appendChild(list);
 }
 let lastMarker='';
-function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;$('rageText').textContent=inCombat()?'В бою':state.hp<max?(clock-lastCombatAt<HEALTH_REGEN_DELAY?'Отдых после боя':'Восстановление'):'Готов к бою';$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
+function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;
+ const klass=getClassDefinition(state.classId);
+ $('className').textContent='Таурен · '+klass.name;
+ $('rageFill').style.width=(100*state.resource/klass.resourceMax)+'%';
+ $('rageText').textContent=klass.resourceName+' '+Math.floor(state.resource)+' / '+klass.resourceMax;
+ $('resourceBar').setAttribute('aria-label',klass.resourceName);
+ $('resourceBar').setAttribute('aria-valuenow',String(Math.floor(state.resource)));
+ $('resourceBar').setAttribute('aria-valuemax',String(klass.resourceMax));
+ $('resourceBar').classList.toggle('resource-mana',klass.resource==='mana');
+ $('combatState').textContent=inCombat()?'В бою':state.hp<max?(clock-lastCombatAt<HEALTH_REGEN_DELAY?'Отдых после боя':'Восстановление'):'Готов к бою';
+ $('strike').classList.toggle('skill-insufficient',state.resource<getAbilityDefinition('heavyStrike').resourceCost);
+ $('strike').setAttribute('title','Рубящий удар · '+getAbilityDefinition('heavyStrike').resourceCost+' ярости · дальность '+MELEE_RANGE.toFixed(1)+' м');$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
@@ -1620,7 +1634,7 @@ function movement(dt){
  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,turn);
 }
-function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
+function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
  if(e.dead>0){
   if(e.boss&&e.nameTag)e.nameTag.visible=false;
