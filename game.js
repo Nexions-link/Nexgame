@@ -935,12 +935,22 @@ addEventListener('keydown',e=>{
  const k=e.code==='KeyC'?'c':e.key.toLowerCase();
  if(k==='c'&&modalKind==='character'){e.preventDefault();if(!e.repeat)closeDialog();return}
   if(k==='j'&&modalKind==='journal'){e.preventDefault();if(!e.repeat)closeDialog();return}
- if(k==='escape'){e.preventDefault();if(modalKind)closeDialog();else if(selected)clearTarget();else pause();return}
+ if(k==='b'&&modalKind==='spellbook'){e.preventDefault();if(!e.repeat)closeDialog();return}
+ if(k==='escape'){e.preventDefault();if(modalKind)closeDialog();else if(hotbarPending!==null)cancelHotbarAssignment();else if(selected)clearTarget();else pause();return}
  if(modalKind||e.target===cameraSlider)return;
  if(e.target instanceof HTMLButtonElement&&(k===' '||k==='enter'))return;
  if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(k))e.preventDefault();
- if(['1',' ','2','3','4','e','i','c','j','tab'].includes(k)){
-  if(e.repeat)return;if(k==='1'||k===' ')attack();if(k==='2')stomp();if(k==='3')heal();if(k==='4')strike();if(k==='e')interact();if(k==='i')bag();if(k==='c')character();if(k==='j')journal();if(k==='tab')cycleTarget(e.shiftKey?-1:1);return;
+ if(['1','2','3','4','5','6','7','8',' ','e','i','c','j','b','tab'].includes(k)){
+  if(e.repeat)return;
+  if(k>='1'&&k<='8')useHotbarSlot(Number(k)-1);
+  if(k===' ')attack();
+  if(k==='e')interact();
+  if(k==='i')bag();
+  if(k==='c')character();
+  if(k==='j')journal();
+  if(k==='b')spellbook();
+  if(k==='tab')cycleTarget(e.shiftKey?-1:1);
+  return;
  }
  keys.add(k);
 });
@@ -956,23 +966,24 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('panel').classList.toggle('journal-modal',kind==='journal');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('panel').classList.toggle('journal-modal',kind==='journal');$('panel').classList.toggle('spellbook-modal',kind==='spellbook');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){
  // Every modal has a red X at the top. Do not add redundant bottom-row
  // close/continue buttons; keep real actions and navigation controls.
  if(fn===closeDialog)return;
  const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
-function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
+function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal','spellbook-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
  openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.3',
  ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
-  'W/S — идти вперёд и назад; A/D — поворачивать; Tab — цель. 1 — автоатака, 2 — поступь, 3 — настой, 4 — рубящий удар.',
-   'Ударами получай ярость (0–100). Рубящий удар стоит 20 ярости. Способности используют дальность, перезарядку и общий кулдаун.',
+  'W/S — идти вперёд и назад; A/D — поворачивать; Tab — цель. Кнопки 1–8 соответствуют ячейкам панели; B — книга заклинаний.',
+   'Открой книгу заклинаний, выбери навык или зелье и нажми нужную ячейку 1–8. Раскладка сохраняется. Ярость воина: 0–100.',
   'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
  choice('▶ Продолжить путь',closeDialog);
  choice('♙ Персонаж и экипировка',character);
-  choice('📜 Журнал заданий',journal);
+ choice('📖 Книга заклинаний',spellbook);
+ choice('📜 Журнал заданий',journal);
  choice('⚙ Настройки камеры',cameraSettings);
  choice('Графика и FPS',graphicsSettings);
  choice('Начать заново',()=>{
@@ -1807,7 +1818,7 @@ function renderJournal(){
  body.appendChild(list);
 }
 let lastMarker='';
-function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();$('potionCount').textContent='Настой · '+state.potions;
+function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();updateHotbarVisuals();
  const klass=getClassDefinition(state.classId);
  $('className').textContent='Таурен · '+klass.name;
  $('rageFill').style.width=(100*state.resource/klass.resourceMax)+'%';
@@ -1817,8 +1828,7 @@ function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=s
  $('resourceBar').setAttribute('aria-valuemax',String(klass.resourceMax));
  $('resourceBar').classList.toggle('resource-mana',klass.resource==='mana');
  $('combatState').textContent=inCombat()?'В бою':state.hp<max?(clock-lastCombatAt<HEALTH_REGEN_DELAY?'Отдых после боя':'Восстановление'):'Готов к бою';
- $('strike').classList.toggle('skill-insufficient',state.resource<getAbilityDefinition('heavyStrike').resourceCost);
- $('strike').setAttribute('title','Рубящий удар · '+getAbilityDefinition('heavyStrike').resourceCost+' ярости · дальность '+MELEE_RANGE.toFixed(1)+' м');$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
+$('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
@@ -1850,9 +1860,7 @@ function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=s
  const isDummy=valid&&selected.trainingDummy===true;
  $('targetFrame').classList.toggle('dummy-target',isDummy);
  $('dummyStats').hidden=!isDummy;
- $('attack').classList.toggle('auto-attacking',autoAttack);
- $('attack').setAttribute('aria-pressed',String(autoAttack));
- $('attackLabel').textContent=autoAttack?'Стоп':'Автоатака';
+ updateHotbarVisuals();
  $('targetNext').classList.toggle('target-selected',valid);
  if(valid){
   const dist=targetDistance(selected),problem=meleeFailure(selected);
@@ -2028,7 +2036,6 @@ function animateCamera(dt){
  actualCameraDistance=Math.min(distance,THREE.MathUtils.damp(actualCameraDistance,Math.min(cameraDistance,distance),8,dt));camera.position.copy(camFocus).addScaledVector(camDirection,actualCameraDistance);camera.position.y=Math.max(camera.position.y,heightAt(camera.position.x,camera.position.z)+.4);camera.lookAt(camFocus);
  sun.position.set(state.x-30,48,state.z+22);sun.target.position.set(state.x,0,state.z);sun.target.updateMatrixWorld();
 }
-const attackOverlay=$('attack').querySelector('.cooldown'),stompOverlay=$('stomp').querySelector('.cooldown');
 function update(dt){
  clock+=dt;saveClock+=dt;hudClock+=dt;
  tickAbilityRuntime(abilityRuntime,dt);
@@ -2065,12 +2072,7 @@ function update(dt){
   selection.material.opacity=autoAttack?.96:.79;selection.scale.setScalar(selected.boss?1.65:selected.trainingDummy?1.2:1);
  }
  shockAge+=dt;stompRing.visible=shockAge<.6;if(stompRing.visible){stompRing.scale.setScalar(1+shockAge*7);stompRing.material.opacity=(1-shockAge/.6)*.7}
- attackOverlay.style.transform='scaleY('+clamp(attackCooldown/playerStats().speed,0,1)+')';
- stompOverlay.style.transform='scaleY('+clamp(abilityCooldown(abilityRuntime,'thunderStomp')/getAbilityDefinition('thunderStomp').cooldown,0,1)+')';
- $('strike').querySelector('.cooldown').style.transform='scaleY('+clamp(abilityCooldown(abilityRuntime,'heavyStrike')/getAbilityDefinition('heavyStrike').cooldown,0,1)+')';
- for(const id of ['stomp','strike']){
-  $(id).querySelector('.global-cooldown').style.transform='scaleY('+clamp(abilityRuntime.gcd/1.5,0,1)+')';
- }
+ updateHotbarVisuals();
  if(hudClock>.12){hudClock=0;updateHUD();drawMap()}if(saveClock>6){saveClock=0;save()}
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);clearInput();resetFps()});
