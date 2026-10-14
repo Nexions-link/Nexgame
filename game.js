@@ -2663,6 +2663,30 @@ $('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.
  const marker=[0,3,6,9].includes(state.quest)?'!':[2,5,8,11].includes(state.quest)?'?':'·';questMarker.visible=state.quest!==12;if(marker!==lastMarker){lastMarker=marker;const c=questMarker.material.map.image,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 72px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#3a2c19';ctx.fillStyle=marker==='·'?'#b4b395':'#ffe180';ctx.strokeText(marker,256,48);ctx.fillText(marker,256,48);questMarker.material.map.needsUpdate=true}relic.visible=state.quest===4;relicShadow.visible=relic.visible;
 }
 const minimap=$('minimap'),mapCtx=minimap.getContext('2d');
+function drawPartyMapMarkers(ctx,scale){
+ if(!currentParty.groupId)return;
+ ctx.save();ctx.translate(120,120);
+ for(const member of currentParty.members){
+  if(member.id===onlineSelfId)continue;
+  const remote=remotePlayers.get(member.id);
+  if(!remote)continue;
+  const marker=projectPartyMember(remote.x,remote.z,state.x,state.z,scale,103);
+  if(!marker)continue;
+  ctx.save();ctx.translate(marker.x,marker.y);
+  ctx.fillStyle='#89f1d0';ctx.strokeStyle=selectedPlayerId===member.id?'#fff3b1':'#284e41';
+  ctx.lineWidth=selectedPlayerId===member.id?3:1.8;
+  if(marker.edge){
+   ctx.rotate(Math.atan2(marker.y,marker.x));
+   ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-4,-4);ctx.lineTo(-4,4);
+   ctx.closePath();ctx.fill();ctx.stroke();
+  }else{
+   ctx.beginPath();ctx.arc(0,0,selectedPlayerId===member.id?5.5:4.5,0,TAU);
+   ctx.fill();ctx.stroke();
+  }
+  ctx.restore();
+ }
+ ctx.restore();
+}
 function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='#788252';c.fillRect(0,0,s,s);c.save();c.translate(s/2,s/2);c.fillStyle='#6d774b';for(let i=0;i<8;i++){c.beginPath();c.ellipse(Math.sin(i*1.6)*90,Math.cos(i*1.6)*90,38,17,i,0,TAU);c.fill()}c.translate(-state.x*k,-state.z*k);c.strokeStyle='#c0ae71';c.lineWidth=7;c.lineCap='round';for(const route of routes){c.beginPath();route.forEach(([x,z],i)=>i?c.lineTo(x*k,z*k):c.moveTo(x*k,z*k));c.stroke()}
  if(state.quest===10){
   c.save();c.setLineDash([7,5]);c.lineWidth=3;c.strokeStyle='#e8443e';c.beginPath();
@@ -2690,7 +2714,7 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
  }else if(isLootableCorpse(e)){c.fillStyle='#ffe6a0';c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,3.8,0,TAU);c.fill()}}if(state.quest<12){c.fillStyle='#fff397';c.font='bold 19px Georgia';c.textAlign='center';c.fillText([2,5,8,11].includes(state.quest)?'?':'!',-1.5*k,-5*k-5)}if(state.quest===4){c.fillStyle='#a6ffeb';c.beginPath();c.arc(35*k,-11.8*k,5,0,TAU);c.fill()}
  const herbalistMapGlyph=herbalistQuestGlyph();
  if(herbalistMapGlyph){c.fillStyle='#ffe087';c.strokeStyle='#382817';c.lineWidth=3;c.font='bold 20px Georgia';c.textAlign='center';c.strokeText(herbalistMapGlyph,8*k,1*k-11);c.fillText(herbalistMapGlyph,8*k,1*k-11)}
- c.restore();c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
+ c.restore();drawPartyMapMarkers(c,k);c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
 function updateApproach(dt){
   if(!approach)return 0;
   const task=approach;
