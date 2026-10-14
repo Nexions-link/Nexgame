@@ -953,7 +953,8 @@ function resetWorld(){
   e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
   e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
- }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;syncEquipmentVisuals();attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;lastCombatAt=-100;hideCombatWarning();shockAge=9;cameraYaw=0;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
+ }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;syncEquipmentVisuals();resetTrainingTarget(trainingDummy);
+ attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;lastCombatAt=-100;hideCombatWarning();shockAge=9;cameraYaw=0;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
 function cancelGather(message=''){
  if(!gatherCast)return false;
  gatherCast=null;$('gatherCast').hidden=true;
@@ -1410,6 +1411,13 @@ function damageEnemy(e,amount,source='autoAttack'){
  lastCombatAt=clock;
  // A successful attack generates rage; area attacks award less per opponent.
  gainClassResource(source==='autoAttack'?WARRIOR_RAGE_PER_HIT:source==='heavyStrike'?8:source==='thunderStomp'?3:0);
+ if(e.trainingDummy){
+  // A target dummy accepts all ability damage and awards warrior rage, but
+  // cannot aggro, die, leave loot, award XP/gold, or advance kill objectives.
+  applyTrainingHit(e,amount,clock,source);
+  e.aggro=false;e.hit=.22;
+  updateHUD();return;
+ }
  e.hp-=amount;e.aggro=true;e.hit=.22;
  if(e.hp<=0){
   e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
@@ -1703,6 +1711,14 @@ function movement(dt){
 }
 function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
+ if(e.trainingDummy){
+  // Independent of wildlife AI; never wander, stun, chase, retaliate or die.
+  e.aggro=false;e.stunned=0;e.dead=0;
+  e.hit=Math.max(0,e.hit-dt);
+  e.root.rotation.z=Math.sin(clock*23)*e.hit*.18;
+  updateTrainingTarget(e,clock);
+  return;
+ }
  if(e.dead>0){
   if(e.boss&&e.nameTag)e.nameTag.visible=false;
   e.dead=Math.max(0,e.dead-dt);e.corpseAge+=dt;
@@ -1797,7 +1813,7 @@ function update(dt){
   }
   if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null;swingAbilityId='autoAttack'}
  }
- if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){e.stunned=2.5;damageEnemy(e,6,'thunderStomp')}}if(stompElapsed>=.75)stompElapsed=-1}
+ if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){if(!e.trainingDummy)e.stunned=2.5;damageEnemy(e,6,'thunderStomp')}}if(stompElapsed>=.75)stompElapsed=-1}
  if(gatherCast){
   velocityX=velocityZ=0;
   hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
