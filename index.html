@@ -4,8 +4,41 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#352d1d">
-<title>NexGame · Мулгор · Alpha 0.3.5.7</title>
-<link rel="stylesheet" href="./style.css?v=0.3.5.7">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+/* Fetch the published entrypoint afresh, and bypass Safari's cached HTML when a release appears. */
+(function(){
+ const current='0.3.5.8';
+ let checking=false;
+ async function checkForUpdate(){
+  if(checking||document.hidden||!navigator.onLine)return;
+  checking=true;
+  try{
+   const url=new URL('./index.html',location.href);
+   url.searchParams.set('_check',String(Date.now()));
+   const response=await fetch(url.href,{cache:'no-store'});
+   if(!response.ok)return;
+   const html=await response.text();
+   const match=html.match(/NexGame\\s*[·]\\s*Alpha\\s*(\\d+\\.\\d+\\.\\d+\\.\\d+)/);
+   if(!match||match[1]===current)return;
+   const newer=match[1].split('.').map(Number);
+   const older=current.split('.').map(Number);
+   const isNewer=newer.some((n,i)=>n!==older[i]&&newer.slice(0,i).every((v,j)=>v===older[j])&&n>older[i]);
+   if(!isNewer)return;
+   const next=new URL(location.href);
+   next.searchParams.set('release',match[1]);
+   location.replace(next.href);
+  }catch(e){/* Offline play should not be interrupted. */}
+  finally{checking=false}
+ }
+ window.addEventListener('load',()=>{setTimeout(checkForUpdate,2500);setInterval(checkForUpdate,120000)});
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkForUpdate()});
+})();
+</script>
+<title>NexGame · Мулгор · Alpha 0.3.5.8</title>
+<link rel="stylesheet" href="./style.css?v=0.3.5.8">
 </head>
 <body>
 <div id="scene" aria-label="Трёхмерный мир Мулгора"></div>
@@ -59,7 +92,7 @@
 <div id="actionsBar" role="toolbar" aria-label="Панель из восьми настраиваемых ячеек"></div>
 <div id="xpWrap"><div id="xpFill"></div><span id="xpText">Опыт 0 / 100</span></div>
 <div id="help">1–8 — ячейки панели · B — книга заклинаний · Tab — цель · I — рюкзак</div>
-<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span>NexGame · Alpha 0.3.5.7</span></div>
+<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span>NexGame · Alpha 0.3.5.8</span></div>
 <div id="combatError" role="status" aria-live="polite"></div><div id="toast" role="status"></div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" hidden><div id="panel"><button id="modalClose" type="button" aria-label="Закрыть окно">×</button><div class="panel-corner">◆</div><span class="eyebrow" id="msub"></span><h2 id="mtitle"></h2><div class="ornament">━━━━ ◆ ━━━━</div><div id="mbody"></div><section id="cameraControl" class="camera-settings" hidden aria-label="Настройки камеры">
   <div class="camera-label"><label for="cameraDistance">Расстояние до персонажа</label><span id="cameraDistanceValue">10,5</span></div>
@@ -79,7 +112,7 @@
   <label class="camera-follow-row" for="showFps"><input id="showFps" type="checkbox" role="switch" aria-describedby="fpsHelp"><span>Показывать FPS</span></label>
   <small id="fpsHelp" class="settings-help">Частота кадров во время игры. На паузе счётчик приостановлен.</small>
  </section><div id="choices"></div></div></div>
-<script type="module" src="./game.js?v=0.3.5.7"></script>
+<script type="module" src="./game.js?v=0.3.5.8"></script>
 </body>
 </html>
 
