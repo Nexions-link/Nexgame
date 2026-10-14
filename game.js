@@ -1,6 +1,7 @@
-import {createWorldPresence} from './online.js?v=0.3.5.32';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.32';
-import {projectPartyMember} from './party-map.js?v=0.3.5.32';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.33';
+import {createWorldPresence} from './online.js?v=0.3.5.33';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.33';
+import {projectPartyMember} from './party-map.js?v=0.3.5.33';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -31,15 +32,15 @@ try{const saved=JSON.parse(localStorage.getItem(settingsKey));if(saved&&typeof s
 }}catch(e){}
 const saveSettings=()=>{try{localStorage.setItem(settingsKey,JSON.stringify(settings))}catch(e){}};
 const wrapYaw=yaw=>Math.atan2(Math.sin(yaw),Math.cos(yaw));
-const scene=new THREE.Scene();scene.background=new THREE.Color(0xaac9cd);scene.fog=new THREE.Fog(0xc1cbb0,65,166);
+const scene=new THREE.Scene();scene.background=createSkyMap(THREE);scene.fog=new THREE.Fog(0xc7d8d6,72,174);
 const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.09,230);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'default'});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=graphicsPresets[settings.quality].shadows;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;
 $('scene').appendChild(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xe9ebc9,0x65502e,2.1));
-const sun=new THREE.DirectionalLight(0xffe4ad,2.8);sun.position.set(-30,48,22);sun.castShadow=true;
+scene.add(new THREE.HemisphereLight(0xd9e8f0,0x716044,1.7));
+const sun=new THREE.DirectionalLight(0xffe3b3,2.65);sun.position.set(-30,48,22);sun.castShadow=true;
 sun.shadow.mapSize.setScalar(graphicsPresets[settings.quality].shadowSize);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,near:1,far:110});sun.shadow.bias=-.0004;sun.shadow.normalBias=.045;
 scene.add(sun,sun.target);
 let seed=531;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
@@ -49,7 +50,7 @@ const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness
 function texture(draw,size=128){const c=document.createElement('canvas');c.width=c.height=size;draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
 const grain=texture((ctx,s)=>{ctx.fillStyle='#b2b993';ctx.fillRect(0,0,s,s);for(let i=0;i<2200;i++){ctx.fillStyle=rand()>.5?'#bfc69b55':'#62744130';ctx.fillRect(rand()*s,rand()*s,1+rand()*3,1+rand()*3)}});grain.wrapS=grain.wrapT=THREE.RepeatWrapping;grain.repeat.set(58,58);
 const hide=texture((c,s)=>{c.fillStyle='#dbc39a';c.fillRect(0,0,s,s);for(let i=0;i<900;i++){c.fillStyle=rand()>.5?'#fff0ca18':'#53392313';c.fillRect(rand()*s,rand()*s,rand()*12,1)}c.strokeStyle='#6d3d2b';c.lineWidth=9;c.beginPath();for(let x=0;x<=s;x+=16){c.lineTo(x,40+(x%32?13:-13))}c.stroke();c.fillStyle='#ac5938';c.fillRect(0,54,s,12);c.fillStyle='#346c66';c.fillRect(0,74,s,6);c.fillStyle='#795034';c.fillRect(0,s-7,s,7)});hide.wrapS=THREE.RepeatWrapping;hide.repeat.set(3,1);
-const M={grass:material(0x90a357,{map:grain,vertexColors:true}),dirt:material(0xa08c51),wood:material(0x5b3d24),woodLight:material(0x916139),hide:material(0xe0c899,{map:hide,side:THREE.DoubleSide}),hideDark:material(0x9b7449),red:material(0x9a4931),teal:material(0x427b70),gold:material(0xd7ae5e),bone:material(0xe5d5aa),rock:material(0x8a7250),rockLight:material(0xaa926c),rockDark:material(0x6e593c),leaf:material(0x718746),leafLight:material(0x98a253),black:material(0x231f19),metal:material(0x9caaa2,{roughness:.65,metalness:.2}),water:material(0x547d77,{roughness:.38,transparent:true,opacity:.85})};
+const M={grass:material(0xffffff,{vertexColors:true}),dirt:material(0xa08c51),wood:material(0x5b3d24),woodLight:material(0x916139),hide:material(0xe0c899,{map:hide,side:THREE.DoubleSide}),hideDark:material(0x9b7449),red:material(0x9a4931),teal:material(0x427b70),gold:material(0xd7ae5e),bone:material(0xe5d5aa),rock:material(0x8a7250),rockLight:material(0xaa926c),rockDark:material(0x6e593c),leaf:material(0x718746),leafLight:material(0x98a253),black:material(0x231f19),metal:material(0x9caaa2,{roughness:.65,metalness:.2}),water:material(0x547d77,{roughness:.38,transparent:true,opacity:.85})};
 const G={sphere:new THREE.SphereGeometry(1,12,9),box:new THREE.BoxGeometry(1,1,1),cylinder:new THREE.CylinderGeometry(1,1,1,10),cone:new THREE.ConeGeometry(1,1,9),rock:new THREE.DodecahedronGeometry(1,0)};
 function group(parent,x=0,y=0,z=0){const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);return g}
 function mesh(parent,geometry,mat,x=0,y=0,z=0,sx=1,sy=1,sz=1,cast=true){const m=new THREE.Mesh(geometry,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=cast;m.receiveShadow=true;parent.add(m);return m}
@@ -69,7 +70,7 @@ const world=group(scene),colliders=[],cameraBlockers=[],mapLandmarks=[];
 function obstacle(x,z,r,height=5){colliders.push({x,z,r,height})}
 function clearAt(x,z,r=.58){if(Math.abs(x)>69||Math.abs(z)>69)return false;for(const o of colliders)if((x-o.x)**2+(z-o.z)**2<(r+o.r)**2)return false;return true}
 const terrainGeo=new THREE.PlaneGeometry(190,190,120,120);terrainGeo.rotateX(-Math.PI/2);
-const tp=terrainGeo.attributes.position,colors=[];const ca=new THREE.Color(0x789044),cb=new THREE.Color(0xb1b76a),cc=new THREE.Color();
+const tp=terrainGeo.attributes.position,colors=[];const ca=new THREE.Color(0xdde3d3),cb=new THREE.Color(0xffffff),cc=new THREE.Color();
 for(let i=0;i<tp.count;i++){const x=tp.getX(i),z=tp.getZ(i);tp.setY(i,heightAt(x,z));cc.copy(ca).lerp(cb,.5+.24*Math.sin(x*.075+z*.04)+.13*Math.sin(x*.38-z*.22));colors.push(cc.r,cc.g,cc.b)}terrainGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));terrainGeo.computeVertexNormals();mesh(scene,terrainGeo,M.grass,0,0,0,1,1,1,false);
 const routes=[[[0,9],[-2,0],[-5,-12],[-8,-26],[-18,-42]],[[0,3],[13,5],[25,2],[38,-9]],[[0,9],[1,24],[12,37],[32,43]]];
 const SCOUT_X=12,SCOUT_Z=37,BOSS_X=39,BOSS_Z=47;
@@ -92,8 +93,16 @@ for(let step=0;step<bossWaypoints.length-1;step++){
 bossGuide.count=guideCount;bossGuide.instanceMatrix.needsUpdate=true;
 bossGuide.visible=false;scene.add(bossGuide);
 const pathSegments=[];
-function path(points,width){for(let k=0;k<points.length-1;k++){const [ax,az]=points[k],[bx,bz]=points[k+1];pathSegments.push({ax,az,bx,bz,width});const length=Math.hypot(bx-ax,bz-az),nx=-(bz-az)/length*width/2,nz=(bx-ax)/length*width/2,steps=Math.ceil(length),p=[],uv=[];for(let i=0;i<steps;i++){const coords=[];for(const t of [i/steps,(i+1)/steps])for(const side of [-1,1]){const x=ax+(bx-ax)*t+nx*side,z=az+(bz-az)*t+nz*side;coords.push([x,heightAt(x,z)+.032,z])}for(const id of [0,1,2,1,3,2]){p.push(...coords[id]);uv.push(0,0)}}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.computeVertexNormals();mesh(world,geo,M.dirt,0,0,0,1,1,1,false)}}
+function path(points,width){
+ for(let k=0;k<points.length-1;k++){
+  const [ax,az]=points[k],[bx,bz]=points[k+1];pathSegments.push({ax,az,bx,bz,width});
+ }
+}
 routes.forEach(r=>path(r,3.5));
+// Bake paths directly into the ground: seamless junctions, no floating strips.
+M.grass.map=createLandscapeMap(THREE,pathSegments);
+M.grass.map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+grain.dispose();
 function onPath(x,z){return pathSegments.some(s=>{const dx=s.bx-s.ax,dz=s.bz-s.az,t=clamp(((x-s.ax)*dx+(z-s.az)*dz)/(dx*dx+dz*dz),0,1);return Math.hypot(x-s.ax-dx*t,z-s.az-dz*t)<s.width*.6})}
 // Sandstone mesas and a grassy upper rim enclose the playable valley.
 for(let i=0;i<25;i++){const angle=i/25*TAU,rr=104+rand()*10,x=Math.sin(angle)*rr,z=Math.cos(angle)*rr,h=12+rand()*18,r=8+rand()*8,y=heightAt(x,z);const base=mesh(world,new THREE.CylinderGeometry(r*.8,r,h,8),i%3?M.rock:M.rockDark,x,y+h/2-2,z);base.rotation.y=rand();cameraBlockers.push(base);mesh(world,new THREE.CylinderGeometry(r*.82,r*.85,2.3,8),M.rockLight,x,y+h-2.8,z);mesh(world,new THREE.CylinderGeometry(r*.76,r*.82,1.3,8),M.leaf,x,y+h-1,z);}
@@ -1064,7 +1073,7 @@ function choice(label,fn,type=''){
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal','spellbook-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.32',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.33',
  ['Локальное меню персонажа. Онлайн-мир продолжает жить: группа, другие игроки и мобы не останавливаются.',
   'W/S — идти вперёд и назад; A/D — поворачивать; Tab — цель. Кнопки 1–8 соответствуют ячейкам панели; B — книга заклинаний.',
    'Открой книгу заклинаний, выбери навык или зелье и нажми нужную ячейку 1–8. Раскладка сохраняется. Ярость воина: 0–100.',
@@ -2948,4 +2957,5 @@ let last=performance.now();function frame(t){const milliseconds=Math.max(0,t-las
 update(0);updateHUD();drawMap();animateCamera(1);renderer.render(scene,camera);requestAnimationFrame(frame);$('loader').remove();
 if(state.quest===0)msg('Мулгор. Поговори с наставником у большого тотема.',4400);
 }catch(error){const text=$('loadText');if(text)text.textContent='Ошибка запуска: '+String(error.message||error);throw error}
+
 
