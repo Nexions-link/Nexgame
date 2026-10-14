@@ -207,7 +207,6 @@
 [data-rarity="common"]{--item-color:#f1ebd9}
 [data-rarity="uncommon"]{--item-color:#69d65e}
 [data-rarity="rare"]{--item-color:#77b7f0}
-[data-rarity="epic"]{--item-color:#b47bff}
 .item-name{display:block;color:var(--item-color,#e1d1a9);font:bold 13px/1.4 system-ui,sans-serif;overflow-wrap:anywhere}
 .inventory-slot.occupied,.equipment-slot.equipped,.loot-item{border-color:var(--item-color,#b9a46e)}
 .equipment-slot.equipped small{color:var(--item-color,#e1d1a9)}
