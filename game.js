@@ -1295,6 +1295,8 @@ function bindImmediateButton(id,action){
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
+// Gathering, looting and NPC interactions should also work under a held joystick.
+bindImmediateButton('interact',interact);
 bindImmediateButton('interact',interact);
 $('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
