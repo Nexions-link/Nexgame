@@ -1,15 +1,16 @@
-// NexGame world server — alpha presence prototype. No combat or inventory authority yet.
+// NexGame Alpha 0.3.5.24 — single-process shared-world presence and authoritative PvE.
+// Characters are not authenticated or persisted yet; use only for playtesting.
 // One process = one global world; use persistent infrastructure for deployment.
 import {createServer} from 'node:http';
 import {WebSocketServer,WebSocket} from 'ws';
 import {randomUUID} from 'node:crypto';
-import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs} from './world-mobs.js';
+import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,applyMulgoreAbility,sanitizeEquipment,rollMulgoreLoot} from './world-mobs.js';
 
 const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
-const WORLD_PROTOCOL=2; // Includes authoritative idle-wildlife snapshots.
-const WORLD_BUILD='0.3.5.23';
+const WORLD_PROTOCOL=3; // Server-authoritative PvE: combat, kill credits and mob attacks.
+const WORLD_BUILD='0.3.5.24';
 const MAX_MESSAGE_BYTES=1024;
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
 const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -22,6 +23,8 @@ const finite=(v,min,max)=>Number.isFinite(v)&&v>=min&&v<=max;
 const cleanName=name=>typeof name==='string'?name.trim().replace(/[<>\u0000-\u001f]/g,'').slice(0,24):'';
 const encode=value=>JSON.stringify(value);
 const send=(socket,payload)=>{if(socket.readyState===WebSocket.OPEN)socket.send(encode(payload));};
+const broadcast=payload=>{for(const socket of clients.keys())send(socket,payload)};
+const sendToPlayer=(id,payload)=>{for(const [socket,otherId] of clients)if(id===otherId)send(socket,payload)};
 
 const http=createServer((req,res)=>{
  if(req.url==='/health'){
@@ -41,7 +44,8 @@ function disconnect(ws){
 wss.on('connection',ws=>{
  if(clients.size>=MAX_PLAYERS){ws.close(1013,'World is full');return}
  const id=randomUUID(),now=Date.now();
- const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,updatedAt:now};
+ const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,updatedAt:now,equipment:{}};
+ let joined=false;
  clients.set(ws,id);players.set(id,player);
  send(ws,{type:'welcome',id,world:'mulgore',tickMs:TICK_MS,protocol:WORLD_PROTOCOL,build:WORLD_BUILD,
   players:[...players.values()].filter(other=>other.id!==id),
@@ -50,6 +54,7 @@ wss.on('connection',ws=>{
   let data;try{data=JSON.parse(String(raw))}catch{return}
   if(!data||typeof data!=='object')return;
   if(data.type==='join'){
+   if(joined)return;joined=true;
    const name=cleanName(data.name);if(name)player.name=name;
    // Initialize the player's first position from an existing browser save.
    // Coordinates are provisional until server-authoritative movement is added.
@@ -58,7 +63,22 @@ wss.on('connection',ws=>{
    }
    if(finite(data.yaw,-Math.PI*4,Math.PI*4))player.yaw=data.yaw;
    if(integer(data.level,1,60))player.level=data.level;
+   player.equipment=sanitizeEquipment(data.equipment,player.level);
    player.updatedAt=Date.now();
+   return;
+  }
+  if(!joined)return;
+  if(data.type==='attack'){
+   const result=applyMulgoreAbility(mobs,player,data.abilityId,data.mobId);
+   if(!result.ok){send(ws,{type:'combatRejected',abilityId:data.abilityId,reason:result.reason});return}
+   broadcast(result.event);
+   for(const death of result.deaths){
+    for(const attackerId of death.contributors){
+     sendToPlayer(attackerId,{type:'killCredit',mobId:death.id,life:death.life,
+      xp:death.boss?70:22,gold:death.boss?12:4,
+      loot:rollMulgoreLoot(death.boss)});
+    }
+   }
    return;
   }
   if(data.type!=='move')return;
@@ -70,7 +90,8 @@ wss.on('connection',ws=>{
   if(Math.hypot(dx,dz)>MAX_SPEED*dt+1) return;
   player.x=data.x;player.z=data.z;player.yaw=data.yaw;
   player.moving=data.moving;player.updatedAt=now;
-  if(integer(data.level,1,60))player.level=data.level; // Display-only for prototype.
+  if(integer(data.level,1,60))player.level=data.level; // Temporary, untrusted level until accounts.
+  if(data.equipment)player.equipment=sanitizeEquipment(data.equipment,player.level);
  });
  ws.on('close',()=>disconnect(ws));
  ws.on('error',()=>disconnect(ws));
@@ -79,7 +100,8 @@ let lastMobTick=performance.now(),worldTick=0;
 const interval=setInterval(()=>{
  worldTick++;
  const now=performance.now();
- tickMulgoreMobs(mobs,(now-lastMobTick)/1000);lastMobTick=now;
+ const mobEvents=tickMulgoreMobs(mobs,(now-lastMobTick)/1000,[...players.values()],Date.now());lastMobTick=now;
+ for(const event of mobEvents)broadcast(event);
  const snapshot=[...players.values()].map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,moving:p.moving}));
  const mobSnapshot=snapshotMulgoreMobs(mobs);
  for(const client of clients.keys())send(client,{type:'snapshot',protocol:WORLD_PROTOCOL,tick:worldTick,players:snapshot,mobs:mobSnapshot});
