@@ -11,8 +11,6 @@ export const ITEM_CATALOG={
  sunRoot:{name:'Солнечный корень',icon:'🌿',rarity:'common',quality:'Задание',quest:true,sell:0,description:'Мясистый корень на окраинах пастбищ Мулгора.'},
  moonMushroom:{name:'Лунный гриб',icon:'🍄',rarity:'common',quality:'Задание',quest:true,sell:0,description:'Редкий гриб из прохладных низин Мулгора.'},
  wornAxe:gear(37,'Поношенный топор','weapon',{icon:'🪓',rarity:'common',quality:'Обычный',weaponKind:'axe',damageMin:1,damageMax:3,speed:2,buy:8,sell:1,description:'Твой первый одноручный топор. Можно использовать со щитом.'}),
- // TEMP TEST DROP: guaranteed from Грозоклюв. Remove after combat-system testing.
- stormbeakCrusher:gear(null,'Крушитель Грозоклюва','weapon',{icon:'🪓',rarity:'epic',quality:'Эпический',weaponKind:'axe',damageMin:8,damageMax:12,bonusDamage:10000,speed:2.1,sell:0,description:'Тестовое эпическое оружие Грозоклюва. Бонус +10 000 к урону. Временный предмет для проверки боевой системы.'}),
  chainVest:gear(2656,'Тонкий кольчужный нагрудник','chest',{icon:'👕',armor:63,buy:32,sell:6}),
  chainPants:gear(2654,'Тонкие кольчужные штаны','legs',{icon:'👖',armor:37,buy:20,sell:4}),
  chainBoots:gear(2650,'Тонкие кольчужные сапоги','feet',{icon:'🥾',armor:34,buy:16,sell:3}),
@@ -59,7 +57,6 @@ export function deriveStats(level,equipment){
  const weapon=ITEM_CATALOG[equipment?.weapon?.id],shield=ITEM_CATALOG[equipment?.shield?.id];
  const speed=weapon?.slot==='weapon'?weapon.speed:2,attackPower=Math.max(0,level*3+strength*2-20);
  const bonus=attackPower/14*speed;
- const weaponBonusDamage=weapon?.slot==='weapon'?(weapon.bonusDamage||0):0;
- const damageMin=(weapon?.slot==='weapon'?weapon.damageMin:1)+bonus+weaponBonusDamage,damageMax=(weapon?.slot==='weapon'?weapon.damageMax:2)+bonus+weaponBonusDamage;
+ const damageMin=(weapon?.slot==='weapon'?weapon.damageMin:1)+bonus,damageMax=(weapon?.slot==='weapon'?weapon.damageMax:2)+bonus;
  return {strength,stamina,armor,attackPower,maxHp:80+staminaHealth(stamina),speed,damageMin,damageMax,dps:(damageMin+damageMax)/2/speed,blockChance:shield?.slot==='shield' ? .05 : 0,blockValue:shield?.slot==='shield'?(shield.block||0)+Math.floor(strength/20):0};
 }
