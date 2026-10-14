@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - 'game.js'
+      - 'building-physics.js'
+      - 'tests/buildings.test.mjs'
       - 'index.html'
       - 'app.html'
       - 'tests/bootstrap.test.mjs'
@@ -48,6 +50,8 @@ jobs:
       - name: Syntax check client and server
         run: |
           node --check game.js
+          node --check building-physics.js
+          node --check tests/buildings.test.mjs
           node --check online.js
           node --check online-config.js
           node --check party-map.js
@@ -60,5 +64,5 @@ jobs:
         run: npm install --prefix server --no-audit --no-fund
       - name: Test private chat, party map, PvE and real WebSocket sessions
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs
+          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs
           npm test --prefix server
