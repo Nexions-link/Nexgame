@@ -1,5 +1,5 @@
-import {createWorldPresence} from './online.js?v=0.3.5.22';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.22';
+import {createWorldPresence} from './online.js?v=0.3.5.23';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.23';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1941,27 +1941,54 @@ function animateRemotePlayers(dt){
 }
 // Wildlife snapshots use the same stable mob indexes as the local world model.
 // Keep a local fallback so the game remains playable during Render cold starts.
-let sharedMobTargets=new Map(),sharedMobsConnected=false;
+const SHARED_MOB_COUNT=enemies.filter(enemy=>!enemy.trainingDummy).length;
+let sharedMobTargets=new Map(),sharedMobsConnected=false,lastSharedMobPacketAt=0;
+let worldNetworkStatus='solo',mobNetworkStatus='ожидание';
+function showWorldNetworkStatus(){
+ const el=$('onlineStatus');if(!el)return;
+ const label=worldNetworkStatus==='online'?'Мир: онлайн':worldNetworkStatus==='connecting'?
+  'Мир: подключение':worldNetworkStatus==='solo'?'Мир: одиночный':'Мир: нет связи';
+ el.textContent=worldNetworkStatus==='online'?label+' · мобы: '+mobNetworkStatus:label;
+}
 function updateSharedMobTargets(snapshot){
  if(snapshot===null){
-  sharedMobsConnected=false;sharedMobTargets.clear();return;
+  sharedMobsConnected=false;sharedMobTargets.clear();lastSharedMobPacketAt=0;
+  mobNetworkStatus='нет связи';showWorldNetworkStatus();return;
  }
  if(!Array.isArray(snapshot))return;
  const next=new Map();
  for(const row of snapshot){
-  const mob=enemies[row?.id];
-  if(!mob||mob.trainingDummy||!Number.isInteger(row.id)||
-     !Number.isFinite(row.x)||!Number.isFinite(row.z)||!Number.isFinite(row.yaw))continue;
+  if(!Number.isInteger(row?.id)||row.id<0||row.id>=enemies.length)continue;
+  const mob=enemies[row.id];
+  if(!mob||mob.trainingDummy||!Number.isFinite(row.x)||
+     !Number.isFinite(row.z)||!Number.isFinite(row.yaw))continue;
   if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>10)continue;
   next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw});
  }
- // Only switch to server-driven movement after receiving a full, valid snapshot.
- if(next.size!==enemies.filter(mob=>!mob.trainingDummy).length)return;
+ if(next.size!==SHARED_MOB_COUNT){
+  sharedMobsConnected=false;sharedMobTargets.clear();lastSharedMobPacketAt=0;
+  mobNetworkStatus=snapshot.length===0?'нет данных от сервера':next.size+'/'+SHARED_MOB_COUNT+' (ошибка)';
+  showWorldNetworkStatus();return;
+ }
+ const firstSnapshot=!sharedMobsConnected;
  sharedMobTargets=next;sharedMobsConnected=true;
+ lastSharedMobPacketAt=performance.now();
+ mobNetworkStatus=SHARED_MOB_COUNT+'/'+SHARED_MOB_COUNT;showWorldNetworkStatus();
+ if(firstSnapshot){
+  // Reset initial random solo roaming when the shared server first becomes available.
+  for(const [id,position] of next){
+   const mob=enemies[id];if(mob.dead>0||mob.aggro)continue;
+   mob.root.position.set(position.x,heightAt(position.x,position.z),position.z);
+   mob.root.rotation.y=position.yaw;
+   mob.shadow.position.set(position.x,heightAt(position.x,position.z)+.055,position.z);
+  }
+ }
 }
 function animateSharedMob(e,dt,target){
  const p=e.root.position,oldX=p.x,oldZ=p.z;
- const lerp=1-Math.exp(-Math.max(0,dt)*9);
+ // Large corrections (e.g. after reconnect) snap to the server instead of drifting.
+ const gap=Math.hypot(target.x-p.x,target.z-p.z);
+ const lerp=gap>2?1:1-Math.exp(-Math.max(0,dt)*9);
  p.x+=(target.x-p.x)*lerp;p.z+=(target.z-p.z)*lerp;
  const turn=Math.atan2(Math.sin(target.yaw-e.root.rotation.y),Math.cos(target.yaw-e.root.rotation.y));
  e.root.rotation.y+=turn*lerp;
@@ -1984,6 +2011,10 @@ function animateSharedMob(e,dt,target){
  }
 }
 function updateWildlife(dt){
+ if(sharedMobsConnected&&performance.now()-lastSharedMobPacketAt>3000){
+  sharedMobsConnected=false;sharedMobTargets.clear();
+  mobNetworkStatus='потеря данных';showWorldNetworkStatus();
+ }
  for(const enemy of enemies){
   // A local fight still uses existing logic; authoritative shared combat comes next.
   const target=sharedMobsConnected&&!enemy.trainingDummy&&enemy.dead<=0&&!enemy.aggro
@@ -1994,7 +2025,11 @@ function updateWildlife(dt){
 }
 const worldConnection=createWorldPresence({
  url:WORLD_WS_URL,
- onStatus:status=>{const el=$('onlineStatus');if(el)el.textContent=status==='online'?'Мир: онлайн':status==='connecting'?'Мир: подключение':status==='solo'?'Мир: одиночный':'Мир: нет связи';},
+ onStatus:status=>{
+  worldNetworkStatus=status;
+  if(status==='online')mobNetworkStatus='ожидание';
+  showWorldNetworkStatus();
+ },
  onPlayers:updateRemoteSnapshot,
  onMobs:updateSharedMobTargets,
  onLeave:removeRemotePlayer,
