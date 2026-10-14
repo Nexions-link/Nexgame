@@ -1963,7 +1963,8 @@ function updateSharedMobTargets(snapshot){
   if(!mob||mob.trainingDummy||!Number.isFinite(row.x)||
      !Number.isFinite(row.z)||!Number.isFinite(row.yaw))continue;
   if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>10)continue;
-  next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw});
+  next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw,
+   phase:Number.isFinite(row.phase)?row.phase:null});
  }
  if(next.size!==SHARED_MOB_COUNT){
   sharedMobsConnected=false;sharedMobTargets.clear();lastSharedMobPacketAt=0;
@@ -1980,6 +1981,7 @@ function updateSharedMobTargets(snapshot){
    const mob=enemies[id];if(mob.dead>0||mob.aggro)continue;
    mob.root.position.set(position.x,heightAt(position.x,position.z),position.z);
    mob.root.rotation.y=position.yaw;
+   if(position.phase!==null)mob.phase=position.phase;
    mob.shadow.position.set(position.x,heightAt(position.x,position.z)+.055,position.z);
   }
  }
@@ -1997,7 +1999,7 @@ function animateSharedMob(e,dt,target){
  e.stunned=Math.max(0,e.stunned-dt);
  e.attackCd=Math.max(0,e.attackCd-dt);
  const moved=Math.hypot(p.x-oldX,p.z-oldZ);
- e.phase+=moved*4;
+ e.phase=Number.isFinite(target.phase)?target.phase:e.phase+moved*4;
  const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));
  e.legs[0].rotation.x=stride*.48*power;
  e.legs[1].rotation.x=-stride*.48*power;
