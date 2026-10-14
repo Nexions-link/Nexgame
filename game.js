@@ -1,5 +1,5 @@
-import {createWorldPresence} from './online.js?v=0.3.5.26';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.26';
+import {createWorldPresence} from './online.js?v=graphics-0.1.0';
+import {WORLD_WS_URL} from './online-config.js?v=graphics-0.1.0';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -11,7 +11,7 @@ try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.m
 catch(error){$('loadText').textContent='Не удалось загрузить 3D-движок. Проверь соединение и обнови страницу.';throw error}
 try{
 const clamp=THREE.MathUtils.clamp,TAU=Math.PI*2;
-const settingsKey='nexgame-settings-v1';
+const settingsKey='nexgame-graphics-settings-v1';
 const graphicsPresets={
  economy:{pixelRatio:1,shadows:false,shadowSize:512,grass:.5},
  balanced:{pixelRatio:1.5,shadows:true,shadowSize:1024,grass:1},
@@ -411,8 +411,8 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  actor.braids.forEach((b,i)=>{b.rotation.x=.035*Math.sin(time*2+i)+.07*stride*w;b.rotation.z=clamp(turn*.3,-.1,.1)});
  actor.shadow.position.set(actor.root.position.x,heightAt(actor.root.position.x,actor.root.position.z)+.055,actor.root.position.z);
 }
-const saveKey='nexgame-mulgore-alpha02',cameraStoreKey='nexgame-real3d-camera-distance';
-const playerNameKey='nexgame-character-name-v1';
+const saveKey='nexgame-graphics-mulgore-alpha02',cameraStoreKey='nexgame-graphics-camera-distance';
+const playerNameKey='nexgame-graphics-character-name-v1';
 const sanitizePlayerName=name=>typeof name==='string'?
  name.replace(/[<>\u0000-\u001f]/g,'').trim().slice(0,24):'';
 let characterName='';
@@ -853,7 +853,7 @@ $('graphicsQuality').addEventListener('change',e=>setGraphicsQuality(e.target.va
 $('showFps').addEventListener('change',e=>setShowFps(e.target.checked));
 applyGraphics();setShowFps(settings.showFps,false);
 function rememberCameraPitch(){if(settings.cameraPitch!==cameraPitch){settings.cameraPitch=cameraPitch;saveSettings()}}
-const cameraFollowStoreKey='nexgame-real3d-camera-follow',cameraFollowSwitch=$('cameraFollow');
+const cameraFollowStoreKey='nexgame-graphics-camera-follow',cameraFollowSwitch=$('cameraFollow');
 const cameraSlider=$('cameraDistance');
 function setCameraDistance(value,persist=true){if(!Number.isFinite(value))return;cameraDistance=Math.round(clamp(value,4,44)*10)/10;cameraSlider.value=String(cameraDistance);const valueText=cameraDistance.toFixed(1).replace('.',',');$('cameraDistanceValue').textContent=valueText;cameraSlider.setAttribute('aria-valuetext',valueText);if(persist)try{localStorage.setItem(cameraStoreKey,String(cameraDistance))}catch(e){}}
 try{const saved=JSON.parse(localStorage.getItem(cameraStoreKey));if(Number.isFinite(saved))setCameraDistance(saved,false)}catch(e){}setCameraDistance(cameraDistance,false);actualCameraDistance=cameraDistance;
@@ -1059,7 +1059,7 @@ function choice(label,fn,type=''){
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal','spellbook-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.26',
+ openDialog('У костра','NEXGAME GRAPHICS · PREVIEW 0.1.0',
  ['Локальное меню персонажа. Онлайн-мир продолжает жить: группа, другие игроки и мобы не останавливаются.',
   'W/S — идти вперёд и назад; A/D — поворачивать; Tab — цель. Кнопки 1–8 соответствуют ячейкам панели; B — книга заклинаний.',
    'Открой книгу заклинаний, выбери навык или зелье и нажми нужную ячейку 1–8. Раскладка сохраняется. Ярость воина: 0–100.',
@@ -1927,7 +1927,7 @@ const remotePlayers=new Map();
 let selectedPlayerId=null;
 let currentParty={groupId:null,leaderId:null,members:[]};
 let pendingPartyInvite=null,partyInviteTimer=null,lastPartyHudSignature='';
-const partyHudFoldKey='nexgame-party-hud-collapsed-v1';
+const partyHudFoldKey='nexgame-graphics-party-hud-collapsed-v1';
 let partyHudCollapsed=false;
 try{partyHudCollapsed=localStorage.getItem(partyHudFoldKey)==='true'}catch{}
 function isInParty(id){return currentParty.members.some(p=>p.id===id)}
