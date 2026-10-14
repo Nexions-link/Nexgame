@@ -1064,10 +1064,11 @@ function choice(label,fn,type=''){
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal','spellbook-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.26',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.27',
  ['Локальное меню персонажа. Онлайн-мир продолжает жить: группа, другие игроки и мобы не останавливаются.',
   'W/S — идти вперёд и назад; A/D — поворачивать; Tab — цель. Кнопки 1–8 соответствуют ячейкам панели; B — книга заклинаний.',
    'Открой книгу заклинаний, выбери навык или зелье и нажми нужную ячейку 1–8. Раскладка сохраняется. Ярость воина: 0–100.',
+  'Enter — чат. Общий канал Мулгора доступен всем игрокам, канал группы видят только союзники.',
   'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
  choice('▶ Продолжить путь',closeDialog);
  choice('♙ Персонаж и экипировка',character);
