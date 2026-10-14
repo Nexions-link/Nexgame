@@ -1,12 +1,12 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.40';
-import {screenMoveVector,turnTowardsAngle} from './movement-controls.js?v=0.3.5.40';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.40';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.40';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.41';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.41';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.41';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.41';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.40';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.40';
-import {projectPartyMember} from './party-map.js?v=0.3.5.40';
+import {createWorldPresence} from './online.js?v=0.3.5.41';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.41';
+import {projectPartyMember} from './party-map.js?v=0.3.5.41';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -2973,12 +2973,18 @@ function updateApproach(dt){
   if(task.stuck>.65){approach=null;if(task.abilityId==='autoAttack')autoAttack=false;combatWarning('Путь к цели перекрыт',true)}
   return moved;
  }
+// Shared stick/keyboard axes: manual movement and camera auto-follow must
+// agree on precisely when the player is driving the character.
+function movementAxes(){
+ return {
+  x:clamp(joy.x+Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft')),-1,1),
+  y:clamp(joy.y+Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup')),-1,1)
+ };
+}
 function movement(dt){
- // Left stick moves relative to the current SCREEN, not the hero's old yaw.
- // This remains true whether camera auto-follow is enabled or disabled.
- const ax=joy.x+Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));
- const ay=joy.y+Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
- const input=screenMoveVector(clamp(ax,-1,1),clamp(ay,-1,1),cameraYaw);
+ // Screen-relative 360-degree movement stays unchanged in both camera modes.
+ const {x,y}=movementAxes();
+ const input=screenMoveVector(x,y,cameraYaw);
  const manual=input.strength>0;
  if(manual&&approach){approach=null;autoAttack=false}
  const approachMoved=!manual&&approach?updateApproach(dt):0;
@@ -3071,14 +3077,17 @@ function updateHealthRegen(dt){
 }
 const camFocus=new THREE.Vector3(state.x,heightAt(state.x,state.z)+2.15,state.z),camTarget=new THREE.Vector3(),camDirection=new THREE.Vector3(),camRay=new THREE.Raycaster();
 function animateCamera(dt){
- // Follow only the yaw behind the character. Manual orbit remains available.
+ // Only auto-rotate after manual movement has stopped. Otherwise holding
+ // DOWN creates a feedback loop: hero turns toward camera, camera turns
+ // behind hero, and the target heading turns again on the next frame.
+ // Camera POSITION still follows the hero during joystick movement.
  if(cameraFollow&&!modalKind){
   cameraFollowCooldown=Math.max(0,cameraFollowCooldown-dt);
-  if(!modalKind&&look.id===null&&cameraFollowCooldown<=0){
-   const behindYaw=hero.root.rotation.y+Math.PI;
-   const yawDifference=Math.atan2(Math.sin(behindYaw-cameraYaw),Math.cos(behindYaw-cameraYaw));
-   cameraYaw=wrapYaw(cameraYaw+yawDifference*(1-Math.exp(-dt*3.8)));
-  }
+  const {x,y}=movementAxes();
+  cameraYaw=followCameraYaw(cameraYaw,hero.root.rotation.y,dt,{
+   enabled:true,manual:screenMoveVector(x,y,cameraYaw).strength>0,
+   orbiting:look.id!==null,cooldown:cameraFollowCooldown
+  });
  }
  camTarget.set(state.x,heightAt(state.x,state.z)+2.15,state.z);camFocus.lerp(camTarget,1-Math.exp(-dt*12));camDirection.set(Math.sin(cameraYaw)*Math.cos(cameraPitch),Math.sin(cameraPitch),Math.cos(cameraYaw)*Math.cos(cameraPitch));
  updateInteriors();
