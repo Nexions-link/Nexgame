@@ -7,6 +7,8 @@ on:
       - 'game.js'
       - 'online.js'
       - 'online-config.js'
+      - 'party-map.js'
+      - 'tests/party-map.test.mjs'
       - 'server/**'
       - 'items.js'
       - '.github/workflows/nexgame-online.yml'
@@ -14,6 +16,8 @@ on:
     paths:
       - 'game.js'
       - 'online.js'
+      - 'party-map.js'
+      - 'tests/party-map.test.mjs'
       - 'server/**'
       - 'items.js'
       - '.github/workflows/nexgame-online.yml'
@@ -32,8 +36,12 @@ jobs:
           node --check game.js
           node --check online.js
           node --check online-config.js
+          node --check party-map.js
+          node --check tests/party-map.test.mjs
           npm run check --prefix server
       - name: Install only server dependencies
         run: npm install --prefix server --no-audit --no-fund
-      - name: Simulate joint combat and two real WebSockets
-        run: npm test --prefix server
+      - name: Test private chat, party map, PvE and real WebSocket sessions
+        run: |
+          node --test tests/party-map.test.mjs
+          npm test --prefix server
