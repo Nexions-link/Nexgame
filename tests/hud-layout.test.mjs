@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {resolve,dirname} from 'node:path';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const html=readFileSync(resolve(root,'index.html'),'utf8');
+const html=readFileSync(resolve(root,'app.html'),'utf8');
 const css=readFileSync(resolve(root,'style.css'),'utf8');
 const game=readFileSync(resolve(root,'game.js'),'utf8');
 const order=['playerFrame','targetFrame','allyFrame','targetPlaceholder','minimapFrame'];
