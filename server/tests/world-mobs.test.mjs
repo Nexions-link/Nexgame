@@ -29,7 +29,7 @@ test('snapshots are safe independent data objects',()=>{
  const mobs=createMulgoreMobs();
  const packet=snapshotMulgoreMobs(mobs);
  assert.equal(packet.length,9);
- assert.deepEqual(Object.keys(packet[0]),['id','x','z','yaw','phase']);
+ assert.deepEqual(Object.keys(packet[0]),['id','x','z','yaw','phase','hp','maxHp','life','dead','aggroId','stunned']);
  packet[0].x=999;
  assert.equal(mobs[0].x,-9);
 });
