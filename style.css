@@ -421,3 +421,43 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #interact{right:15px;bottom:calc(90px + var(--safe-bottom))}
  #playerFrame{min-height:88px}
 }
+
+
+/* Alpha 0.3.5.1 — training dummy combat telemetry beside target HP. */
+#targetFrame.dummy-target{width:256px;min-height:180px}
+#targetFrame.dummy-target #targetName{font-size:13px;padding-right:2px}
+#dummyStats{margin-top:8px;padding-top:7px;border-top:1px solid #957c4f85;
+ font:11px/1.4 system-ui,sans-serif;color:#edddb5}
+#dummyStats[hidden]{display:none!important}
+.dummy-heading{color:#ffe4a2;font:11px/1.25 Georgia,serif;text-align:center;margin:0 0 6px}
+.dummy-metrics{display:grid;grid-template-columns:1fr 1fr;gap:3px 7px;
+ font-variant-numeric:tabular-nums}
+.dummy-metrics span{white-space:nowrap}
+#dummyLastAbility{color:#e1c990;font-size:10px;margin-top:5px;white-space:normal}
+#dummyReady{color:#c9d4ab;font-size:10px;min-height:15px;margin-top:4px}
+#dummyReset{display:block;width:100%;margin-top:7px;padding:5px 4px;
+ background:linear-gradient(#604932,#332e22);border:1px solid #9e8454;border-radius:3px;
+ color:#f2dca6;font:11px/1.4 system-ui,sans-serif;touch-action:none;cursor:pointer}
+#dummyReset:active{background:#82643b}
+@media(max-width:850px){
+ #targetFrame.dummy-target{left:12px;top:calc(95px + var(--safe-top));width:224px;min-height:164px;
+ padding:8px 26px 9px 9px}
+ #targetFrame.dummy-target:not([hidden])~#quest{top:calc(333px + var(--safe-top))}
+ #targetFrame.dummy-target .dummy-heading{font-size:10px}
+ #targetFrame.dummy-target #dummyStats{font-size:10px}
+ #dummyReset{min-height:28px}
+}
+@media(max-width:360px){
+ #targetFrame.dummy-target{width:204px;left:8px}
+ #targetFrame.dummy-target:not([hidden])~#quest{top:calc(338px + var(--safe-top))}
+ .dummy-metrics{gap:2px 4px;font-size:9px}
+}
+@media(max-height:510px) and (min-width:600px){
+ #targetFrame.dummy-target{left:240px;top:calc(12px + var(--safe-top));width:232px;
+ padding:6px 29px 7px 8px;min-height:0}
+ #targetFrame.dummy-target:not([hidden])~#quest{top:calc(205px + var(--safe-top))}
+ .dummy-heading{margin-bottom:3px}
+ #dummyStats{margin-top:4px;padding-top:4px}
+ #dummyReady{font-size:9px}
+ #dummyReset{margin-top:4px;padding:3px}
+}
