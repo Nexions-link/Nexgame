@@ -759,3 +759,20 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
 
 .party-panel-roster-row>button{flex:0 0 auto;min-height:38px;padding:6px 10px;border:1px solid #927345;background:#43563d;color:#fff1c9;border-radius:4px;font:600 12px system-ui,sans-serif}
 .party-panel-roster-row>button:disabled{opacity:.5;cursor:default}
+
+/* Alpha 0.3.5.26 — compact collapsible party panel. */
+#partyHud{position:fixed;z-index:10;right:env(safe-area-inset-right,0px);width:min(155px,40vw);padding:0;overflow:visible;border:1px solid #97875f;border-right:0;border-radius:8px 0 0 8px;background:linear-gradient(#302d22ef,#18261fef);box-shadow:-3px 4px 15px #0008}
+#partyHudToggle{position:absolute;top:12px;left:-33px;display:grid;place-items:center;width:33px;height:49px;padding:0;border:1px solid #97875f;border-right:0;border-radius:8px 0 0 8px;background:#37382b;color:#ffeac3;font:700 24px system-ui;touch-action:manipulation}
+#partyHudTitle{padding:9px 8px 7px;margin:0;border-bottom:1px solid #9b8d6544;font:700 11px system-ui;color:#f5e1ba}
+.party-hud-content{max-height:inherit;overflow-y:auto;touch-action:pan-y}
+.party-hud-member{display:flex;align-items:center;gap:5px;min-height:38px;padding:5px 6px;white-space:normal;overflow:visible}
+.party-hud-avatar{flex:0 0 23px;display:grid;place-items:center;width:23px;height:23px;border-radius:50%;border:1px solid #a9996c;background:#585640;color:#f6e4b9;font:700 11px system-ui}
+.party-hud-data{display:flex;min-width:0;flex:1;flex-direction:column;gap:4px}
+.party-hud-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.party-hud-member .party-hud-health{display:block;width:100%;height:5px;margin:0}
+.party-hud-level{flex-shrink:0;color:#c4b28e;font:9px system-ui}
+#partyHud.party-hud-collapsed{width:43px!important;max-height:none!important;min-height:69px}
+#partyHud.party-hud-collapsed #partyHudToggle{position:static;left:auto;top:auto;width:42px;height:68px;border:0;display:flex;flex-direction:column;justify-content:space-evenly}
+.party-hud-icon{font:20px system-ui}
+.party-hud-count{font:700 10px system-ui}
+@media(max-width:360px){#partyHud{width:min(135px,39vw)}.party-hud-member{gap:3px;padding:4px}.party-hud-avatar{flex-basis:20px;width:20px;height:20px}}
