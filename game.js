@@ -568,6 +568,7 @@ const gatherMat={
  cap:material(0x9990c5,{emissive:0x3a335e,emissiveIntensity:.3}),
  lightCap:material(0xd1c5e4)
 };
+const gatherSparkMaterials=[null,new THREE.MeshBasicMaterial({color:0xffeaa1}),new THREE.MeshBasicMaterial({color:0xb2f29c}),new THREE.MeshBasicMaterial({color:0xd6c2ff})];
 const gatherNodes=[];
 function placeGatherObject(stage,index,x,z){
  const offsets=[[0,0],[2,0],[-2,0],[0,2],[0,-2],[3,3],[-3,3],[3,-3],[-3,-3]];
@@ -595,7 +596,8 @@ function placeGatherObject(stage,index,x,z){
    ell(root,gatherMat.lightCap,x1,h+.16,z1,r*.4,.055,r*.4);
   }
  }
- const node={id:stage+'-'+index,stage,index,item:GATHER_QUESTS[stage].item,x,z,root,readyAt:0,pending:false};
+ const sparkle=mesh(root,G.sphere,gatherSparkMaterials[stage],0,.85,0,.115,.115,.115,false);
+ const node={id:stage+'-'+index,stage,index,item:GATHER_QUESTS[stage].item,x,z,root,sparkle,readyAt:0,pending:false};
  root.userData.gatherNode=node.id;
  root.visible=false;gatherNodes.push(node);return node;
 }
@@ -623,7 +625,7 @@ function gatherNodeAvailable(node){
 function updateGatherVisibility(){
  for(const node of gatherNodes){
   node.root.visible=gatherNodeAvailable(node);
-  if(node.root.visible)node.root.rotation.y=.09*Math.sin(clock*1.4+node.index);
+  if(node.root.visible){node.root.rotation.y=.09*Math.sin(clock*1.4+node.index);node.sparkle.position.y=.85+.1*Math.sin(clock*2.5+node.index)}
  }
 }
 const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,gatherStage:0,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
