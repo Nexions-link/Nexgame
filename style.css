@@ -1155,3 +1155,101 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #hudTop #targetFrame,#hudTop #targetFrame.dummy-target,
  #hudTop #allyFrame{height:90px;min-height:90px;max-height:90px}
 }
+
+
+/* Alpha 0.3.5.29 — equal-height top row and icon-only navigation.
+   Mini-map and both unit frames share one height on every viewport. */
+:root{
+ --hud-map-size:94px;
+ --hud-row-height:94px;
+}
+#hudTop #playerFrame,
+#hudTop #targetFrame,
+#hudTop #targetFrame.dummy-target,
+#hudTop #allyFrame,
+#hudTop #targetPlaceholder{
+ height:var(--hud-row-height);
+ min-height:var(--hud-row-height);
+ max-height:var(--hud-row-height);
+}
+#hudTop #minimapFrame{
+ width:var(--hud-map-size);
+ height:var(--hud-row-height);
+ min-height:var(--hud-row-height);
+ aspect-ratio:1;
+ align-self:start
+}
+/* All five primary actions fit on one horizontal line, under the map. */
+#top{
+ display:grid;
+ grid-template-columns:repeat(5,minmax(0,1fr));
+ width:clamp(180px,48vw,215px);
+ gap:4px;
+ top:calc(20px + var(--safe-top) + var(--hud-row-height));
+ right:calc(var(--hud-edge) + env(safe-area-inset-right,0px))
+}
+#top #partyOpen{grid-column:auto}
+#top .smallButton{
+ min-width:0;min-height:39px;height:39px;
+ padding:0;display:grid;place-items:center;
+ border-radius:7px;
+ color:#eee0b7;
+ background:linear-gradient(155deg,#4a4633ed,#222d24f5);
+ border:1px solid #9c895a;
+ touch-action:manipulation
+}
+#top .smallButton svg{
+ display:block;width:21px;height:21px;
+ fill:none;stroke:currentColor;stroke-width:1.9;
+ stroke-linecap:round;stroke-linejoin:round;
+ pointer-events:none
+}
+#top #partyOpen{color:#cfebcf}
+#top #character{color:#f5e2b0}
+#top #journal{color:#f3dfaa}
+#top #bag{color:#e2d19f}
+#top #pause{color:#e9dabe}
+#top .smallButton:active{
+ background:linear-gradient(#6a6546,#304333);
+ border-color:#e0cc8d
+}
+@media(max-width:760px){
+ :root{
+  --hud-map-size:clamp(86px,24vw,94px);
+  --hud-row-height:var(--hud-map-size)
+ }
+ #hudTop #playerFrame .portrait{
+  top:calc((var(--hud-row-height) - 25px)/2)
+ }
+ #top{
+  width:clamp(180px,48vw,215px);
+  top:calc(20px + var(--safe-top) + var(--hud-row-height));
+  right:calc(var(--hud-edge) + env(safe-area-inset-right,0px));
+  grid-template-columns:repeat(5,minmax(0,1fr))
+ }
+ #top .smallButton{
+  min-height:38px;height:38px;padding:0
+ }
+ /* Give quest text the actual width left of the five-icon strip. */
+ #quest,
+ #targetFrame:not([hidden])~#quest,
+ #targetFrame.dummy-target:not([hidden])~#quest,
+ #allyFrame:not([hidden])~#quest{
+  width:min(225px,max(104px,calc(100vw - 2 * var(--hud-edge) - 12px - clamp(180px,48vw,215px))));
+  max-width:none
+ }
+}
+@media(max-width:360px){
+ #top{width:180px;gap:3px}
+ #top .smallButton{height:36px;min-height:36px}
+ #top .smallButton svg{width:19px;height:19px}
+}
+@media(max-height:510px) and (min-width:600px){
+ :root{--hud-map-size:90px;--hud-row-height:90px}
+ #top{
+  top:calc(18px + var(--safe-top) + var(--hud-row-height));
+  right:calc(var(--hud-edge) + env(safe-area-inset-right,0px));
+  width:210px;grid-template-columns:repeat(5,minmax(0,1fr))
+ }
+ #top .smallButton{min-height:34px;height:34px}
+}
