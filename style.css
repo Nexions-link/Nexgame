@@ -1253,3 +1253,62 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  }
  #top .smallButton{min-height:34px;height:34px}
 }
+
+
+/* Alpha 0.3.5.30 — fixed-size, five-icon mobile toolbar, resilient to mixed caches.
+   Keep the square map exactly the same height as the character/target panels. */
+:root{--hud-map-size:90px;--hud-row-height:90px}
+#hudTop #minimapFrame{
+ width:var(--hud-map-size);height:var(--hud-row-height);
+ min-height:var(--hud-row-height);max-height:var(--hud-row-height)
+}
+#hudTop #playerFrame,
+#hudTop #targetFrame,
+#hudTop #targetFrame.dummy-target,
+#hudTop #allyFrame,
+#hudTop #targetPlaceholder{
+ height:var(--hud-row-height);min-height:var(--hud-row-height);
+ max-height:var(--hud-row-height)
+}
+#top{
+ grid-template-columns:repeat(5,minmax(0,1fr));
+ width:min(210px,calc(100vw - 2 * var(--hud-edge) - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));
+ top:calc(20px + var(--safe-top) + var(--hud-row-height))
+}
+#top #partyOpen{grid-column:auto}
+#top .smallButton{
+ width:100%;min-width:0;min-height:38px;height:38px;
+ display:grid;place-items:center;padding:0;
+ line-height:1;overflow:hidden
+}
+#top .smallButton svg{
+ display:block;flex:none;width:21px;height:21px;
+ min-width:21px;max-width:21px;min-height:21px;max-height:21px;
+ fill:none;stroke:currentColor;stroke-width:1.9;
+ stroke-linecap:round;stroke-linejoin:round
+}
+@media(max-width:760px){
+ :root{
+  --hud-map-size:clamp(86px,23vw,90px);
+  --hud-row-height:var(--hud-map-size)
+ }
+ #top{width:min(200px,52vw);top:calc(20px + var(--safe-top) + var(--hud-row-height))}
+ #quest,#targetFrame:not([hidden])~#quest,
+ #targetFrame.dummy-target:not([hidden])~#quest,
+ #allyFrame:not([hidden])~#quest{
+  width:min(225px,max(94px,calc(100vw - 2 * var(--hud-edge) - 10px - min(200px,52vw))))
+ }
+ #hudTop #playerFrame .portrait{top:calc((var(--hud-row-height) - 25px)/2)}
+}
+@media(max-width:360px){
+ #top{width:min(180px,53vw)}
+ #top .smallButton{height:36px;min-height:36px}
+ #top .smallButton svg{
+  width:19px;height:19px;min-width:19px;max-width:19px;
+  min-height:19px;max-height:19px
+ }
+}
+@media(max-height:510px) and (min-width:600px){
+ :root{--hud-map-size:90px;--hud-row-height:90px}
+ #top{width:210px;top:calc(18px + var(--safe-top) + var(--hud-row-height))}
+}
