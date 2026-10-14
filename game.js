@@ -2142,6 +2142,122 @@ function respondToPartyInvite(accept){
  if(!worldConnection.respondInvite(id,accept))msg('Нет связи с сервером');
 }
 
+// Online stage 3: the chat is ephemeral and stays out of the mobile controls.
+// Do not store public/party conversation history in localStorage.
+const CHAT_HISTORY_LIMIT=75;
+const chatHistory={world:[],party:[]};
+const chatUnread={world:0,party:0};
+const chatCollapsedKey='nexgame-chat-collapsed-v1';
+let chatCollapsed=true,chatChannel='world';
+try{chatCollapsed=localStorage.getItem(chatCollapsedKey)!=='false'}catch{}
+function renderChatLog(){
+ const log=$('chatMessages');if(!log||chatCollapsed)return;
+ log.replaceChildren();
+ const history=chatHistory[chatChannel];
+ if(chatChannel==='party'&&!currentParty.groupId){
+  const empty=document.createElement('div');empty.className='chat-empty';
+  empty.textContent='Вступи в группу, чтобы общаться с союзниками.';
+  log.appendChild(empty);
+ }
+ if(!history.length&&chatChannel==='world'){
+  const empty=document.createElement('div');empty.className='chat-empty';
+  empty.textContent='Чат Мулгора. Сообщения видят игроки онлайн.';
+  log.appendChild(empty);
+ }
+ for(const line of history){
+  const row=document.createElement('div');
+  row.className='chat-line'+(line.system?' chat-system':line.fromId===onlineSelfId?' chat-self':'');
+  if(!line.system){
+   const name=document.createElement('span');name.className='chat-sender';
+   name.textContent=(line.name||'Странник')+': ';
+   row.appendChild(name);
+  }
+  const content=document.createElement('span');content.textContent=line.text;
+  row.appendChild(content);log.appendChild(row);
+ }
+ log.scrollTop=log.scrollHeight;
+}
+function updateChatControls(){
+ const dock=$('chatDock'),panel=$('chatPanel'),toggle=$('chatToggle');
+ if(!dock||!panel||!toggle)return;
+ dock.classList.toggle('chat-collapsed',chatCollapsed);
+ toggle.hidden=!chatCollapsed;panel.hidden=chatCollapsed;
+ toggle.setAttribute('aria-expanded',String(!chatCollapsed));
+ const partyAvailable=!!currentParty.groupId;
+ if(!partyAvailable&&chatChannel==='party')chatChannel='world';
+ $('chatPartyTab').disabled=!partyAvailable;
+ $('chatWorldTab').setAttribute('aria-selected',String(chatChannel==='world'));
+ $('chatPartyTab').setAttribute('aria-selected',String(chatChannel==='party'));
+ $('chatInput').placeholder=chatChannel==='party'?'Сообщение группе...':'Сообщение Мулгору...';
+ $('chatInput').disabled=!worldConnection?.connected()||(chatChannel==='party'&&!partyAvailable);
+ $('chatSend').disabled=$('chatInput').disabled;
+ $('chatHeader').querySelector('strong').textContent=chatChannel==='party'?'Чат группы':'Чат Мулгора';
+ const unread=chatUnread.world+chatUnread.party;
+ const badge=$('chatUnread');badge.hidden=!unread;
+ badge.textContent=unread>9?'9+':String(unread);
+ renderChatLog();
+}
+function setChatCollapsed(collapsed){
+ chatCollapsed=Boolean(collapsed);
+ try{localStorage.setItem(chatCollapsedKey,String(chatCollapsed))}catch{}
+ if(!chatCollapsed)chatUnread[chatChannel]=0;
+ updateChatControls();
+}
+function setChatChannel(channel){
+ if(channel!=='world'&&channel!=='party')return;
+ if(channel==='party'&&!currentParty.groupId){msg('Сначала вступи в группу');return}
+ chatChannel=channel;chatUnread[channel]=0;
+ updateChatControls();
+}
+function addChatLine(channel,line){
+ const history=chatHistory[channel];
+ if(!history)return;
+ history.push(line);
+ if(history.length>CHAT_HISTORY_LIMIT)history.splice(0,history.length-CHAT_HISTORY_LIMIT);
+ if(chatCollapsed||chatChannel!==channel)chatUnread[channel]=Math.min(99,chatUnread[channel]+1);
+ updateChatControls();
+}
+function receiveChatMessage(event){
+ if(!event||!['world','party'].includes(event.channel)||typeof event.text!=='string')return;
+ if(event.channel==='party'&&event.groupId!==currentParty.groupId)return;
+ if(event.text.length>720)return;
+ addChatLine(event.channel,{
+  fromId:event.fromId,name:String(event.name||'Странник').slice(0,24),
+  text:event.text,at:event.at
+ });
+}
+function chatSystem(text,channel=currentParty.groupId?'party':'world'){
+ if(!text)return;
+ addChatLine(channel,{system:true,text:String(text).slice(0,210),at:Date.now()});
+}
+function chatRejected(event){
+ const reason=String(event?.reason||'Сообщение не отправлено').slice(0,100);
+ msg(reason,3300);
+ chatSystem(reason,chatChannel);
+}
+function submitChatMessage(event){
+ event.preventDefault();
+ const input=$('chatInput'),text=input.value.trim();
+ if(!text)return;
+ if(Array.from(text).length>180){msg('Максимум 180 символов');return}
+ if(!worldConnection.sendChat(chatChannel,text)){
+  msg('Чат недоступен без соединения с сервером');return;
+ }
+ input.value='';
+ // Wait for the server echo: never fabricate a successful message locally.
+}
+function initChatControls(){
+ $('chatToggle').addEventListener('click',()=>setChatCollapsed(false));
+ $('chatClose').addEventListener('click',()=>setChatCollapsed(true));
+ $('chatWorldTab').addEventListener('click',()=>setChatChannel('world'));
+ $('chatPartyTab').addEventListener('click',()=>setChatChannel('party'));
+ $('chatForm').addEventListener('submit',submitChatMessage);
+ $('chatInput').addEventListener('keydown',event=>{
+  if(event.key==='Escape'){event.preventDefault();$('chatInput').blur();setChatCollapsed(true)}
+ });
+ updateChatControls();
+}
+
 function removeRemotePlayer(id){
  const remote=remotePlayers.get(id);if(!remote)return;
  scene.remove(remote.actor.root,remote.actor.shadow,remote.nameTag);
