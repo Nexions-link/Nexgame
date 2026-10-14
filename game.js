@@ -1927,11 +1927,31 @@ const remotePlayers=new Map();
 let selectedPlayerId=null;
 let currentParty={groupId:null,leaderId:null,members:[]};
 let pendingPartyInvite=null,partyInviteTimer=null,lastPartyHudSignature='';
+const partyHudFoldKey='nexgame-party-hud-collapsed-v1';
+let partyHudCollapsed=false;
+try{partyHudCollapsed=localStorage.getItem(partyHudFoldKey)==='true'}catch{}
 function isInParty(id){return currentParty.members.some(p=>p.id===id)}
 function playerRosterEntry(id){
  if(id===onlineSelfId)return {id,name:characterName,level:state.level,hp:state.hp,maxHp:playerStats().maxHp};
  const remote=remotePlayers.get(id);
  return remote?{id,name:remote.name,level:remote.level,hp:remote.hp,maxHp:remote.maxHp}:null;
+}
+function positionGroupHud(){
+ const hud=$('partyHud'),controls=$('top'),actions=$('actionsBar');
+ if(!hud||!controls)return;
+ const menu=controls.getBoundingClientRect();
+ const actionTop=actions?.getBoundingClientRect().top||innerHeight-100;
+ const gap=8;
+ const anchor=Math.ceil(menu.bottom+gap);
+ // Keep the party tray below inventory/quest/menu buttons and above the hotbar.
+ const available=Math.max(60,Math.floor(actionTop-anchor-12));
+ hud.style.top=anchor+'px';
+ hud.style.maxHeight=Math.min(240,available)+'px';
+}
+function toggleGroupHud(){
+ partyHudCollapsed=!partyHudCollapsed;
+ try{localStorage.setItem(partyHudFoldKey,String(partyHudCollapsed))}catch{}
+ lastPartyHudSignature='';renderGroupHud();
 }
 function renderGroupHud(){
  const widget=$('partyHud');
@@ -1939,22 +1959,58 @@ function renderGroupHud(){
   widget.hidden=true;lastPartyHudSignature='';widget.replaceChildren();return;
  }
  const members=currentParty.members.map(m=>({...m,...playerRosterEntry(m.id)}));
- const signature=JSON.stringify(members.map(m=>[m.id,m.name,m.level,Math.round(m.hp||0),Math.round(m.maxHp||0)]));
+ const signature=JSON.stringify({
+  folded:partyHudCollapsed,roster:members.map(m=>
+   [m.id,m.name,m.level,Math.round(m.hp||0),Math.round(m.maxHp||0)]),
+  leader:currentParty.leaderId
+ });
  if(!widget.hidden&&signature===lastPartyHudSignature)return;
  lastPartyHudSignature=signature;widget.hidden=false;widget.replaceChildren();
+ widget.classList.toggle('party-hud-collapsed',partyHudCollapsed);
+ widget.setAttribute('aria-expanded',String(!partyHudCollapsed));
+ const toggle=document.createElement('button');
+ toggle.type='button';toggle.id='partyHudToggle';
+ toggle.setAttribute('aria-expanded',String(!partyHudCollapsed));
+ toggle.setAttribute('aria-label',partyHudCollapsed?'Развернуть группу':'Свернуть группу');
+ toggle.title=partyHudCollapsed?'Развернуть группу':'Свернуть группу';
+ const chevron=document.createElement('span');chevron.className='party-hud-chevron';
+ chevron.textContent=partyHudCollapsed?'‹':'›';
+ toggle.appendChild(chevron);
+ toggle.addEventListener('click',toggleGroupHud);
+ if(partyHudCollapsed){
+  const icon=document.createElement('span');icon.className='party-hud-icon';icon.textContent='♟';
+  const count=document.createElement('span');count.className='party-hud-count';
+  count.textContent=members.length+'/5';
+  toggle.append(icon,count);
+  widget.appendChild(toggle);
+  positionGroupHud();return;
+ }
+ widget.appendChild(toggle);
+ const content=document.createElement('div');content.className='party-hud-content';
  const title=document.createElement('div');title.id='partyHudTitle';
- title.textContent='ГРУППА '+members.length+'/5';widget.appendChild(title);
+ title.textContent='Группа '+members.length+'/5';content.appendChild(title);
  for(const member of members){
   const button=document.createElement('button');button.type='button';button.className='party-hud-member';
-  button.textContent=(member.id===currentParty.leaderId?'★ ':'')+(member.name||'Странник')+' · '+(member.level||1);
-  const track=document.createElement('span');track.className='party-hud-health';
+  const avatar=document.createElement('span');avatar.className='party-hud-avatar';
+  avatar.textContent=(member.name||'?').slice(0,1).toUpperCase();
+  const data=document.createElement('span');data.className='party-hud-data';
+  const name=document.createElement('span');name.className='party-hud-name';
+  name.textContent=(member.id===currentParty.leaderId?'★ ':'')+(member.name||'Странник');
+  const health=document.createElement('span');health.className='party-hud-health';
   const fill=document.createElement('i');
   const max=Number.isFinite(member.maxHp)&&member.maxHp>0?member.maxHp:1;
   fill.style.width=Math.max(0,Math.min(100,(member.hp||0)/max*100))+'%';
-  track.appendChild(fill);button.appendChild(track);
-  button.addEventListener('click',()=>member.id===onlineSelfId?openPartyDialog():selectRemotePlayer(member.id));
-  widget.appendChild(button);
+  health.appendChild(fill);
+  const level=document.createElement('span');level.className='party-hud-level';
+  level.textContent='Ур. '+(member.level||1);
+  data.append(name,health);button.append(avatar,data,level);
+  button.setAttribute('aria-label',member.name+', уровень '+(member.level||1)+', выбрать игрока');
+  button.addEventListener('click',()=>
+   member.id===onlineSelfId?openPartyDialog():selectRemotePlayer(member.id));
+  content.appendChild(button);
  }
+ widget.appendChild(content);
+ positionGroupHud();
 }
 function renderAllySelection(){
  const remote=remotePlayers.get(selectedPlayerId);
@@ -2671,7 +2727,7 @@ function update(dt){
  // Update hotbar overlays through the HUD at ~8 Hz to avoid redundant DOM work on iPhone.
  if(hudClock>.12){hudClock=0;updateHUD();drawMap()}if(saveClock>6){saveClock=0;save()}
 }
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);clearInput();resetFps()});
+addEventListener('resize',()=>{positionGroupHud();camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);clearInput();resetFps()});
 function sampleFps(milliseconds){
  if(!settings.showFps||modalKind||document.hidden||milliseconds<=0)return;
  // Use real frame time: the physics timestep is capped and would overstate low FPS.
