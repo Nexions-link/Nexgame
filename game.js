@@ -1946,17 +1946,47 @@ function animateRemotePlayers(dt){
 // Wildlife snapshots use the same stable mob indexes as the local world model.
 // Keep a local fallback so the game remains playable during Render cold starts.
 const SHARED_MOB_COUNT=enemies.filter(enemy=>!enemy.trainingDummy).length;
-let sharedMobTargets=new Map(),sharedMobsConnected=false,lastSharedMobPacketAt=0;
+let sharedMobTargets=new Map(),sharedMobsConnected=false,worldCombatReady=false;
+let lastSharedMobPacketAt=0,onlineSelfId=null;
 let worldNetworkStatus='solo',mobNetworkStatus='ожидание';
+const creditedMobLives=new Set();
 function showWorldNetworkStatus(){
  const el=$('onlineStatus');if(!el)return;
  const label=worldNetworkStatus==='online'?'Мир: онлайн':worldNetworkStatus==='connecting'?
   'Мир: подключение':worldNetworkStatus==='solo'?'Мир: одиночный':'Мир: нет связи';
  el.textContent=worldNetworkStatus==='online'?label+' · мобы: '+mobNetworkStatus:label;
 }
+function resetSharedMobAppearance(e){
+ e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
+ e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
+ e.root.visible=e.shadow.visible=true;
+ e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
+ e.legs[0].rotation.x=e.legs[1].rotation.x=0;
+ if(e.boss&&e.nameTag)e.nameTag.visible=true;
+}
+function syncSharedMobState(e,row){
+ const newLife=e.serverLife!==row.life;
+ if(newLife){
+  e.serverLife=row.life;resetSharedMobAppearance(e);
+ }
+ const firstDeath=row.dead&&!e.serverDead;
+ if(firstDeath){
+  e.dead=CORPSE_DURATION;e.corpseAge=0;
+  e.root.visible=e.shadow.visible=true;
+  if(e.boss&&e.nameTag)e.nameTag.visible=false;
+  if(selected===e){clearTarget();hideCombatWarning()}
+ }
+ if(!row.dead&&e.serverDead)resetSharedMobAppearance(e);
+ e.serverDead=row.dead;
+ e.hp=row.hp;e.maxHp=row.maxHp;
+ e.serverAggroId=row.aggroId;
+ e.aggro=!!row.aggroId&&row.aggroId===onlineSelfId;
+ if(row.stunned)e.stunned=Math.max(e.stunned,.18);
+}
 function updateSharedMobTargets(snapshot){
  if(snapshot===null){
-  sharedMobsConnected=false;sharedMobTargets.clear();lastSharedMobPacketAt=0;
+  sharedMobsConnected=false;worldCombatReady=false;
+  sharedMobTargets.clear();lastSharedMobPacketAt=0;
   mobNetworkStatus='нет связи';showWorldNetworkStatus();return;
  }
  if(!Array.isArray(snapshot))return;
@@ -1966,33 +1996,39 @@ function updateSharedMobTargets(snapshot){
   const mob=enemies[row.id];
   if(!mob||mob.trainingDummy||!Number.isFinite(row.x)||
      !Number.isFinite(row.z)||!Number.isFinite(row.yaw))continue;
-  if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>10)continue;
+  if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>25)continue;
   next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw,
-   phase:Number.isFinite(row.phase)?row.phase:null});
+   phase:Number.isFinite(row.phase)?row.phase:null,
+   hp:row.hp,maxHp:row.maxHp,life:row.life,dead:row.dead,
+   aggroId:row.aggroId,stunned:row.stunned});
  }
  if(next.size!==SHARED_MOB_COUNT){
-  sharedMobsConnected=false;sharedMobTargets.clear();lastSharedMobPacketAt=0;
+  sharedMobsConnected=false;worldCombatReady=false;sharedMobTargets.clear();
+  lastSharedMobPacketAt=0;
   mobNetworkStatus=snapshot.length===0?'нет данных от сервера':next.size+'/'+SHARED_MOB_COUNT+' (ошибка)';
   showWorldNetworkStatus();return;
  }
  const firstSnapshot=!sharedMobsConnected;
- sharedMobTargets=next;sharedMobsConnected=true;
- lastSharedMobPacketAt=performance.now();
- mobNetworkStatus=SHARED_MOB_COUNT+'/'+SHARED_MOB_COUNT;showWorldNetworkStatus();
- if(firstSnapshot){
-  // Reset initial random solo roaming when the shared server first becomes available.
-  for(const [id,position] of next){
-   const mob=enemies[id];if(mob.dead>0||mob.aggro)continue;
-   mob.root.position.set(position.x,heightAt(position.x,position.z),position.z);
-   mob.root.rotation.y=position.yaw;
-   if(position.phase!==null)mob.phase=position.phase;
-   mob.shadow.position.set(position.x,heightAt(position.x,position.z)+.055,position.z);
+ sharedMobTargets=next;sharedMobsConnected=true;lastSharedMobPacketAt=performance.now();
+ worldCombatReady=[...next.values()].every(row=>
+  Number.isFinite(row.hp)&&Number.isFinite(row.maxHp)&&row.maxHp>0&&
+  Number.isInteger(row.life)&&typeof row.dead==='boolean');
+ mobNetworkStatus=SHARED_MOB_COUNT+'/'+SHARED_MOB_COUNT+
+  (worldCombatReady?' · PvE':' · старый сервер');
+ showWorldNetworkStatus();
+ for(const [id,row] of next){
+  const mob=enemies[id];
+  if(worldCombatReady)syncSharedMobState(mob,row);
+  if(firstSnapshot&&mob.dead<=0&&!mob.aggro){
+   mob.root.position.set(row.x,heightAt(row.x,row.z),row.z);
+   mob.root.rotation.y=row.yaw;
+   if(row.phase!==null)mob.phase=row.phase;
+   mob.shadow.position.set(row.x,heightAt(row.x,row.z)+.055,row.z);
   }
  }
 }
 function animateSharedMob(e,dt,target){
  const p=e.root.position,oldX=p.x,oldZ=p.z;
- // Large corrections (e.g. after reconnect) snap to the server instead of drifting.
  const gap=Math.hypot(target.x-p.x,target.z-p.z);
  const lerp=gap>2?1:1-Math.exp(-Math.max(0,dt)*9);
  p.x+=(target.x-p.x)*lerp;p.z+=(target.z-p.z)*lerp;
@@ -2008,36 +2044,115 @@ function animateSharedMob(e,dt,target){
  e.legs[0].rotation.x=stride*.48*power;
  e.legs[1].rotation.x=-stride*.48*power;
  e.body.position.y=1.23+Math.abs(stride)*.025*power;
- e.body.rotation.x=0;
+ e.body.rotation.x=e.attackCd>1.15?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;
  e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
  e.shadow.position.set(p.x,p.y+.055,p.z);
  if(e.boss&&e.nameTag){
-  e.nameTag.visible=true;
-  e.nameTag.position.set(p.x,p.y+4.65,p.z);
+  e.nameTag.visible=true;e.nameTag.position.set(p.x,p.y+4.65,p.z);
+ }
+}
+function animateSharedCorpse(e,dt,target){
+ const p=e.root.position;
+ p.x=target.x;p.z=target.z;
+ e.corpseAge+=dt;e.dead=CORPSE_DURATION;
+ const fall=smooth(0,CORPSE_FALL_TIME,e.corpseAge);
+ e.root.rotation.z=-1.34*fall;
+ p.y=heightAt(p.x,p.z)+.13*fall;
+ e.legs[0].rotation.x=-.55*fall;e.legs[1].rotation.x=.3*fall;
+ e.body.rotation.x=0;e.body.rotation.z=0;
+ e.shadow.position.set(p.x,heightAt(p.x,p.z)+.055,p.z);
+ if(e.boss&&e.nameTag)e.nameTag.visible=false;
+ if(e.lootMarker.visible){
+  e.lootMarker.position.set(p.x,heightAt(p.x,p.z)+1.1+Math.sin(clock*3.6)*.13,p.z);
  }
 }
 function updateWildlife(dt){
  if(sharedMobsConnected&&performance.now()-lastSharedMobPacketAt>3000){
-  sharedMobsConnected=false;sharedMobTargets.clear();
+  sharedMobsConnected=false;worldCombatReady=false;sharedMobTargets.clear();
   mobNetworkStatus='потеря данных';showWorldNetworkStatus();
  }
  for(const enemy of enemies){
-  // A local fight still uses existing logic; authoritative shared combat comes next.
-  const target=sharedMobsConnected&&!enemy.trainingDummy&&enemy.dead<=0&&!enemy.aggro
-   ?sharedMobTargets.get(enemy.index):null;
-  if(target)animateSharedMob(enemy,dt,target);
+  const row=sharedMobsConnected&&!enemy.trainingDummy?
+   sharedMobTargets.get(enemy.index):null;
+  if(row&&worldCombatReady){
+   if(row.dead)animateSharedCorpse(enemy,dt,row);
+   else animateSharedMob(enemy,dt,row);
+  }else if(row&&enemy.dead<=0&&!enemy.aggro)animateSharedMob(enemy,dt,row);
   else updateEnemy(enemy,dt);
  }
 }
 function updateOnlineSceneWhileMenuOpen(dt){
- // Pause only local gameplay, not the shared-world display behind an open menu.
  animateRemotePlayers(dt);
  if(!sharedMobsConnected)return;
  for(const enemy of enemies){
-  if(enemy.trainingDummy||enemy.dead>0||enemy.aggro)continue;
-  const target=sharedMobTargets.get(enemy.index);
-  if(target)animateSharedMob(enemy,dt,target);
+  if(enemy.trainingDummy)continue;
+  const row=sharedMobTargets.get(enemy.index);
+  if(!row)continue;
+  if(worldCombatReady){
+   if(row.dead)animateSharedCorpse(enemy,dt,row);
+   else animateSharedMob(enemy,dt,row);
+  }else if(enemy.dead<=0&&!enemy.aggro)animateSharedMob(enemy,dt,row);
  }
+}
+function applySharedCombat(event,selfId){
+ if(!event||!Array.isArray(event.hits))return;
+ if(event.actorId!==selfId){
+  const other=remotePlayers.get(event.actorId);
+  if(other){
+   if(event.abilityId==='thunderStomp')other.stompAge=0;
+   else other.attackAge=0;
+  }
+ }else if(event.hits.length){
+  const gain=event.abilityId==='autoAttack'?WARRIOR_RAGE_PER_HIT:
+   event.abilityId==='heavyStrike'?8:event.abilityId==='thunderStomp'?3:0;
+  gainClassResource(gain*event.hits.length);lastCombatAt=clock;
+ }
+ for(const hit of event.hits){
+  const enemy=enemies[hit.id];
+  if(!enemy||enemy.trainingDummy||enemy.serverLife!==hit.life)continue;
+  if(Number.isFinite(hit.hp))enemy.hp=Math.max(0,hit.hp);
+  enemy.hit=.22;
+ }
+ updateHUD();
+}
+function applyMobAttack(event,selfId){
+ const enemy=enemies[event?.mobId];
+ if(!enemy||enemy.trainingDummy||enemy.serverLife!==event.life)return;
+ enemy.attackCd=enemy.boss?1.8:1.5;
+ if(event.targetId!==selfId)return;
+ const amount=enemy.boss?14:9;
+ lastCombatAt=clock;
+ const suffered=incomingDamage(enemy,amount);
+ state.hp-=suffered;
+ if(suffered>0)gainClassResource(WARRIOR_RAGE_ON_HURT);
+ if(state.hp<=0)revive();
+ updateHUD();
+}
+function applySharedKillCredit(event){
+ if(!Number.isInteger(event?.mobId)||!Number.isInteger(event.life))return;
+ const enemy=enemies[event.mobId];if(!enemy||enemy.trainingDummy)return;
+ const key=event.mobId+':'+event.life;
+ if(creditedMobLives.has(key))return;
+ creditedMobLives.add(key);
+ enemy.loot=Array.isArray(event.loot)?event.loot.filter(item=>
+  item&&ITEM_CATALOG[item.id]&&Number.isInteger(item.qty)&&item.qty>0&&
+  item.qty<=itemStackLimit(item.id)).map(item=>({id:item.id,qty:item.qty})):[];
+ enemy.lootMarker.visible=enemy.loot.length>0;
+ enemy.lootMarker.position.set(enemy.root.position.x,heightAt(enemy.root.position.x,enemy.root.position.z)+1.1,enemy.root.position.z);
+ if(enemy.hp<=0){enemy.dead=CORPSE_DURATION;enemy.corpseAge=0}
+ state.gold+=enemy.boss?12:4;
+ experience(enemy.boss?70:22);
+ if(enemy.boss&&state.quest===10){
+  state.quest=11;msg('Грозоклюв повержен! Вернись к наставнику.');
+ }
+ if(state.quest===1&&!enemy.boss){
+  state.kills=Math.min(3,state.kills+1);
+  if(state.kills===3){state.quest=2;msg('Обряд силы: вернись к наставнику')}
+ }
+ save();updateHUD();
+}
+function showSharedCombatError(event){
+ if(event?.reason)combatWarning(String(event.reason).slice(0,80),true);
 }
 const worldConnection=createWorldPresence({
  url:WORLD_WS_URL,
