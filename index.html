@@ -83,6 +83,21 @@
 <div id="top"><button class="smallButton" id="partyOpen" type="button">Группа</button><button class="smallButton" id="character" aria-label="Открыть окно персонажа">Персонаж <kbd>C</kbd></button><button class="smallButton" id="journal" aria-label="Открыть журнал заданий">Задания <kbd>J</kbd></button><button id="bag" class="smallButton" aria-label="Открыть рюкзак">Рюкзак <kbd>I</kbd></button><button id="pause" class="smallButton" aria-label="Пауза">Меню <kbd>Esc</kbd></button></div>
 
 <div id="partyHud" hidden aria-label="Состав группы"></div>
+<section id="chatDock" class="chat-collapsed" aria-label="Игровой чат">
+ <button id="chatToggle" type="button" aria-expanded="false" aria-controls="chatPanel" aria-label="Открыть игровой чат">💬<span id="chatUnread" hidden>0</span></button>
+ <div id="chatPanel" hidden>
+  <header id="chatHeader"><strong>Чат Мулгора</strong><button id="chatClose" type="button" aria-label="Свернуть чат">×</button></header>
+  <div id="chatTabs" role="tablist" aria-label="Канал чата">
+   <button type="button" id="chatWorldTab" role="tab" aria-selected="true">Мулгор</button>
+   <button type="button" id="chatPartyTab" role="tab" aria-selected="false">Группа</button>
+  </div>
+  <div id="chatMessages" role="log" aria-label="Сообщения чата" aria-live="polite"></div>
+  <form id="chatForm" autocomplete="off">
+   <input id="chatInput" type="text" maxlength="180" enterkeyhint="send" aria-label="Написать сообщение" placeholder="Сообщение..." autocomplete="off">
+   <button id="chatSend" type="submit" aria-label="Отправить сообщение">➤</button>
+  </form>
+ </div>
+</section>
 <div id="partyInvitation" hidden role="alertdialog" aria-live="assertive" aria-label="Приглашение в группу">
  <strong id="partyInviteTitle">Приглашение в группу</strong>
  <p id="partyInviteMessage"></p>
