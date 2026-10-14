@@ -713,7 +713,7 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
 #allyHpText{display:block;font:10px system-ui,sans-serif;color:#d9d7ac;margin-top:3px}
 #allyInvite{width:100%;min-height:33px;margin-top:9px;padding:5px 6px;border:1px solid #9aa975;background:linear-gradient(#496d58,#25382e);border-radius:3px;color:#f1eac6;font:bold 11px/1.2 system-ui,sans-serif}
 #allyInvite:disabled{opacity:.55}
-#partyHud{position:fixed;z-index:8;top:calc(255px + var(--safe-top));right:12px;width:min(185px,44vw);max-height:min(210px,38dvh);overflow:auto;border:1px solid #84926b;background:#1b261cdb;box-shadow:0 3px 15px #0008;border-radius:5px;padding:5px 6px;touch-action:pan-y}
+#partyHud{position:fixed;z-index:8;top:calc(295px + var(--safe-top));right:12px;width:min(185px,44vw);max-height:min(210px,38dvh);overflow:auto;border:1px solid #84926b;background:#1b261cdb;box-shadow:0 3px 15px #0008;border-radius:5px;padding:5px 6px;touch-action:pan-y}
 #partyHudTitle{font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.6px;color:#f3e1b3;margin-bottom:4px}
 .party-hud-member{display:block;width:100%;border:0;border-top:1px solid #a6af7a33;background:transparent;padding:4px 0;text-align:left;color:#dfefda;font:10px system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .party-hud-member:active{background:#4b6548}
@@ -752,3 +752,7 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #partyHud{top:175px;right:10px;max-height:170px}
  #top #partyOpen{grid-column:auto}
 }
+
+#allyFrame:not([hidden])~#quest{top:calc(188px + var(--safe-top))}
+@media(max-width:850px){#allyFrame:not([hidden])~#quest{top:calc(253px + var(--safe-top))}}
+@media(max-height:510px) and (min-width:600px){#allyFrame:not([hidden])~#quest{top:103px}}
