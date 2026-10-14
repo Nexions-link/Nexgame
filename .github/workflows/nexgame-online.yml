@@ -1,0 +1,39 @@
+name: NexGame Online CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'game.js'
+      - 'online.js'
+      - 'online-config.js'
+      - 'server/**'
+      - 'items.js'
+      - '.github/workflows/nexgame-online.yml'
+  pull_request:
+    paths:
+      - 'game.js'
+      - 'online.js'
+      - 'server/**'
+      - 'items.js'
+      - '.github/workflows/nexgame-online.yml'
+
+jobs:
+  shared-world:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check client and server
+        run: |
+          node --check game.js
+          node --check online.js
+          node --check online-config.js
+          npm run check --prefix server
+      - name: Install only server dependencies
+        run: npm install --prefix server --no-audit --no-fund
+      - name: Simulate joint combat and two real WebSockets
+        run: npm test --prefix server
