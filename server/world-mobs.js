@@ -10,7 +10,7 @@ export const MOB_TICK_LIMIT=.25;
 
 export function createMulgoreMobs(){
  return MULGORE_MOB_SPAWNS.map(([x,z],index)=>({
-  id:index,x,z,yaw:0,spawnX:x,spawnZ:z,roamTime:0,
+  id:index,x,z,yaw:0,phase:index,spawnX:x,spawnZ:z,roamTime:0,
   boss:index===MULGORE_MOB_SPAWNS.length-1
  }));
 }
@@ -26,11 +26,12 @@ export function tickMulgoreMobs(mobs,dt){
   const step=Math.min(d,MOB_SPEED*dt);
   mob.x+=dx/d*step;
   mob.z+=dz/d*step;
+  mob.phase+=step*4;
   const desiredYaw=Math.atan2(dx,dz);
   mob.yaw+=Math.atan2(Math.sin(desiredYaw-mob.yaw),Math.cos(desiredYaw-mob.yaw))
    *(1-Math.exp(-6*dt));
  }
 }
 export function snapshotMulgoreMobs(mobs){
- return mobs.map(mob=>({id:mob.id,x:mob.x,z:mob.z,yaw:mob.yaw}));
+ return mobs.map(mob=>({id:mob.id,x:mob.x,z:mob.z,yaw:mob.yaw,phase:mob.phase}));
 }
