@@ -803,7 +803,7 @@ const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e)
 if(hadRetiredTestAxe)save(); // Keep the already-normalized save without removed items.
 let hotbarPending=null,spellbookTab='abilities';
 const hotbarButtons=[],hotbarVisuals=[];
-const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
+const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},pinch={id:null,x:0,y:0,startSpan:0,startDistance:0},stick=$('stick'),nub=$('nub');
 let gatherCast=null;
 const abilityRuntime=createAbilityRuntime();
 let swingAbilityId='autoAttack';
@@ -857,9 +857,28 @@ try{setCameraFollow(localStorage.getItem(cameraFollowStoreKey)==='1',false)}catc
 if(cameraFollow)cameraYaw=wrapYaw(hero.root.rotation.y+Math.PI);
 cameraFollowSwitch.addEventListener('change',()=>setCameraFollow(cameraFollowSwitch.checked));
 function resetStick(){const id=joy.id;joy.x=joy.y=0;joy.id=null;nub.style.transform='translate(0,0)';if(id!==null&&stick.hasPointerCapture(id))stick.releasePointerCapture(id)}
+function finishPinch(){
+ const id=pinch.id,zoomed=pinch.startSpan>0;
+ pinch.id=null;pinch.startSpan=0;
+ if(id!==null){
+  if(zoomed)setCameraDistance(cameraDistance); // Save the final zoom, not every touch-move.
+  if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);
+ }
+}
 function finishLook(){
+ finishPinch();
  const id=look.id;look.id=null;
  if(id!==null){cameraFollowCooldown=.85;rememberCameraPitch();if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id)}
+}
+function updatePinchZoom(){
+ if(pinch.id===null||look.id===null)return;
+ const span=Math.hypot(look.x-pinch.x,look.y-pinch.y);
+ // Very close fingers should not produce huge jumps when they first separate.
+ if(span<24)return;
+ if(pinch.startSpan===0){pinch.startSpan=span;pinch.startDistance=cameraDistance;return}
+ // Spreading fingers zooms in, pinching together zooms out.
+ setCameraDistance(pinch.startDistance*pinch.startSpan/span,false);
+ cameraFollowCooldown=.85;
 }
 function clearInput(){keys.clear();resetStick();finishLook();velocityX=velocityZ=0;if(characterView?.drag){const id=characterView.drag.id;characterView.drag=null;if(characterView.canvas?.hasPointerCapture(id))characterView.canvas.releasePointerCapture(id)}}
 function stickMove(e){const r=stick.getBoundingClientRect(),radius=r.width*.3,dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height/2,len=Math.hypot(dx,dy),s=len>radius?radius/len:1;joy.x=Math.abs(dx*s)<3?0:dx*s/radius;joy.y=Math.abs(dy*s)<3?0:dy*s/radius;nub.style.transform=`translate(${dx*s}px,${dy*s}px)`}
@@ -912,8 +931,13 @@ function handleWorldTap(clientX,clientY,allowEmptyClear=true){
 canvas.addEventListener('pointerdown',e=>{
  if(modalKind)return;
  if(look.id!==null){
-  // A two-finger camera gesture must not turn into a selection click.
-  if(e.pointerId!==look.id)look.multitouch=true;
+  // Track the second finger only on the 3D canvas, not the movement joystick.
+  if(e.pointerId!==look.id&&e.pointerType==='touch'&&pinch.id===null){
+   e.preventDefault();look.multitouch=true;
+   pinch.id=e.pointerId;pinch.x=e.clientX;pinch.y=e.clientY;
+   pinch.startSpan=0;pinch.startDistance=cameraDistance;
+   canvas.setPointerCapture(e.pointerId);updatePinchZoom();
+  }
   return;
  }
  if(e.button!==undefined&&e.button!==0)return;
@@ -924,7 +948,15 @@ canvas.addEventListener('pointerdown',e=>{
  if(document.activeElement===cameraSlider)cameraSlider.blur();
 });
 canvas.addEventListener('pointermove',e=>{
+ if(e.pointerId===pinch.id){
+  if(e.pointerType==='touch')e.preventDefault();
+  pinch.x=e.clientX;pinch.y=e.clientY;updatePinchZoom();return;
+ }
  if(look.id!==e.pointerId)return;
+ if(pinch.id!==null){
+  if(e.pointerType==='touch')e.preventDefault();
+  look.x=e.clientX;look.y=e.clientY;updatePinchZoom();return;
+ }
  look.moved+=Math.hypot(e.clientX-look.x,e.clientY-look.y);
  if(!look.selectOnly){
   cameraYaw=wrapYaw(cameraYaw-(e.clientX-look.x)*.007);
@@ -932,19 +964,35 @@ canvas.addEventListener('pointermove',e=>{
  }
  look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85;
 });
-canvas.addEventListener('pointerup',e=>{
- if(look.id!==e.pointerId)return;
+function endCanvasPointer(e,cancelled=false){
+ if(e.pointerId===pinch.id){
+  finishPinch();
+  // Keeping the remaining finger down must never count as a world tap.
+  look.multitouch=true;look.selectOnly=false;look.moved=Infinity;
+  return;
+ }
+ if(e.pointerId!==look.id)return;
+ if(pinch.id!==null){
+  // When the first finger lifts, promote the second finger to camera orbit
+  // without releasing its pointer capture or clearing the selected target.
+  const nextId=pinch.id,nextX=pinch.x,nextY=pinch.y;
+  if(pinch.startSpan>0)setCameraDistance(cameraDistance);
+  pinch.id=null;pinch.startSpan=0;finishLook();
+  look.id=nextId;look.x=look.startX=nextX;look.y=look.startY=nextY;
+  look.selectOnly=false;look.multitouch=true;look.moved=Infinity;
+  look.downAt=performance.now();return;
+ }
  const distance=Math.hypot(e.clientX-look.startX,e.clientY-look.startY);
- if(!modalKind&&!look.multitouch&&look.moved<8&&distance<8){
-  // Long presses retain the existing selection behavior, but do not
-  // accidentally clear a target when someone is holding the camera.
+ if(!cancelled&&!modalKind&&!look.multitouch&&look.moved<8&&distance<8){
+  // A tap selects or clears a target; a pinch never does.
   const isShortTap=performance.now()-look.downAt<=450;
   handleWorldTap(e.clientX,e.clientY,isShortTap);
  }
  finishLook();
-});
+}
+canvas.addEventListener('pointerup',e=>endCanvasPointer(e));
 for(const type of ['pointercancel','lostpointercapture'])
- canvas.addEventListener(type,e=>{if(look.id===e.pointerId)finishLook()});
+ canvas.addEventListener(type,e=>endCanvasPointer(e,true));
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(!modalKind)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
 addEventListener('blur',clearInput);addEventListener('pagehide',()=>{clearInput();save()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();save()}last=performance.now();resetFps()});
 addEventListener('keydown',e=>{
