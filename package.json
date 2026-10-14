@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/skills.test.mjs && node tests/training.test.mjs && node tests/hotbar.test.mjs && node tests/targeting.test.mjs && node tests/equipment.test.mjs && node tests/party-map.test.mjs",
-    "check": "node --check game.js && node --check items.js && node --check skills.js && node --check training.js && node --check hotbar.js && node --check tests/skills.test.mjs && node --check tests/training.test.mjs && node --check tests/hotbar.test.mjs && node --check tests/targeting.test.mjs && node --check tests/equipment.test.mjs && node --check party-map.js && node --check tests/party-map.test.mjs"
+    "test": "node tests/skills.test.mjs && node tests/training.test.mjs && node tests/hotbar.test.mjs && node tests/targeting.test.mjs && node tests/equipment.test.mjs && node tests/party-map.test.mjs && node tests/buildings.test.mjs",
+    "check": "node --check game.js && node --check items.js && node --check skills.js && node --check training.js && node --check hotbar.js && node --check tests/skills.test.mjs && node --check tests/training.test.mjs && node --check tests/hotbar.test.mjs && node --check tests/targeting.test.mjs && node --check tests/equipment.test.mjs && node --check party-map.js && node --check tests/party-map.test.mjs && node --check building-physics.js && node --check tests/buildings.test.mjs"
   },
   "devDependencies": {
     "@napi-rs/canvas": "0.1.100",
