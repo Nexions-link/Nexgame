@@ -1,6 +1,6 @@
-import {createWorldPresence} from './online.js?v=0.3.5.29';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.29';
-import {projectPartyMember} from './party-map.js?v=0.3.5.29';
+import {createWorldPresence} from './online.js?v=0.3.5.30';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.30';
+import {projectPartyMember} from './party-map.js?v=0.3.5.30';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1064,7 +1064,7 @@ function choice(label,fn,type=''){
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal','spellbook-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.29',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.30',
  ['Локальное меню персонажа. Онлайн-мир продолжает жить: группа, другие игроки и мобы не останавливаются.',
   'W/S — идти вперёд и назад; A/D — поворачивать; Tab — цель. Кнопки 1–8 соответствуют ячейкам панели; B — книга заклинаний.',
    'Открой книгу заклинаний, выбери навык или зелье и нажми нужную ячейку 1–8. Раскладка сохраняется. Ярость воина: 0–100.',
