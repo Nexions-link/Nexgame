@@ -371,3 +371,53 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #questJournalOpen{min-height:26px}
  #panel.journal-modal{max-height:95dvh}
 }
+
+
+/* NexGame Alpha 0.3.5: universal ability bar and warrior resource HUD. */
+#playerFrame{min-height:93px;height:auto;padding-top:8px;padding-bottom:7px}
+.player-info{min-width:0}
+#resourceBar.bar.rage{height:15px;margin-top:6px;overflow:hidden}
+#resourceBar.bar.rage>div{background:linear-gradient(#d17d45,#873b26);transition:width .12s linear}
+#resourceBar.bar.rage>span{display:block;font:9px/13px system-ui,sans-serif;color:#ffefbd;text-shadow:0 1px 3px #000}
+#resourceBar.resource-mana>div{background:linear-gradient(#73afe7,#2e6197)}
+#combatState{font:9px/1.25 system-ui,sans-serif;color:#e5d7a4;margin-top:3px;white-space:nowrap}
+#strike{touch-action:none}
+#strike.skill-insufficient{filter:saturate(.7);opacity:.82}
+#strike.skill-insufficient>span{color:#d6b4aa}
+#strike .cooldown,#stomp .cooldown{background:#1c2119b0}
+.ability .global-cooldown{position:absolute;inset:0;background:#d5c9a44a;
+ pointer-events:none;transform:scaleY(0);transform-origin:top;z-index:1}
+#strike .global-cooldown,#stomp .global-cooldown{border-top:1px solid #f5e5bb80}
+@media(max-width:850px){
+ #playerFrame{min-height:91px}
+ #actionsBar{
+  display:grid;grid-template-columns:repeat(3,54px);grid-auto-rows:61px;
+  align-items:center;justify-items:center;
+  gap:4px;right:12px;bottom:calc(28px + var(--safe-bottom));
+  padding:7px 8px 14px;
+ }
+ #actionsBar .ability{width:54px;height:61px}
+ #actionsBar .ability svg{width:35px;height:34px;margin-top:6px}
+ #actionsBar .ability>span{font-size:9px}
+ #actionsBar #targetNext{grid-column:1;grid-row:1}
+ #actionsBar #attack{grid-column:2;grid-row:1}
+ #actionsBar #stomp{grid-column:3;grid-row:1}
+ #actionsBar #heal{grid-column:1;grid-row:2}
+ #actionsBar #strike{grid-column:2;grid-row:2}
+ #interact{bottom:calc(200px + var(--safe-bottom));right:16px}
+ #combatState{font-size:8px}
+}
+@media(max-width:360px){
+ #actionsBar{right:6px;grid-template-columns:repeat(3,48px);grid-auto-rows:58px}
+ #actionsBar .ability{width:48px;height:58px}
+ #actionsBar .ability svg{width:30px;height:30px}
+ #actionsBar .ability>span{font-size:8px}
+ #interact{bottom:calc(191px + var(--safe-bottom))}
+}
+@media(max-height:510px) and (min-width:600px){
+ #actionsBar{right:114px;bottom:calc(14px + var(--safe-bottom));grid-auto-rows:55px;
+  grid-template-columns:repeat(3,50px);padding:5px 7px 11px}
+ #actionsBar .ability{width:50px;height:55px}
+ #interact{right:15px;bottom:calc(90px + var(--safe-bottom))}
+ #playerFrame{min-height:88px}
+}
