@@ -53,10 +53,10 @@ function blossomGeometry(THREE,hex){
  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
  geometry.computeVertexNormals();return geometry;
 }
-export function createMeadowDecorations(THREE,{scene,heightAt,clearAt,onPath,interiorZones,isInsideRect}){
+export function createMeadowDecorations(THREE,{scene,heightAt,clearAt,onPath,interiorZones,isInsideRect,isNearLake=()=>false}){
  const allowed=(x,z,margin=.22,campRadius=10)=>clearAt(x,z,margin)&&!onPath(x,z)&&
   !interiorZones.some(zone=>isInsideRect(x,z,zone,2))&&
-  Math.hypot(x+5,z-4)>campRadius&&Math.hypot(x-26,z-29)>6.8;
+  Math.hypot(x+5,z-4)>campRadius&&!isNearLake(x,z);
  const dummy=new THREE.Object3D();
  const grassPoints=scatterMeadow({count:2100,attempts:6200,seed:17031,extent:69,
   accept:(x,z)=>allowed(x,z,.16,8)});

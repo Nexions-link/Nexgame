@@ -1,9 +1,10 @@
 // NexGame Alpha 0.3.5.24: one authoritative PvE simulation per Mulgore world.
 // Character persistence and identity remain client-side in this alpha.
 import {deriveStats,ITEM_CATALOG,rollEquipmentLoot} from '../items.js';
+import {LAKE_BLUEPRINT,normalizedLakeRadius} from '../lake.js';
 
 export const MULGORE_MOB_SPAWNS=Object.freeze([
- [-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[34,13],[39,47]
+ [-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9],[39,47]
 ]);
 export const MOB_SPEED=.42;
 export const MOB_TICK_LIMIT=.25;
@@ -55,7 +56,12 @@ export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
   const threshold=opponent?(mob.boss?2.75:1.75):.25;
   if(!stunned&&d>threshold){
    const step=Math.min(speed*dt,d-threshold);
-   mob.x+=dx/d*step;mob.z+=dz/d*step;mob.phase+=step*4;
+   const nx=mob.x+dx/d*step,nz=mob.z+dz/d*step;
+   // Until swimming is supported, even server-authoritative mobs keep
+   // out of deep water instead of walking along the lake bottom.
+   if(normalizedLakeRadius(nx,nz,LAKE_BLUEPRINT)>.83){
+    mob.x=nx;mob.z=nz;mob.phase+=step*4;
+   }
    const facing=Math.atan2(dx,dz);
    mob.yaw+=Math.atan2(Math.sin(facing-mob.yaw),Math.cos(facing-mob.yaw))
     *(1-Math.exp(-dt*6));

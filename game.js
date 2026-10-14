@@ -1,10 +1,11 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.38';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.38';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.39';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.39';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.39';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.38';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.38';
-import {projectPartyMember} from './party-map.js?v=0.3.5.38';
+import {createWorldPresence} from './online.js?v=0.3.5.39';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.39';
+import {projectPartyMember} from './party-map.js?v=0.3.5.39';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -55,15 +56,16 @@ const HEARTH_HOUSE={x:-27,z:-2,rotation:Math.PI/2,scale:2};
 const HEARTH_CHEST_POS={x:-33.2,z:-7.4};
 const HEARTH_CHEST_RANGE=4.7;
 function naturalHeightAt(x,z){const flat=smooth(10,29,Math.hypot(x+5,z-4));return flat*(Math.sin(x*.055)*Math.cos(z*.067)*1.65+Math.sin(z*.13+x*.047)*.6)}
+const LAKE=createLake(naturalHeightAt(LAKE_BLUEPRINT.x,LAKE_BLUEPRINT.z));
 const HEARTH_GROUND_Y=naturalHeightAt(HEARTH_HOUSE.x,HEARTH_HOUSE.z);
 function heightAt(x,z){
  const natural=naturalHeightAt(x,z);
  // The 19.2 x 20.8 metre footprint is rotated 90 degrees. Grade just the plot
  // plus a soft 3.6 metre border; interior floor remains level with the terrain.
  const outside=Math.max(Math.abs(x-HEARTH_HOUSE.x)-10.4,Math.abs(z-HEARTH_HOUSE.z)-9.6);
- if(outside>=3.6)return natural;
+ if(outside>=3.6)return lakeTerrainHeight(x,z,natural,LAKE);
  const amount=1-smooth(-.6,3.6,outside);
- return natural+(HEARTH_GROUND_Y-natural)*amount;
+ return lakeTerrainHeight(x,z,natural+(HEARTH_GROUND_Y-natural)*amount,LAKE);
 }
 const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:1,metalness:0,...extra});
 function texture(draw,size=128){const c=document.createElement('canvas');c.width=c.height=size;draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
@@ -89,14 +91,21 @@ const world=group(scene),colliders=[],boxColliders=[],cameraBlockers=[],mapLandm
 function obstacle(x,z,r,height=5){colliders.push({x,z,r,height})}
 function obstacleBox(x,z,w,d,yaw=0,height=5){boxColliders.push({x,z,w,d,yaw,height})}
 function clearAt(x,z,r=.58){
- if(Math.abs(x)>69||Math.abs(z)>69)return false;
+ if(Math.abs(x)>69||Math.abs(z)>69||!canWadeAt(x,z,LAKE))return false;
  for(const o of colliders)if((x-o.x)**2+(z-o.z)**2<(r+o.r)**2)return false;
  for(const o of boxColliders)if(circleHitsRect(x,z,r,o))return false;
  return true;
 }
-const terrainGeo=new THREE.PlaneGeometry(190,190,120,120);terrainGeo.rotateX(-Math.PI/2);
+const terrainGeo=new THREE.PlaneGeometry(190,190,152,152);terrainGeo.rotateX(-Math.PI/2);
 const tp=terrainGeo.attributes.position,colors=[];const ca=new THREE.Color(0xdde3d3),cb=new THREE.Color(0xffffff),cc=new THREE.Color();
-for(let i=0;i<tp.count;i++){const x=tp.getX(i),z=tp.getZ(i);tp.setY(i,heightAt(x,z));cc.copy(ca).lerp(cb,.5+.24*Math.sin(x*.075+z*.04)+.13*Math.sin(x*.38-z*.22));colors.push(cc.r,cc.g,cc.b)}terrainGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));terrainGeo.computeVertexNormals();mesh(scene,terrainGeo,M.grass,0,0,0,1,1,1,false);
+const sandTint=new THREE.Color(0xe2cba7),underwaterTint=new THREE.Color(0x73918b);
+for(let i=0;i<tp.count;i++){
+ const x=tp.getX(i),z=tp.getZ(i),r=normalizedLakeRadius(x,z,LAKE);
+ tp.setY(i,heightAt(x,z));
+ cc.copy(ca).lerp(cb,.5+.24*Math.sin(x*.075+z*.04)+.13*Math.sin(x*.38-z*.22));
+ if(r<1.22)cc.lerp(r<.89?underwaterTint:sandTint,(1-smooth(.86,1.22,r))*.75);
+ colors.push(cc.r,cc.g,cc.b);
+}terrainGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));terrainGeo.computeVertexNormals();mesh(scene,terrainGeo,M.grass,0,0,0,1,1,1,false);
 const routes=[[[0,9],[-2,0],[-5,-12],[-8,-26],[-18,-42]],[[0,3],[13,5],[25,2],[38,-9]],[[0,9],[1,24],[12,37],[32,43]]];
 const SCOUT_X=12,SCOUT_Z=37,BOSS_X=39,BOSS_Z=47;
 const bossWaypoints=[[0,9],[1,24],[12,37],[32,43],[BOSS_X,BOSS_Z]];
@@ -253,14 +262,15 @@ banner(-4,19,.2);banner(5,-14,-.1);
 // Camp hearth. Only two flame meshes animate; there is no particle simulation.
 const hearth=group(world,-6,heightAt(-6,7),7);for(let i=0;i<9;i++){const a=i/9*TAU;ell(hearth,M.rock,Math.sin(a)*1.15,.19,Math.cos(a)*1.15,.34,.23,.29)}for(let i=0;i<3;i++){const log=mesh(hearth,G.cylinder,M.wood,0,.25,0,.18,1.9,.18);log.rotation.z=Math.PI/2;log.rotation.y=i*Math.PI/3}obstacle(-6,7,1.05,1.3);
 const fire=group(scene,-6,heightAt(-6,7)+.25,7);const flameM=new THREE.MeshBasicMaterial({color:0xf6a044,transparent:true,opacity:.85});mesh(fire,G.cone,flameM,0,.47,0,.55,1.3,.55,false);mesh(fire,G.cone,new THREE.MeshBasicMaterial({color:0xffda79}),0,.3,.04,.28,.85,.3,false);
-for(let i=0;i<38;i++){const x=(rand()-.5)*136,z=(rand()-.5)*136;if(Math.hypot(x,z)<23||interiorZones.some(zone=>isInsideRect(x,z,zone,3))||onPath(x,z)||!clearAt(x,z,3))continue;const size=.8+rand()*1.8;mesh(world,G.rock,i%2?M.rock:M.rockLight,x,heightAt(x,z)+size*.34,z,size,size*.7,size*.9);obstacle(x,z,size*.7,size)}
+for(let i=0;i<38;i++){const x=(rand()-.5)*136,z=(rand()-.5)*136;if(Math.hypot(x,z)<23||normalizedLakeRadius(x,z,LAKE)<1.16||interiorZones.some(zone=>isInsideRect(x,z,zone,3))||onPath(x,z)||!clearAt(x,z,3))continue;const size=.8+rand()*1.8;mesh(world,G.rock,i%2?M.rock:M.rockLight,x,heightAt(x,z)+size*.34,z,size,size*.7,size*.9);obstacle(x,z,size*.7,size)}
 function tree(x,z,scale){const y=heightAt(x,z),g=group(world,x,y,z);g.scale.setScalar(scale);rod(g,M.wood,[0,0,0],[.2,4.2,0],.33,.15);for(const s of [-1,1])rod(g,M.wood,[0,2,0],[s*1.6,4.8,.2],.18,.07);ell(g,M.leaf,-1.4,4.8,0,2.4,.9,1.75);ell(g,M.leafLight,1.4,5,.2,2.1,.95,1.6);ell(g,M.leaf,0,5.65,0,2.5,.85,1.8);obstacle(x,z,.4*scale,5*scale)}
-for(const [x,z,s] of [[-26,21,1.2],[25,22,1],[34,-26,.95],[-34,-30,1.15],[9,49,1.2],[-39,40,1.1],[46,31,1.3],[50,-8,.8],[-47,-7,1.1]])tree(x,z,s);
-const pond=mesh(world,new THREE.CircleGeometry(6,36),M.water,26,heightAt(26,29)+.05,29,1,1,1,false);pond.rotation.x=-Math.PI/2;pond.scale.set(1.4,.72,1);
-// Shallow water is traversable: actors follow the terrain beneath its surface.
+for(const [x,z,s] of [[-26,21,1.2],[54,35,1],[34,-26,.95],[-34,-30,1.15],[9,49,1.2],[-39,40,1.1],[51,25,1.3],[50,-8,.8],[-47,-7,1.1]])tree(x,z,s);
+// Carved lake with real lakebed, animated water surface, banks and reed clusters.
+const lakeVisual=createLakeVisuals(THREE,{scene,lake:LAKE,heightAt,onPath});
 // Clustered instanced meadow: 1 grass draw call, 3 flower batches, 1 shrub batch.
 const meadow=createMeadowDecorations(THREE,{
- scene,heightAt,clearAt,onPath,interiorZones,isInsideRect
+ scene,heightAt,clearAt,onPath,interiorZones,isInsideRect,
+ isNearLake:(x,z)=>normalizedLakeRadius(x,z,LAKE)<1.18
 });
 fuse(world,true);
 // Soft contact shadows stay directly on the terrain underneath each actor.
@@ -434,7 +444,7 @@ function updateHerbalistMarker(){
 const relic=group(scene,35,heightAt(35,-14)+1.7,-11.8);const featherMat=material(0x79c8ba,{emissive:0x2c5b45,emissiveIntensity:.5});ell(relic,featherMat,0,.15,0,.18,.48,.08);rod(relic,M.bone,[0,-.4,0],[0,.53,0],.025);const relicShadow=contactShadow(1);
 // Lightweight wildlife: animated joint groups, no skinned meshes or animation files.
 function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
-const enemies=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[34,13]].map(([x,z],i)=>makePlainstrider(x,z,i));
+const enemies=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]].map(([x,z],i)=>makePlainstrider(x,z,i));
 for(const enemy of enemies){enemy.name='Равнинный долгоног';enemy.baseScale=1;enemy.boss=false}
 const giant=makePlainstrider(BOSS_X,BOSS_Z,enemies.length);
 giant.name='Грозоклюв — огромный долгоног';
@@ -958,9 +968,16 @@ state.equipment=normalizeEquipment(state.equipment);
 if(needsStarterWeapon)state.equipment.weapon={id:'wornAxe',qty:1};
 state.buyback=Array.isArray(state.buyback)?state.buyback.filter(row=>row&&ITEM_CATALOG[row.id]&&Number.isInteger(row.qty)&&row.qty>0&&row.qty<=itemStackLimit(row.id)&&row.price===ITEM_CATALOG[row.id].sell*row.qty).slice(0,12):[];
 state.hp=clamp(state.hp,1,playerStats().maxHp);syncEquipmentVisuals();
+// Old saves might place characters inside the newly carved deep water.
+let rescuedFromLake=false;
+if(!canWadeAt(state.x,state.z,LAKE)){
+ const shore=lakeDryShorePoint(state.x,state.z,LAKE);
+ const destination=clearAt(shore.x,shore.z)?shore:{x:initial.x,z:initial.z};
+ state.x=destination.x;state.z=destination.z;rescuedFromLake=true;
+}
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
-if(hadRetiredTestAxe)save(); // Keep the already-normalized save without removed items.
+if(hadRetiredTestAxe||rescuedFromLake)save(); // Save migrations while preserving character progress.
 let hotbarPending=null,spellbookTab='abilities';
 const hotbarButtons=[],hotbarVisuals=[];
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},pinch={id:null,x:0,y:0,startSpan:0,startDistance:0},stick=$('stick'),nub=$('nub');
@@ -2804,7 +2821,10 @@ function updateHUD(){const max=playerStats().maxHp;
  $('resourceBar').classList.toggle('resource-mana',klass.resource==='mana');
  $('combatState').textContent=inCombat()?'В бою':state.hp<max?(clock-lastCombatAt<HEALTH_REGEN_DELAY?'Отдых после боя':'Восстановление'):'Готов к бою';
 $('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
- const camp=Math.hypot(state.x+3,state.z-3)<23,indoors=interiorZones.some(zone=>isInsideRect(state.x,state.z,zone));$('area').textContent=indoors?'Дом очага':camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=indoors?'Дом очага':camp?'Лагерь Нараче':'Мулгор';
+ const camp=Math.hypot(state.x+3,state.z-3)<23,indoors=interiorZones.some(zone=>isInsideRect(state.x,state.z,zone));
+ const nearLake=normalizedLakeRadius(state.x,state.z,LAKE)<1.22;
+ $('area').textContent=indoors?'Дом очага':nearLake?LAKE.name:camp?'Лагерь Нараче':'Плато Красного Облака';
+ $('mapLabel').textContent=indoors?'Дом очага':nearLake?'Озеро':camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
  const gatherPanel=$('gatherQuestTracker');
@@ -2911,7 +2931,15 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
   c.beginPath();c.moveTo(-p.width*k*.16,p.depth*k/2);c.lineTo(p.width*k*.16,p.depth*k/2);c.stroke();
   c.restore();
  }else{c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.stroke()}
-}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){
+}
+// Minimap follows the new irregular lake outline.
+c.fillStyle='#4c92a2';c.strokeStyle='#a4c0ac';c.lineWidth=1.6;c.beginPath();
+for(let i=0;i<=84;i++){
+ const p=lakePointAt(i/84*TAU,.99,LAKE);
+ if(i===0)c.moveTo(p.x*k,p.z*k);else c.lineTo(p.x*k,p.z*k);
+}
+c.closePath();c.fill();c.stroke();
+for(const e of enemies){if(e.dead<=0){
   if(e.trainingDummy){
    const px=e.root.position.x*k,pz=e.root.position.z*k;
    c.fillStyle='#ead6a4';c.strokeStyle='#87502e';c.lineWidth=2.4;
@@ -3099,6 +3127,7 @@ function update(dt){
   state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
  }
  animateRemotePlayers(dt);updateWildlife(dt);if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
+ lakeVisual.update(clock);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);herbalistMarker.position.set(8,heightAt(8,1)+5.65+Math.sin(clock*2.1)*.1,1);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
  selection.visible=isAliveTarget(selected);
  if(selection.visible){
