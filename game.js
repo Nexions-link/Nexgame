@@ -930,7 +930,7 @@ function nearTarget(){
  return closest;
 }
 function interact(){
- if(modalKind)return;
+ if(modalKind||gatherCast)return;
  const target=nearTarget();
  if(!target){msg('Подойди к жителю или предмету ближе');return}
  if(target.kind==='gather'){startGather(target.node);return}
@@ -1007,7 +1007,49 @@ function mentorTalk(){
   choice('До встречи',closeDialog);
  }
 }
-function traderTalk(){openDialog('Травница Тихая Заря','ПРИПАСЫ ЛАГЕРЯ',['Настой луговых трав восстанавливает 55 здоровья. Цена — 10 монет.','В твоём кошеле: '+state.gold+' монет.']);choice('Купить настой — 10 монет',()=>{if(state.gold<10){msg('Недостаточно монет');return}state.gold-=10;state.potions++;closeDialog();msg('Лечебный настой добавлен в рюкзак')});choice('До встречи',closeDialog,'alt')}
+function herbalistGatherTalk(){
+ const stage=state.gatherStage;
+ if(stage===0){
+  openDialog('Дары Мулгора','ТРАВНИЦА ТИХАЯ ЗАРЯ · НОВАЯ ЦЕПОЧКА',
+   ['Помоги собрать лекарства для лагеря. Впереди три поручения: цветы, корни и грибы.',
+    'Подойди к растению и нажми «Собрать». Сбор займёт полторы секунды, затем забери находку из окна добычи.']);
+  choice('Принять: Цветы равнин (1/3)',()=>{
+   state.gatherStage=1;save();closeDialog();updateHUD();
+   msg('Найди четыре луговых цветка');
+  });
+  return;
+ }
+ if(stage>=4){
+  openDialog('Дары Мулгора','ТРАВНИЦА ТИХАЯ ЗАРЯ',
+   ['Ты принёс все травы, корни и грибы. Лагерю хватит лекарств. Спасибо, странник!']);
+  return;
+ }
+ const q=GATHER_QUESTS[stage],count=gatherQuestCount();
+ openDialog(q.title,'СОБИРАТЕЛЬСТВО · '+stage+' / 3',
+  [q.intro,'Собрано: '+count+' / '+q.count+'. '+q.hint,
+   count>=q.count?'Все ингредиенты в рюкзаке. Можно сдать их травнице.':'Подойди к светящимся ресурсам на земле и нажми «Собрать».']);
+ if(count>=q.count){
+  choice('Сдать '+q.count+' шт. · +'+q.gold+' монет, +'+q.xp+' опыта',()=>{
+   if(!consumeGatherQuestItems(stage)){msg('Недостаточно нужных предметов');herbalistGatherTalk();return}
+   state.gold+=q.gold;experience(q.xp);state.gatherStage=stage+1;
+   save();updateGatherVisibility();closeDialog();updateHUD();
+   msg(stage===3?'Цепочка «Дары Мулгора» завершена!':'Сбор выполнен! У Тихой Зари есть новое поручение.');
+  });
+ }else choice('Открыть рюкзак',bag,'alt');
+}
+function traderTalk(){
+ openDialog('Травница Тихая Заря','ПРИПАСЫ И СБОР РЕСУРСОВ',
+  ['Настой луговых трав восстанавливает 55 здоровья. Цена — 10 монет.',
+   'В твоём кошеле '+state.gold+' монет.']);
+ if(state.gatherStage<4){
+  const q=GATHER_QUESTS[state.gatherStage];
+  choice(q?'🌿 Задание: '+q.title+' ('+gatherQuestCount()+'/'+q.count+')':'🌿 Новая цепочка: Дары Мулгора',herbalistGatherTalk);
+ }else choice('✓ Дары Мулгора завершены',herbalistGatherTalk,'alt');
+ choice('Купить настой — 10 монет',()=>{
+  if(state.gold<10){msg('Недостаточно монет');return}
+  state.gold-=10;state.potions++;closeDialog();msg('Лечебный настой добавлен в рюкзак');
+ });
+}
 function bag(){
  if(modalKind==='bag'){closeDialog();return}
  openDialog('Рюкзак странника','ТАУРЕН · ВОИН · УРОВЕНЬ '+state.level,[],'bag');
@@ -1180,7 +1222,7 @@ function tryAutoSwing(){
  hideCombatWarning();return true;
 }
 function attack(){
- if(modalKind)return;
+ if(modalKind||gatherCast)return;
  if(autoAttack){autoAttack=false;hideCombatWarning();updateHUD();return}
  if(!isAliveTarget(selected)){
   const e=nearestEnemy(TARGET_RANGE);
@@ -1217,7 +1259,7 @@ function damageEnemy(e,amount){
  }
  updateHUD();
 }
-function stomp(){if(modalKind||stompCooldown>0||attackElapsed>=0)return;stompElapsed=0;stompCooldown=8;stompLanded=false}
+function stomp(){if(modalKind||gatherCast||stompCooldown>0||attackElapsed>=0)return;stompElapsed=0;stompCooldown=8;stompLanded=false}
 $('attack').addEventListener('pointerdown',e=>{e.preventDefault();attack()});$('stomp').addEventListener('pointerdown',e=>{e.preventDefault();stomp()});
 // Native click covers keyboard activation without doubling pointer attacks.
 for(const [id,fn] of [['attack',attack],['stomp',stomp]])$(id).addEventListener('click',e=>{if(e.detail===0)fn()});
@@ -1240,7 +1282,8 @@ function bindImmediateButton(id,action){
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
-$('heal').addEventListener('click',()=>heal());$('interact').addEventListener('click',interact);$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
+bindImmediateButton('interact',interact);
+$('heal').addEventListener('click',()=>heal());$('bag').addEventListener('click',bag);$('character').addEventListener('click',character);$('modalClose').addEventListener('click',closeDialog);$('pause').addEventListener('click',pause);
 const questLines=[
  ['Первые шаги','Поговорите с наставником у большого тотема.'],
  ['Обряд силы','Победите обычных долгоногов: 0 / 3'],
@@ -1261,12 +1304,26 @@ function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=s
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
+ const gatherPanel=$('gatherQuestTracker');gatherPanel.hidden=state.gatherStage===0;
+ if(state.gatherStage>0){
+  const stage=state.gatherStage;
+  $('gatherQuestStage').textContent=stage===4?'Сбор · 3 / 3 ✓':'Сбор · '+stage+' / 3';
+  const q=GATHER_QUESTS[stage],count=q?gatherQuestCount():0;
+  $('gatherQuestTitle').textContent=q?q.title:'Дары Мулгора завершены';
+  $('gatherQuestText').textContent=q?(count>=q.count?
+   'Собрано '+count+'/'+q.count+' · Вернись к Тихой Заре.':
+   'Собрано '+count+'/'+q.count+' · '+q.hint):
+   'Все три поручения травницы выполнены.';
+ }
+ updateGatherVisibility();
  const guide=$('questGuidance');
  guide.hidden=state.quest!==7&&state.quest!==10;
  if(state.quest===7)guide.textContent='Разведка: идите на юго-восток по дороге.';
  if(state.quest===10)guide.textContent='Красный пунктир ведёт к Грозоклюву · 108 HP';
  bossGuide.visible=state.quest===10;
- const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!target;if(target)$('interact').innerHTML=target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
+ const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!!gatherCast||!target;
+ if(target)$('interact').innerHTML=target.kind==='gather'?(target.node.pending?'Забрать <kbd>E</kbd>':'Собрать <kbd>E</kbd>'):
+ target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
  const valid=isAliveTarget(selected);
  $('targetFrame').hidden=!valid;$('zoneTitle').hidden=Boolean(valid);
  $('attack').classList.toggle('auto-attacking',autoAttack);
