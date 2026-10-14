@@ -1389,7 +1389,14 @@ function castAbility(id,options={}){
  if((id==='heavyStrike'||id==='thunderStomp')&&(attackElapsed>=0||stompElapsed>=0)){
   combatWarning('Дождитесь окончания удара',true);return false;
  }
- const result=activateAbility(def,abilityContext(def));
+ if(def.requiresTarget&&isAliveTarget(selected)&&targetDistance(selected)>def.range){
+   if(targetDistance(selected)>20){combatWarning('Цель слишком далеко',true);return false}
+   const fail=abilityFailure(def,abilityContext(def,{range:null,facing:true}));
+   if(fail){combatWarning(fail,true);return false}
+   approach={target:selected,abilityId:id,stuck:0};return true;
+  }
+  approach=null;
+  const result=activateAbility(def,abilityContext(def));
  if(!result.ok){
   if(id==='healingPotion')msg(result.error);else combatWarning(result.error,true);
   return false;
@@ -1412,6 +1419,7 @@ function strike(){return castAbility('heavyStrike')}
 
 // Melee combat: select first, validate distance and facing, then animate.
 const MELEE_RANGE=3.45,TARGET_RANGE=35;
+ let approach=null;
 function isAliveTarget(e){return !!e&&e.dead<=0&&e.hp>0&&enemies.includes(e)}
 function targetDistance(e){return Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)}
 function nearestEnemy(range=TARGET_RANGE){
@@ -1431,12 +1439,14 @@ function meleeFailure(e){
  return '';
 }
 function clearTarget(){
+ approach=null;
  selected=null;autoAttack=false;swingTarget=null;
  attackElapsed=-1;attackCooldown=0;
  hideCombatWarning();updateHUD();
 }
 function setTarget(e){
  if(!isAliveTarget(e)){clearTarget();return}
+ if(selected!==e)approach=null;
  selected=e;hideCombatWarning();updateHUD();
 }
 function cycleTarget(step=1){
@@ -1458,19 +1468,21 @@ function tryAutoSwing(){
 }
 function attack(){
  if(modalKind||gatherCast)return false;
- if(autoAttack){autoAttack=false;hideCombatWarning();updateHUD();return true}
+ if(autoAttack){autoAttack=false;approach=null;hideCombatWarning();updateHUD();return true}
  if(!isAliveTarget(selected)){
   const e=nearestEnemy(TARGET_RANGE);
   if(!e){combatWarning('Нет цели',true);return false}
   setTarget(e);
  }
- // Autoattack can be armed while out of melee range, but never swings there.
+ if(targetDistance(selected)>20){combatWarning('Цель слишком далеко',true);return false}
+  // Autoattack can be armed while out of melee range, but never swings there.
  const def=getAbilityDefinition('autoAttack');
  const reason=abilityFailure(def,abilityContext(def,{range:null,facing:true}));
  if(reason){combatWarning(reason,true);return false}
  autoAttack=true;
  const fail=meleeFailure(selected);
- if(fail)combatWarning(fail,true);else tryAutoSwing();
+ if(fail==='Цель слишком далеко')approach={target:selected,abilityId:'autoAttack',stuck:0};
+  else if(fail)combatWarning(fail,true);else tryAutoSwing();
  updateHUD();return true;
 }
 function damageEnemy(e,amount,source='autoAttack'){
@@ -1920,14 +1932,35 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
  const herbalistMapGlyph=herbalistQuestGlyph();
  if(herbalistMapGlyph){c.fillStyle='#ffe087';c.strokeStyle='#382817';c.lineWidth=3;c.font='bold 20px Georgia';c.textAlign='center';c.strokeText(herbalistMapGlyph,8*k,1*k-11);c.fillText(herbalistMapGlyph,8*k,1*k-11)}
  c.restore();c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
-function movement(dt){
+function updateApproach(dt){
+  if(!approach)return 0;
+  const task=approach;
+  if(!isAliveTarget(task.target)||selected!==task.target||modalKind||gatherCast||state.hp<=0){approach=null;return 0}
+  const def=getAbilityDefinition(task.abilityId),range=def?.range||MELEE_RANGE,d=targetDistance(task.target);
+  if(d>21){approach=null;if(task.abilityId==='autoAttack')autoAttack=false;combatWarning('Цель слишком далеко',true);return 0}
+  if(d<=range-.2){approach=null;if(task.abilityId==='autoAttack')tryAutoSwing();else castAbility(task.abilityId);return 0}
+  const tx=task.target.root.position.x-state.x,tz=task.target.root.position.z-state.z,yaw=Math.atan2(tx,tz);
+  hero.root.rotation.y=yaw;state.yaw=yaw;
+  const step=Math.min(4.05*dt,d-range+.2),ux=tx/d,uz=tz/d,px=state.x,pz=state.z,nx=px+ux*step,nz=pz+uz*step;
+  if(clearAt(nx,nz)){state.x=nx;state.z=nz}
+  else if(clearAt(nx,pz))state.x=nx;
+  else if(clearAt(px,nz))state.z=nz;
+  const moved=Math.hypot(state.x-px,state.z-pz);
+  task.stuck=moved<.0001?task.stuck+dt:0;
+  if(task.stuck>.65){approach=null;if(task.abilityId==='autoAttack')autoAttack=false;combatWarning('Путь к цели перекрыт',true)}
+  return moved;
+ }
+ function movement(dt){
  // Classic-style controls: vertical stick walks along the hero's own heading,
  // horizontal stick continuously ROTATES the hero while held.
  // Both axes can be used simultaneously for walking arcs.
  const ax=joy.x+Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));
  const az=joy.y+Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
  const turnInput=clamp(ax,-1,1),forwardInput=clamp(-az,-1,1);
- const turnSpeed=2.45; // radians/second; not a target angle
+ const manual=Math.abs(turnInput)>.04||Math.abs(forwardInput)>.04;
+  if(manual&&approach){approach=null;autoAttack=false}
+  const approachMoved=!manual&&approach?updateApproach(dt):0;
+  const turnSpeed=2.45; // radians/second; not a target angle
  let turn=0;
  if(Math.abs(turnInput)>.04){
   turn=-turnInput*turnSpeed*dt;
@@ -1935,7 +1968,7 @@ function movement(dt){
   hero.root.rotation.y=Math.atan2(Math.sin(nextYaw),Math.cos(nextYaw));
   state.yaw=hero.root.rotation.y;
  }
- const speed=stompElapsed>=0?0:4.05;
+ const speed=stompElapsed>=0||approachMoved?0:4.05;
  const forwardSpeed=forwardInput*speed;
  const dx=Math.sin(hero.root.rotation.y)*forwardSpeed;
  const dz=Math.cos(hero.root.rotation.y)*forwardSpeed;
@@ -1951,12 +1984,12 @@ function movement(dt){
  else if(clearAt(nx,state.z)){state.x=nx;velocityZ=0}
  else if(clearAt(state.x,nz)){state.z=nz;velocityX=0}
  else velocityX=velocityZ=0;
- const travelled=Math.hypot(state.x-prevX,state.z-prevZ);
+ const travelled=Math.hypot(state.x-prevX,state.z-prevZ)+approachMoved;
  if(travelled>.00005)hero.phase=(hero.phase+travelled/2.67)%1;
  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,turn);
 }
-function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
+function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
  if(e.trainingDummy){
   // Independent of wildlife AI; never wander, stun, chase, retaliate or die.
