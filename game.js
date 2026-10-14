@@ -1337,9 +1337,11 @@ function attack(){
  if(fail)combatWarning(fail,true);else tryAutoSwing();
  updateHUD();return true;
 }
-function damageEnemy(e,amount){
- if(!isAliveTarget(e))return;
+function damageEnemy(e,amount,source='autoAttack'){
+ if(!isAliveTarget(e)||!Number.isFinite(amount)||amount<=0)return;
  lastCombatAt=clock;
+ // A successful attack generates rage; area attacks award less per opponent.
+ gainClassResource(source==='autoAttack'?WARRIOR_RAGE_PER_HIT:source==='heavyStrike'?8:source==='thunderStomp'?3:0);
  e.hp-=amount;e.aggro=true;e.hit=.22;
  if(e.hp<=0){
   e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
@@ -1649,7 +1651,14 @@ function updateEnemy(e,dt){
  if(e.aggro){tx=state.x;tz=state.z;speed=e.boss?1.75:2.1}
  const d=Math.hypot(tx-p.x,tz-p.z),oldX=p.x,oldZ=p.z;
  if(d>(e.aggro?(e.boss?2.75:1.75):.25)&&e.stunned===0){const dx=(tx-p.x)/d*speed*dt,dz=(tz-p.z)/d*speed*dt;if(clearAt(p.x+dx,p.z+dz,.36)){p.x+=dx;p.z+=dz}else if(clearAt(p.x+dx,p.z,.36))p.x+=dx;else if(clearAt(p.x,p.z+dz,.36))p.z+=dz;const goal=Math.atan2(dx,dz);e.root.rotation.y+=Math.atan2(Math.sin(goal-e.root.rotation.y),Math.cos(goal-e.root.rotation.y))*(1-Math.exp(-dt*6))}
- if(e.aggro&&dist<(e.boss?3:2.1)&&e.attackCd===0&&e.stunned===0){lastCombatAt=clock;state.hp-=incomingDamage(e,e.boss?14:9);e.attackCd=e.boss?1.8:1.5;if(state.hp<=0)revive()}
+ if(e.aggro&&dist<(e.boss?3:2.1)&&e.attackCd===0&&e.stunned===0){
+   lastCombatAt=clock;
+   const suffered=incomingDamage(e,e.boss?14:9);
+   state.hp-=suffered;
+   if(suffered>0)gainClassResource(WARRIOR_RAGE_ON_HURT);
+   e.attackCd=e.boss?1.8:1.5;
+   if(state.hp<=0)revive();
+  }
  if(e.boss&&e.nameTag){e.nameTag.visible=true;e.nameTag.position.set(p.x,heightAt(p.x,p.z)+4.65,p.z)}
   const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;e.body.rotation.x=e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
  e.shadow.position.set(p.x,p.y+.055,p.z);
@@ -1688,16 +1697,26 @@ function animateCamera(dt){
  sun.position.set(state.x-30,48,state.z+22);sun.target.position.set(state.x,0,state.z);sun.target.updateMatrixWorld();
 }
 const attackOverlay=$('attack').querySelector('.cooldown'),stompOverlay=$('stomp').querySelector('.cooldown');
-function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max(0,attackCooldown-dt);stompCooldown=Math.max(0,stompCooldown-dt);
+function update(dt){
+ clock+=dt;saveClock+=dt;hudClock+=dt;
+ tickAbilityRuntime(abilityRuntime,dt);
+ attackCooldown=Math.max(0,attackCooldown-dt);
+ stompCooldown=abilityCooldown(abilityRuntime,'thunderStomp');
+ if(state.classId==='warrior'&&!inCombat()&&clock-lastCombatAt>5&&state.resource>0){
+  state.resource=changeResource(state.resource,-WARRIOR_RAGE_DECAY*dt,state.classId);
+ }
  if(attackElapsed>=0){
   attackElapsed+=dt;
   if(attackElapsed>=.34&&!attackLanded){
    attackLanded=true;
-   if(isAliveTarget(swingTarget)&&!meleeFailure(swingTarget))damageEnemy(swingTarget,rollMeleeDamage());
+   if(isAliveTarget(swingTarget)&&!meleeFailure(swingTarget)){
+    const bonus=swingAbilityId==='heavyStrike'?(getAbilityDefinition('heavyStrike').damageBonus||0):0;
+    damageEnemy(swingTarget,rollMeleeDamage()+bonus,swingAbilityId);
+   }
   }
-  if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null}
+  if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null;swingAbilityId='autoAttack'}
  }
- if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){e.stunned=2.5;damageEnemy(e,6)}}if(stompElapsed>=.75)stompElapsed=-1}
+ if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){e.stunned=2.5;damageEnemy(e,6,'thunderStomp')}}if(stompElapsed>=.75)stompElapsed=-1}
  if(gatherCast){
   velocityX=velocityZ=0;
   hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
@@ -1714,7 +1733,12 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
   selection.material.opacity=autoAttack?.96:.79;selection.scale.setScalar(selected.boss?1.65:1);
  }
  shockAge+=dt;stompRing.visible=shockAge<.6;if(stompRing.visible){stompRing.scale.setScalar(1+shockAge*7);stompRing.material.opacity=(1-shockAge/.6)*.7}
- attackOverlay.style.transform='scaleY('+clamp(attackCooldown/playerStats().speed,0,1)+')';stompOverlay.style.transform='scaleY('+clamp(stompCooldown/8,0,1)+')';$('rageFill').style.width=(1-clamp(attackCooldown/playerStats().speed,0,1))*100+'%';
+ attackOverlay.style.transform='scaleY('+clamp(attackCooldown/playerStats().speed,0,1)+')';
+ stompOverlay.style.transform='scaleY('+clamp(abilityCooldown(abilityRuntime,'thunderStomp')/getAbilityDefinition('thunderStomp').cooldown,0,1)+')';
+ $('strike').querySelector('.cooldown').style.transform='scaleY('+clamp(abilityCooldown(abilityRuntime,'heavyStrike')/getAbilityDefinition('heavyStrike').cooldown,0,1)+')';
+ for(const id of ['stomp','strike']){
+  $(id).querySelector('.global-cooldown').style.transform='scaleY('+clamp(abilityRuntime.gcd/1.5,0,1)+')';
+ }
  if(hudClock>.12){hudClock=0;updateHUD();drawMap()}if(saveClock>6){saveClock=0;save()}
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,graphicsPresets[settings.quality].pixelRatio));renderer.setSize(innerWidth,innerHeight);clearInput();resetFps()});
