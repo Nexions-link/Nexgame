@@ -7,11 +7,15 @@ on:
     branches: [main]
     paths:
       - 'app.html'
+      - 'bestiary/**'
+      - 'tests/bestiary.test.mjs'
       - 'server/**'
       - '.github/workflows/nexgame-online.yml'
   pull_request:
     paths:
       - 'game.js'
+      - 'bestiary/**'
+      - 'tests/bestiary.test.mjs'
       - 'movement-controls.js'
       - 'tests/movement-controls.test.mjs'
       - 'meadow.js'
@@ -58,6 +62,10 @@ jobs:
       - name: Syntax check client and server
         run: |
           node --check game.js
+          node --check bestiary/main.js
+          node --check bestiary/dolgonog.js
+          node --check bestiary/catalog.js
+          node --check tests/bestiary.test.mjs
           node --check movement-controls.js
           node --check tests/movement-controls.test.mjs
           node --check meadow.js
@@ -80,5 +88,5 @@ jobs:
         run: npm install --prefix server --no-audit --no-fund
       - name: Test private chat, party map, PvE and real WebSocket sessions
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs
+          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs tests/bestiary.test.mjs
           npm test --prefix server

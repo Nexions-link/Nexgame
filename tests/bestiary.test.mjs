@@ -1,0 +1,61 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {resolve,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {CREATURES,DRAFT_KEY,normalizeCreatureParams,humanBytes} from '../bestiary/catalog.js';
+import {DEFAULT_DOLGONOG,createDolgonog,countTriangles,disposeDolgonog} from '../bestiary/dolgonog.js';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const read=path=>readFileSync(resolve(root,path),'utf8');
+test('catalog has stable unique IDs and original source is not misrepresented',()=>{
+ assert.ok(CREATURES.length>=1);
+ assert.equal(new Set(CREATURES.map(c=>c.id)).size,CREATURES.length);
+ const bird=CREATURES.find(c=>c.id==='dolgonog');
+ assert.ok(bird);assert.equal(bird.number,'001');
+ assert.equal(bird.source,'procedural-reconstruction');
+ assert.equal(bird.futureAsset,'models/dolgonog-v0.1.glb');
+ assert.ok(bird.animations.includes('idle')&&bird.animations.includes('walk')&&bird.animations.includes('attack'));
+});
+test('editor sanitizes imported settings and keeps colors constrained to CSS hex',()=>{
+ const result=normalizeCreatureParams({body:17,neck:-10,crest:NaN,wings:'#abcdef',crestColor:'javascript:alert(1)',extra:true},DEFAULT_DOLGONOG);
+ assert.equal(result.body,1.6);assert.equal(result.neck,.55);
+ assert.equal(result.crest,DEFAULT_DOLGONOG.crest);
+ assert.equal(result.wings,'#abcdef');
+ assert.equal(result.crestColor,DEFAULT_DOLGONOG.crestColor);
+ assert.equal(Object.hasOwn(result,'extra'),false);
+ assert.deepEqual(normalizeCreatureParams(null,DEFAULT_DOLGONOG),{...DEFAULT_DOLGONOG});
+ assert.match(DRAFT_KEY,/bestiary/);
+});
+test('size helper is stable for model import feedback',()=>{
+ assert.equal(humanBytes(357*1024),'357 КБ');
+ assert.equal(humanBytes(1048576),'1.00 МБ');
+ assert.equal(humanBytes(NaN),'—');
+});
+test('separate published bestiary is self-contained and versioned',()=>{
+ const html=read('bestiary/index.html'),js=read('bestiary/main.js'),style=read('bestiary/style.css');
+ assert.match(html,/type="importmap"/);
+ assert.match(html,/src="\.\/main\.js\?v=0\.1\.0"/);
+ assert.match(html,/href="\.\/style\.css\?v=0\.1\.0"/);
+ assert.match(html,/id="viewerCanvas"/);
+ assert.match(html,/id="glbUpload"/);
+ assert.match(html,/id="saveDraft"/);
+ assert.match(html,/id="creatureList"/);
+ assert.match(html,/href="\.\.\/"/);
+ assert.match(style,/@media\(max-width:680px\)/);
+ assert.match(js,/GLTFLoader/);
+ assert.match(js,/GLTFExporter/);
+ assert.match(js,/setPointerCapture/);
+ assert.match(js,/localStorage\.setItem/);
+ assert.match(js,/normalizeCreatureParams/);
+ assert.match(js,/createDolgonog/);
+ assert.match(js,/source==='glb'/);
+});
+test('dolgonog model API has independent preview and animation hooks',()=>{
+ assert.equal(typeof createDolgonog,'function');
+ assert.equal(typeof countTriangles,'function');
+ assert.equal(typeof disposeDolgonog,'function');
+ const source=read('bestiary/dolgonog.js');
+ assert.match(source,/function update\(seconds,animation='idle'\)/);
+ assert.match(source,/walk/);assert.match(source,/attack/);
+ assert.match(source,/root\.userData\.creatureId='dolgonog'/);
+});
