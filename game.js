@@ -254,7 +254,7 @@ herbalistMarker.position.set(8,heightAt(8,1)+5.65,1);
 herbalistMarker.visible=true;scene.add(herbalistMarker);
 let lastHerbalistGlyph='!';
 function herbalistQuestGlyph(){
- if(state.gatherStage===0)return '!';
+ if(state.gatherStage===0||(state.gatherAvailable&&state.gatherStage>=2&&state.gatherStage<=3))return '!';
  if(state.gatherStage>0&&state.gatherStage<4){
   const q=GATHER_QUESTS[state.gatherStage];
   if(q&&gatherQuestCount()>=q.count)return '?';
@@ -646,7 +646,7 @@ function gatherNodeAvailable(node){
  const q=GATHER_QUESTS[state.gatherStage];
  // A harvested but uncollected resource remains accessible even when the
  // backpack already holds the required quest amount. Never lose a pending drop.
- return !!q&&node.stage===state.gatherStage&&
+ return !!q&&!state.gatherAvailable&&node.stage===state.gatherStage&&
    (node.pending||(gatherQuestCount()<q.count&&clock>=node.readyAt));
 }
 function updateGatherVisibility(){
@@ -655,7 +655,7 @@ function updateGatherVisibility(){
   if(node.root.visible){node.root.rotation.y=.09*Math.sin(clock*1.4+node.index);node.sparkle.position.y=.85+.1*Math.sin(clock*2.5+node.index)}
  }
 }
-const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,gatherStage:0,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
+const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,gatherStage:0,gatherAvailable:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
 let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
 function normalizeBags(input){
  return Array.from({length:EQUIPPED_BAG_SLOTS},(_,i)=>{
@@ -711,7 +711,7 @@ function rollCorpseLoot(enemy=null){
 }
 
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
-state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.gatherStage=clamp(Math.floor(state.gatherStage),0,4);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
+state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.gatherStage=clamp(Math.floor(state.gatherStage),0,4);if(state.gatherStage===0||state.gatherStage===4)state.gatherAvailable=false;state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
 state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
 const needsStarterWeapon=!state.equipment||!Object.hasOwn(state.equipment,'weapon');
 state.equipment=normalizeEquipment(state.equipment);
@@ -1054,7 +1054,7 @@ function herbalistGatherTalk(){
    ['Помоги собрать лекарства для лагеря. Впереди три поручения: цветы, корни и грибы.',
     'Подойди к растению и нажми «Собрать». Сбор займёт полторы секунды, затем забери находку из окна добычи.']);
   choice('Принять: Цветы равнин (1/3)',()=>{
-   state.gatherStage=1;save();closeDialog();updateHUD();
+   state.gatherStage=1;state.gatherAvailable=false;save();closeDialog();updateHUD();
    msg('Найди четыре луговых цветка');
   });
   return;
@@ -1064,6 +1064,16 @@ function herbalistGatherTalk(){
    ['Ты принёс все травы, корни и грибы. Лагерю хватит лекарств. Спасибо, странник!']);
   return;
  }
+ if(state.gatherAvailable&&stage>=2&&stage<=3){
+  const quest=GATHER_QUESTS[stage];
+  openDialog(quest.title,'НОВОЕ ЗАДАНИЕ · ДАРЫ МУЛГОРА · '+stage+' / 3',
+   [quest.intro,quest.hint,'Награда: '+quest.gold+' монет, '+quest.xp+' опыта.']);
+  choice('Принять: '+quest.title+' ('+stage+'/3)',()=>{
+   state.gatherAvailable=false;save();updateGatherVisibility();closeDialog();updateHUD();
+   msg('Новое задание: '+quest.title);
+  });
+  return;
+ }
  const q=GATHER_QUESTS[stage],count=gatherQuestCount();
  openDialog(q.title,'СОБИРАТЕЛЬСТВО · '+stage+' / 3',
   [q.intro,'Собрано: '+count+' / '+q.count+'. '+q.hint,
@@ -1071,7 +1081,7 @@ function herbalistGatherTalk(){
  if(count>=q.count){
   choice('Сдать '+q.count+' шт. · +'+q.gold+' монет, +'+q.xp+' опыта',()=>{
    if(!consumeGatherQuestItems(stage)){msg('Недостаточно нужных предметов');herbalistGatherTalk();return}
-   state.gold+=q.gold;experience(q.xp);state.gatherStage=stage+1;
+   state.gold+=q.gold;experience(q.xp);state.gatherStage=stage+1;state.gatherAvailable=stage<3;
    save();updateGatherVisibility();closeDialog();updateHUD();
    msg(stage===3?'Цепочка «Дары Мулгора» завершена!':'Сбор выполнен! У Тихой Зари есть новое поручение.');
   });
@@ -1083,7 +1093,7 @@ function traderTalk(){
    'В твоём кошеле '+state.gold+' монет.']);
  if(state.gatherStage<4){
   const q=GATHER_QUESTS[state.gatherStage];
-  choice(q?'🌿 Задание: '+q.title+' ('+gatherQuestCount()+'/'+q.count+')':'🌿 Новая цепочка: Дары Мулгора',herbalistGatherTalk);
+  choice(q?(state.gatherAvailable?'🌿 Новое задание: '+q.title:'🌿 Задание: '+q.title+' ('+gatherQuestCount()+'/'+q.count+')'):'🌿 Новая цепочка: Дары Мулгора',herbalistGatherTalk);
  }else choice('✓ Дары Мулгора завершены',herbalistGatherTalk,'alt');
  choice('Купить настой — 10 монет',()=>{
   if(state.gold<10){msg('Недостаточно монет');return}
@@ -1371,7 +1381,7 @@ function journalQuestEntries(){
  }
  for(let i=1;i<=3;i++){
   const quest=GATHER_QUESTS[i],stage=state.gatherStage;
-  const status=stage>i?'completed':stage===i?'current':i===1&&stage===0?'available':null;
+  const status=stage>i?'completed':stage===i?(state.gatherAvailable?'available':'current'):i===1&&stage===0?'available':null;
   if(!status)continue;
   const amount=status==='completed'?quest.count:gatherQuestCount(i);
   const progress=status==='completed'?'Завершено · Ингредиенты переданы травнице.':
@@ -1457,8 +1467,8 @@ function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=s
  const gatherPanel=$('gatherQuestTracker');
  const mainStageActive=[1,2,4,5,7,8,10,11].includes(state.quest);
  $('mainQuestTracker').hidden=!mainStageActive;
- gatherPanel.hidden=!(state.gatherStage>=1&&state.gatherStage<=3);
- if(state.gatherStage>=1&&state.gatherStage<=3){
+ gatherPanel.hidden=!(state.gatherStage>=1&&state.gatherStage<=3&&!state.gatherAvailable);
+ if(state.gatherStage>=1&&state.gatherStage<=3&&!state.gatherAvailable){
   const stage=state.gatherStage;
   $('gatherQuestStage').textContent=stage===4?'Сбор · 3 / 3 ✓':'Сбор · '+stage+' / 3';
   const q=GATHER_QUESTS[stage],count=q?gatherQuestCount():0;
