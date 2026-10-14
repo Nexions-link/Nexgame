@@ -546,6 +546,86 @@ function renderCharacterPreview(t,dt){
  }finally{renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);renderer.shadowMap.enabled=shadows}
 }
 
+// Independent three-part gathering chain offered by the existing camp herbalist.
+// Item counts come from the actual backpack; discarding a quest item removes progress.
+const GATHER_QUESTS=[
+ null,
+ {title:'Цветы равнин',item:'meadowFlower',count:4,gold:12,xp:35,
+  hint:'Соберите луговые цветы вокруг лагеря.',intro:'Собери четыре луговых цветка для моего целебного настоя.',
+  locations:[[-12,10],[-2,17],[5,20],[12,16],[-17,19],[15,24],[-7,27]]},
+ {title:'Солнечные корни',item:'sunRoot',count:3,gold:20,xp:55,
+  hint:'Найдите солнечные корни на дальних пастбищах.',intro:'Теперь мне нужны три солнечных корня, которые растут за лагерем.',
+  locations:[[6,29],[13,31],[21,25],[27,19],[-12,29],[0,36]]},
+ {title:'Лунные грибы',item:'moonMushroom',count:2,gold:35,xp:90,
+  hint:'Ищите лунные грибы у прохладных камней.',intro:'Последний ингредиент — два лунных гриба среди прохладных камней.',
+  locations:[[16,-22],[25,-23],[32,-31],[26,-9],[38,-27]]}
+];
+const GATHER_INTERACT_RANGE=2.8,GATHER_CAST_SECONDS=1.5,GATHER_RESPAWN_SECONDS=32;
+const gatherMat={
+ flower:material(0xf4d873,{emissive:0x6b4c17,emissiveIntensity:.18}),
+ petal:material(0xffeaaa),
+ root:material(0xc4a063),
+ cap:material(0x9990c5,{emissive:0x3a335e,emissiveIntensity:.3}),
+ lightCap:material(0xd1c5e4)
+};
+const gatherNodes=[];
+function placeGatherObject(stage,index,x,z){
+ const offsets=[[0,0],[2,0],[-2,0],[0,2],[0,-2],[3,3],[-3,3],[3,-3],[-3,-3]];
+ for(const [ox,oz] of offsets)if(clearAt(x+ox,z+oz,.68)){x+=ox;z+=oz;break}
+ const root=group(scene,x,heightAt(x,z),z);
+ if(stage===1){
+  for(let petal=0;petal<5;petal++){
+   const a=petal*TAU/5;
+   ell(root,gatherMat.petal,Math.sin(a)*.27,.43,Math.cos(a)*.27,.16,.075,.13);
+  }
+  ell(root,gatherMat.flower,0,.44,0,.17,.12,.18);
+  rod(root,M.leaf,[0,.05,0],[0,.43,0],.048,.03);
+  ell(root,M.leaf,-.17,.15,0,.23,.08,.11);
+ }else if(stage===2){
+  for(const xz of [[-.16,-.1],[.12,.08]])ell(root,gatherMat.root,xz[0],.15,xz[1],.22,.19,.22);
+  for(const angle of [-.65,0,.65]){
+   const leaf=ell(root,M.leaf,Math.sin(angle)*.17,.42,Math.cos(angle)*.1,.12,.3,.07);
+   leaf.rotation.z=angle;
+  }
+ }else{
+  for(const [x1,z1,h,r] of [[-.15,-.1,.34,.30],[.27,.15,.23,.22]]){
+   rod(root,M.bone,[x1,.05,z1],[x1,h,z1],.08,.065);
+   const cap=mesh(root,G.cone,gatherMat.cap,x1,h+.08,z1,r,.22,r);
+   cap.rotation.y=index*.45;
+   ell(root,gatherMat.lightCap,x1,h+.16,z1,r*.4,.055,r*.4);
+  }
+ }
+ const node={id:stage+'-'+index,stage,index,item:GATHER_QUESTS[stage].item,x,z,root,readyAt:0,pending:false};
+ root.userData.gatherNode=node.id;
+ root.visible=false;gatherNodes.push(node);return node;
+}
+for(let stage=1;stage<=3;stage++)
+ GATHER_QUESTS[stage].locations.forEach(([x,z],i)=>placeGatherObject(stage,i,x,z));
+function gatherQuestCount(stage=state.gatherStage){
+ const quest=GATHER_QUESTS[stage];if(!quest)return 0;
+ return state.inventory.reduce((total,row)=>total+(row?.id===quest.item?row.qty:0),0);
+}
+function consumeGatherQuestItems(stage){
+ const quest=GATHER_QUESTS[stage];if(!quest||gatherQuestCount(stage)<quest.count)return false;
+ let left=quest.count;
+ for(let i=0;i<state.inventory.length&&left>0;i++){
+  const slot=state.inventory[i];if(!slot||slot.id!==quest.item)continue;
+  const used=Math.min(left,slot.qty);slot.qty-=used;left-=used;
+  if(slot.qty===0)state.inventory[i]=null;
+ }
+ save();return left===0;
+}
+function gatherNodeAvailable(node){
+ const q=GATHER_QUESTS[state.gatherStage];
+ return !!q&&node.stage===state.gatherStage&&gatherQuestCount()<q.count
+   &&(node.pending||clock>=node.readyAt);
+}
+function updateGatherVisibility(){
+ for(const node of gatherNodes){
+  node.root.visible=gatherNodeAvailable(node);
+  if(node.root.visible)node.root.rotation.y=.09*Math.sin(clock*1.4+node.index);
+ }
+}
 const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,gatherStage:0,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
 let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
 function normalizeBags(input){
