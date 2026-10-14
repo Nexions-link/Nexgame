@@ -877,3 +877,8 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #chatTabs button{min-height:25px}
  #chatInput{height:34px}
 }
+
+/* Keep the compact party tab clickable even when the chat is open on iPhone. */
+@media(max-width:600px){
+ #chatDock:not(.chat-collapsed){width:min(300px,calc(100vw - 90px))}
+}
