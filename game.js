@@ -1,8 +1,8 @@
 import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.33';
-import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.34';
-import {createWorldPresence} from './online.js?v=0.3.5.34';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.34';
-import {projectPartyMember} from './party-map.js?v=0.3.5.34';
+import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.35';
+import {createWorldPresence} from './online.js?v=0.3.5.35';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.35';
+import {projectPartyMember} from './party-map.js?v=0.3.5.35';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -46,7 +46,19 @@ sun.shadow.mapSize.setScalar(graphicsPresets[settings.quality].shadowSize);Objec
 scene.add(sun,sun.target);
 let seed=531;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
 const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t)};
-function heightAt(x,z){const flat=smooth(10,29,Math.hypot(x+5,z-4));return flat*(Math.sin(x*.055)*Math.cos(z*.067)*1.65+Math.sin(z*.13+x*.047)*.6)}
+// Double-size hearth house is set back from the camp to protect NPCs, quests and paths.
+const HEARTH_HOUSE={x:-27,z:-2,rotation:Math.PI/2,scale:2};
+function naturalHeightAt(x,z){const flat=smooth(10,29,Math.hypot(x+5,z-4));return flat*(Math.sin(x*.055)*Math.cos(z*.067)*1.65+Math.sin(z*.13+x*.047)*.6)}
+const HEARTH_GROUND_Y=naturalHeightAt(HEARTH_HOUSE.x,HEARTH_HOUSE.z);
+function heightAt(x,z){
+ const natural=naturalHeightAt(x,z);
+ // The 19.2 x 20.8 metre footprint is rotated 90 degrees. Grade just the plot
+ // plus a soft 3.6 metre border; interior floor remains level with the terrain.
+ const outside=Math.max(Math.abs(x-HEARTH_HOUSE.x)-10.4,Math.abs(z-HEARTH_HOUSE.z)-9.6);
+ if(outside>=3.6)return natural;
+ const amount=1-smooth(-.6,3.6,outside);
+ return natural+(HEARTH_GROUND_Y-natural)*amount;
+}
 const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:1,metalness:0,...extra});
 function texture(draw,size=128){const c=document.createElement('canvas');c.width=c.height=size;draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
 const grain=texture((ctx,s)=>{ctx.fillStyle='#b2b993';ctx.fillRect(0,0,s,s);for(let i=0;i<2200;i++){ctx.fillStyle=rand()>.5?'#bfc69b55':'#62744130';ctx.fillRect(rand()*s,rand()*s,1+rand()*3,1+rand()*3)}});grain.wrapS=grain.wrapT=THREE.RepeatWrapping;grain.repeat.set(58,58);
@@ -119,10 +131,10 @@ function tent(x,z,r=4,rotation=0){const g=group(world,x,heightAt(x,z),z);g.rotat
 
 // A scalable, fully walkable timber-and-hide house. Keep its roof outside
 // fuse(world,true): the roof and wall shell must remain independently fadeable.
-function walkableHouse(x,z,{width=9.6,depth=10.4,wallH=4.55,roofRise=2.35,doorW=3.4,rotation=.5}={}){
+function walkableHouse(x,z,{width=9.6,depth=10.4,wallH=4.55,roofRise=2.35,doorW=3.4,rotation=.5,scale=1}={}){
  const wallT=.34,doorH=3.55;
  const g=group(scene,x,heightAt(x,z),z);
- g.rotation.y=rotation;
+ g.rotation.y=rotation;g.scale.setScalar(scale);
  const frame=group(g),furniture=group(g),shell=group(g);
  const wallMat=M.hide.clone(),roofMat=M.hide.clone();
  const hw=width/2,hd=depth/2,side=(width-doorW)/2;
@@ -196,23 +208,23 @@ function walkableHouse(x,z,{width=9.6,depth=10.4,wallH=4.55,roofRise=2.35,doorW=
  // Decorations and warm, shadowless interior lamp (cheap for mobile GPUs).
  rod(frame,M.wood,[0,wallH-.05,0],[0,wallH-1.12,0],.065,.06);
  ell(frame,material(0xffc76d,{emissive:0xff9a34,emissiveIntensity:1.3}),0,wallH-1.3,0,.24,.32,.24,false);
- const lamp=new THREE.PointLight(0xffcb87,1.05,11,2);
+ const lamp=new THREE.PointLight(0xffcb87,1.05,11*scale,2);
  lamp.position.set(0,wallH-1.3,0);lamp.castShadow=false;g.add(lamp);
  for(const sx of [-1,1]){
   box(frame,M.teal,sx*(hw-.05),2.4,.2,.10,1.4,1.0);
   box(frame,M.gold,sx*(hw-.02),2.4,.2,.11,.06,1.0);
  }
  // Use the identical transforms for visuals and collision; the centre remains free.
- for(const part of buildingWallColliders({x,z,width,depth,doorWidth:doorW,wallThickness:wallT,rotation,height:wallH}))
+ for(const part of buildingWallColliders({x,z,width:width*scale,depth:depth*scale,doorWidth:doorW*scale,wallThickness:wallT*scale,rotation,height:wallH*scale}))
   boxColliders.push(part);
  for(const [lx,lz,w,d] of [[-2.6,-2.5,2.35,2.55],[2.7,-3.1,1.7,1.2],[1.45,-.4,1.9,1.6],[2.9,1,.62,.66],[2.9,-1.8,.62,.66]]){
-  const p=localToWorld2D(lx,lz,x,z,rotation);
-  obstacleBox(p.x,p.z,w,d,rotation,2);
+  const p=localToWorld2D(lx*scale,lz*scale,x,z,rotation);
+  obstacleBox(p.x,p.z,w*scale,d*scale,rotation,2*scale);
  }
- const zone={x,z,w:width-.3,d:depth+.45,yaw:rotation,roofMeshes:[roofLeft,roofRight],roofMat,wallMat,inside:false};
+ const zone={x,z,w:(width-.3)*scale,d:(depth+.45)*scale,yaw:rotation,roofMeshes:[roofLeft,roofRight],roofMat,wallMat,inside:false};
  interiorZones.push(zone);
  for(const roof of zone.roofMeshes){roof.userData.interiorRoof=zone;cameraBlockers.push(roof)}
- mapLandmarks.push({x,z,r:Math.min(width,depth)*.18,color:'#cfb689',type:'building',width,depth,rotation});
+ mapLandmarks.push({x,z,r:Math.min(width,depth)*scale*.18,color:'#cfb689',type:'building',width:width*scale,depth:depth*scale,rotation});
  fuse(frame,true);fuse(furniture,true);
  return g;
 }
@@ -227,7 +239,7 @@ function updateInteriors(){
  }
 }
 
-walkableHouse(-12,-5);tent(11,-7,4.2,-.5);tent(-15,12,3.8,2.2);tent(13,16,3.4,-1.7);tent(-23,-15,3,.5);
+walkableHouse(HEARTH_HOUSE.x,HEARTH_HOUSE.z,{rotation:HEARTH_HOUSE.rotation,scale:HEARTH_HOUSE.scale});tent(11,-7,4.2,-.5);tent(-15,12,3.8,2.2);tent(13,16,3.4,-1.7);tent(-23,-15,3,.5);
 function totem(x,z,scale=1){const g=group(world,x,heightAt(x,z),z);g.scale.setScalar(scale);mesh(g,new THREE.CylinderGeometry(.48,.65,4.8,8),M.woodLight,0,2.4,0);for(let i=0;i<3;i++){const y=.9+i*1.25;mesh(g,new THREE.CylinderGeometry(.52,.53,.26,8),i%2?M.teal:M.red,0,y,0);box(g,M.bone,0,y+.43,.5,.67,.38,.13);for(const s of [-1,1])box(g,M.black,s*.2,y+.5,.58,.11,.09,.035);box(g,M.red,0,y+.28,.6,.14,.21,.15)}const wings=group(g,0,4.3,0);for(const s of [-1,1]){const w=box(wings,M.teal,s*1.15,0,0,2,.38,.3);w.rotation.z=s*.15;for(let i=0;i<4;i++){const f=box(wings,i%2?M.red:M.bone,s*(.65+i*.38),-.22,0,.18,.63,.16);f.rotation.z=s*.18}}ell(g,M.bone,0,5,0,.55,.43,.45);obstacle(x,z,.75*scale,5*scale);mapLandmarks.push({x,z,r:.8,color:'#73b9ae'});return g}
 totem(-3,-5,1);totem(5,9,.75);totem(-5,25,.8);totem(35,-14,1.25);
 function banner(x,z,angle){const g=group(world,x,heightAt(x,z),z);g.rotation.y=angle;rod(g,M.wood,[-1,0,0],[-1,4.6,0],.09);rod(g,M.wood,[1,0,0],[1,4.6,0],.09);rod(g,M.wood,[-1.25,4.3,0],[1.25,4.3,0],.09);mesh(g,new THREE.PlaneGeometry(1.85,2.1),M.hide,0,3.15,0);obstacle(x-1,z,.15);obstacle(x+1,z,.15)}
@@ -235,7 +247,7 @@ banner(-4,19,.2);banner(5,-14,-.1);
 // Camp hearth. Only two flame meshes animate; there is no particle simulation.
 const hearth=group(world,-6,heightAt(-6,7),7);for(let i=0;i<9;i++){const a=i/9*TAU;ell(hearth,M.rock,Math.sin(a)*1.15,.19,Math.cos(a)*1.15,.34,.23,.29)}for(let i=0;i<3;i++){const log=mesh(hearth,G.cylinder,M.wood,0,.25,0,.18,1.9,.18);log.rotation.z=Math.PI/2;log.rotation.y=i*Math.PI/3}obstacle(-6,7,1.05,1.3);
 const fire=group(scene,-6,heightAt(-6,7)+.25,7);const flameM=new THREE.MeshBasicMaterial({color:0xf6a044,transparent:true,opacity:.85});mesh(fire,G.cone,flameM,0,.47,0,.55,1.3,.55,false);mesh(fire,G.cone,new THREE.MeshBasicMaterial({color:0xffda79}),0,.3,.04,.28,.85,.3,false);
-for(let i=0;i<38;i++){const x=(rand()-.5)*136,z=(rand()-.5)*136;if(Math.hypot(x,z)<23||onPath(x,z)||!clearAt(x,z,3))continue;const size=.8+rand()*1.8;mesh(world,G.rock,i%2?M.rock:M.rockLight,x,heightAt(x,z)+size*.34,z,size,size*.7,size*.9);obstacle(x,z,size*.7,size)}
+for(let i=0;i<38;i++){const x=(rand()-.5)*136,z=(rand()-.5)*136;if(Math.hypot(x,z)<23||interiorZones.some(zone=>isInsideRect(x,z,zone,3))||onPath(x,z)||!clearAt(x,z,3))continue;const size=.8+rand()*1.8;mesh(world,G.rock,i%2?M.rock:M.rockLight,x,heightAt(x,z)+size*.34,z,size,size*.7,size*.9);obstacle(x,z,size*.7,size)}
 function tree(x,z,scale){const y=heightAt(x,z),g=group(world,x,y,z);g.scale.setScalar(scale);rod(g,M.wood,[0,0,0],[.2,4.2,0],.33,.15);for(const s of [-1,1])rod(g,M.wood,[0,2,0],[s*1.6,4.8,.2],.18,.07);ell(g,M.leaf,-1.4,4.8,0,2.4,.9,1.75);ell(g,M.leafLight,1.4,5,.2,2.1,.95,1.6);ell(g,M.leaf,0,5.65,0,2.5,.85,1.8);obstacle(x,z,.4*scale,5*scale)}
 for(const [x,z,s] of [[-26,21,1.2],[25,22,1],[34,-26,.95],[-34,-30,1.15],[9,49,1.2],[-39,40,1.1],[46,31,1.3],[50,-8,.8],[-47,-7,1.1]])tree(x,z,s);
 const pond=mesh(world,new THREE.CircleGeometry(6,36),M.water,26,heightAt(26,29)+.05,29,1,1,1,false);pond.rotation.x=-Math.PI/2;pond.scale.set(1.4,.72,1);
