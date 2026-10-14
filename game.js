@@ -1,5 +1,5 @@
-import {createWorldPresence} from './online.js?v=0.3.5.23';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.23';
+import {createWorldPresence} from './online.js?v=0.3.5.24';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.24';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1549,6 +1549,11 @@ function attack(){
 }
 function damageEnemy(e,amount,source='autoAttack'){
  if(!isAliveTarget(e)||!Number.isFinite(amount)||amount<=0)return;
+ // When a PvE-capable world server is connected, only it may change mob HP.
+ if(worldCombatReady&&!e.trainingDummy){
+  if(worldConnection.sendAttack(source,e.index))lastCombatAt=clock;
+  return;
+ }
  lastCombatAt=clock;
  // A successful attack generates rage; area attacks award less per opponent.
  gainClassResource(source==='autoAttack'?WARRIOR_RAGE_PER_HIT:source==='heavyStrike'?8:source==='thunderStomp'?3:0);
@@ -1913,7 +1918,7 @@ function updateRemoteSnapshot(list){
   visible.add(p.id);
   let remote=remotePlayers.get(p.id);
   if(!remote){
-   const actor=makeTauren({fur:0x977c61,cloth:M.teal,scale:.94,weapon:false});
+   const actor=makeTauren({fur:0x977c61,cloth:M.teal,scale:.94,weapon:true});
    actor.root.position.set(p.x,heightAt(p.x,p.z),p.z);actor.root.rotation.y=p.yaw;
    const nameTag=spriteText(String(p.name||'Странник').slice(0,24),'#c3f1ff',26);
    scene.add(nameTag);
@@ -2163,8 +2168,17 @@ const worldConnection=createWorldPresence({
  },
  onPlayers:updateRemoteSnapshot,
  onMobs:updateSharedMobTargets,
+ onWelcome:welcome=>{onlineSelfId=welcome.id;},
+ onCombat:applySharedCombat,
+ onMobAttack:applyMobAttack,
+ onKillCredit:applySharedKillCredit,
+ onCombatRejected:showSharedCombatError,
  onLeave:removeRemotePlayer,
- getPosition:()=>({x:state.x,z:state.z,yaw:state.yaw,level:state.level,moving:Math.abs(joy.x)+Math.abs(joy.y)>0||keys.has('w')||keys.has('arrowup')})
+ getPosition:()=>({
+  x:state.x,z:state.z,yaw:state.yaw,level:state.level,
+  equipment:Object.fromEntries(Object.entries(state.equipment||{}).filter(([,item])=>item?.id).map(([slot,item])=>[slot,item.id])),
+  moving:Math.abs(joy.x)+Math.abs(joy.y)>0||keys.has('w')||keys.has('arrowup')
+ })
 });
 
 let lastMarker='';
@@ -2426,7 +2440,7 @@ function update(dt){
   }
   if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null;swingAbilityId='autoAttack'}
  }
- if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){if(!e.trainingDummy)e.stunned=2.5;damageEnemy(e,6,'thunderStomp')}}if(stompElapsed>=.75)stompElapsed=-1}
+ if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);if(worldCombatReady)worldConnection.sendAttack('thunderStomp');for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){if(!worldCombatReady||e.trainingDummy){if(!e.trainingDummy)e.stunned=2.5;damageEnemy(e,6,'thunderStomp')}}}if(stompElapsed>=.75)stompElapsed=-1}
  if(gatherCast){
   velocityX=velocityZ=0;
   hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
