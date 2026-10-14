@@ -14,6 +14,7 @@ on:
       - 'online-config.js'
       - 'party-map.js'
       - 'tests/party-map.test.mjs'
+      - 'tests/online-population.test.mjs'
       - 'server/**'
       - 'items.js'
       - '.github/workflows/nexgame-online.yml'
@@ -28,6 +29,7 @@ on:
       - 'online.js'
       - 'party-map.js'
       - 'tests/party-map.test.mjs'
+      - 'tests/online-population.test.mjs'
       - 'server/**'
       - 'items.js'
       - '.github/workflows/nexgame-online.yml'
@@ -50,10 +52,11 @@ jobs:
           node --check tests/party-map.test.mjs
           node --check tests/hud-layout.test.mjs
           node --check tests/bootstrap.test.mjs
+          node --check tests/online-population.test.mjs
           npm run check --prefix server
       - name: Install only server dependencies
         run: npm install --prefix server --no-audit --no-fund
       - name: Test private chat, party map, PvE and real WebSocket sessions
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs
+          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs
           npm test --prefix server
