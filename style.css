@@ -882,3 +882,235 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
 @media(max-width:600px){
  #chatDock:not(.chat-collapsed){width:min(300px,calc(100vw - 90px))}
 }
+
+
+/* Alpha 0.3.5.28 — one adaptive top HUD row: player | target | square minimap.
+   The source panels are laid out by #hudTop instead of conflicting fixed offsets.
+   Keep real minimap canvas at 240x240 for smooth map and group markers. */
+:root{
+ --hud-edge:clamp(9px,1.4vw,18px);
+ --hud-gap:clamp(6px,1.1vw,14px);
+ --hud-map-size:clamp(104px,10.5vw,138px);
+ --hud-row-height:max(96px,var(--hud-map-size));
+}
+#hudTop{
+ position:fixed;
+ left:calc(var(--hud-edge) + env(safe-area-inset-left,0px));
+ right:calc(var(--hud-edge) + env(safe-area-inset-right,0px));
+ top:calc(10px + var(--safe-top));
+ z-index:8;display:grid;
+ grid-template-columns:minmax(0,240px) minmax(0,240px) var(--hud-map-size);
+ column-gap:var(--hud-gap);
+ justify-content:space-between;align-items:start;
+ pointer-events:none
+}
+#hudTop #playerFrame,
+#hudTop #targetFrame,
+#hudTop #allyFrame,
+#hudTop #targetPlaceholder,
+#hudTop #minimapFrame{
+ position:relative;left:auto;right:auto;top:auto;bottom:auto;
+ transform:none;grid-row:1;min-width:0;
+ box-sizing:border-box;border-radius:8px;
+ pointer-events:auto;z-index:auto;margin:0
+}
+#hudTop #playerFrame{
+ grid-column:1;width:100%;height:94px;min-height:94px;
+ padding:7px 8px 7px 55px;display:flex;align-items:center;
+ border:1px solid #9c8759;
+ background:linear-gradient(145deg,#393127f1,#18231df0)
+}
+#hudTop #playerFrame .portrait{
+ left:7px;top:21px;width:40px;height:40px;
+ border:2px solid #af985f;outline:none
+}
+#hudTop #playerFrame #levelBadge{width:17px;height:17px;font-size:9px}
+#hudTop #playerFrame .player-info{width:100%;padding:0;min-width:0}
+#hudTop #playerFrame .unit-name{min-width:0;line-height:1.12;white-space:normal}
+#hudTop #playerName{
+ display:block;max-width:100%;margin:0 0 2px;
+ font:700 12px/15px Georgia,serif;
+ color:#ffebc0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+#hudTop #className{
+ display:block;font:9px/12px system-ui,sans-serif;
+ margin:0 0 4px;color:#cfc4a3;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+#hudTop #playerFrame .bar{height:13px}
+#hudTop #playerFrame .bar>span{font:9px/11px system-ui,sans-serif}
+#hudTop #playerFrame #resourceBar.bar.rage{height:14px;margin-top:4px}
+#hudTop #playerFrame #resourceBar.bar.rage>span{font:700 9px/12px system-ui,sans-serif}
+#hudTop #combatState{
+ font:9px/11px system-ui,sans-serif;
+ margin-top:4px;overflow:hidden;text-overflow:ellipsis
+}
+#hudTop #targetFrame,#hudTop #allyFrame,#hudTop #targetPlaceholder{
+ grid-column:2;width:100%;min-height:94px;
+ border:1px solid #9c8759;
+ background:linear-gradient(145deg,#393127f1,#18231df0)
+}
+#hudTop #targetFrame{
+ height:auto;padding:9px 29px 9px 9px;max-height:60dvh;
+ overflow-y:auto;touch-action:pan-y
+}
+#hudTop #targetFrame .bar{height:13px}
+#hudTop #targetFrame .bar>span{font:9px/11px system-ui,sans-serif}
+#hudTop #targetName{
+ display:block;font:700 12px/15px Georgia,serif;
+ margin:0 0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+#hudTop #targetDistance,#hudTop #targetStatus{
+ font:10px/1.3 system-ui,sans-serif;
+ overflow-wrap:anywhere;white-space:normal
+}
+#hudTop #targetClear{right:5px;top:5px;width:25px;height:25px;font:20px/21px Georgia,serif}
+#hudTop #targetFrame.dummy-target{
+ width:100%;min-height:94px;max-height:min(61dvh,330px);
+ padding:9px 26px 9px 9px
+}
+#hudTop #targetFrame.dummy-target #dummyStats{font-size:10px;line-height:1.3}
+#hudTop #targetFrame.dummy-target .dummy-metrics{
+ grid-template-columns:minmax(0,1fr);gap:3px
+}
+#hudTop #targetFrame.dummy-target .dummy-metrics span{white-space:normal}
+#hudTop #targetFrame.dummy-target #dummyReset{touch-action:manipulation;min-height:34px}
+#hudTop #allyFrame{
+ padding:9px 28px 9px 9px;max-height:58dvh;
+ overflow-y:auto;touch-action:pan-y;border-color:#668d7d
+}
+#hudTop #allyName{font:700 12px/15px Georgia,serif}
+#hudTop #allyLevel{font-size:9px}
+#hudTop #allyInvite{font-size:10px;min-height:35px;overflow-wrap:anywhere}
+#hudTop #targetPlaceholder{
+ display:flex;flex-direction:column;align-items:center;
+ justify-content:center;gap:6px;padding:12px 5px;
+ border-style:dashed;border-color:#a393665e;
+ background:linear-gradient(145deg,#292b23b8,#19241db3);
+ pointer-events:none;text-align:center
+}
+.target-placeholder-heading{
+ font:700 11px/1 system-ui,sans-serif;
+ letter-spacing:1.5px;color:#deca91
+}
+.target-placeholder-hint{
+ font:10px/1.2 system-ui,sans-serif;color:#aaa78d
+}
+#hudTop #minimapFrame{
+ grid-column:3;
+ width:var(--hud-map-size);height:var(--hud-map-size);
+ min-height:0;aspect-ratio:1;
+ padding:2px;overflow:hidden;
+ border:2px solid #b8a06c;outline:none;border-radius:9px;
+ box-shadow:0 4px 15px #0008,inset 0 0 0 1px #292c21;
+ background:#566849
+}
+#hudTop #minimap{
+ display:block;width:100%;height:100%;
+ border-radius:5px
+}
+#hudTop .north{
+ position:absolute;left:5px;top:4px;right:auto;bottom:auto;
+ transform:none;font:700 10px/1 system-ui,sans-serif;
+ color:#fff2c8;text-shadow:0 1px 3px #14180b,0 1px 5px #14180b;
+ z-index:2;pointer-events:none
+}
+#hudTop #mapLabel{
+ display:block;position:absolute;bottom:2px;left:2px;right:2px;top:auto;
+ width:auto;transform:none;max-width:none;
+ border:0;border-radius:0 0 4px 4px;
+ padding:4px 2px 3px;text-align:center;
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+ background:linear-gradient(transparent,#1b251de3 32%);
+ font:700 9px/1.2 system-ui,sans-serif;
+ color:#ffe8b0;text-shadow:0 1px 2px #000;
+ pointer-events:none;z-index:2
+}
+/* Move all non-combat UI below the unified row, including the old
+   "target selected" and dummy-specific quest-offset selectors. */
+#quest,#targetFrame:not([hidden])~#quest,
+#targetFrame.dummy-target:not([hidden])~#quest,
+#allyFrame:not([hidden])~#quest{
+ top:calc(20px + var(--safe-top) + var(--hud-row-height));
+ left:calc(var(--hud-edge) + env(safe-area-inset-left,0px));
+ width:min(225px,43vw);z-index:4
+}
+#top{
+ top:calc(20px + var(--safe-top) + var(--hud-row-height));
+ right:calc(var(--hud-edge) + env(safe-area-inset-right,0px));
+ left:auto;display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:5px;width:190px;z-index:9
+}
+#top #partyOpen{grid-column:1/-1}
+#top .smallButton{min-width:0;font-size:11px;min-height:33px}
+#zoneTitle{top:calc(19px + var(--safe-top) + var(--hud-row-height));left:50%}
+#zoneTitle>span{font-size:16px}
+#zoneTitle>small{font-size:8px}
+
+@media(max-width:760px){
+ :root{
+  --hud-edge:8px;
+  --hud-gap:6px;
+  --hud-map-size:clamp(76px,24vw,108px);
+  --hud-row-height:max(94px,var(--hud-map-size));
+ }
+ #hudTop{grid-template-columns:minmax(0,1fr) minmax(0,1fr) var(--hud-map-size)}
+ #hudTop #playerFrame{height:94px;min-height:94px;padding:6px 5px 6px 34px}
+ #hudTop #playerFrame .portrait{width:25px;height:25px;left:5px;top:30px}
+ #hudTop #playerFrame #levelBadge{width:14px;height:14px;font-size:8px}
+ #hudTop #playerName{font-size:11px;line-height:13px}
+ #hudTop #className{font-size:8px;line-height:11px;margin-bottom:4px}
+ #hudTop #combatState{font-size:8px}
+ #hudTop #targetFrame,#hudTop #allyFrame,#hudTop #targetPlaceholder{
+  min-height:94px
+ }
+ #hudTop #targetFrame{padding:7px 25px 7px 6px}
+ #hudTop #targetName{font-size:11px;line-height:14px;margin-bottom:5px}
+ #hudTop #targetDistance,#hudTop #targetStatus{font-size:9px;line-height:1.3}
+ #hudTop #targetClear{width:22px;height:22px;font-size:18px;line-height:17px;right:3px;top:4px}
+ #hudTop #targetFrame.dummy-target{padding:7px 24px 8px 6px}
+ #hudTop #allyFrame{padding:7px 23px 8px 6px}
+ #hudTop #allyClear{width:22px;height:22px;font-size:19px;line-height:18px}
+ #hudTop #allyInvite{font-size:9px;padding:5px 3px}
+ #hudTop #mapLabel{font-size:8px}
+ #zoneTitle{display:none}
+ #quest,#targetFrame:not([hidden])~#quest,
+ #targetFrame.dummy-target:not([hidden])~#quest,
+ #allyFrame:not([hidden])~#quest{
+  top:calc(20px + var(--safe-top) + var(--hud-row-height));
+  width:calc((100vw - 22px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))/2);
+  max-width:none;left:calc(8px + env(safe-area-inset-left,0px))
+ }
+ #top{
+  top:calc(20px + var(--safe-top) + var(--hud-row-height));
+  width:calc((100vw - 22px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))/2);
+  right:calc(8px + env(safe-area-inset-right,0px));gap:4px
+ }
+ #top .smallButton{
+  font:10px/1.25 system-ui,sans-serif;
+  min-height:31px;padding:5px 3px;white-space:nowrap
+ }
+ #top .smallButton kbd{display:none}
+}
+@media(max-width:360px){
+ #hudTop #playerFrame{padding-left:28px;padding-right:4px}
+ #hudTop #playerFrame .portrait{width:20px;height:20px;left:4px;top:32px}
+ #hudTop #playerName{font-size:10px}
+ #hudTop #className{font-size:8px}
+ #hudTop #playerFrame .bar>span{font-size:8px}
+ #hudTop #playerFrame #resourceBar.bar.rage>span{font-size:8px}
+ #hudTop #targetName{font-size:10px}
+ #hudTop #targetFrame.dummy-target .dummy-metrics{font-size:9px}
+ #top .smallButton{font-size:9px;padding:5px 2px}
+ #hudTop #mapLabel{font-size:7px}
+}
+@media(max-height:510px) and (min-width:600px){
+ :root{--hud-map-size:80px;--hud-row-height:94px}
+ #hudTop #playerFrame{height:90px;min-height:90px}
+ #hudTop #targetFrame,#hudTop #allyFrame,#hudTop #targetPlaceholder{min-height:90px}
+ #quest,#targetFrame:not([hidden])~#quest,
+ #targetFrame.dummy-target:not([hidden])~#quest,
+ #allyFrame:not([hidden])~#quest{top:calc(18px + var(--safe-top) + var(--hud-row-height))}
+ #top{top:calc(18px + var(--safe-top) + var(--hud-row-height))}
+}
