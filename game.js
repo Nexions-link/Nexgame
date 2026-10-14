@@ -220,7 +220,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
  if(weapon){
   // Place the grip inside the closed right palm rather than floating above it.
-   const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.z=-.08;
+   const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(-.22,-Math.PI/2,-.08,'YXZ');
   rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
   for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
   const blade=new THREE.Shape();blade.moveTo(-.07,.84);blade.lineTo(.26,1.02);blade.quadraticCurveTo(.76,.98,.67,.49);blade.lineTo(.24,.35);blade.lineTo(.19,.54);blade.lineTo(-.07,.54);blade.closePath();
