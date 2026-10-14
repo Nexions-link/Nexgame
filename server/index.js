@@ -8,6 +8,8 @@ import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs} from './world-mob
 const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
+const WORLD_PROTOCOL=2; // Includes authoritative idle-wildlife snapshots.
+const WORLD_BUILD='0.3.5.23';
 const MAX_MESSAGE_BYTES=1024;
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
 const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -24,7 +26,7 @@ const send=(socket,payload)=>{if(socket.readyState===WebSocket.OPEN)socket.send(
 const http=createServer((req,res)=>{
  if(req.url==='/health'){
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
-  res.end(encode({ok:true,world:'mulgore',players:players.size}));
+  res.end(encode({ok:true,world:'mulgore',players:players.size,mobs:mobs.length,protocol:WORLD_PROTOCOL,build:WORLD_BUILD}));
   return;
  }
  res.writeHead(404);res.end('Not found');
@@ -41,7 +43,7 @@ wss.on('connection',ws=>{
  const id=randomUUID(),now=Date.now();
  const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,updatedAt:now};
  clients.set(ws,id);players.set(id,player);
- send(ws,{type:'welcome',id,world:'mulgore',tickMs:TICK_MS,
+ send(ws,{type:'welcome',id,world:'mulgore',tickMs:TICK_MS,protocol:WORLD_PROTOCOL,build:WORLD_BUILD,
   players:[...players.values()].filter(other=>other.id!==id),
   mobs:snapshotMulgoreMobs(mobs)});
  ws.on('message',raw=>{
@@ -79,7 +81,7 @@ const interval=setInterval(()=>{
  tickMulgoreMobs(mobs,(now-lastMobTick)/1000);lastMobTick=now;
  const snapshot=[...players.values()].map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,moving:p.moving}));
  const mobSnapshot=snapshotMulgoreMobs(mobs);
- for(const client of clients.keys())send(client,{type:'snapshot',players:snapshot,mobs:mobSnapshot});
+ for(const client of clients.keys())send(client,{type:'snapshot',protocol:WORLD_PROTOCOL,players:snapshot,mobs:mobSnapshot});
 },TICK_MS);
 interval.unref();
 http.listen(PORT,'0.0.0.0',()=>console.log('NexGame world listening on '+PORT));
