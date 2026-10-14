@@ -1,0 +1,12 @@
+{
+  "name": "nexgame-world-server",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node --check index.js"
+  },
+  "engines": {"node": ">=20"},
+  "dependencies": {"ws": "^8.18.3"}
+}
