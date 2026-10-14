@@ -5,13 +5,14 @@ import {createServer} from 'node:http';
 import {WebSocketServer,WebSocket} from 'ws';
 import {randomUUID} from 'node:crypto';
 import {createPartyManager} from './groups.js';
+import {createChatManager} from './chat.js';
 import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,applyMulgoreAbility,sanitizeEquipment,rollMulgoreLoot} from './world-mobs.js';
 
 const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
-const WORLD_PROTOCOL=4; // PvE plus names, targeting and ephemeral five-player parties.
-const WORLD_BUILD='0.3.5.25';
+const WORLD_PROTOCOL=5; // World and party chat, PvE and ephemeral groups.
+const WORLD_BUILD='0.3.5.27';
 const MAX_MESSAGE_BYTES=1024;
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
 const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -27,6 +28,7 @@ const send=(socket,payload)=>{if(socket.readyState===WebSocket.OPEN)socket.send(
 const broadcast=payload=>{for(const socket of clients.keys())send(socket,payload)};
 const sendToPlayer=(id,payload)=>{for(const [socket,otherId] of clients)if(id===otherId)send(socket,payload)};
 const parties=createPartyManager({players,send:sendToPlayer});
+const chat=createChatManager({players,parties,send:sendToPlayer,broadcast});
 
 const http=createServer((req,res)=>{
  if(req.url==='/health'){
@@ -41,6 +43,7 @@ const wss=new WebSocketServer({server:http,maxPayload:MAX_MESSAGE_BYTES,
 function disconnect(ws){
  const id=clients.get(ws);if(!id)return;
  parties.disconnect(id);
+ chat.disconnect(id);
  clients.delete(ws);players.delete(id);
  for(const client of clients.keys())send(client,{type:'leave',id});
 }
@@ -86,6 +89,7 @@ wss.on('connection',ws=>{
   if(data.type==='partyInvite'){parties.invite(id,data.targetId);return}
   if(data.type==='partyRespond'){parties.respond(id,data.fromId,data.accept===true);return}
   if(data.type==='partyLeave'){parties.leave(id);return}
+  if(data.type==='chatSend'){chat.handle(id,data);return}
   if(data.type==='attack'){
    const result=applyMulgoreAbility(mobs,player,data.abilityId,data.mobId);
    if(!result.ok){send(ws,{type:'combatRejected',abilityId:data.abilityId,reason:result.reason});return}
