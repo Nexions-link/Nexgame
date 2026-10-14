@@ -1,3 +1,5 @@
+import {createWorldPresence} from './online.js?v=0.3.5.20';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.20';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1893,6 +1895,57 @@ function renderJournal(){
  }
  body.appendChild(list);
 }
+// Online stage 1: shared player presence only; solo mobs, combat and loot remain local.
+const remotePlayers=new Map();
+function removeRemotePlayer(id){
+ const remote=remotePlayers.get(id);if(!remote)return;
+ scene.remove(remote.actor.root,remote.actor.shadow,remote.nameTag);
+ remote.nameTag.material.map.dispose();remote.nameTag.material.dispose();
+ remotePlayers.delete(id);
+}
+function updateRemoteSnapshot(list){
+ if(!Array.isArray(list))return;
+ const visible=new Set();
+ for(const p of list.slice(0,40)){
+  if(typeof p?.id!=='string'||!Number.isFinite(p.x)||!Number.isFinite(p.z)||
+     !Number.isFinite(p.yaw)||p.x<-1000||p.x>1000||p.z<-1000||p.z>1000)continue;
+  visible.add(p.id);
+  let remote=remotePlayers.get(p.id);
+  if(!remote){
+   const actor=makeTauren({fur:0x977c61,cloth:M.teal,scale:.94,weapon:false});
+   actor.root.position.set(p.x,heightAt(p.x,p.z),p.z);actor.root.rotation.y=p.yaw;
+   const nameTag=spriteText(String(p.name||'Странник').slice(0,24),'#c3f1ff',26);
+   scene.add(nameTag);
+   remote={actor,nameTag,x:p.x,z:p.z,yaw:p.yaw,lastX:p.x,lastZ:p.z,moving:false};
+   remotePlayers.set(p.id,remote);
+  }
+  remote.x=p.x;remote.z=p.z;remote.yaw=p.yaw;remote.moving=!!p.moving;
+ }
+ for(const id of remotePlayers.keys())if(!visible.has(id))removeRemotePlayer(id);
+}
+function animateRemotePlayers(dt){
+ for(const remote of remotePlayers.values()){
+  const actor=remote.actor,position=actor.root.position;
+  const lerp=1-Math.exp(-Math.max(0,dt)*11);
+  position.x+= (remote.x-position.x)*lerp;position.z+=(remote.z-position.z)*lerp;
+  position.y=heightAt(position.x,position.z);
+  const turn=Math.atan2(Math.sin(remote.yaw-actor.root.rotation.y),Math.cos(remote.yaw-actor.root.rotation.y));
+  actor.root.rotation.y+=turn*lerp;
+  const traveled=Math.hypot(position.x-remote.lastX,position.z-remote.lastZ);
+  remote.lastX=position.x;remote.lastZ=position.z;
+  actor.phase+=traveled*.65;
+  animateTauren(actor,clock,dt,remote.moving?Math.min(1,traveled/Math.max(dt*.8,.001)):0);
+  remote.nameTag.position.set(position.x,position.y+4.4,position.z);
+ }
+}
+const worldConnection=createWorldPresence({
+ url:WORLD_WS_URL,
+ onStatus:status=>{const el=$('onlineStatus');if(el)el.textContent=status==='online'?'Мир: онлайн':status==='connecting'?'Мир: подключение':status==='solo'?'Мир: одиночный':'Мир: нет связи';},
+ onPlayers:updateRemoteSnapshot,
+ onLeave:removeRemotePlayer,
+ getPosition:()=>({x:state.x,z:state.z,yaw:state.yaw,level:state.level,moving:Math.abs(joy.x)+Math.abs(joy.y)>0||keys.has('w')||keys.has('arrowup')})
+});
+
 let lastMarker='';
 function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=state.level;$('hpText').textContent=Math.ceil(state.hp)+' / '+max;$('hpFill').style.width=state.hp/max*100+'%';$('xpFill').style.width=Math.min(100,state.xp/xpNeed()*100)+'%';$('xpText').textContent='Опыт '+state.xp+' / '+xpNeed();updateHotbarVisuals();
  const klass=getClassDefinition(state.classId);
@@ -2160,7 +2213,7 @@ function update(dt){
  if(state.quest===7&&Math.hypot(state.x-SCOUT_X,state.z-SCOUT_Z)<5.2){
   state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
  }
- enemies.forEach(e=>updateEnemy(e,dt));if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
+ animateRemotePlayers(dt);enemies.forEach(e=>updateEnemy(e,dt));if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);herbalistMarker.position.set(8,heightAt(8,1)+5.65+Math.sin(clock*2.1)*.1,1);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
  selection.visible=isAliveTarget(selected);
  if(selection.visible){
