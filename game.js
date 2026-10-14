@@ -1917,7 +1917,7 @@ function updateRemoteSnapshot(list){
    actor.root.position.set(p.x,heightAt(p.x,p.z),p.z);actor.root.rotation.y=p.yaw;
    const nameTag=spriteText(String(p.name||'Странник').slice(0,24),'#c3f1ff',26);
    scene.add(nameTag);
-   remote={actor,nameTag,x:p.x,z:p.z,yaw:p.yaw,lastX:p.x,lastZ:p.z,moving:false};
+   remote={actor,nameTag,x:p.x,z:p.z,yaw:p.yaw,lastX:p.x,lastZ:p.z,moving:false,attackAge:-1,stompAge:-1};
    remotePlayers.set(p.id,remote);
   }
   remote.x=p.x;remote.z=p.z;remote.yaw=p.yaw;remote.moving=!!p.moving;
@@ -1935,7 +1935,11 @@ function animateRemotePlayers(dt){
   const traveled=Math.hypot(position.x-remote.lastX,position.z-remote.lastZ);
   remote.lastX=position.x;remote.lastZ=position.z;
   actor.phase+=traveled*.65;
-  animateTauren(actor,clock,dt,remote.moving?Math.min(1,traveled/Math.max(dt*.8,.001)):0);
+  const attack=remote.attackAge<0?-1:remote.attackAge/.8;
+  const stomp=remote.stompAge<0?-1:remote.stompAge/.75;
+  animateTauren(actor,clock,dt,remote.moving?Math.min(1,traveled/Math.max(dt*.8,.001)):0,attack,stomp);
+  if(remote.attackAge>=0){remote.attackAge+=dt;if(remote.attackAge>=.8)remote.attackAge=-1}
+  if(remote.stompAge>=0){remote.stompAge+=dt;if(remote.stompAge>=.75)remote.stompAge=-1}
   remote.nameTag.position.set(position.x,position.y+4.4,position.z);
  }
 }
