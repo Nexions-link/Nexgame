@@ -24,7 +24,7 @@ async function ready(port,timeout=8000){
 }
 async function connect(port){
  const ws=new WebSocket('ws://127.0.0.1:'+port);
- const snapshots=new Map(),combats=[],credits=[],enemyAttacks=[];let welcome=null;
+ const snapshots=new Map(),combats=[],credits=[],enemyAttacks=[],partyStates=[],partyInvites=[],partyNotices=[];let welcome=null;
  ws.on('message',message=>{
   const payload=JSON.parse(String(message));
   if(payload.type==='welcome')welcome=payload;
@@ -34,9 +34,12 @@ async function connect(port){
   if(payload.type==='combat')combats.push(payload);
   if(payload.type==='killCredit')credits.push(payload);
   if(payload.type==='mobAttack')enemyAttacks.push(payload);
+  if(payload.type==='partyState')partyStates.push(payload);
+  if(payload.type==='partyInvite')partyInvites.push(payload);
+  if(payload.type==='partyNotice')partyNotices.push(payload);
  });
  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
- return {ws,snapshots,combats,credits,enemyAttacks,getWelcome:()=>welcome};
+ return {ws,snapshots,combats,credits,enemyAttacks,partyStates,partyInvites,partyNotices,getWelcome:()=>welcome};
 }
 
 test('two players receive identical mob states on the same world tick', {timeout:14000},async()=>{
@@ -49,7 +52,7 @@ test('two players receive identical mob states on the same world tick', {timeout
  let a,b;
  try{
   const health=await ready(port);
-  assert.equal(health.protocol,3);
+  assert.equal(health.protocol,4);
   assert.equal(health.mobs,9);
   a=await connect(port);b=await connect(port);
   await new Promise(resolve=>setTimeout(resolve,650));
@@ -95,6 +98,43 @@ test('two real WebSockets land hits on the same creature and both receive kill c
   const snapshots=[...a.snapshots.values()].filter(packet=>packet.mobs[0]?.dead);
   assert.ok(snapshots.length,'dead mob persists in authoritative snapshots');
   assert.equal(snapshots.at(-1).mobs[0].hp,0);
+ }finally{
+  a?.ws.close();b?.ws.close();child.kill('SIGTERM');
+ }
+});
+
+test('two real WebSockets invite, accept, rename and dissolve a party on disconnect',
+ {timeout:12000},async()=>{
+ const port=await freePort();
+ const child=spawn(process.execPath,['index.js'],{
+  cwd:new URL('../',import.meta.url),
+  env:{...process.env,PORT:String(port)},stdio:'ignore'
+ });
+ let a,b;
+ try{
+  await ready(port);
+  a=await connect(port);b=await connect(port);
+  await new Promise(resolve=>setTimeout(resolve,100));
+  const idA=a.getWelcome()?.id,idB=b.getWelcome()?.id;
+  assert.ok(idA&&idB);
+  a.ws.send(JSON.stringify({type:'join',name:'Грозовой Рог',x:0,z:10,yaw:0}));
+  b.ws.send(JSON.stringify({type:'join',name:'Серебряный Рог',x:0,z:10,yaw:0}));
+  await new Promise(resolve=>setTimeout(resolve,75));
+  a.ws.send(JSON.stringify({type:'partyInvite',targetId:idB}));
+  await new Promise(resolve=>setTimeout(resolve,110));
+  assert.equal(b.partyInvites.at(-1)?.fromId,idA);
+  assert.equal(b.partyInvites.at(-1)?.fromName,'Грозовой Рог');
+  b.ws.send(JSON.stringify({type:'partyRespond',fromId:idA,accept:true}));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  assert.deepEqual(a.partyStates.at(-1)?.members,b.partyStates.at(-1)?.members);
+  assert.equal(a.partyStates.at(-1)?.members.length,2);
+  assert.equal(a.partyStates.at(-1)?.leaderId,idA);
+  b.ws.send(JSON.stringify({type:'rename',name:'Новый Рог'}));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  assert.equal(a.partyStates.at(-1)?.members[1]?.name,'Новый Рог');
+  b.ws.close();
+  await new Promise(resolve=>setTimeout(resolve,140));
+  assert.equal(a.partyStates.at(-1)?.groupId,null);
  }finally{
   a?.ws.close();b?.ws.close();child.kill('SIGTERM');
  }
