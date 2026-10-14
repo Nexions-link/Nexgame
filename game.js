@@ -1978,7 +1978,7 @@ function renderGroupHud(){
  toggle.appendChild(chevron);
  toggle.addEventListener('click',toggleGroupHud);
  if(partyHudCollapsed){
-  const icon=document.createElement('span');icon.className='party-hud-icon';icon.textContent='♟';
+  const icon=document.createElement('span');icon.className='party-hud-icon';icon.textContent='👥';
   const count=document.createElement('span');count.className='party-hud-count';
   count.textContent=members.length+'/5';
   toggle.append(icon,count);
