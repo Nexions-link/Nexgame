@@ -13,13 +13,13 @@ const source=script.slice(start,end);
 const scene={name:'scene'};
 const root=name=>({name,parent:scene,visible:true});
 const enemy={root:root('enemy'),hp:54,dead:0,corpseAge:0};
-const dummy={root:root('dummy'),hp:99999,dead:0,corpseAge:0};
+const dummy={root:root('dummy'),nameTag:root('dummyName'),hp:99999,dead:0,corpseAge:0};
 const corpse={root:root('corpse'),hp:0,dead:55,corpseAge:1};
 const hero={root:root('hero')},npc={actor:{root:root('npc')},nameTag:root('npcName')};
 const resource={root:root('resource')};
 const relic=root('relic'),merchantLabel=root('merchantLabel');
 const questMarker=root('questMarker'),herbalistMarker=root('herbalistMarker');
-const targets={enemy:enemy.root,dummy:dummy.root,corpse:corpse.root,resource:resource.root,
+const targets={enemy:enemy.root,dummy:dummy.root,dummyName:dummy.nameTag,corpse:corpse.root,resource:resource.root,
  hero:hero.root,npc:npc.actor.root,npcName:npc.nameTag,relic,merchantLabel,questMarker,herbalistMarker};
 const children=Object.fromEntries(Object.entries(targets).map(([key,value])=>[key,{parent:value}]));
 const canvas={handlers:{},style:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn)},
@@ -65,8 +65,11 @@ test('empty tap with no selected enemy is harmless',()=>{tap();assert.equal(clea
 test('tapping the training dummy selects instead of clearing',()=>{
  ctx.selected=enemy;tap('dummy');assert.equal(ctx.selected,dummy);assert.equal(selects,1);
 });
+test('tapping the dummy nameplate selects the dummy as a real target',()=>{
+ tap('dummyName');assert.equal(ctx.selected,dummy);assert.equal(selects,2);
+});
 test('tapping an enemy selects it',()=>{
- tap('enemy');assert.equal(ctx.selected,enemy);assert.equal(selects,2);
+ tap('enemy');assert.equal(ctx.selected,enemy);assert.equal(selects,3);
 });
 test('corpse tap opens loot, keeping target',()=>{
  tap('corpse');assert.equal(loots,1);assert.equal(ctx.selected,enemy);
