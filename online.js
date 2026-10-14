@@ -8,7 +8,7 @@ export function createWorldPresence({url,onStatus,onPlayers,onLeave,onWelcome,ge
   if(closed||!url)return;
   status('connecting');
   const ws=new WebSocket(url);socket=ws;
-  ws.onopen=()=>{status('online');send({type:'join',name:'Странник'});
+  ws.onopen=()=>{status('online');send({type:'join',name:'Странник',...getPosition?.()});
    interval=setInterval(()=>{const p=getPosition?.();if(p)send({type:'move',...p})},100);
   };
   ws.onmessage=e=>{
