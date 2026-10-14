@@ -672,3 +672,30 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #top{top:calc(165px + var(--safe-top))}
  #quest,#targetFrame:not([hidden])~#quest,#targetFrame.dummy-target:not([hidden])~#quest{top:calc(85px + var(--safe-top))}
 }
+
+/* Alpha 0.3.5.6: readable rage/mana value and XP numbers on mobile. */
+#playerFrame{height:76px;min-height:76px}
+#playerFrame .portrait{top:16px}
+#playerFrame .bar.rage,#playerFrame #resourceBar.bar.rage{
+ height:14px;margin-top:3px;overflow:hidden;
+}
+#playerFrame #resourceBar.bar.rage>span{
+ display:block!important;position:absolute;inset:0;
+ font:700 9px/12px system-ui,sans-serif;
+ color:#fff1d1;text-shadow:0 1px 3px #000,0 0 2px #000;
+ white-space:nowrap;text-align:center;
+}
+#playerFrame #combatState{margin-top:2px}
+#xpWrap{height:13px;bottom:calc(5px + var(--safe-bottom));border-radius:3px;overflow:hidden}
+#xpText,#xpWrap #xpText{
+ display:block!important;position:absolute;inset:0;top:0;
+ font:700 10px/11px system-ui,sans-serif;
+ text-align:center;color:#fff4d3;
+ text-shadow:0 1px 3px #000,0 0 3px #000;
+ white-space:nowrap;z-index:2;pointer-events:none;
+}
+@media(max-width:360px){
+ #playerFrame{height:78px;min-height:78px}
+ #playerFrame .portrait{top:18px}
+ #playerFrame #resourceBar.bar.rage>span{font-size:8px}
+}
