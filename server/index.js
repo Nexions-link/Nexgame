@@ -4,13 +4,14 @@
 import {createServer} from 'node:http';
 import {WebSocketServer,WebSocket} from 'ws';
 import {randomUUID} from 'node:crypto';
+import {createPartyManager} from './groups.js';
 import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,applyMulgoreAbility,sanitizeEquipment,rollMulgoreLoot} from './world-mobs.js';
 
 const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
-const WORLD_PROTOCOL=3; // Server-authoritative PvE: combat, kill credits and mob attacks.
-const WORLD_BUILD='0.3.5.24';
+const WORLD_PROTOCOL=4; // PvE plus names, targeting and ephemeral five-player parties.
+const WORLD_BUILD='0.3.5.25';
 const MAX_MESSAGE_BYTES=1024;
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
 const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -25,6 +26,7 @@ const encode=value=>JSON.stringify(value);
 const send=(socket,payload)=>{if(socket.readyState===WebSocket.OPEN)socket.send(encode(payload));};
 const broadcast=payload=>{for(const socket of clients.keys())send(socket,payload)};
 const sendToPlayer=(id,payload)=>{for(const [socket,otherId] of clients)if(id===otherId)send(socket,payload)};
+const parties=createPartyManager({players,send:sendToPlayer});
 
 const http=createServer((req,res)=>{
  if(req.url==='/health'){
@@ -38,18 +40,20 @@ const wss=new WebSocketServer({server:http,maxPayload:MAX_MESSAGE_BYTES,
  verifyClient:({origin},done)=>done(!ALLOWED_ORIGINS.length||ALLOWED_ORIGINS.includes(origin))});
 function disconnect(ws){
  const id=clients.get(ws);if(!id)return;
+ parties.disconnect(id);
  clients.delete(ws);players.delete(id);
  for(const client of clients.keys())send(client,{type:'leave',id});
 }
 wss.on('connection',ws=>{
  if(clients.size>=MAX_PLAYERS){ws.close(1013,'World is full');return}
  const id=randomUUID(),now=Date.now();
- const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,updatedAt:now,equipment:{}};
+ const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,updatedAt:now,equipment:{},hp:120,maxHp:120};
  let joined=false;
  clients.set(ws,id);players.set(id,player);
  send(ws,{type:'welcome',id,world:'mulgore',tickMs:TICK_MS,protocol:WORLD_PROTOCOL,build:WORLD_BUILD,
   players:[...players.values()].filter(other=>other.id!==id),
   mobs:snapshotMulgoreMobs(mobs)});
+ send(ws,parties.state(id));
  ws.on('message',raw=>{
   let data;try{data=JSON.parse(String(raw))}catch{return}
   if(!data||typeof data!=='object')return;
@@ -64,10 +68,24 @@ wss.on('connection',ws=>{
    if(finite(data.yaw,-Math.PI*4,Math.PI*4))player.yaw=data.yaw;
    if(integer(data.level,1,60))player.level=data.level;
    player.equipment=sanitizeEquipment(data.equipment,player.level);
+   if(finite(data.maxHp,1,10000)&&finite(data.hp,0,data.maxHp)){
+    player.hp=data.hp;player.maxHp=data.maxHp;
+   }
    player.updatedAt=Date.now();
    return;
   }
   if(!joined)return;
+  if(data.type==='rename'){
+   const name=cleanName(data.name);
+   if(!name){send(ws,{type:'partyNotice',error:true,message:'Имя не должно быть пустым'});return}
+   player.name=name;
+   parties.renamed(id);
+   send(ws,{type:'nameChanged',name});
+   return;
+  }
+  if(data.type==='partyInvite'){parties.invite(id,data.targetId);return}
+  if(data.type==='partyRespond'){parties.respond(id,data.fromId,data.accept===true);return}
+  if(data.type==='partyLeave'){parties.leave(id);return}
   if(data.type==='attack'){
    const result=applyMulgoreAbility(mobs,player,data.abilityId,data.mobId);
    if(!result.ok){send(ws,{type:'combatRejected',abilityId:data.abilityId,reason:result.reason});return}
@@ -92,6 +110,9 @@ wss.on('connection',ws=>{
   player.moving=data.moving;player.updatedAt=now;
   if(integer(data.level,1,60))player.level=data.level; // Temporary, untrusted level until accounts.
   if(data.equipment)player.equipment=sanitizeEquipment(data.equipment,player.level);
+  if(finite(data.maxHp,1,10000)&&finite(data.hp,0,data.maxHp)){
+   player.hp=data.hp;player.maxHp=data.maxHp;
+  }
  });
  ws.on('close',()=>disconnect(ws));
  ws.on('error',()=>disconnect(ws));
@@ -102,7 +123,7 @@ const interval=setInterval(()=>{
  const now=performance.now();
  const mobEvents=tickMulgoreMobs(mobs,(now-lastMobTick)/1000,[...players.values()],Date.now());lastMobTick=now;
  for(const event of mobEvents)broadcast(event);
- const snapshot=[...players.values()].map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,moving:p.moving}));
+ const snapshot=[...players.values()].map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,moving:p.moving,hp:p.hp,maxHp:p.maxHp}));
  const mobSnapshot=snapshotMulgoreMobs(mobs);
  for(const client of clients.keys())send(client,{type:'snapshot',protocol:WORLD_PROTOCOL,tick:worldTick,players:snapshot,mobs:mobSnapshot});
 },TICK_MS);
