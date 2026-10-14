@@ -6,6 +6,8 @@ on:
     paths:
       - 'game.js'
       - 'index.html'
+      - 'app.html'
+      - 'tests/bootstrap.test.mjs'
       - 'style.css'
       - 'tests/hud-layout.test.mjs'
       - 'online.js'
@@ -19,6 +21,8 @@ on:
     paths:
       - 'game.js'
       - 'index.html'
+      - 'app.html'
+      - 'tests/bootstrap.test.mjs'
       - 'style.css'
       - 'tests/hud-layout.test.mjs'
       - 'online.js'
@@ -45,10 +49,11 @@ jobs:
           node --check party-map.js
           node --check tests/party-map.test.mjs
           node --check tests/hud-layout.test.mjs
+          node --check tests/bootstrap.test.mjs
           npm run check --prefix server
       - name: Install only server dependencies
         run: npm install --prefix server --no-audit --no-fund
       - name: Test private chat, party map, PvE and real WebSocket sessions
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs
+          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs
           npm test --prefix server
