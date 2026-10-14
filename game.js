@@ -1,4 +1,4 @@
-import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.16';
+import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
 import {HOTBAR_SLOT_COUNT,DEFAULT_HOTBAR,USABLE_ITEMS,actionEntry,actionDefinition,availableHotbarActions,normalizeHotbar,assignHotbarSlot} from './hotbar.js?v=0.3.5.3';
@@ -479,7 +479,6 @@ const coins=value=>value+' мон.';
 function itemStatText(def){
  const parts=[];
  if(def.damageMin)parts.push(def.damageMin+'–'+def.damageMax+' урона',def.speed.toFixed(2).replace('.',',')+' сек.',((def.damageMin+def.damageMax)/2/def.speed).toFixed(1).replace('.',',')+' урона/сек.');
- if(def.bonusDamage)parts.push('+'+def.bonusDamage.toLocaleString('ru-RU')+' к урону (тест)');
  if(def.armor)parts.push(def.armor+' брони');
  if(def.strength)parts.push('+'+def.strength+' к силе');
  if(def.stamina)parts.push('+'+def.stamina+' к выносливости');
@@ -789,6 +788,8 @@ function rollCorpseLoot(enemy=null){
 }
 
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
+// One-time migration: purge retired test weapons from old saves.
+const hadRetiredTestAxe=(Array.isArray(state.inventory)&&state.inventory.some(item=>item?.id==='stormbeakCrusher'))||state.equipment?.weapon?.id==='stormbeakCrusher'||(Array.isArray(state.buyback)&&state.buyback.some(item=>item?.id==='stormbeakCrusher'));
 state.level=clamp(Math.floor(state.level),1,60);state.classId=normalizeClassId(state.classId);state.resource=normalizeResource(state.resource,state.classId);state.quest=clamp(Math.floor(state.quest),0,12);state.gatherStage=clamp(Math.floor(state.gatherStage),0,4);if(state.gatherStage===0||state.gatherStage===4)state.gatherAvailable=false;state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
 state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
 state.actionBar=normalizeHotbar(state.actionBar,state.classId,state.level);
@@ -799,6 +800,7 @@ state.buyback=Array.isArray(state.buyback)?state.buyback.filter(row=>row&&ITEM_C
 state.hp=clamp(state.hp,1,playerStats().maxHp);syncEquipmentVisuals();
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
+if(hadRetiredTestAxe)save(); // Keep the already-normalized save without removed items.
 let hotbarPending=null,spellbookTab='abilities';
 const hotbarButtons=[],hotbarVisuals=[];
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
@@ -1510,8 +1512,7 @@ function damageEnemy(e,amount,source='autoAttack'){
  e.hp-=amount;e.aggro=true;e.hit=.22;
  if(e.hp<=0){
   e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
-  // TEMP TEST DROP: 100% from Грозоклюв, separate from random equipment drops.
-  e.loot=e.boss?[{id:'giantFeather',qty:1},{id:'stormbeakCrusher',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
+  e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
   e.root.visible=true;e.shadow.visible=true;
   e.lootMarker.visible=e.loot.length>0;
   e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.35,e.root.position.z);
