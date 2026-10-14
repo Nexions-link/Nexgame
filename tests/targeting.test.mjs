@@ -31,7 +31,7 @@ const ctx={
  scene,renderer:{domElement:canvas},hero,npcs:[npc],relic,merchantLabel,questMarker,herbalistMarker,
  gatherNodes:[resource],enemies:[enemy,dummy,corpse],
  look:{id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},
- modalKind:null,selected:enemy,autoAttack:true,joy:{id:45,y:-1},
+ modalKind:null,selected:enemy,autoAttack:true,hotbarPending:null,joy:{id:45,y:-1},
  innerWidth:1000,innerHeight:700,camera:{},cameraYaw:0,cameraPitch:.5,cameraFollowCooldown:0,
  cameraSlider:{blur(){}},document:{activeElement:null},performance:{now:()=>now},
  THREE:{Vector2:class {constructor(x,y){this.x=x;this.y=y}},
@@ -43,6 +43,7 @@ const ctx={
  startGather:()=>{harvests++;return true},
  setTarget:target=>{ctx.selected=target;selects++},
  clearTarget:()=>{ctx.selected=null;ctx.autoAttack=false;clears++},
+ cancelHotbarAssignment:()=>{ctx.hotbarPending=null},
  finishLook:()=>{ctx.look.id=null;finishes++},
 };
 const api=new Function('ctx','with(ctx){'+source+'\nreturn {handleWorldTap};}')(ctx);
@@ -105,6 +106,14 @@ test('multi-touch on the canvas does not deselect',()=>{
 });
 test('modal dialogs block world taps',()=>{
  ctx.modalKind='inventory';tap();assert.equal(ctx.selected,enemy);ctx.modalKind=null;
+});
+test('assigning a skill: tapping terrain cancels edit without clearing combat target',()=>{
+ ctx.hotbarPending={kind:'ability',id:'heavyStrike'};
+ ctx.selected=enemy;
+ tap('empty');
+ assert.equal(ctx.selected,enemy);
+ assert.equal(ctx.hotbarPending,null);
+ assert.equal(clears,1);
 });
 test('right mouse button is not treated as a tap',()=>{
  canvas.emit('pointerdown',{pointerId:31,button:2});
