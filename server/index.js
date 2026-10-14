@@ -75,13 +75,14 @@ wss.on('connection',ws=>{
  ws.on('close',()=>disconnect(ws));
  ws.on('error',()=>disconnect(ws));
 });
-let lastMobTick=performance.now();
+let lastMobTick=performance.now(),worldTick=0;
 const interval=setInterval(()=>{
+ worldTick++;
  const now=performance.now();
  tickMulgoreMobs(mobs,(now-lastMobTick)/1000);lastMobTick=now;
  const snapshot=[...players.values()].map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,moving:p.moving}));
  const mobSnapshot=snapshotMulgoreMobs(mobs);
- for(const client of clients.keys())send(client,{type:'snapshot',protocol:WORLD_PROTOCOL,players:snapshot,mobs:mobSnapshot});
+ for(const client of clients.keys())send(client,{type:'snapshot',protocol:WORLD_PROTOCOL,tick:worldTick,players:snapshot,mobs:mobSnapshot});
 },TICK_MS);
 interval.unref();
 http.listen(PORT,'0.0.0.0',()=>console.log('NexGame world listening on '+PORT));
