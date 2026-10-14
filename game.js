@@ -1921,6 +1921,166 @@ function renderJournal(){
 // Online stage 2a: remote player presence + shared server-driven idle wildlife.
 // Combat, loot, aggro and personal quest progress still stay local until stage 2b.
 const remotePlayers=new Map();
+let selectedPlayerId=null;
+let currentParty={groupId:null,leaderId:null,members:[]};
+let pendingPartyInvite=null,partyInviteTimer=null,lastPartyHudSignature='';
+function isInParty(id){return currentParty.members.some(p=>p.id===id)}
+function playerRosterEntry(id){
+ if(id===onlineSelfId)return {id,name:characterName,level:state.level,hp:state.hp,maxHp:playerStats().maxHp};
+ const remote=remotePlayers.get(id);
+ return remote?{id,name:remote.name,level:remote.level,hp:remote.hp,maxHp:remote.maxHp}:null;
+}
+function renderGroupHud(){
+ const widget=$('partyHud');
+ if(!currentParty.groupId||currentParty.members.length<2){
+  widget.hidden=true;lastPartyHudSignature='';widget.replaceChildren();return;
+ }
+ const members=currentParty.members.map(m=>({...m,...playerRosterEntry(m.id)}));
+ const signature=JSON.stringify(members.map(m=>[m.id,m.name,m.level,Math.round(m.hp||0),Math.round(m.maxHp||0)]));
+ if(!widget.hidden&&signature===lastPartyHudSignature)return;
+ lastPartyHudSignature=signature;widget.hidden=false;widget.replaceChildren();
+ const title=document.createElement('div');title.id='partyHudTitle';
+ title.textContent='ГРУППА '+members.length+'/5';widget.appendChild(title);
+ for(const member of members){
+  const button=document.createElement('button');button.type='button';button.className='party-hud-member';
+  button.textContent=(member.id===currentParty.leaderId?'★ ':'')+(member.name||'Странник')+' · '+(member.level||1);
+  const track=document.createElement('span');track.className='party-hud-health';
+  const fill=document.createElement('i');
+  const max=Number.isFinite(member.maxHp)&&member.maxHp>0?member.maxHp:1;
+  fill.style.width=Math.max(0,Math.min(100,(member.hp||0)/max*100))+'%';
+  track.appendChild(fill);button.appendChild(track);
+  button.addEventListener('click',()=>member.id===onlineSelfId?openPartyDialog():selectRemotePlayer(member.id));
+  widget.appendChild(button);
+ }
+}
+function renderAllySelection(){
+ const remote=remotePlayers.get(selectedPlayerId);
+ const panel=$('allyFrame');panel.hidden=!remote;
+ if(!remote)return;
+ $('allyName').textContent=remote.name||'Странник';
+ $('allyLevel').textContent='Таурен · Воин · уровень '+(remote.level||1);
+ const max=Number.isFinite(remote.maxHp)&&remote.maxHp>0?remote.maxHp:1;
+ $('allyHpFill').style.width=Math.max(0,Math.min(100,(remote.hp||0)/max*100))+'%';
+ $('allyHpText').textContent=Number.isFinite(remote.hp)?Math.ceil(remote.hp)+' / '+Math.ceil(max)+' HP':'HP —';
+ const invitedAlready=isInParty(selectedPlayerId);
+ const blocked=currentParty.groupId&&currentParty.leaderId!==onlineSelfId;
+ const full=currentParty.members.length>=5;
+ const button=$('allyInvite');
+ button.disabled=!worldConnection?.connected()||invitedAlready||blocked||full;
+ button.textContent=invitedAlready?'Уже в группе':blocked?'Приглашает лидер':full?'Группа заполнена':'Пригласить в группу';
+}
+function selectRemotePlayer(id){
+ if(id&&!remotePlayers.has(id))return;
+ if(id){
+  clearTarget();
+  selectedPlayerId=id;
+ }else selectedPlayerId=null;
+ renderAllySelection();
+}
+function inviteRemotePlayer(id){
+ if(!id||!remotePlayers.has(id)){msg('Игрок недоступен');return}
+ if(!worldConnection?.invite(id)){msg('Сначала подключись к миру');return}
+ msg('Приглашение отправляется');
+}
+function saveCharacterName(raw){
+ const next=sanitizePlayerName(raw);
+ if(next.length<2){msg('Имя должно содержать хотя бы 2 символа');return}
+ characterName=next;
+ try{localStorage.setItem(playerNameKey,next)}catch{}
+ $('playerName').textContent=next;
+ if(worldConnection?.connected())worldConnection.rename(next);
+ if(modalKind==='party')renderPartyDialog();
+ msg('Имя персонажа: '+next);
+}
+function renderPartyDialog(){
+ openDialog('Группа','ОБЩИЙ МИР · ДО ПЯТИ ИГРОКОВ',[],'party');
+ const parent=$('mbody');
+ const editor=document.createElement('div');editor.className='party-editor';
+ const label=document.createElement('label');label.textContent='Имя персонажа';
+ const input=document.createElement('input');input.id='partyNameInput';input.type='text';
+ input.maxLength=24;input.value=characterName;input.autocomplete='off';
+ input.setAttribute('aria-label','Имя персонажа');
+ label.appendChild(input);
+ const rename=document.createElement('button');rename.type='button';rename.textContent='Сохранить';
+ rename.addEventListener('click',()=>saveCharacterName(input.value));
+ input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();saveCharacterName(input.value)}});
+ editor.append(label,rename);parent.appendChild(editor);
+ const summary=document.createElement('div');summary.className='party-panel-section';
+ summary.textContent=currentParty.groupId?'УЧАСТНИКИ '+currentParty.members.length+'/5':'СОЗДАТЬ ГРУППУ';
+ parent.appendChild(summary);
+ const details=document.createElement('div');details.className='party-panel-roster';parent.appendChild(details);
+ if(currentParty.groupId){
+  for(const member of currentParty.members){
+   const row=document.createElement('div');row.className='party-panel-roster-row';
+   const label=document.createElement('b');
+   label.textContent=(member.id===currentParty.leaderId?'★ ':'')+member.name;
+   const level=document.createElement('span');level.textContent='Ур. '+member.level;
+   row.append(label,level);details.appendChild(row);
+  }
+  if(currentParty.leaderId===onlineSelfId){
+   const hint=document.createElement('p');hint.className='party-panel-note';
+   hint.textContent='Ты лидер группы и можешь приглашать новых игроков.';parent.appendChild(hint);
+  }
+ }else{
+  const hint=document.createElement('p');hint.className='party-panel-note';
+  hint.textContent='Выбери другого таурена в мире и нажми «Пригласить» — группа появится после принятия приглашения. Или пригласи игрока из списка ниже.';
+  parent.appendChild(hint);
+ }
+ const listTitle=document.createElement('div');listTitle.className='party-panel-section';
+ listTitle.textContent='ИГРОКИ В МУЛГОРЕ';parent.appendChild(listTitle);
+ const candidates=[...remotePlayers.entries()].filter(([id])=>!isInParty(id))
+  .sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||'','ru'));
+ if(!candidates.length){
+  const empty=document.createElement('p');empty.className='party-panel-note';
+  empty.textContent='Других доступных игроков пока нет.';parent.appendChild(empty);
+ }
+ const canInvite=!currentParty.groupId||currentParty.leaderId===onlineSelfId;
+ for(const [id,remote] of candidates){
+  const row=document.createElement('div');row.className='party-panel-roster-row';
+  const label=document.createElement('span');label.textContent=(remote.name||'Странник')+' · ур. '+(remote.level||1);
+  const button=document.createElement('button');button.type='button';
+  button.textContent='Пригласить';button.disabled=!canInvite||currentParty.members.length>=5;
+  button.addEventListener('click',()=>inviteRemotePlayer(id));
+  row.append(label,button);parent.appendChild(row);
+ }
+ if(currentParty.groupId){
+  choice('Покинуть группу',()=>{
+   if(!worldConnection.leaveParty())msg('Нет связи с сервером');
+  },'danger');
+ }
+}
+function openPartyDialog(){
+ if(modalKind==='party'){closeDialog();return}
+ renderPartyDialog();
+}
+function applyPartyState(data){
+ if(!data||!Array.isArray(data.members))return;
+ currentParty={groupId:typeof data.groupId==='string'?data.groupId:null,
+  leaderId:typeof data.leaderId==='string'?data.leaderId:null,
+  members:data.members.filter(m=>m&&typeof m.id==='string').slice(0,5)};
+ renderGroupHud();renderAllySelection();
+ if(modalKind==='party')renderPartyDialog();
+}
+function hidePartyInvite(){
+ pendingPartyInvite=null;
+ clearTimeout(partyInviteTimer);
+ $('partyInvitation').hidden=true;
+}
+function receivePartyInvite(event){
+ if(!event||typeof event.fromId!=='string')return;
+ hidePartyInvite();
+ pendingPartyInvite=event.fromId;
+ $('partyInviteMessage').textContent=(event.fromName||'Странник')+' приглашает тебя в группу.';
+ $('partyInvitation').hidden=false;
+ partyInviteTimer=setTimeout(hidePartyInvite,Math.min(60,Math.max(1,event.expiresIn||60))*1000);
+}
+function respondToPartyInvite(accept){
+ const id=pendingPartyInvite;
+ if(!id)return;
+ hidePartyInvite();
+ if(!worldConnection.respondInvite(id,accept))msg('Нет связи с сервером');
+}
+
 function removeRemotePlayer(id){
  const remote=remotePlayers.get(id);if(!remote)return;
  scene.remove(remote.actor.root,remote.actor.shadow,remote.nameTag);
