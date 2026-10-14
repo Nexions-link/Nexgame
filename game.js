@@ -247,7 +247,7 @@ const armorer=makeTauren({fur:0x665043,cloth:M.woodLight,scale:.94});armorer.roo
 const npcs=[{x:6,z:11,name:'Борун Крепкая Ладонь',actor:armorer,type:'armorer'},{x:-1.5,z:-5,name:'Наставник Каменный Рог',actor:mentor,type:'mentor'},{x:8,z:1,name:'Травница Тихая Заря',actor:trader,type:'trader'}];
 // Friendly NPCs are interaction targets, not physical obstacles.
 function spriteText(text,color='#f9df91',size=32){const c=document.createElement('canvas');c.width=512;c.height=96;const ctx=c.getContext('2d');ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold '+size+'px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#302817';ctx.fillStyle=color;ctx.strokeText(text,256,48);ctx.fillText(text,256,48);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,transparent:true}));s.scale.set(4.3,.81,1);return s}
-for(const n of npcs){const name=spriteText(n.name,'#d9e2a1',25);scene.add(name);name.position.set(n.x,heightAt(n.x,n.z)+4.45,n.z)}
+for(const n of npcs){const name=spriteText(n.name,'#d9e2a1',25);scene.add(name);name.position.set(n.x,heightAt(n.x,n.z)+4.45,n.z);n.nameTag=name}
 const merchantLabel=spriteText('Оружие и доспехи', '#e5c574',23);merchantLabel.position.set(6,heightAt(6,11)+3.85,11);scene.add(merchantLabel);
 const questMarker=spriteText('!','#ffe180',72);questMarker.scale.set(2.5,1.6,1);scene.add(questMarker);
 const herbalistMarker=spriteText('!','#ffe180',72);
@@ -878,7 +878,10 @@ function handleWorldTap(clientX,clientY,allowEmptyClear=true){
   if(node){startGather(node);return 'resource'}
  }
  // Characters and the visible relic are not "empty" scenery.
- const characters=[hero.root,...npcs.map(n=>n.actor.root)];
+ const characters=[
+  hero.root,...npcs.flatMap(n=>[n.actor.root,n.nameTag]),
+  merchantLabel,questMarker,herbalistMarker
+ ].filter(o=>o&&o.visible!==false);
  if(relic.visible)characters.push(relic);
  if(pickRay.intersectObjects(characters,true).length)return 'character';
  if(allowEmptyClear&&selected){clearTarget();return 'cleared'}
