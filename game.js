@@ -843,7 +843,7 @@ applyGraphics();setShowFps(settings.showFps,false);
 function rememberCameraPitch(){if(settings.cameraPitch!==cameraPitch){settings.cameraPitch=cameraPitch;saveSettings()}}
 const cameraFollowStoreKey='nexgame-real3d-camera-follow',cameraFollowSwitch=$('cameraFollow');
 const cameraSlider=$('cameraDistance');
-function setCameraDistance(value,persist=true){if(!Number.isFinite(value))return;cameraDistance=Math.round(clamp(value,4,22)*10)/10;cameraSlider.value=String(cameraDistance);const valueText=cameraDistance.toFixed(1).replace('.',',');$('cameraDistanceValue').textContent=valueText;cameraSlider.setAttribute('aria-valuetext',valueText);if(persist)try{localStorage.setItem(cameraStoreKey,String(cameraDistance))}catch(e){}}
+function setCameraDistance(value,persist=true){if(!Number.isFinite(value))return;cameraDistance=Math.round(clamp(value,4,44)*10)/10;cameraSlider.value=String(cameraDistance);const valueText=cameraDistance.toFixed(1).replace('.',',');$('cameraDistanceValue').textContent=valueText;cameraSlider.setAttribute('aria-valuetext',valueText);if(persist)try{localStorage.setItem(cameraStoreKey,String(cameraDistance))}catch(e){}}
 try{const saved=JSON.parse(localStorage.getItem(cameraStoreKey));if(Number.isFinite(saved))setCameraDistance(saved,false)}catch(e){}setCameraDistance(cameraDistance,false);actualCameraDistance=cameraDistance;
 cameraSlider.addEventListener('input',()=>setCameraDistance(Number(cameraSlider.value)));
 function setCameraFollow(enabled,persist=true){
