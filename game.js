@@ -1463,6 +1463,11 @@ function bindImmediateButton(id,action){
 }
 bindImmediateButton('targetNext',()=>cycleTarget());
 bindImmediateButton('targetClear',clearTarget);
+bindImmediateButton('dummyReset',()=>{
+ resetTrainingTarget(trainingDummy);
+ trainingDummy.hit=0;trainingDummy.root.rotation.z=0;
+ updateHUD();msg('Тренировочный манекен: замер урона сброшен');
+});
 bindImmediateButton('strike',strike);
 bindImmediateButton('heal',()=>heal());
 // Touch controls also work with a second finger while the joystick is held.
@@ -1635,19 +1640,35 @@ function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=s
  target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
  const valid=isAliveTarget(selected);
  $('targetFrame').hidden=!valid;$('zoneTitle').hidden=Boolean(valid);
+ const isDummy=valid&&selected.trainingDummy===true;
+ $('targetFrame').classList.toggle('dummy-target',isDummy);
+ $('dummyStats').hidden=!isDummy;
  $('attack').classList.toggle('auto-attacking',autoAttack);
  $('attack').setAttribute('aria-pressed',String(autoAttack));
  $('attackLabel').textContent=autoAttack?'Стоп':'Автоатака';
  $('targetNext').classList.toggle('target-selected',valid);
  if(valid){
   const dist=targetDistance(selected),problem=meleeFailure(selected);
-  $('targetName').textContent=selected.name+(selected.boss?' · 5 · Элитный':' · 1');
+  $('targetName').textContent=selected.trainingDummy?selected.name:selected.name+(selected.boss?' · 5 · Элитный':' · 1');
   $('targetFill').style.width=Math.max(0,selected.hp/selected.maxHp*100)+'%';
   $('targetHp').textContent=Math.ceil(selected.hp)+' / '+selected.maxHp;
   $('targetDistance').textContent='Дистанция: '+dist.toFixed(1).replace('.',',')+' м · удар до '+MELEE_RANGE.toFixed(1).replace('.',',')+' м';
   const status=autoAttack?(problem?'Автоатака: '+problem.toLowerCase():'Автоатака включена'):(problem||'В зоне удара');
   $('targetStatus').textContent=status;
   $('targetStatus').className=problem?(problem.includes('далеко')?'target-far':'target-back'):(autoAttack?'target-active':'target-ready');
+  if(isDummy){
+   const metrics=selected.trainingStats;
+   $('dummyLastHit').textContent='Последний: '+(metrics.hits?metrics.lastDamage.toFixed(0):'—');
+   $('dummyTotal').textContent='Урон: '+Math.round(metrics.totalDamage).toLocaleString('ru-RU');
+   $('dummyDps').textContent='DPS: '+trainingDps(selected).toFixed(1);
+   $('dummyHitCount').textContent='Удары: '+metrics.hits;
+   const ability=metrics.lastAbility?getAbilityDefinition(metrics.lastAbility)?.name:'';
+   $('dummyLastAbility').textContent='Последний навык: '+(ability||'—');
+   const remaining=TRAINING_DUMMY.resetAfter-(clock-metrics.lastHitAt);
+   $('dummyReady').textContent=!metrics.hits?'Манекен готов к тренировке':
+    metrics.restored?'Здоровье восстановлено · следующий удар начнёт новый замер':
+    'Восстановление HP через '+Math.max(0,remaining).toFixed(1).replace('.',',')+' с';
+  }
  }
  const marker=[0,3,6,9].includes(state.quest)?'!':[2,5,8,11].includes(state.quest)?'?':'·';questMarker.visible=state.quest!==12;if(marker!==lastMarker){lastMarker=marker;const c=questMarker.material.map.image,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 72px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#3a2c19';ctx.fillStyle=marker==='·'?'#b4b395':'#ffe180';ctx.strokeText(marker,256,48);ctx.fillText(marker,256,48);questMarker.material.map.needsUpdate=true}relic.visible=state.quest===4;relicShadow.visible=relic.visible;
 }
@@ -1666,6 +1687,13 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
  }
  c.fillStyle='#ffe397';c.fillRect(6*k-4,11*k-4,8,8);c.strokeStyle='#573c18';c.strokeRect(6*k-4,11*k-4,8,8);
  for(const p of mapLandmarks){c.fillStyle=p.color;c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.strokeStyle='#4e4e30';c.lineWidth=1;c.stroke()}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){
+  if(e.trainingDummy){
+   const px=e.root.position.x*k,pz=e.root.position.z*k;
+   c.fillStyle='#ead6a4';c.strokeStyle='#87502e';c.lineWidth=2.4;
+   c.beginPath();c.arc(px,pz,5.1,0,TAU);c.fill();c.stroke();
+   c.fillStyle='#a74f36';c.beginPath();c.arc(px,pz,2.15,0,TAU);c.fill();
+   continue;
+  }
   c.fillStyle=e.boss?'#d33f39':e.aggro?'#b94f35':'#d8c073';
   c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,e.boss?5:2.5,0,TAU);c.fill();
   if(e.boss&&state.quest===10){c.strokeStyle='#ffe4b5';c.lineWidth=1.5;c.stroke()}
@@ -1827,7 +1855,7 @@ function update(dt){
  if(selection.visible){
   selection.position.set(selected.root.position.x,heightAt(selected.root.position.x,selected.root.position.z)+.06,selected.root.position.z);
   selection.material.color.setHex(meleeFailure(selected)?0xd97456:0xe9db84);
-  selection.material.opacity=autoAttack?.96:.79;selection.scale.setScalar(selected.boss?1.65:1);
+  selection.material.opacity=autoAttack?.96:.79;selection.scale.setScalar(selected.boss?1.65:selected.trainingDummy?1.2:1);
  }
  shockAge+=dt;stompRing.visible=shockAge<.6;if(stompRing.visible){stompRing.scale.setScalar(1+shockAge*7);stompRing.material.opacity=(1-shockAge/.6)*.7}
  attackOverlay.style.transform='scaleY('+clamp(attackCooldown/playerStats().speed,0,1)+')';
