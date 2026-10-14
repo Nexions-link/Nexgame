@@ -1,5 +1,5 @@
-import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.1';
-// NexGame 3D · Alpha 0.3.1 — a small, procedural Mulgore-inspired starting zone.
+import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.2';
+// NexGame 3D · Alpha 0.3.2 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -284,14 +284,17 @@ for(const e of enemies){
 }
 const selection=mesh(scene,new THREE.RingGeometry(.8,.88,40),new THREE.MeshBasicMaterial({color:0xf6d580,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}),0,.07,0,1,1,1,false);selection.rotation.x=-Math.PI/2;selection.visible=false;
 const stompRing=mesh(scene,new THREE.RingGeometry(.85,1,48),new THREE.MeshBasicMaterial({color:0xe9c66b,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}),0,.08,0,1,1,1,false);stompRing.rotation.x=-Math.PI/2;
-function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0){
+function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  actor.walk=THREE.MathUtils.damp(actor.walk,walk,10,dt);const w=actor.walk,phase=actor.phase,breath=Math.sin(time*1.7),stride=Math.sin(phase*TAU),beat=Math.cos(phase*TAU*2);
  actor.body.position.set(stride*.035*w,1.4+.008*breath+.026*(1-beat)*w,0);actor.chest.rotation.set(.035*w,Math.sin(phase*TAU)*.065*w,-stride*.025*w);actor.chest.scale.y=1+breath*.005;
  actor.neck.rotation.set(-.018*breath-.025*beat*w,-actor.chest.rotation.y*.65,stride*.015*w);
  let swing=0,windup=0;
  if(attack>=0){const a=clamp(attack,0,1);windup=smooth(0,.32,a)*(1-smooth(.38,.65,a));swing=smooth(.32,.58,a)*(1-smooth(.64,1,a));actor.chest.rotation.y+=-.32*windup+.42*swing;actor.chest.rotation.x+=.12*swing}
- const crouch=stomp>=0?.14*Math.sin(Math.min(stomp/.55,1)*Math.PI):0;actor.body.position.y-=crouch;
- for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?1.85*windup-.48*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0));arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?.6*windup:0)}
+ const crouch=stomp>=0?.14*Math.sin(Math.min(stomp/.55,1)*Math.PI):0;
+ const bend=clamp(gather,0,1);
+ actor.body.position.y-=crouch+.47*bend;
+ actor.chest.rotation.x+=.20*bend;actor.neck.rotation.x+=.1*bend;
+ for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?1.85*windup-.48*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0));arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?.6*windup:0)-.45*bend}
  const yaw=actor.root.rotation.y;
  for(let i=0;i<2;i++){const leg=actor.legs[i],p=(phase+i*.5)%1;let z=0,lift=0;if(p<.58)z=.775-1.55*p/.58;else{const t=(p-.58)/.42;z=-.775+1.55*smooth(0,1,t);lift=Math.sin(t*Math.PI)*.22}z*=w;lift*=w;
  if(stomp>=0&&i===1){lift+=.42*Math.sin(Math.min(stomp/.48,1)*Math.PI);z+=.17*Math.sin(stomp*Math.PI)}
@@ -436,7 +439,7 @@ function renderMerchant(tab='buy',filter='all'){
   for(const [key,label] of [['all','Всё'],['armor','Броня'],['weapon','Оружие'],['shield','Щиты']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.className=filter===key?'active':'';button.setAttribute('aria-pressed',String(filter===key));button.addEventListener('click',()=>renderMerchant(tab,key));filters.appendChild(button)}body.appendChild(filters);
  }
  const list=document.createElement('div');list.className='merchant-list';
- const rows=tab==='buy'?MERCHANT_STOCK.filter(id=>filter==='all'||(filter==='armor'?!['weapon','shield'].includes(ITEM_CATALOG[id].slot):ITEM_CATALOG[id].slot===filter)).map(id=>({id,qty:1})):tab==='sell'?state.inventory.map((item,index)=>item?{...item,index,original:item}:null).filter(Boolean):state.buyback.map((item,index)=>({...item,index,original:item}));
+ const rows=tab==='buy'?MERCHANT_STOCK.filter(id=>filter==='all'||(filter==='armor'?!['weapon','shield'].includes(ITEM_CATALOG[id].slot):ITEM_CATALOG[id].slot===filter)).map(id=>({id,qty:1})):tab==='sell'?state.inventory.map((item,index)=>item&&ITEM_CATALOG[item.id]?.sell?{...item,index,original:item}:null).filter(Boolean):state.buyback.map((item,index)=>({...item,index,original:item}));
  for(const item of rows){
   const def=ITEM_CATALOG[item.id],row=document.createElement('div');row.className='merchant-item';
   const info=document.createElement('div'),name=document.createElement('strong');name.className='item-name';name.dataset.rarity=def.rarity;name.textContent=def.icon+' '+def.name+(item.qty>1?' ×'+item.qty:'');info.appendChild(name);
@@ -543,7 +546,7 @@ function renderCharacterPreview(t,dt){
  }finally{renderer.setScissorTest(false);renderer.setViewport(0,0,innerWidth,innerHeight);renderer.shadowMap.enabled=shadows}
 }
 
-const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
+const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,quest:0,kills:0,relic:false,gatherStage:0,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
 let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
 function normalizeBags(input){
  return Array.from({length:EQUIPPED_BAG_SLOTS},(_,i)=>{
@@ -599,7 +602,7 @@ function rollCorpseLoot(enemy=null){
 }
 
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
-state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
+state.level=clamp(Math.floor(state.level),1,60);state.quest=clamp(Math.floor(state.quest),0,12);state.gatherStage=clamp(Math.floor(state.gatherStage),0,4);state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
 state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
 const needsStarterWeapon=!state.equipment||!Object.hasOwn(state.equipment,'weapon');
 state.equipment=normalizeEquipment(state.equipment);
@@ -713,12 +716,16 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('modalClose').hidden=!['character','merchant'].includes(kind);if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
-function choice(label,fn,type=''){const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
+function openDialog(title,sub,lines,kind='dialog'){if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function choice(label,fn,type=''){
+ // Every modal has a red X at the top. Do not add redundant bottom-row
+ // close/continue buttons; keep real actions and navigation controls.
+ if(fn===closeDialog)return;
+ const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.1',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.2',
  ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
   'W/S — идти вперёд и назад; A/D — непрерывно поворачивать; Tab — цель; 1 — автоатака.',
   'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
