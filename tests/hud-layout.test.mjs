@@ -52,3 +52,36 @@ test('responsive widths preserve space for 2 frames and a square map',()=>{
   assert.ok(Math.abs(2*card+map+12+16-viewport)<.001);
  }
 });
+
+test('five primary mobile actions have accessible icon-only buttons',()=>{
+ const toolbar=html.match(/<nav id="top"[^>]*>([\s\S]*?)<\/nav>/);
+ assert.ok(toolbar,'primary toolbar uses a semantic nav element');
+ const buttonIds=['partyOpen','character','journal','bag','pause'];
+ for(const id of buttonIds){
+  const button=toolbar[1].match(new RegExp('<button[^>]*id="'+id+'"[^>]*>[\\s\\S]*?<\\/button>'));
+  assert.ok(button,'icon button '+id);
+  assert.match(button[0],/aria-label="[^"]+"/);
+  assert.match(button[0],/title="[^"]+"/);
+  assert.match(button[0],/<svg[^>]*aria-hidden="true"/);
+  assert.ok(!/>\\s*(?:Группа|Персонаж|Задания|Рюкзак|Меню)\\s*</.test(button[0]),
+   'no visible text label in '+id);
+ }
+ assert.ok(css.includes('grid-template-columns:repeat(5,minmax(0,1fr))'));
+ assert.ok(css.includes('#top #partyOpen{grid-column:auto}'));
+ assert.ok(css.includes('#top .smallButton svg'));
+});
+
+test('square minimap and both unit panels share exactly the same row height',()=>{
+ assert.ok(css.includes('--hud-map-size:94px'));
+ assert.ok(css.includes('--hud-row-height:94px'));
+ assert.ok(css.includes('--hud-row-height:var(--hud-map-size)'));
+ assert.ok(css.includes('height:var(--hud-row-height)'));
+ assert.ok(css.includes('#hudTop #minimapFrame{'));
+ assert.ok(css.includes('min-height:var(--hud-row-height)'));
+ for(const viewport of [320,360,375,390,430,600,760,850]){
+  const map=viewport<=760?Math.min(94,Math.max(86,viewport*.24)):94;
+  const row=map; // shared custom property controls player, target and minimap
+  assert.equal(map,row);
+  assert.ok(map>=86&&map<=94);
+ }
+});
