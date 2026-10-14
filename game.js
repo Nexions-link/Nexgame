@@ -1,7 +1,7 @@
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
-// NexGame 3D · Alpha 0.3.5.1 — a small, procedural Mulgore-inspired starting zone.
+// NexGame 3D · Alpha 0.3.5.2 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -851,33 +851,75 @@ stick.addEventListener('pointerdown',e=>{if(modalKind||joy.id!==null)return;e.pr
 stick.addEventListener('pointermove',e=>{if(e.pointerId===joy.id){e.preventDefault();stickMove(e)}});
 for(const type of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(type,e=>{if(joy.id===e.pointerId)resetStick()});
 const canvas=renderer.domElement,pickRay=new THREE.Raycaster();canvas.style.touchAction='none';
-canvas.addEventListener('pointerdown',e=>{if(modalKind||look.id!==null)return;look.id=e.pointerId;look.selectOnly=e.pointerType==='touch'&&e.clientX<innerWidth*.35;look.x=look.startX=e.clientX;look.y=look.startY=e.clientY;cameraFollowCooldown=.85;canvas.setPointerCapture(e.pointerId);if(document.activeElement===cameraSlider)cameraSlider.blur()});
-canvas.addEventListener('pointermove',e=>{if(look.id!==e.pointerId)return;if(!look.selectOnly){cameraYaw=wrapYaw(cameraYaw-(e.clientX-look.x)*.007);cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05)}look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85});
+// World taps work on both mouse and touch. A short tap on EMPTY scenery
+// cancels targeting; dragging the camera, tapping an NPC/the hero, touching
+// collectible objects, or clicking a battle target does not cancel it.
+function handleWorldTap(clientX,clientY,allowEmptyClear=true){
+ if(modalKind)return 'blocked';
+ pickRay.setFromCamera(new THREE.Vector2(clientX/innerWidth*2-1,1-clientY/innerHeight*2),camera);
+ const visibleMobs=enemies.filter(enemy=>enemy.dead<=0||enemy.corpseAge>0);
+ const hits=pickRay.intersectObjects(visibleMobs.map(enemy=>enemy.root),true);
+ if(hits.length){
+  let obj=hits[0].object;
+  while(obj.parent&&obj.parent!==scene)obj=obj.parent;
+  const enemy=visibleMobs.find(m=>m.root===obj);
+  if(enemy){
+   if(enemy.dead>0)showCorpseLoot(enemy);
+   else setTarget(enemy);
+   return 'enemy';
+  }
+ }
+ const nodes=gatherNodes.filter(node=>gatherNodeAvailable(node));
+ const resources=pickRay.intersectObjects(nodes.map(node=>node.root),true);
+ if(resources.length){
+  let obj=resources[0].object;
+  while(obj.parent&&obj.parent!==scene)obj=obj.parent;
+  const node=nodes.find(n=>n.root===obj);
+  if(node){startGather(node);return 'resource'}
+ }
+ // Characters and the visible relic are not "empty" scenery.
+ const characters=[hero.root,...npcs.map(n=>n.actor.root)];
+ if(relic.visible)characters.push(relic);
+ if(pickRay.intersectObjects(characters,true).length)return 'character';
+ if(allowEmptyClear&&selected){clearTarget();return 'cleared'}
+ return 'empty';
+}
+canvas.addEventListener('pointerdown',e=>{
+ if(modalKind)return;
+ if(look.id!==null){
+  // A two-finger camera gesture must not turn into a selection click.
+  if(e.pointerId!==look.id)look.multitouch=true;
+  return;
+ }
+ if(e.button!==undefined&&e.button!==0)return;
+ look.id=e.pointerId;look.selectOnly=e.pointerType==='touch'&&e.clientX<innerWidth*.35;
+ look.x=look.startX=e.clientX;look.y=look.startY=e.clientY;
+ look.moved=0;look.multitouch=false;look.downAt=performance.now();
+ cameraFollowCooldown=.85;canvas.setPointerCapture(e.pointerId);
+ if(document.activeElement===cameraSlider)cameraSlider.blur();
+});
+canvas.addEventListener('pointermove',e=>{
+ if(look.id!==e.pointerId)return;
+ look.moved+=Math.hypot(e.clientX-look.x,e.clientY-look.y);
+ if(!look.selectOnly){
+  cameraYaw=wrapYaw(cameraYaw-(e.clientX-look.x)*.007);
+  cameraPitch=clamp(cameraPitch+(e.clientY-look.y)*.0045,.1,1.05);
+ }
+ look.x=e.clientX;look.y=e.clientY;cameraFollowCooldown=.85;
+});
 canvas.addEventListener('pointerup',e=>{
  if(look.id!==e.pointerId)return;
- if(Math.hypot(e.clientX-look.startX,e.clientY-look.startY)<7){
-  pickRay.setFromCamera(new THREE.Vector2(e.clientX/innerWidth*2-1,1-e.clientY/innerHeight*2),camera);
-  const visibleMobs=enemies.filter(enemy=>enemy.dead<=0||enemy.corpseAge>0);
-  const hits=pickRay.intersectObjects(visibleMobs.map(enemy=>enemy.root),true);
-  if(hits.length){
-   let obj=hits[0].object;
-   while(obj.parent&&obj.parent!==scene)obj=obj.parent;
-   const enemy=visibleMobs.find(m=>m.root===obj);
-   if(enemy){if(enemy.dead>0)showCorpseLoot(enemy);else setTarget(enemy)}
-  }else{
-   const nodes=gatherNodes.filter(node=>gatherNodeAvailable(node));
-   const resources=pickRay.intersectObjects(nodes.map(node=>node.root),true);
-   if(resources.length){
-    let obj=resources[0].object;
-    while(obj.parent&&obj.parent!==scene)obj=obj.parent;
-    const node=nodes.find(n=>n.root===obj);
-    if(node)startGather(node);
-   }
-  }
+ const distance=Math.hypot(e.clientX-look.startX,e.clientY-look.startY);
+ if(!modalKind&&!look.multitouch&&look.moved<8&&distance<8){
+  // Long presses retain the existing selection behavior, but do not
+  // accidentally clear a target when someone is holding the camera.
+  const isShortTap=performance.now()-look.downAt<=450;
+  handleWorldTap(e.clientX,e.clientY,isShortTap);
  }
  finishLook();
 });
-for(const type of ['pointercancel','lostpointercapture'])canvas.addEventListener(type,e=>{if(look.id===e.pointerId)finishLook()});
+for(const type of ['pointercancel','lostpointercapture'])
+ canvas.addEventListener(type,e=>{if(look.id===e.pointerId)finishLook()});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(!modalKind)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
 addEventListener('blur',clearInput);addEventListener('pagehide',()=>{clearInput();save()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();save()}last=performance.now();resetFps()});
 addEventListener('keydown',e=>{
