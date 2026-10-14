@@ -1,7 +1,8 @@
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
-// NexGame 3D · Alpha 0.3.5.2 — a small, procedural Mulgore-inspired starting zone.
+import {HOTBAR_SLOT_COUNT,DEFAULT_HOTBAR,USABLE_ITEMS,actionEntry,actionDefinition,availableHotbarActions,normalizeHotbar,assignHotbarSlot} from './hotbar.js?v=0.3.5.3';
+// NexGame 3D · Alpha 0.3.5.3 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -722,8 +723,8 @@ function updateGatherVisibility(){
   if(node.root.visible){node.root.rotation.y=.09*Math.sin(clock*1.4+node.index);node.sparkle.position.y=.85+.1*Math.sin(clock*2.5+node.index)}
  }
 }
-const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,classId:'warrior',resource:0,quest:0,kills:0,relic:false,gatherStage:0,gatherAvailable:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
-let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
+const initial={x:0,z:10,yaw:Math.PI,hp:120,level:1,xp:0,gold:0,potions:2,classId:'warrior',resource:0,actionBar:normalizeHotbar(null),quest:0,kills:0,relic:false,gatherStage:0,gatherAvailable:false,inventory:Array(BASE_INVENTORY_SLOTS).fill(null),bags:Array(EQUIPPED_BAG_SLOTS).fill(null),equipment:startingEquipment(),buyback:[]};
+let state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[],actionBar:normalizeHotbar(null)};
 function normalizeBags(input){
  return Array.from({length:EQUIPPED_BAG_SLOTS},(_,i)=>{
   const bag=Array.isArray(input)?input[i]:null;
@@ -780,6 +781,7 @@ function rollCorpseLoot(enemy=null){
 try{const saved=JSON.parse(localStorage.getItem(saveKey));if(saved&&typeof saved==='object')for(const k of Object.keys(initial))if(typeof saved[k]===typeof initial[k]&&(typeof saved[k]!=='number'||Number.isFinite(saved[k])))state[k]=saved[k]}catch(e){}
 state.level=clamp(Math.floor(state.level),1,60);state.classId=normalizeClassId(state.classId);state.resource=normalizeResource(state.resource,state.classId);state.quest=clamp(Math.floor(state.quest),0,12);state.gatherStage=clamp(Math.floor(state.gatherStage),0,4);if(state.gatherStage===0||state.gatherStage===4)state.gatherAvailable=false;state.kills=clamp(Math.floor(state.kills),0,3);state.potions=clamp(Math.floor(state.potions),0,99);state.gold=clamp(Math.floor(state.gold),0,99999);state.xp=Math.max(0,state.xp);if(!clearAt(state.x,state.z)){state.x=initial.x;state.z=initial.z}
 state.bags=normalizeBags(state.bags);state.inventory=normalizeInventory(state.inventory);
+state.actionBar=normalizeHotbar(state.actionBar,state.classId,state.level);
 const needsStarterWeapon=!state.equipment||!Object.hasOwn(state.equipment,'weapon');
 state.equipment=normalizeEquipment(state.equipment);
 if(needsStarterWeapon)state.equipment.weapon={id:'wornAxe',qty:1};
@@ -787,6 +789,8 @@ state.buyback=Array.isArray(state.buyback)?state.buyback.filter(row=>row&&ITEM_C
 state.hp=clamp(state.hp,1,playerStats().maxHp);syncEquipmentVisuals();
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
+let hotbarPending=null,spellbookTab='abilities';
+const hotbarButtons=[],hotbarVisuals=[];
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
 let gatherCast=null;
 const abilityRuntime=createAbilityRuntime();
@@ -961,7 +965,7 @@ function choice(label,fn,type=''){
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.3',
  ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
   'W/S — идти вперёд и назад; A/D — поворачивать; Tab — цель. 1 — автоатака, 2 — поступь, 3 — настой, 4 — рубящий удар.',
    'Ударами получай ярость (0–100). Рубящий удар стоит 20 ярости. Способности используют дальность, перезарядку и общий кулдаун.',
@@ -991,7 +995,8 @@ function graphicsSettings(){
 function resetWorld(){
  cancelGather();
  for(const node of gatherNodes){node.pending=false;node.readyAt=0;node.root.visible=false}
- state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
+ state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[],actionBar:normalizeHotbar(null)};
+ hotbarPending=null;renderHotbar();
  abilityRuntime.gcd=0;abilityRuntime.cooldowns=Object.create(null);swingAbilityId='autoAttack';
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
