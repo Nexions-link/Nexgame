@@ -766,6 +766,15 @@ canvas.addEventListener('pointerup',e=>{
    while(obj.parent&&obj.parent!==scene)obj=obj.parent;
    const enemy=visibleMobs.find(m=>m.root===obj);
    if(enemy){if(enemy.dead>0)showCorpseLoot(enemy);else setTarget(enemy)}
+  }else{
+   const nodes=gatherNodes.filter(node=>gatherNodeAvailable(node));
+   const resources=pickRay.intersectObjects(nodes.map(node=>node.root),true);
+   if(resources.length){
+    let obj=resources[0].object;
+    while(obj.parent&&obj.parent!==scene)obj=obj.parent;
+    const node=nodes.find(n=>n.root===obj);
+    if(node)startGather(node);
+   }
   }
  }
  finishLook();
@@ -1351,6 +1360,10 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
  if(state.quest===7){
   c.fillStyle='#fff0a9';c.beginPath();c.arc(SCOUT_X*k,SCOUT_Z*k,5,0,TAU);c.fill();
  }
+ for(const node of gatherNodes)if(gatherNodeAvailable(node)){
+  c.fillStyle=node.stage===1?'#ffe78a':node.stage===2?'#bfec81':'#d6b8ff';
+  c.beginPath();c.arc(node.x*k,node.z*k,3.2,0,TAU);c.fill();
+ }
  c.fillStyle='#ffe397';c.fillRect(6*k-4,11*k-4,8,8);c.strokeStyle='#573c18';c.strokeRect(6*k-4,11*k-4,8,8);
  for(const p of mapLandmarks){c.fillStyle=p.color;c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.strokeStyle='#4e4e30';c.lineWidth=1;c.stroke()}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){
   c.fillStyle=e.boss?'#d33f39':e.aggro?'#b94f35':'#d8c073';
@@ -1473,11 +1486,14 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
   if(attackElapsed>=.8){attackElapsed=-1;swingTarget=null}
  }
  if(stompElapsed>=0){stompElapsed+=dt;if(stompElapsed>=.36&&!stompLanded){stompLanded=true;shockAge=0;stompRing.position.set(state.x,heightAt(state.x,state.z)+.08,state.z);for(const e of enemies)if(e.dead<=0&&Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)<4.5){e.stunned=2.5;damageEnemy(e,6)}}if(stompElapsed>=.75)stompElapsed=-1}
- movement(dt);
+ if(gatherCast){
+  velocityX=velocityZ=0;
+  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
+ }else movement(dt);
  if(state.quest===7&&Math.hypot(state.x-SCOUT_X,state.z-SCOUT_Z)<5.2){
   state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
  }
- enemies.forEach(e=>updateEnemy(e,dt));updateHealthRegen(dt);if(autoAttack)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
+ enemies.forEach(e=>updateEnemy(e,dt));if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
  selection.visible=isAliveTarget(selected);
  if(selection.visible){
