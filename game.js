@@ -1,5 +1,5 @@
-import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.3';
-// NexGame 3D · Alpha 0.3.3 — a small, procedural Mulgore-inspired starting zone.
+import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.4';
+// NexGame 3D · Alpha 0.3.4 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -248,6 +248,31 @@ function spriteText(text,color='#f9df91',size=32){const c=document.createElement
 for(const n of npcs){const name=spriteText(n.name,'#d9e2a1',25);scene.add(name);name.position.set(n.x,heightAt(n.x,n.z)+4.45,n.z)}
 const merchantLabel=spriteText('Оружие и доспехи', '#e5c574',23);merchantLabel.position.set(6,heightAt(6,11)+3.85,11);scene.add(merchantLabel);
 const questMarker=spriteText('!','#ffe180',72);questMarker.scale.set(2.5,1.6,1);scene.add(questMarker);
+const herbalistMarker=spriteText('!','#ffe180',72);
+herbalistMarker.scale.set(2.5,1.48,1);
+herbalistMarker.position.set(8,heightAt(8,1)+5.65,1);
+herbalistMarker.visible=true;scene.add(herbalistMarker);
+let lastHerbalistGlyph='!';
+function herbalistQuestGlyph(){
+ if(state.gatherStage===0)return '!';
+ if(state.gatherStage>0&&state.gatherStage<4){
+  const q=GATHER_QUESTS[state.gatherStage];
+  if(q&&gatherQuestCount()>=q.count)return '?';
+ }
+ return '';
+}
+function updateHerbalistMarker(){
+ const glyph=herbalistQuestGlyph();
+ herbalistMarker.visible=Boolean(glyph);
+ if(!glyph||glyph===lastHerbalistGlyph)return;
+ lastHerbalistGlyph=glyph;
+ const canvas=herbalistMarker.material.map.image,ctx=canvas.getContext('2d');
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 72px Georgia';ctx.lineWidth=5;
+ ctx.strokeStyle='#392718';ctx.fillStyle='#ffe180';
+ ctx.strokeText(glyph,256,48);ctx.fillText(glyph,256,48);
+ herbalistMarker.material.map.needsUpdate=true;
+}
 const relic=group(scene,35,heightAt(35,-14)+1.7,-11.8);const featherMat=material(0x79c8ba,{emissive:0x2c5b45,emissiveIntensity:.5});ell(relic,featherMat,0,.15,0,.18,.48,.08);rod(relic,M.bone,[0,-.4,0],[0,.53,0],.025);const relicShadow=contactShadow(1);
 // Lightweight wildlife: animated joint groups, no skinned meshes or animation files.
 function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
@@ -819,7 +844,7 @@ function choice(label,fn,type=''){
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.3',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.4',
  ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
   'W/S — идти вперёд и назад; A/D — непрерывно поворачивать; Tab — цель; 1 — автоатака.',
   'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
@@ -1318,8 +1343,11 @@ function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=s
  const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
- const gatherPanel=$('gatherQuestTracker');gatherPanel.hidden=state.gatherStage===0;
- if(state.gatherStage>0){
+ const gatherPanel=$('gatherQuestTracker');
+ const mainStageActive=[1,2,4,5,7,8,10,11].includes(state.quest);
+ $('mainQuestTracker').hidden=!mainStageActive;
+ gatherPanel.hidden=!(state.gatherStage>=1&&state.gatherStage<=3);
+ if(state.gatherStage>=1&&state.gatherStage<=3){
   const stage=state.gatherStage;
   $('gatherQuestStage').textContent=stage===4?'Сбор · 3 / 3 ✓':'Сбор · '+stage+' / 3';
   const q=GATHER_QUESTS[stage],count=q?gatherQuestCount():0;
@@ -1329,7 +1357,7 @@ function updateHUD(){const max=playerStats().maxHp;$('levelBadge').textContent=s
    'Собрано '+count+'/'+q.count+' · '+q.hint):
    'Все три поручения травницы выполнены.';
  }
- updateGatherVisibility();
+ updateGatherVisibility();updateHerbalistMarker();
  const guide=$('questGuidance');
  guide.hidden=state.quest!==7&&state.quest!==10;
  if(state.quest===7)guide.textContent='Разведка: идите на юго-восток по дороге.';
@@ -1374,7 +1402,10 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
   c.fillStyle=e.boss?'#d33f39':e.aggro?'#b94f35':'#d8c073';
   c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,e.boss?5:2.5,0,TAU);c.fill();
   if(e.boss&&state.quest===10){c.strokeStyle='#ffe4b5';c.lineWidth=1.5;c.stroke()}
- }else if(isLootableCorpse(e)){c.fillStyle='#ffe6a0';c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,3.8,0,TAU);c.fill()}}if(state.quest<12){c.fillStyle='#fff397';c.font='bold 19px Georgia';c.textAlign='center';c.fillText([2,5,8,11].includes(state.quest)?'?':'!',-1.5*k,-5*k-5)}if(state.quest===4){c.fillStyle='#a6ffeb';c.beginPath();c.arc(35*k,-11.8*k,5,0,TAU);c.fill()}c.restore();c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
+ }else if(isLootableCorpse(e)){c.fillStyle='#ffe6a0';c.beginPath();c.arc(e.root.position.x*k,e.root.position.z*k,3.8,0,TAU);c.fill()}}if(state.quest<12){c.fillStyle='#fff397';c.font='bold 19px Georgia';c.textAlign='center';c.fillText([2,5,8,11].includes(state.quest)?'?':'!',-1.5*k,-5*k-5)}if(state.quest===4){c.fillStyle='#a6ffeb';c.beginPath();c.arc(35*k,-11.8*k,5,0,TAU);c.fill()}
+ const herbalistMapGlyph=herbalistQuestGlyph();
+ if(herbalistMapGlyph){c.fillStyle='#ffe087';c.strokeStyle='#382817';c.lineWidth=3;c.font='bold 20px Georgia';c.textAlign='center';c.strokeText(herbalistMapGlyph,8*k,1*k-11);c.fillText(herbalistMapGlyph,8*k,1*k-11)}
+ c.restore();c.save();c.translate(120,120);c.rotate(-hero.root.rotation.y);c.fillStyle='#fff1b5';c.strokeStyle='#463723';c.lineWidth=2;c.beginPath();c.moveTo(0,10);c.lineTo(-6,-7);c.lineTo(0,-3);c.lineTo(6,-7);c.closePath();c.fill();c.stroke();c.restore()}
 function movement(dt){
  // Classic-style controls: vertical stick walks along the hero's own heading,
  // horizontal stick continuously ROTATES the hero while held.
@@ -1499,7 +1530,7 @@ function update(dt){clock+=dt;saveClock+=dt;hudClock+=dt;attackCooldown=Math.max
   state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
  }
  enemies.forEach(e=>updateEnemy(e,dt));if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
- fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
+ fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);herbalistMarker.position.set(8,heightAt(8,1)+5.65+Math.sin(clock*2.1)*.1,1);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
  selection.visible=isAliveTarget(selected);
  if(selection.visible){
   selection.position.set(selected.root.position.x,heightAt(selected.root.position.x,selected.root.position.z)+.06,selected.root.position.z);
