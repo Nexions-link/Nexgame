@@ -1,4 +1,5 @@
 import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.33';
+import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.34';
 import {createWorldPresence} from './online.js?v=0.3.5.33';
 import {WORLD_WS_URL} from './online-config.js?v=0.3.5.33';
 import {projectPartyMember} from './party-map.js?v=0.3.5.33';
@@ -66,9 +67,15 @@ function fuse(root,all=false){root.updateMatrixWorld(true);const list=[];if(all)
  }
  for(const b of batches.values()){const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(b.p,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(b.n,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(b.uv,2));mesh(root,geo,b.mat,0,0,0,1,1,1,b.cast)}
 }
-const world=group(scene),colliders=[],cameraBlockers=[],mapLandmarks=[];
+const world=group(scene),colliders=[],boxColliders=[],cameraBlockers=[],mapLandmarks=[],interiorZones=[];
 function obstacle(x,z,r,height=5){colliders.push({x,z,r,height})}
-function clearAt(x,z,r=.58){if(Math.abs(x)>69||Math.abs(z)>69)return false;for(const o of colliders)if((x-o.x)**2+(z-o.z)**2<(r+o.r)**2)return false;return true}
+function obstacleBox(x,z,w,d,yaw=0,height=5){boxColliders.push({x,z,w,d,yaw,height})}
+function clearAt(x,z,r=.58){
+ if(Math.abs(x)>69||Math.abs(z)>69)return false;
+ for(const o of colliders)if((x-o.x)**2+(z-o.z)**2<(r+o.r)**2)return false;
+ for(const o of boxColliders)if(circleHitsRect(x,z,r,o))return false;
+ return true;
+}
 const terrainGeo=new THREE.PlaneGeometry(190,190,120,120);terrainGeo.rotateX(-Math.PI/2);
 const tp=terrainGeo.attributes.position,colors=[];const ca=new THREE.Color(0xdde3d3),cb=new THREE.Color(0xffffff),cc=new THREE.Color();
 for(let i=0;i<tp.count;i++){const x=tp.getX(i),z=tp.getZ(i);tp.setY(i,heightAt(x,z));cc.copy(ca).lerp(cb,.5+.24*Math.sin(x*.075+z*.04)+.13*Math.sin(x*.38-z*.22));colors.push(cc.r,cc.g,cc.b)}terrainGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));terrainGeo.computeVertexNormals();mesh(scene,terrainGeo,M.grass,0,0,0,1,1,1,false);
@@ -109,7 +116,118 @@ for(let i=0;i<25;i++){const angle=i/25*TAU,rr=104+rand()*10,x=Math.sin(angle)*rr
 function tent(x,z,r=4,rotation=0){const g=group(world,x,heightAt(x,z),z);g.rotation.y=rotation;const roof=mesh(g,new THREE.ConeGeometry(r,r*1.42,14,1,true),M.hide,0,r*.71,0);cameraBlockers.push(roof);mesh(g,new THREE.CylinderGeometry(r,r,.5,14,1,true),M.hideDark,0,.25,0);for(let i=0;i<9;i++){const a=i/9*TAU;rod(g,M.wood,[Math.sin(a)*r*.99,0,Math.cos(a)*r*.99],[Math.sin(a)*.25,r*1.64,Math.cos(a)*.25],.07,.055)}
  const door=mesh(g,new THREE.PlaneGeometry(r*.49,r*.65),M.black,0,r*.33,r*.72);door.rotation.x=-.53;box(g,M.red,0,r*.66,r*.55,r*.65,.12,.12);for(const s of [-1,1])rod(g,M.wood,[s*r*.29,.04,r*.98],[s*r*.2,r*.66,r*.55],.07);
  obstacle(x,z,r*.87,r*1.5);mapLandmarks.push({x,z,r,color:'#cbb17a'});return g}
-tent(-12,-5,5,.5);tent(11,-7,4.2,-.5);tent(-15,12,3.8,2.2);tent(13,16,3.4,-1.7);tent(-23,-15,3,.5);
+
+// A scalable, fully walkable timber-and-hide house. Keep its roof outside
+// fuse(world,true): the roof and wall shell must remain independently fadeable.
+function walkableHouse(x,z,{width=9.6,depth=10.4,wallH=4.55,roofRise=2.35,doorW=3.4,rotation=.5}={}){
+ const wallT=.34,doorH=3.55;
+ const g=group(scene,x,heightAt(x,z),z);
+ g.rotation.y=rotation;
+ const frame=group(g),furniture=group(g),shell=group(g);
+ const wallMat=M.hide.clone(),roofMat=M.hide.clone();
+ const hw=width/2,hd=depth/2,side=(width-doorW)/2;
+ // Low raised floor and a woven central rug; no collider across the entry.
+ box(frame,M.woodLight,0,.07,0,width-.25,.14,depth-.25,false);
+ box(furniture,M.red,0,.152,1.6,3.3,.025,3.3,false);
+ for(const i of [-1,1])for(const zStripe of [.45,2.7])
+  box(furniture,M.gold,i*1.2,.177,zStripe,.09,.015,.43,false);
+ // Hide-filled structural walls; front is split so the door is truly empty.
+ const wall=(lx,lz,w,d,h=wallH,y=h/2)=>box(shell,wallMat,lx,y,lz,w,h,d);
+ wall(-hw+wallT/2,0,wallT,depth);
+ wall(hw-wallT/2,0,wallT,depth);
+ wall(0,-hd+wallT/2,width,wallT);
+ wall(-doorW/2-side/2,hd-wallT/2,side,wallT);
+ wall(doorW/2+side/2,hd-wallT/2,side,wallT);
+ wall(0,hd-wallT/2,doorW,wallT,wallH-doorH,doorH+(wallH-doorH)/2);
+ // Posts and broad wooden trim give an original tribal-fantasy silhouette.
+ for(const sx of [-1,1])for(const sz of [-1,1]){
+  box(frame,M.wood,sx*(hw-.22),wallH/2,sz*(hd-.22),.42,wallH+.15,.42);
+  ell(frame,M.bone,sx*(hw-.22),wallH+.1,sz*(hd-.22),.17,.22,.17);
+ }
+ for(const sz of [-1,1]){
+  rod(frame,M.wood,[-hw,wallH,sz*hd],[hw,wallH,sz*hd],.13,.13);
+  rod(frame,M.wood,[-hw,0,sz*hd],[-hw,wallH,sz*hd],.15,.12);
+  rod(frame,M.wood,[hw,0,sz*hd],[hw,wallH,sz*hd],.15,.12);
+ }
+ for(const sx of [-1,1])rod(frame,M.wood,[sx*hw,wallH,-hd],[sx*hw,wallH,hd],.14,.14);
+ for(const sx of [-1,1]){
+  const jambX=sx*doorW/2;
+  rod(frame,M.wood,[jambX,0,hd+.035],[jambX,doorH,hd+.035],.18,.16);
+  // Tied-back curtain at either jamb does not block player movement.
+  const curtain=box(frame,M.red,jambX+sx*.17,doorH-.7,hd+.10,.29,1.35,.08);
+  curtain.rotation.z=sx*.08;
+  box(frame,M.gold,jambX+sx*.17,doorH-1.05,hd+.17,.32,.09,.11);
+ }
+ rod(frame,M.wood,[-doorW/2,doorH,hd+.08],[doorW/2,doorH,hd+.08],.18,.16);
+ // Front/rear triangular gables fill the roof profile without sealing the door.
+ const gable=new THREE.Shape();
+ gable.moveTo(-hw,wallH);gable.lineTo(hw,wallH);gable.lineTo(0,wallH+roofRise);gable.closePath();
+ for(const zz of [-hd,hd]){
+  const cap=mesh(shell,new THREE.ShapeGeometry(gable),wallMat,0,0,zz,false);
+  cap.material.side=THREE.DoubleSide;
+  rod(frame,M.wood,[-hw,wallH,zz],[0,wallH+roofRise,zz],.12,.1);
+  rod(frame,M.wood,[hw,wallH,zz],[0,wallH+roofRise,zz],.12,.1);
+ }
+ const slope=Math.atan2(roofRise,hw),panelLen=Math.hypot(hw+.55,roofRise+.16);
+ const roofLeft=box(g,roofMat,-hw/2,wallH+roofRise/2,0,panelLen,.20,depth+1.0,false);
+ const roofRight=box(g,roofMat,hw/2,wallH+roofRise/2,0,panelLen,.20,depth+1.0,false);
+ roofLeft.rotation.z=slope;roofRight.rotation.z=-slope;
+ rod(frame,M.wood,[0,wallH+roofRise,-hd-.65],[0,wallH+roofRise,hd+.65],.16,.16);
+ for(const sx of [-1,1])for(const zz of [-hd+.7,0,hd-.7]){
+  const rafter=rod(frame,M.wood,[0,wallH+roofRise,zz],[sx*(hw+.32),wallH-.07,zz],.11,.09);
+  rafter.castShadow=false;
+ }
+ // Two bedrolls, chest, shelves, table and stools. Furniture has real collision.
+ for(const bedZ of [-2.5]){
+  box(furniture,M.wood,-2.6,.32,bedZ,2.35,.50,2.55);
+  box(furniture,M.hideDark,-2.6,.64,bedZ,2.05,.14,2.2);
+  box(furniture,M.bone,-2.6,.79,bedZ-.75,1.7,.21,.49);
+ }
+ box(furniture,M.wood,2.7,.67,-3.1,1.7,1.3,1.2);
+ box(furniture,M.woodLight,2.7,1.36,-3.1,1.84,.16,1.35);
+ box(furniture,M.gold,2.7,1.44,-2.41,.24,.13,.07);
+ for(const sx of [-1,1])for(const sz of [-1,1])
+  box(furniture,M.wood,1.45+sx*.75,.46,-.4+sz*.65,.17,.92,.17);
+ box(furniture,M.woodLight,1.45,.96,-.4,1.9,.18,1.6);
+ for(const sz of [-1.8,1.0]){
+  box(furniture,M.wood,2.9,.37,sz,.62,.65,.66);
+  box(furniture,M.hideDark,2.9,.73,sz,.56,.11,.54);
+ }
+ // Decorations and warm, shadowless interior lamp (cheap for mobile GPUs).
+ rod(frame,M.wood,[0,wallH-.05,0],[0,wallH-1.12,0],.065,.06);
+ ell(frame,material(0xffc76d,{emissive:0xff9a34,emissiveIntensity:1.3}),0,wallH-1.3,0,.24,.32,.24,false);
+ const lamp=new THREE.PointLight(0xffcb87,1.05,11,2);
+ lamp.position.set(0,wallH-1.3,0);lamp.castShadow=false;g.add(lamp);
+ for(const sx of [-1,1]){
+  box(frame,M.teal,sx*(hw-.05),2.4,.2,.10,1.4,1.0);
+  box(frame,M.gold,sx*(hw-.02),2.4,.2,.11,.06,1.0);
+ }
+ // Use the identical transforms for visuals and collision; the centre remains free.
+ for(const part of buildingWallColliders({x,z,width,depth,doorWidth:doorW,wallThickness:wallT,rotation,height:wallH}))
+  boxColliders.push(part);
+ for(const [lx,lz,w,d] of [[-2.6,-2.5,2.35,2.55],[2.7,-3.1,1.7,1.2],[1.45,-.4,1.9,1.6],[2.9,1,.62,.66],[2.9,-1.8,.62,.66]]){
+  const p=localToWorld2D(lx,lz,x,z,rotation);
+  obstacleBox(p.x,p.z,w,d,rotation,2);
+ }
+ const zone={x,z,w:width-.3,d:depth+.45,yaw:rotation,roofMeshes:[roofLeft,roofRight],roofMat,wallMat,inside:false};
+ interiorZones.push(zone);
+ for(const roof of zone.roofMeshes){roof.userData.interiorRoof=zone;cameraBlockers.push(roof)}
+ mapLandmarks.push({x,z,r:Math.min(width,depth)*.18,color:'#cfb689',type:'building',width,depth,rotation});
+ fuse(frame,true);fuse(furniture,true);
+ return g;
+}
+function updateInteriors(){
+ for(const zone of interiorZones){
+  const inside=isInsideRect(state.x,state.z,zone);
+  if(inside===zone.inside)continue;
+  zone.inside=inside;
+  for(const [mat,opacity] of [[zone.roofMat,.12],[zone.wallMat,.33]]){
+   mat.transparent=inside;mat.depthWrite=!inside;mat.opacity=inside?opacity:1;mat.needsUpdate=true;
+  }
+ }
+}
+
+walkableHouse(-12,-5);tent(11,-7,4.2,-.5);tent(-15,12,3.8,2.2);tent(13,16,3.4,-1.7);tent(-23,-15,3,.5);
 function totem(x,z,scale=1){const g=group(world,x,heightAt(x,z),z);g.scale.setScalar(scale);mesh(g,new THREE.CylinderGeometry(.48,.65,4.8,8),M.woodLight,0,2.4,0);for(let i=0;i<3;i++){const y=.9+i*1.25;mesh(g,new THREE.CylinderGeometry(.52,.53,.26,8),i%2?M.teal:M.red,0,y,0);box(g,M.bone,0,y+.43,.5,.67,.38,.13);for(const s of [-1,1])box(g,M.black,s*.2,y+.5,.58,.11,.09,.035);box(g,M.red,0,y+.28,.6,.14,.21,.15)}const wings=group(g,0,4.3,0);for(const s of [-1,1]){const w=box(wings,M.teal,s*1.15,0,0,2,.38,.3);w.rotation.z=s*.15;for(let i=0;i<4;i++){const f=box(wings,i%2?M.red:M.bone,s*(.65+i*.38),-.22,0,.18,.63,.16);f.rotation.z=s*.18}}ell(g,M.bone,0,5,0,.55,.43,.45);obstacle(x,z,.75*scale,5*scale);mapLandmarks.push({x,z,r:.8,color:'#73b9ae'});return g}
 totem(-3,-5,1);totem(5,9,.75);totem(-5,25,.8);totem(35,-14,1.25);
 function banner(x,z,angle){const g=group(world,x,heightAt(x,z),z);g.rotation.y=angle;rod(g,M.wood,[-1,0,0],[-1,4.6,0],.09);rod(g,M.wood,[1,0,0],[1,4.6,0],.09);rod(g,M.wood,[-1.25,4.3,0],[1.25,4.3,0],.09);mesh(g,new THREE.PlaneGeometry(1.85,2.1),M.hide,0,3.15,0);obstacle(x-1,z,.15);obstacle(x+1,z,.15)}
@@ -125,7 +243,7 @@ const pond=mesh(world,new THREE.CircleGeometry(6,36),M.water,26,heightAt(26,29)+
 // Sparse, instanced grass keeps the large meadow inexpensive on phones.
 const grassGeo=new THREE.BufferGeometry();grassGeo.setAttribute('position',new THREE.Float32BufferAttribute([-.18,0,0,.03,.7,.03,.16,0,0,0,0,-.17,.04,.52,0,0,0,.18],3));grassGeo.computeVertexNormals();
 const grass=new THREE.InstancedMesh(grassGeo,material(0x718643,{side:THREE.DoubleSide}),1100),dummy=new THREE.Object3D();let grassCount=0;
-for(let i=0;i<1900&&grassCount<1100;i++){const x=(rand()-.5)*139,z=(rand()-.5)*139;if(!clearAt(x,z,.15)||onPath(x,z)||Math.hypot(x+5,z-4)<8)continue;dummy.position.set(x,heightAt(x,z),z);dummy.rotation.y=rand()*TAU;dummy.scale.setScalar(.45+rand()*.75);dummy.updateMatrix();grass.setMatrixAt(grassCount,dummy.matrix);grass.setColorAt(grassCount,new THREE.Color().setHSL(.17+rand()*.055,.35,.31+rand()*.14));grassCount++}grass.count=grassCount;grass.instanceMatrix.needsUpdate=true;scene.add(grass);
+for(let i=0;i<1900&&grassCount<1100;i++){const x=(rand()-.5)*139,z=(rand()-.5)*139;if(!clearAt(x,z,.15)||interiorZones.some(zone=>isInsideRect(x,z,zone,1))||onPath(x,z)||Math.hypot(x+5,z-4)<8)continue;dummy.position.set(x,heightAt(x,z),z);dummy.rotation.y=rand()*TAU;dummy.scale.setScalar(.45+rand()*.75);dummy.updateMatrix();grass.setMatrixAt(grassCount,dummy.matrix);grass.setColorAt(grassCount,new THREE.Color().setHSL(.17+rand()*.055,.35,.31+rand()*.14));grassCount++}grass.count=grassCount;grass.instanceMatrix.needsUpdate=true;scene.add(grass);
 fuse(world,true);
 // Soft contact shadows stay directly on the terrain underneath each actor.
 const shadowTexture=texture((c,s)=>{const grad=c.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);grad.addColorStop(0,'rgba(22,22,10,.48)');grad.addColorStop(.4,'rgba(22,22,10,.24)');grad.addColorStop(1,'rgba(22,22,10,0)');c.fillStyle=grad;c.fillRect(0,0,s,s)},64);
@@ -2654,7 +2772,7 @@ function updateHUD(){const max=playerStats().maxHp;
  $('resourceBar').classList.toggle('resource-mana',klass.resource==='mana');
  $('combatState').textContent=inCombat()?'В бою':state.hp<max?(clock-lastCombatAt<HEALTH_REGEN_DELAY?'Отдых после боя':'Восстановление'):'Готов к бою';
 $('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.quest===1?'Равнинные долгоноги: '+state.kills+' / 3':questLines[state.quest][1];
- const camp=Math.hypot(state.x+3,state.z-3)<23;$('area').textContent=camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=camp?'Лагерь Нараче':'Мулгор';
+ const camp=Math.hypot(state.x+3,state.z-3)<23,indoors=interiorZones.some(zone=>isInsideRect(state.x,state.z,zone));$('area').textContent=indoors?'Дом очага':camp?'Лагерь Нараче':'Плато Красного Облака';$('mapLabel').textContent=indoors?'Дом очага':camp?'Лагерь Нараче':'Мулгор';
  const questNumber=state.quest===0?1:state.quest<=2?2:state.quest<=5?3:state.quest<=8?4:5;
  $('quest-progress').textContent=state.quest===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+questNumber+' / 5';
  const gatherPanel=$('gatherQuestTracker');
@@ -2751,7 +2869,17 @@ function drawMap(){const c=mapCtx,s=240,k=4.1;c.clearRect(0,0,s,s);c.fillStyle='
   c.beginPath();c.arc(node.x*k,node.z*k,3.2,0,TAU);c.fill();
  }
  c.fillStyle='#ffe397';c.fillRect(6*k-4,11*k-4,8,8);c.strokeStyle='#573c18';c.strokeRect(6*k-4,11*k-4,8,8);
- for(const p of mapLandmarks){c.fillStyle=p.color;c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.strokeStyle='#4e4e30';c.lineWidth=1;c.stroke()}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){
+ for(const p of mapLandmarks){
+ c.fillStyle=p.color;c.strokeStyle='#4e4e30';c.lineWidth=1;
+ if(p.type==='building'){
+  c.save();c.translate(p.x*k,p.z*k);c.rotate(-p.rotation);
+  c.fillRect(-p.width*k/2,-p.depth*k/2,p.width*k,p.depth*k);
+  c.strokeRect(-p.width*k/2,-p.depth*k/2,p.width*k,p.depth*k);
+  c.strokeStyle='#493923';c.lineWidth=4;
+  c.beginPath();c.moveTo(-p.width*k*.16,p.depth*k/2);c.lineTo(p.width*k*.16,p.depth*k/2);c.stroke();
+  c.restore();
+ }else{c.beginPath();c.arc(p.x*k,p.z*k,Math.max(3,p.r*k),0,TAU);c.fill();c.stroke()}
+}c.fillStyle='#4f8d85';c.beginPath();c.ellipse(26*k,29*k,6*k,3*k,0,0,TAU);c.fill();for(const e of enemies){if(e.dead<=0){
   if(e.trainingDummy){
    const px=e.root.position.x*k,pz=e.root.position.z*k;
    c.fillStyle='#ead6a4';c.strokeStyle='#87502e';c.lineWidth=2.4;
@@ -2901,7 +3029,11 @@ function animateCamera(dt){
   }
  }
  camTarget.set(state.x,heightAt(state.x,state.z)+2.15,state.z);camFocus.lerp(camTarget,1-Math.exp(-dt*12));camDirection.set(Math.sin(cameraYaw)*Math.cos(cameraPitch),Math.sin(cameraPitch),Math.cos(cameraYaw)*Math.cos(cameraPitch));
- camRay.set(camFocus,camDirection);camRay.far=Math.max(cameraDistance,actualCameraDistance);let distance=camRay.far;const hits=camRay.intersectObjects(cameraBlockers,false);if(hits.length)distance=Math.min(distance,Math.max(1.15,hits[0].distance-.35));
+ updateInteriors();
+ camRay.set(camFocus,camDirection);camRay.far=Math.max(cameraDistance,actualCameraDistance);let distance=camRay.far;
+ const blockers=cameraBlockers.filter(mesh=>!mesh.userData.interiorRoof?.inside);
+ const hits=camRay.intersectObjects(blockers,false);
+ if(hits.length)distance=Math.min(distance,Math.max(1.15,hits[0].distance-.35));
  for(let d=1.1;d<distance;d+=.55){const x=camFocus.x+camDirection.x*d,z=camFocus.z+camDirection.z*d,y=camFocus.y+camDirection.y*d;if(y<heightAt(x,z)+.5){distance=Math.max(1.1,d-.55);break}}
  // Smooth user zoom; approaching an obstacle still retracts the camera immediately.
  actualCameraDistance=Math.min(distance,THREE.MathUtils.damp(actualCameraDistance,Math.min(cameraDistance,distance),8,dt));camera.position.copy(camFocus).addScaledVector(camDirection,actualCameraDistance);camera.position.y=Math.max(camera.position.y,heightAt(camera.position.x,camera.position.z)+.4);camera.lookAt(camFocus);
