@@ -1,6 +1,6 @@
 // Shared-world presence transport. Networking is opt-in until the server is deployed.
 // Rendering and gameplay are not coupled to socket lifecycle.
-export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWelcome,onCombat,onMobAttack,onKillCredit,onCombatRejected,onPartyState,onPartyInvite,onPartyNotice,onNameChanged,onChat,onChatRejected,getPosition}){
+export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWelcome,onCombat,onMobAttack,onKillCredit,onCombatRejected,onPartyState,onPartyInvite,onPartyNotice,onNameChanged,onChat,onChatRejected,onPopulation,getPosition}){
  let socket=null,closed=false,retry=null,interval=null,selfId=null;
  const send=json=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify(json))};
  const status=value=>onStatus?.(value);
@@ -15,10 +15,16 @@ export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWel
    let m;try{m=JSON.parse(e.data)}catch{return}
    if(!m||typeof m!=='object')return;
    if(m.type==='welcome'){selfId=m.id;onWelcome?.(m);
+    // Welcome includes all OTHER connected players. Include our own connection.
+    if(Array.isArray(m.players))onPopulation?.(m.players.length+1);
     onMobs?.(Array.isArray(m.mobs)?m.mobs:[]);
    }
    else if(m.type==='snapshot'){
-    if(Array.isArray(m.players))onPlayers?.(m.players.filter(p=>p.id!==selfId));
+    if(Array.isArray(m.players)){
+     onPlayers?.(m.players.filter(p=>p.id!==selfId));
+     // Authoritative snapshot contains ALL connected players, including ourselves.
+     onPopulation?.(m.players.length);
+    }
     onMobs?.(Array.isArray(m.mobs)?m.mobs:[]);
    }
    else if(m.type==='combat')onCombat?.(m,selfId);
@@ -34,7 +40,7 @@ export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWel
    else if(m.type==='leave'&&typeof m.id==='string')onLeave?.(m.id);
   };
   ws.onclose=()=>{if(socket!==ws)return;socket=null;clearInterval(interval);interval=null;
-   onPlayers?.([]);onMobs?.(null);onPartyState?.({groupId:null,leaderId:null,members:[]});status('offline');if(!closed)retry=setTimeout(connect,3000);
+   onPlayers?.([]);onPopulation?.(null);onMobs?.(null);onPartyState?.({groupId:null,leaderId:null,members:[]});status('offline');if(!closed)retry=setTimeout(connect,3000);
   };
   ws.onerror=()=>{if(ws.readyState<2)ws.close()};
  };
