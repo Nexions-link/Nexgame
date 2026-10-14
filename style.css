@@ -776,3 +776,6 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
 .party-hud-icon{font:20px system-ui}
 .party-hud-count{font:700 10px system-ui}
 @media(max-width:360px){#partyHud{width:min(135px,39vw)}.party-hud-member{gap:3px;padding:4px}.party-hud-avatar{flex-basis:20px;width:20px;height:20px}}
+
+/* Reserve header height when five group members need scrolling. */
+#partyHud .party-hud-content{max-height:var(--party-body-max-height,205px)}
