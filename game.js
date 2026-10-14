@@ -223,9 +223,11 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
    const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(0,Math.PI/2,-.08,'YXZ');
   rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
   for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
-  const blade=new THREE.Shape();blade.moveTo(-.07,.84);blade.lineTo(.26,1.02);blade.quadraticCurveTo(.76,.98,.67,.49);blade.lineTo(.24,.35);blade.lineTo(.19,.54);blade.lineTo(-.07,.54);blade.closePath();
+  // Mirror only the axe head across the haft: preserve the existing hand grip and weapon orientation,
+   // but point the cutting edge forward (+Z in world space) instead of behind the hero.
+   const blade=new THREE.Shape();blade.moveTo(.07,.84);blade.lineTo(-.26,1.02);blade.quadraticCurveTo(-.76,.98,-.67,.49);blade.lineTo(-.24,.35);blade.lineTo(-.19,.54);blade.lineTo(.07,.54);blade.closePath();
   mesh(axe,new THREE.ExtrudeGeometry(blade,{depth:.1,bevelEnabled:true,bevelSize:.022,bevelThickness:.014,bevelSegments:1,steps:1}),M.metal,0,0,-.05);
-  rod(axe,T.ivory,[.65,.50,.01],[.65,.79,.01],.018,.018);ell(axe,M.gold,0,.69,0,.12,.15,.11);
+  rod(axe,T.ivory,[-.65,.50,.01],[-.65,.79,.01],.018,.018);ell(axe,M.gold,0,.69,0,.12,.15,.11);
   for(const kind of ['sword','dagger']){
    const g=group(arms[1].hand,0,-.23,.135);g.name='gear-'+kind;
    rod(g,M.wood,[0,-.23,0],[0,.21,0],.067);box(g,M.metal,0,.25,0,.43,.07,.12);
