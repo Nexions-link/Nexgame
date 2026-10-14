@@ -1,11 +1,12 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.39';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.39';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.39';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.40';
+import {screenMoveVector,turnTowardsAngle} from './movement-controls.js?v=0.3.5.40';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.40';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.40';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.39';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.39';
-import {projectPartyMember} from './party-map.js?v=0.3.5.39';
+import {createWorldPresence} from './online.js?v=0.3.5.40';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.40';
+import {projectPartyMember} from './party-map.js?v=0.3.5.40';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -2972,34 +2973,24 @@ function updateApproach(dt){
   if(task.stuck>.65){approach=null;if(task.abilityId==='autoAttack')autoAttack=false;combatWarning('Путь к цели перекрыт',true)}
   return moved;
  }
- function movement(dt){
- // Classic-style controls: vertical stick walks along the hero's own heading,
- // horizontal stick continuously ROTATES the hero while held.
- // Both axes can be used simultaneously for walking arcs.
+function movement(dt){
+ // Left stick moves relative to the current SCREEN, not the hero's old yaw.
+ // This remains true whether camera auto-follow is enabled or disabled.
  const ax=joy.x+Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));
- const az=joy.y+Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
- const turnInput=clamp(ax,-1,1),forwardInput=clamp(-az,-1,1);
- const manual=Math.abs(turnInput)>.04||Math.abs(forwardInput)>.04;
-  if(manual&&approach){approach=null;autoAttack=false}
-  const approachMoved=!manual&&approach?updateApproach(dt):0;
-  const turnSpeed=2.45; // radians/second; not a target angle
- let turn=0;
- if(Math.abs(turnInput)>.04){
-  turn=-turnInput*turnSpeed*dt;
-  const nextYaw=hero.root.rotation.y+turn;
-  hero.root.rotation.y=Math.atan2(Math.sin(nextYaw),Math.cos(nextYaw));
-  state.yaw=hero.root.rotation.y;
- }
+ const ay=joy.y+Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
+ const input=screenMoveVector(clamp(ax,-1,1),clamp(ay,-1,1),cameraYaw);
+ const manual=input.strength>0;
+ if(manual&&approach){approach=null;autoAttack=false}
+ const approachMoved=!manual&&approach?updateApproach(dt):0;
  const speed=stompElapsed>=0||approachMoved?0:4.05;
- const forwardSpeed=forwardInput*speed;
- const dx=Math.sin(hero.root.rotation.y)*forwardSpeed;
- const dz=Math.cos(hero.root.rotation.y)*forwardSpeed;
- if(Math.abs(forwardInput)<.04||speed===0){
-  // No drift when rotating on the spot or after releasing the stick.
-  velocityX=velocityZ=0;
+ if(manual&&speed>0){
+  const yaw=turnTowardsAngle(hero.root.rotation.y,input.heading,dt);
+  hero.root.rotation.y=wrapYaw(yaw);state.yaw=hero.root.rotation.y;
+  velocityX=input.x*speed*input.strength;
+  velocityZ=input.z*speed*input.strength;
  }else{
-  velocityX=THREE.MathUtils.damp(velocityX,dx,10,dt);
-  velocityZ=THREE.MathUtils.damp(velocityZ,dz,10,dt);
+  // Releasing the joystick stops the actor immediately, not after a drift.
+  velocityX=velocityZ=0;
  }
  const prevX=state.x,prevZ=state.z,nx=state.x+velocityX*dt,nz=state.z+velocityZ*dt;
  if(clearAt(nx,nz)){state.x=nx;state.z=nz}
@@ -3009,7 +3000,8 @@ function updateApproach(dt){
  const travelled=Math.hypot(state.x-prevX,state.z-prevZ)+approachMoved;
  if(travelled>.00005)hero.phase=(hero.phase+travelled/2.67)%1;
  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
- animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,turn);
+ animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),
+  attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,0);
 }
 function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){

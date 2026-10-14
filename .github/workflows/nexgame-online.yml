@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - 'game.js'
+      - 'movement-controls.js'
+      - 'tests/movement-controls.test.mjs'
       - 'meadow.js'
       - 'lake.js'
       - 'tests/lake.test.mjs'
@@ -56,6 +58,8 @@ jobs:
       - name: Syntax check client and server
         run: |
           node --check game.js
+          node --check movement-controls.js
+          node --check tests/movement-controls.test.mjs
           node --check meadow.js
           node --check lake.js
           node --check tests/lake.test.mjs
@@ -76,5 +80,5 @@ jobs:
         run: npm install --prefix server --no-audit --no-fund
       - name: Test private chat, party map, PvE and real WebSocket sessions
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs
+          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs
           npm test --prefix server
