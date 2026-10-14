@@ -692,6 +692,7 @@ state.hp=clamp(state.hp,1,playerStats().maxHp);syncEquipmentVisuals();
 hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;
 const save=()=>{try{localStorage.setItem(saveKey,JSON.stringify(state))}catch(e){}};
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},stick=$('stick'),nub=$('nub');
+let gatherCast=null;
 let modalKind=null,selected=null,autoAttack=false,swingTarget=null,attackElapsed=-1,attackCooldown=0,attackLanded=false,stompElapsed=-1,stompCooldown=0,stompLanded=false,shockAge=9,clock=0,saveClock=0,hudClock=0,velocityX=0,velocityZ=0,lastCombatAt=-100;
 let cameraYaw=0,cameraPitch=settings.cameraPitch,cameraDistance=10.5,actualCameraDistance=10.5;
 let cameraFollow=false,cameraFollowCooldown=0;
@@ -831,6 +832,8 @@ function graphicsSettings(){
  choice('▶ Продолжить игру',closeDialog);
 }
 function resetWorld(){
+ cancelGather();
+ for(const node of gatherNodes){node.pending=false;node.readyAt=0;node.root.visible=false}
  state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[]};
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
@@ -840,6 +843,73 @@ function resetWorld(){
   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
   e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
  }hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);hero.root.rotation.y=state.yaw;hero.phase=hero.walk=0;syncEquipmentVisuals();attackElapsed=stompElapsed=-1;attackCooldown=stompCooldown=0;selected=null;autoAttack=false;swingTarget=null;lastCombatAt=-100;hideCombatWarning();shockAge=9;cameraYaw=0;cameraFollowCooldown=0;closeDialog();msg('Новый путь начинается в лагере Нараче')}
+function cancelGather(message=''){
+ if(!gatherCast)return false;
+ gatherCast=null;$('gatherCast').hidden=true;
+ $('gatherCastFill').style.width='0%';
+ animateTauren(hero,clock,0);
+ if(message)msg(message);
+ return true;
+}
+function startGather(node){
+ if(!node||modalKind||gatherCast||!gatherNodeAvailable(node))return false;
+ if(Math.hypot(state.x-node.x,state.z-node.z)>GATHER_INTERACT_RANGE){
+  combatWarning('Слишком далеко для сбора',true);return false;
+ }
+ if(inCombat()){combatWarning('Нельзя собирать во время боя',true);return false}
+ if(node.pending){openGatherLoot(node);return true}
+ clearInput();autoAttack=false;attackElapsed=-1;swingTarget=null;attackCooldown=0;
+ const dx=node.x-state.x,dz=node.z-state.z;
+ hero.root.rotation.y=Math.atan2(dx,dz);state.yaw=hero.root.rotation.y;
+ gatherCast={node,elapsed:0,hp:state.hp};
+ const quest=GATHER_QUESTS[node.stage];
+ $('gatherCastLabel').textContent='Сбор: '+ITEM_CATALOG[quest.item].name;
+ $('gatherCastTime').textContent=GATHER_CAST_SECONDS.toFixed(1).replace('.',',')+' с';
+ $('gatherCastFill').style.width='0%';
+ $('gatherCast').setAttribute('aria-valuenow','0');
+ $('gatherCast').hidden=false;$('interact').hidden=true;
+ return true;
+}
+function updateGatherCast(dt){
+ if(!gatherCast)return;
+ const cast=gatherCast,node=cast.node;
+ if(!gatherNodeAvailable(node)||Math.hypot(state.x-node.x,state.z-node.z)>GATHER_INTERACT_RANGE||
+    inCombat()||state.hp<cast.hp){
+  cancelGather('Сбор прерван');return;
+ }
+ cast.elapsed=Math.min(GATHER_CAST_SECONDS,cast.elapsed+dt);
+ const percentage=cast.elapsed/GATHER_CAST_SECONDS*100;
+ $('gatherCastFill').style.width=percentage.toFixed(1)+'%';
+ $('gatherCast').setAttribute('aria-valuenow',String(Math.round(percentage)));
+ $('gatherCastTime').textContent=Math.max(0,GATHER_CAST_SECONDS-cast.elapsed).toFixed(1).replace('.',',')+' с';
+ animateTauren(hero,clock,dt,0,-1,-1,0,Math.min(1,cast.elapsed/.28));
+ if(cast.elapsed>=GATHER_CAST_SECONDS){
+  gatherCast=null;$('gatherCast').hidden=true;
+  node.pending=true;openGatherLoot(node);
+ }
+}
+function openGatherLoot(node){
+ if(!node?.pending||!gatherNodeAvailable(node))return false;
+ if(Math.hypot(state.x-node.x,state.z-node.z)>GATHER_INTERACT_RANGE){
+  combatWarning('Слишком далеко для сбора',true);return false;
+ }
+ const def=ITEM_CATALOG[node.item];
+ openDialog('Собранный ресурс','ДОБЫЧА С ЗЕМЛИ',
+  ['Ты аккуратно собрал '+def.name.toLowerCase()+'. Забери предмет в рюкзак.'],'gatherLoot');
+ const box=document.createElement('div');box.className='loot-list';
+ const row=document.createElement('div');row.className='loot-item';
+ row.textContent=def.icon+'  '+def.name+' ×1';
+ box.appendChild(row);$('mbody').appendChild(box);
+ choice('Забрать в рюкзак',()=>{
+  if(!node.pending||!gatherNodeAvailable(node))return;
+  if(!storeItem({id:node.item,qty:1})){msg('Рюкзак заполнен — освободи место');return}
+  node.pending=false;node.readyAt=clock+GATHER_RESPAWN_SECONDS;
+  updateGatherVisibility();closeDialog();updateHUD();
+  const quest=GATHER_QUESTS[state.gatherStage],count=quest?gatherQuestCount():0;
+  msg('Получено: '+def.name+(quest&&count>=quest.count?' · Возвращайся к Тихой Заре!':''));
+ });
+ return true;
+}
 function isLootableCorpse(e){return !!e&&e.dead>0&&Array.isArray(e.loot)&&e.loot.length>0}
 function nearTarget(){
  let closest=null,dist=3.5;
@@ -852,12 +922,18 @@ function nearTarget(){
   const d=Math.hypot(state.x-35,state.z+11.8);
   if(d<dist&&d<3.1)closest={kind:'relic'};
  }
+ for(const node of gatherNodes){
+  if(!gatherNodeAvailable(node))continue;
+  const d=Math.hypot(state.x-node.x,state.z-node.z);
+  if(d<dist&&d<GATHER_INTERACT_RANGE){dist=d;closest={kind:'gather',node}}
+ }
  return closest;
 }
 function interact(){
  if(modalKind)return;
  const target=nearTarget();
  if(!target){msg('Подойди к жителю или предмету ближе');return}
+ if(target.kind==='gather'){startGather(target.node);return}
  if(target.kind==='corpse'){showCorpseLoot(target.enemy);return}
  if(target.kind==='relic'){state.quest=5;state.relic=true;save();updateHUD();msg('Получено перо предков');return}
  if(target.npc.type==='mentor')mentorTalk();else if(target.npc.type==='armorer')merchantTalk();else traderTalk();
