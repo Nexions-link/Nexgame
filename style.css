@@ -303,3 +303,71 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #gatherCast{bottom:calc(91px + var(--safe-bottom));left:48%}
  #gatherQuestTracker p{line-height:1.2}
 }
+
+
+/* Alpha 0.3.4 — compact active-quest tracker and 3-tab quest journal. */
+#top{grid-template-columns:repeat(2,minmax(0,auto));gap:5px}
+#top #character{grid-column:auto}
+#top #journal{color:#f0dfb2}
+#quest{pointer-events:none}
+#questJournalOpen{
+ pointer-events:auto;display:inline-flex;align-items:center;gap:6px;
+ min-height:30px;padding:4px 9px;margin:0 0 8px -3px;
+ background:linear-gradient(#3c3927de,#22291de8);border:1px solid #a68c52;
+ border-radius:3px;font:12px/1.3 Georgia,serif;color:#f7dda0;
+ text-shadow:0 1px 2px #111;cursor:pointer;touch-action:manipulation;
+}
+#questJournalOpen span{color:#bad6a4;font:bold 15px system-ui,sans-serif}
+#questJournalOpen:hover{border-color:#e0c784;background:#4c432b}
+#mainQuestTracker[hidden],#gatherQuestTracker[hidden]{display:none!important}
+#mainQuestTracker b{display:block}
+#mainQuestTracker #quest-progress{margin-top:0}
+#panel.journal-modal{
+ width:min(610px,100%);max-height:min(88dvh,740px);
+ padding:22px 22px 25px;
+ background:radial-gradient(ellipse at 45% 0,#e6d5a8,#c7a973 78%);
+}
+#panel.journal-modal h2{padding-right:36px;color:#4b351c}
+.journal-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:5px 0 16px}
+.journal-tab{min-height:45px;padding:7px 3px;border:1px solid #7e693f;border-radius:3px;
+ background:#a28a60;color:#372916;font:bold 12px/1.35 system-ui,sans-serif;touch-action:manipulation}
+.journal-tab[aria-selected="true"]{background:linear-gradient(#4a5639,#283527);color:#fae9b6;border-color:#b09b64;box-shadow:inset 0 0 0 1px #ead39b55}
+.journal-count{font-size:10px;opacity:.83}
+.journal-list{display:flex;flex-direction:column;gap:9px;min-height:110px}
+.journal-empty{padding:21px 12px;border:1px dashed #997e53;border-radius:4px;
+ font:13px/1.5 system-ui,sans-serif;text-align:center;color:#634928;background:#f7e6c840}
+.journal-entry{border:1px solid #9d8150;border-radius:4px;
+ background:linear-gradient(#e5d19c,#cfb47f);box-shadow:0 2px 6px #41270a24}
+.journal-entry[open]{border-color:#7d6741;box-shadow:0 2px 9px #3b2d1640}
+.journal-entry summary{display:flex;align-items:center;gap:9px;padding:12px 11px;cursor:pointer;
+ list-style:none;touch-action:manipulation;min-height:49px}
+.journal-entry summary::-webkit-details-marker{display:none}
+.journal-entry summary::before{content:'▸';flex:0 0 13px;color:#816034;font-size:16px}
+.journal-entry[open] summary::before{content:'▾'}
+.journal-entry-title{flex:1;font:bold 14px/1.3 Georgia,serif;color:#48321d}
+.journal-entry-status{font:10px/1.3 system-ui,sans-serif;color:#665237;white-space:nowrap;text-align:right}
+.journal-entry[data-status="current"] .journal-entry-status{color:#487036}
+.journal-entry[data-status="available"] .journal-entry-status{color:#8f6120}
+.journal-entry[data-status="completed"] .journal-entry-title{color:#75644c}
+.journal-entry-body{border-top:1px solid #99815480;padding:11px 14px 14px;color:#46321e}
+.journal-entry-body p{font:13px/1.55 system-ui,sans-serif!important;margin:0 0 8px!important}
+.journal-entry-body p:last-child{margin-bottom:0!important}
+.journal-entry-meta{font-size:11px!important;color:#6d5436}
+.journal-entry-reward{margin-top:8px!important;padding-top:7px;border-top:1px dashed #9f885f;
+ color:#5d542b}
+.journal-chain-label{font:10px/1.3 system-ui,sans-serif;letter-spacing:.9px;
+ color:#856942;text-transform:uppercase;margin:10px 2px 6px}
+@media(max-width:850px){
+ #top{grid-template-columns:repeat(2,minmax(0,auto))}
+ #questJournalOpen{min-height:28px;font-size:11px;padding:4px 8px}
+ #panel.journal-modal{padding:16px 15px 18px;max-height:90dvh}
+ .journal-tabs{gap:4px}
+ .journal-tab{font-size:11px;min-height:42px}
+ .journal-entry-title{font-size:13px}
+ .journal-entry-status{font-size:9px}
+ .journal-entry summary{gap:5px;padding:10px 7px}
+}
+@media(max-height:510px) and (min-width:600px){
+ #questJournalOpen{min-height:26px}
+ #panel.journal-modal{max-height:95dvh}
+}
