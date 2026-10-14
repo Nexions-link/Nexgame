@@ -1014,7 +1014,9 @@ for(const type of ['pointercancel','lostpointercapture'])
 canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventListener('wheel',e=>{if(!modalKind)setCameraDistance(cameraDistance+Math.sign(e.deltaY)*.5)},{passive:true});
 addEventListener('blur',clearInput);addEventListener('pagehide',()=>{clearInput();save()});document.addEventListener('visibilitychange',()=>{if(document.hidden){clearInput();save()}last=performance.now();resetFps()});
 addEventListener('keydown',e=>{
+ if(e.target?.matches?.('input,textarea,[contenteditable="true"]'))return;
  const k=e.code==='KeyC'?'c':e.key.toLowerCase();
+ if(k==='g'){e.preventDefault();if(!e.repeat)openPartyDialog();return}
  if(k==='c'&&modalKind==='character'){e.preventDefault();if(!e.repeat)closeDialog();return}
   if(k==='j'&&modalKind==='journal'){e.preventDefault();if(!e.repeat)closeDialog();return}
  if(k==='b'&&modalKind==='spellbook'){e.preventDefault();if(!e.repeat)closeDialog();return}
@@ -2099,7 +2101,7 @@ function updateRemoteSnapshot(list){
   if(!remote){
    const actor=makeTauren({fur:0x977c61,cloth:M.teal,scale:.94,weapon:true});
    actor.root.position.set(p.x,heightAt(p.x,p.z),p.z);actor.root.rotation.y=p.yaw;
-   const nameTag=spriteText(String(p.name||'Странник').slice(0,24),'#c3f1ff',26);
+   const nameTag=spriteText(String(p.name||'Странник').slice(0,24)+' · '+(p.level||1),'#c3f1ff',26);
    scene.add(nameTag);
    remote={actor,nameTag,name:String(p.name||'Странник').slice(0,24),level:p.level||1,hp:p.hp,maxHp:p.maxHp,
     x:p.x,z:p.z,yaw:p.yaw,lastX:p.x,lastZ:p.z,moving:false,attackAge:-1,stompAge:-1};
