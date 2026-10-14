@@ -2026,6 +2026,9 @@ function renderGroupHud(){
 function renderAllySelection(){
  const remote=remotePlayers.get(selectedPlayerId);
  const panel=$('allyFrame');panel.hidden=!remote;
+ // Only one frame occupies the center HUD slot: hostile target,
+ // friendly player, or a subtle empty-target placeholder.
+ $('targetPlaceholder').hidden=isAliveTarget(selected)||!!remote;
  if(!remote)return;
  $('allyName').textContent=remote.name||'Странник';
  $('allyLevel').textContent='Таурен · Воин · уровень '+(remote.level||1);
@@ -2660,7 +2663,8 @@ $('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.
  if(target)$('interact').innerHTML=target.kind==='gather'?(target.node.pending?'Забрать <kbd>E</kbd>':'Собрать <kbd>E</kbd>'):
  target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
  const valid=isAliveTarget(selected);
- $('targetFrame').hidden=!valid;$('zoneTitle').hidden=Boolean(valid);
+ $('targetFrame').hidden=!valid;
+ $('targetPlaceholder').hidden=valid||!!remotePlayers.get(selectedPlayerId);$('zoneTitle').hidden=Boolean(valid);
  const isDummy=valid&&selected.trainingDummy===true;
  $('targetFrame').classList.toggle('dummy-target',isDummy);
  $('dummyStats').hidden=!isDummy;
