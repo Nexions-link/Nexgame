@@ -62,7 +62,8 @@ test('five primary mobile actions have accessible icon-only buttons',()=>{
   assert.ok(button,'icon button '+id);
   assert.match(button[0],/aria-label="[^"]+"/);
   assert.match(button[0],/title="[^"]+"/);
-  assert.match(button[0],/<svg[^>]*aria-hidden="true"/);
+  assert.match(button[0],/<svg[^>]*width="22" height="22"[^>]*aria-hidden="true"/);
+  assert.match(button[0],/<svg[^>]*fill="none" stroke="currentColor"/);
   assert.ok(!/>\\s*(?:Группа|Персонаж|Задания|Рюкзак|Меню)\\s*</.test(button[0]),
    'no visible text label in '+id);
  }
@@ -84,4 +85,25 @@ test('square minimap and both unit panels share exactly the same row height',()=
   assert.equal(map,row);
   assert.ok(map>=86&&map<=94);
  }
+});
+
+test('critical inline toolbar stylesheet prevents SVG blow-up with stale external CSS',()=>{
+ const link=html.indexOf('href="./style.css?');
+ const fallback=html.indexOf('<style id="hud-toolbar-failsafe">');
+ assert.ok(link>=0&&fallback>link,'fallback stylesheet follows external CSS');
+ const end=html.indexOf('</style>',fallback);
+ assert.ok(end>fallback);
+ const rule=html.slice(fallback,end);
+ assert.ok(rule.includes('grid-template-columns:repeat(5,minmax(0,1fr))'));
+ assert.ok(rule.includes('#top #partyOpen{grid-column:auto}'));
+ assert.ok(rule.includes('#top .smallButton svg'));
+ assert.ok(rule.includes('width:22px;height:22px'));
+ assert.ok(rule.includes('fill:none;stroke:currentColor'));
+});
+
+test('minimap never extends below the two character frames',()=>{
+ assert.ok(css.includes('--hud-map-size:90px;--hud-row-height:90px'));
+ assert.ok(css.includes('--hud-map-size:clamp(86px,23vw,90px)'));
+ assert.ok(css.includes('#hudTop #minimapFrame{'));
+ assert.ok(css.includes('max-height:var(--hud-row-height)'));
 });
