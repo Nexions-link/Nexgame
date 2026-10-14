@@ -220,7 +220,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
  if(weapon){
   // Place the grip inside the closed right palm rather than floating above it.
-   const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(-Math.PI/2,-Math.PI/2,-.08,'YXZ');
+   const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(0,-Math.PI/2,-.08,'YXZ');
   rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
   for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
   const blade=new THREE.Shape();blade.moveTo(-.07,.84);blade.lineTo(.26,1.02);blade.quadraticCurveTo(.76,.98,.67,.49);blade.lineTo(.24,.35);blade.lineTo(.19,.54);blade.lineTo(-.07,.54);blade.closePath();
@@ -388,7 +388,11 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  const bend=clamp(gather,0,1);
  actor.body.position.y-=crouch+.47*bend;
  actor.chest.rotation.x+=.20*bend;actor.neck.rotation.x+=.1*bend;
- for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?1.85*windup-.48*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0));arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?.6*windup:0)-.45*bend}
+ for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?1.85*windup-.48*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0));arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?.6*windup:0)-.45*bend;
+  // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
+  // follows a wood-chopping arc: raised on windup, edge down on impact.
+  arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):0;
+ }
  const yaw=actor.root.rotation.y;
  for(let i=0;i<2;i++){const leg=actor.legs[i],p=(phase+i*.5)%1;let z=0,lift=0;if(p<.58)z=.775-1.55*p/.58;else{const t=(p-.58)/.42;z=-.775+1.55*smooth(0,1,t);lift=Math.sin(t*Math.PI)*.22}z*=w;lift*=w;
  if(stomp>=0&&i===1){lift+=.42*Math.sin(Math.min(stomp/.48,1)*Math.PI);z+=.17*Math.sin(stomp*Math.PI)}
