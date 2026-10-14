@@ -6,14 +6,16 @@ import {WebSocketServer,WebSocket} from 'ws';
 import {randomUUID} from 'node:crypto';
 import {createPartyManager} from './groups.js';
 import {createChatManager} from './chat.js';
+import {createSharedChest} from './chest.js';
+import {resolve} from 'node:path';
 import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,applyMulgoreAbility,sanitizeEquipment,rollMulgoreLoot} from './world-mobs.js';
 
 const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
-const WORLD_PROTOCOL=5; // World and party chat, PvE and ephemeral groups.
-const WORLD_BUILD='0.3.5.27';
-const MAX_MESSAGE_BYTES=1024;
+const WORLD_PROTOCOL=6; // Adds server-authoritative shared chest transactions.
+const WORLD_BUILD='0.3.5.36';
+const MAX_MESSAGE_BYTES=8192; // inventory snapshot for a 108-slot character backpack
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
 const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const players=new Map();
@@ -29,6 +31,7 @@ const broadcast=payload=>{for(const socket of clients.keys())send(socket,payload
 const sendToPlayer=(id,payload)=>{for(const [socket,otherId] of clients)if(id===otherId)send(socket,payload)};
 const parties=createPartyManager({players,send:sendToPlayer});
 const chat=createChatManager({players,parties,send:sendToPlayer,broadcast});
+const chest=createSharedChest({players,send:sendToPlayer,broadcast,filePath:resolve(process.env.CHEST_DATA_FILE||'chest-data.json')});
 
 const http=createServer((req,res)=>{
  if(req.url==='/health'){
@@ -44,6 +47,7 @@ function disconnect(ws){
  const id=clients.get(ws);if(!id)return;
  parties.disconnect(id);
  chat.disconnect(id);
+ chest.disconnect(id);
  clients.delete(ws);players.delete(id);
  for(const client of clients.keys())send(client,{type:'leave',id});
 }
@@ -90,6 +94,9 @@ wss.on('connection',ws=>{
   if(data.type==='partyRespond'){parties.respond(id,data.fromId,data.accept===true);return}
   if(data.type==='partyLeave'){parties.leave(id);return}
   if(data.type==='chatSend'){chat.handle(id,data);return}
+  if(data.type==='chestOpen'){chest.open(id,data.inventory);return}
+  if(data.type==='chestMove'){chest.move(id,data);return}
+  if(data.type==='chestClose'){chest.close(id);return}
   if(data.type==='attack'){
    const result=applyMulgoreAbility(mobs,player,data.abilityId,data.mobId);
    if(!result.ok){send(ws,{type:'combatRejected',abilityId:data.abilityId,reason:result.reason});return}

@@ -1,6 +1,6 @@
 // Shared-world presence transport. Networking is opt-in until the server is deployed.
 // Rendering and gameplay are not coupled to socket lifecycle.
-export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWelcome,onCombat,onMobAttack,onKillCredit,onCombatRejected,onPartyState,onPartyInvite,onPartyNotice,onNameChanged,onChat,onChatRejected,onPopulation,getPosition}){
+export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWelcome,onCombat,onMobAttack,onKillCredit,onCombatRejected,onPartyState,onPartyInvite,onPartyNotice,onNameChanged,onChat,onChatRejected,onPopulation,onChestState,onChestResult,getPosition}){
  let socket=null,closed=false,retry=null,interval=null,selfId=null;
  const send=json=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify(json))};
  const status=value=>onStatus?.(value);
@@ -37,14 +37,16 @@ export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWel
    else if(m.type==='nameChanged')onNameChanged?.(m);
    else if(m.type==='chat')onChat?.(m,selfId);
    else if(m.type==='chatRejected')onChatRejected?.(m);
+   else if(m.type==='chestState')onChestState?.(m);
+   else if(m.type==='chestResult')onChestResult?.(m);
    else if(m.type==='leave'&&typeof m.id==='string')onLeave?.(m.id);
   };
   ws.onclose=()=>{if(socket!==ws)return;socket=null;clearInterval(interval);interval=null;
-   onPlayers?.([]);onPopulation?.(null);onMobs?.(null);onPartyState?.({groupId:null,leaderId:null,members:[]});status('offline');if(!closed)retry=setTimeout(connect,3000);
+   onPlayers?.([]);onPopulation?.(null);onMobs?.(null);onChestState?.(null);onPartyState?.({groupId:null,leaderId:null,members:[]});status('offline');if(!closed)retry=setTimeout(connect,3000);
   };
   ws.onerror=()=>{if(ws.readyState<2)ws.close()};
  };
- if(!url){status('solo');return {close(){},sendAttack(){return false},rename(){return false},invite(){return false},respondInvite(){return false},leaveParty(){return false},sendChat(){return false},connected:()=>false}}
+ if(!url){status('solo');return {close(){},sendAttack(){return false},rename(){return false},invite(){return false},respondInvite(){return false},leaveParty(){return false},sendChat(){return false},openChest(){return false},moveChest(){return false},closeChest(){return false},connected:()=>false}}
  connect();
  return {close(){closed=true;clearTimeout(retry);clearInterval(interval);socket?.close();},
   sendAttack(abilityId,mobId=null){
@@ -58,6 +60,18 @@ export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWel
   sendChat(channel,text){
    if(socket?.readyState!==WebSocket.OPEN)return false;
    send({type:'chatSend',channel,text});return true;
+  },
+  openChest(inventory){
+   if(socket?.readyState!==WebSocket.OPEN)return false;
+   send({type:'chestOpen',inventory});return true;
+  },
+  moveChest(action,slot,requestId){
+   if(socket?.readyState!==WebSocket.OPEN)return false;
+   send({type:'chestMove',action,slot,requestId});return true;
+  },
+  closeChest(){
+   if(socket?.readyState!==WebSocket.OPEN)return false;
+   send({type:'chestClose'});return true;
   },
   connected:()=>socket?.readyState===WebSocket.OPEN};
 }

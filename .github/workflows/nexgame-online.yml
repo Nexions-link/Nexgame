@@ -12,6 +12,7 @@ on:
   pull_request:
     paths:
       - 'game.js'
+      - 'chest-ui.js'
       - 'building-physics.js'
       - 'tests/buildings.test.mjs'
       - 'index.html'
@@ -50,6 +51,7 @@ jobs:
       - name: Syntax check client and server
         run: |
           node --check game.js
+          node --check chest-ui.js
           node --check building-physics.js
           node --check tests/buildings.test.mjs
           node --check online.js

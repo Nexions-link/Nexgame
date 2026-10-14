@@ -1,8 +1,9 @@
 import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.33';
-import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.35';
-import {createWorldPresence} from './online.js?v=0.3.5.35';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.35';
-import {projectPartyMember} from './party-map.js?v=0.3.5.35';
+import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
+import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
+import {createWorldPresence} from './online.js?v=0.3.5.36';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.36';
+import {projectPartyMember} from './party-map.js?v=0.3.5.36';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -48,6 +49,10 @@ let seed=531;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294
 const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t)};
 // Double-size hearth house is set back from the camp to protect NPCs, quests and paths.
 const HEARTH_HOUSE={x:-27,z:-2,rotation:Math.PI/2,scale:2};
+// The existing wooden box at local (2.7,-3.1) is now a shared 18-slot chest.
+// For 90-degree house rotation and scale=2 its centre is (-33.2,-7.4).
+const HEARTH_CHEST_POS={x:-33.2,z:-7.4};
+const HEARTH_CHEST_RANGE=4.7;
 function naturalHeightAt(x,z){const flat=smooth(10,29,Math.hypot(x+5,z-4));return flat*(Math.sin(x*.055)*Math.cos(z*.067)*1.65+Math.sin(z*.13+x*.047)*.6)}
 const HEARTH_GROUND_Y=naturalHeightAt(HEARTH_HOUSE.x,HEARTH_HOUSE.z);
 function heightAt(x,z){
@@ -396,6 +401,8 @@ const npcs=[{x:6,z:11,name:'Борун Крепкая Ладонь',actor:armore
 // Friendly NPCs are interaction targets, not physical obstacles.
 function spriteText(text,color='#f9df91',size=32){const c=document.createElement('canvas');c.width=512;c.height=96;const ctx=c.getContext('2d');ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold '+size+'px Georgia';ctx.lineWidth=5;ctx.strokeStyle='#302817';ctx.fillStyle=color;ctx.strokeText(text,256,48);ctx.fillText(text,256,48);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthWrite:false,transparent:true}));s.scale.set(4.3,.81,1);return s}
 for(const n of npcs){const name=spriteText(n.name,'#d9e2a1',25);scene.add(name);name.position.set(n.x,heightAt(n.x,n.z)+4.45,n.z);n.nameTag=name}
+const chestTag=spriteText('Общий сундук · 18','#ffe0a0',24);
+chestTag.position.set(HEARTH_CHEST_POS.x,heightAt(HEARTH_CHEST_POS.x,HEARTH_CHEST_POS.z)+5.4,HEARTH_CHEST_POS.z);scene.add(chestTag);
 const merchantLabel=spriteText('Оружие и доспехи', '#e5c574',23);merchantLabel.position.set(6,heightAt(6,11)+3.85,11);scene.add(merchantLabel);
 const questMarker=spriteText('!','#ffe180',72);questMarker.scale.set(2.5,1.6,1);scene.add(questMarker);
 const herbalistMarker=spriteText('!','#ffe180',72);
@@ -1194,13 +1201,13 @@ function combatWarning(text,force=false){
  box.textContent=text;box.classList.add('show');
  combatWarningTimer=setTimeout(()=>box.classList.remove('show'),1550);
 }
-function openDialog(title,sub,lines,kind='dialog'){if(hotbarPending!==null&&kind!=='spellbook')cancelHotbarAssignment();if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('panel').classList.toggle('journal-modal',kind==='journal');$('panel').classList.toggle('spellbook-modal',kind==='spellbook');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
+function openDialog(title,sub,lines,kind='dialog'){if(hotbarPending!==null&&kind!=='spellbook')cancelHotbarAssignment();if(gatherCast&&kind!=='gatherLoot')cancelGather();clearInput();resetFps();modalKind=kind;$('panel').classList.toggle('chest-modal',kind==='sharedChest');$('panel').classList.toggle('inventory-modal',kind==='bag');$('panel').classList.toggle('character-modal',kind==='character');$('panel').classList.toggle('merchant-modal',kind==='merchant');$('panel').classList.toggle('journal-modal',kind==='journal');$('panel').classList.toggle('spellbook-modal',kind==='spellbook');$('modalClose').hidden=false;if(characterView){characterView.drag=null;if(kind!=='character'){characterView.canvas=null;characterView.context=null}}$('cameraControl').hidden=kind!=='settings';$('graphicsControl').hidden=kind!=='graphics';$('mtitle').textContent=title;$('msub').textContent=sub;$('mbody').replaceChildren();$('choices').replaceChildren();for(const line of lines){const p=document.createElement('p');p.textContent=line;$('mbody').appendChild(p)}$('modal').hidden=false;$('interact').hidden=true}
 function choice(label,fn,type=''){
  // Every modal has a red X at the top. Do not add redundant bottom-row
  // close/continue buttons; keep real actions and navigation controls.
  if(fn===closeDialog)return;
  const button=document.createElement('button');button.className='choice '+type;button.textContent=label;button.addEventListener('click',fn);$('choices').appendChild(button)}
-function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal','spellbook-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
+function closeDialog(){if(modalKind==='sharedChest')chestUI.close();modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal','journal-modal','spellbook-modal','chest-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
  openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.5.33',
@@ -1316,8 +1323,16 @@ function openGatherLoot(node){
  return true;
 }
 function isLootableCorpse(e){return !!e&&e.dead>0&&Array.isArray(e.loot)&&e.loot.length>0}
+const chestUI=createSharedChestPanel({
+ getWorld:()=>worldConnection,getInventory:()=>state.inventory,
+ setInventory:rows=>{state.inventory=rows;save();updateHUD()},
+ openDialog:(title,subtitle)=>openDialog(title,subtitle,[],'sharedChest'),
+ getModal:()=>modalKind,notify:msg,items:ITEM_CATALOG,stackLimit:itemStackLimit
+});
 function nearTarget(){
- let closest=null,dist=3.5;
+ let closest=null,dist=HEARTH_CHEST_RANGE;
+ const dChest=Math.hypot(state.x-HEARTH_CHEST_POS.x,state.z-HEARTH_CHEST_POS.z);
+ if(dChest<HEARTH_CHEST_RANGE){dist=dChest;closest={kind:'sharedChest'}}
  for(const n of npcs){const d=Math.hypot(state.x-n.x,state.z-n.z);if(d<dist){dist=d;closest={kind:'npc',npc:n}}}
  for(const e of enemies)if(isLootableCorpse(e)){
   const d=Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z);
@@ -1338,6 +1353,7 @@ function interact(){
  if(modalKind||gatherCast)return;
  const target=nearTarget();
  if(!target){msg('Подойди к жителю или предмету ближе');return}
+ if(target.kind==='sharedChest'){chestUI.open();return}
  if(target.kind==='gather'){startGather(target.node);return}
  if(target.kind==='corpse'){showCorpseLoot(target.enemy);return}
  if(target.kind==='relic'){state.quest=5;state.relic=true;save();updateHUD();msg('Получено перо предков');return}
@@ -2733,6 +2749,7 @@ const worldConnection=createWorldPresence({
  onMobs:updateSharedMobTargets,
  onWelcome:welcome=>{
   onlineSelfId=welcome.id;
+  chestUI.ready(Number(welcome.protocol)>=6);
   worldChatReady=Number(welcome.protocol)>=5;
   if(!worldChatReady)chatSystem('Ожидание обновления Render для работы чата','world');
   updateChatControls();
@@ -2748,6 +2765,8 @@ const worldConnection=createWorldPresence({
  },
  onChat:receiveChatMessage,
  onChatRejected:chatRejected,
+ onChestState:chestUI.state,
+ onChestResult:chestUI.result,
  onNameChanged:event=>{
   if(event?.name&&event.name!==characterName){
    characterName=sanitizePlayerName(event.name);
@@ -2809,7 +2828,7 @@ $('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.
  bossGuide.visible=state.quest===10;
  const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!!gatherCast||!target;
  if(target)$('interact').innerHTML=target.kind==='gather'?(target.node.pending?'Забрать <kbd>E</kbd>':'Собрать <kbd>E</kbd>'):
- target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
+ target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':target.kind==='sharedChest'?'Открыть сундук <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
  const valid=isAliveTarget(selected);
  $('targetFrame').hidden=!valid;
  $('targetPlaceholder').hidden=valid||!!remotePlayers.get(selectedPlayerId);$('zoneTitle').hidden=Boolean(valid);

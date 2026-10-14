@@ -1312,3 +1312,17 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  :root{--hud-map-size:90px;--hud-row-height:90px}
  #top{width:210px;top:calc(18px + var(--safe-top) + var(--hud-row-height))}
 }
+
+/* Shared Hearth House chest, 18 slots and the local backpack. */
+#panel.chest-modal{width:min(570px,100%);padding:17px 18px 22px}
+.chest-section-title{font:700 12px/1.6 system-ui,sans-serif;letter-spacing:.07em;color:#5c411e;margin:14px 0 2px}
+#panel .chest-help,#panel .chest-note{font:12px/1.5 system-ui,sans-serif;color:#5c4226;margin:4px 0 9px}
+#panel .chest-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+#panel .chest-grid .inventory-slot{height:58px;min-width:0}
+#panel .chest-grid .slot-icon{font-size:26px}
+#panel .chest-grid .inventory-slot:disabled{opacity:.65}
+@media(max-width:380px){
+ #panel.chest-modal{padding:14px 12px}
+ #panel .chest-grid .inventory-slot{height:48px}
+ #panel .chest-grid .slot-icon{font-size:22px}
+}

@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "scripts": {
     "start": "node index.js",
-    "check": "node --check index.js && node --check world-mobs.js && node --check groups.js && node --check chat.js",
+    "check": "node --check index.js && node --check world-mobs.js && node --check groups.js && node --check chat.js && node --check chest.js",
     "test": "node --test tests/*.test.mjs"
   },
   "engines": {

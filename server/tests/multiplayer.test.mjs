@@ -54,7 +54,7 @@ test('two players receive identical mob states on the same world tick', {timeout
  let a,b;
  try{
   const health=await ready(port);
-  assert.equal(health.protocol,5);
+  assert.equal(health.protocol,6);
   assert.equal(health.mobs,9);
   a=await connect(port);b=await connect(port);
   await new Promise(resolve=>setTimeout(resolve,650));
@@ -151,7 +151,7 @@ test('world messages reach all, party chat stays private, and spoofed names are 
  });
  let a,b,c;
  try{
-  const health=await ready(port);assert.equal(health.protocol,5);
+  const health=await ready(port);assert.equal(health.protocol,6);
   a=await connect(port);b=await connect(port);c=await connect(port);
   await new Promise(resolve=>setTimeout(resolve,85));
   const aid=a.getWelcome().id,bid=b.getWelcome().id;
