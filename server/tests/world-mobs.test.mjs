@@ -21,6 +21,7 @@ test('server movement is bounded, continuous and stays close to spawn',()=>{
    assert.ok(Math.hypot(m.x-before[i].x,m.z-before[i].z)<=MOB_SPEED*.1+1e-8);
    assert.ok(Math.hypot(m.x-m.spawnX,m.z-m.spawnZ)<6);
    assert.ok(Number.isFinite(m.yaw));
+   assert.ok(Number.isFinite(m.phase));
   });
  }
 });
@@ -28,7 +29,7 @@ test('snapshots are safe independent data objects',()=>{
  const mobs=createMulgoreMobs();
  const packet=snapshotMulgoreMobs(mobs);
  assert.equal(packet.length,9);
- assert.deepEqual(Object.keys(packet[0]),['id','x','z','yaw']);
+ assert.deepEqual(Object.keys(packet[0]),['id','x','z','yaw','phase']);
  packet[0].x=999;
  assert.equal(mobs[0].x,-9);
 });
