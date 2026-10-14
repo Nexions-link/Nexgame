@@ -479,6 +479,7 @@ const coins=value=>value+' мон.';
 function itemStatText(def){
  const parts=[];
  if(def.damageMin)parts.push(def.damageMin+'–'+def.damageMax+' урона',def.speed.toFixed(2).replace('.',',')+' сек.',((def.damageMin+def.damageMax)/2/def.speed).toFixed(1).replace('.',',')+' урона/сек.');
+ if(def.bonusDamage)parts.push('+'+def.bonusDamage.toLocaleString('ru-RU')+' к урону (тест)');
  if(def.armor)parts.push(def.armor+' брони');
  if(def.strength)parts.push('+'+def.strength+' к силе');
  if(def.stamina)parts.push('+'+def.stamina+' к выносливости');
@@ -1509,7 +1510,8 @@ function damageEnemy(e,amount,source='autoAttack'){
  e.hp-=amount;e.aggro=true;e.hit=.22;
  if(e.hp<=0){
   e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
-  e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
+  // TEMP TEST DROP: 100% from Грозоклюв, separate from random equipment drops.
+  e.loot=e.boss?[{id:'giantFeather',qty:1},{id:'stormbeakCrusher',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
   e.root.visible=true;e.shadow.visible=true;
   e.lootMarker.visible=e.loot.length>0;
   e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.35,e.root.position.z);
