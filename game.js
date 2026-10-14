@@ -1,5 +1,5 @@
-import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.2';
-// NexGame 3D · Alpha 0.3.2 — a small, procedural Mulgore-inspired starting zone.
+import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.3';
+// NexGame 3D · Alpha 0.3.3 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
@@ -619,8 +619,10 @@ function consumeGatherQuestItems(stage){
 }
 function gatherNodeAvailable(node){
  const q=GATHER_QUESTS[state.gatherStage];
- return !!q&&node.stage===state.gatherStage&&gatherQuestCount()<q.count
-   &&(node.pending||clock>=node.readyAt);
+ // A harvested but uncollected resource remains accessible even when the
+ // backpack already holds the required quest amount. Never lose a pending drop.
+ return !!q&&node.stage===state.gatherStage&&
+   (node.pending||(gatherQuestCount()<q.count&&clock>=node.readyAt));
 }
 function updateGatherVisibility(){
  for(const node of gatherNodes){
@@ -817,7 +819,7 @@ function choice(label,fn,type=''){
 function closeDialog(){modalKind=null;$('modal').hidden=true;$('panel').classList.remove('inventory-modal','character-modal','merchant-modal');$('modalClose').hidden=true;if(characterView){characterView.drag=null;characterView.canvas=null;characterView.context=null}$('cameraControl').hidden=true;$('graphicsControl').hidden=true;clearInput();resetFps();document.activeElement?.blur();save();updateHUD()}
 function pause(){
  if(modalKind==='pause'){closeDialog();return}
- openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.2',
+ openDialog('У костра','NEXGAME · МУЛГОР · ALPHA 0.3.3',
  ['Мир поставлен на паузу. Здесь можно осмотреть героя, настроить камеру, графику и отображение FPS.',
   'W/S — идти вперёд и назад; A/D — непрерывно поворачивать; Tab — цель; 1 — автоатака.',
   'Обыскивай тела и надевай добычу из рюкзака (I). Оружейник Борун стоит у входа в лагерь: жёлтый квадрат на мини-карте.'], 'pause');
@@ -906,7 +908,7 @@ function openGatherLoot(node){
  }
  const def=ITEM_CATALOG[node.item];
  openDialog('Собранный ресурс','ДОБЫЧА С ЗЕМЛИ',
-  ['Ты аккуратно собрал '+def.name.toLowerCase()+'. Забери предмет в рюкзак.'],'gatherLoot');
+  ['Ты аккуратно собрал '+def.name.toLowerCase()+'. Забери предмет в рюкзак. Если сейчас нет места, закрой окно крестиком, освободи рюкзак и вернись к этому растению.'],'gatherLoot');
  const box=document.createElement('div');box.className='loot-list';
  const row=document.createElement('div');row.className='loot-item';
  row.textContent=def.icon+'  '+def.name+' ×1';
@@ -1408,7 +1410,7 @@ function movement(dt){
  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,turn);
 }
-function revive(){lastCombatAt=clock;state.hp=playerStats().maxHp;state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
+function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
  if(e.dead>0){
   if(e.boss&&e.nameTag)e.nameTag.visible=false;
