@@ -756,3 +756,6 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
 #allyFrame:not([hidden])~#quest{top:calc(188px + var(--safe-top))}
 @media(max-width:850px){#allyFrame:not([hidden])~#quest{top:calc(253px + var(--safe-top))}}
 @media(max-height:510px) and (min-width:600px){#allyFrame:not([hidden])~#quest{top:103px}}
+
+.party-panel-roster-row>button{flex:0 0 auto;min-height:38px;padding:6px 10px;border:1px solid #927345;background:#43563d;color:#fff1c9;border-radius:4px;font:600 12px system-ui,sans-serif}
+.party-panel-roster-row>button:disabled{opacity:.5;cursor:default}
