@@ -2365,13 +2365,15 @@ function animateRemotePlayers(dt){
 const SHARED_MOB_COUNT=enemies.filter(enemy=>!enemy.trainingDummy).length;
 let sharedMobTargets=new Map(),sharedMobsConnected=false,worldCombatReady=false;
 let lastSharedMobPacketAt=0,onlineSelfId=null;
-let worldNetworkStatus='solo',mobNetworkStatus='ожидание';
+let worldNetworkStatus='solo',mobNetworkStatus='ожидание',onlinePopulation=null;
 const creditedMobLives=new Set();
 function showWorldNetworkStatus(){
  const el=$('onlineStatus');if(!el)return;
  const label=worldNetworkStatus==='online'?'Мир: онлайн':worldNetworkStatus==='connecting'?
   'Мир: подключение':worldNetworkStatus==='solo'?'Мир: одиночный':'Мир: нет связи';
- el.textContent=worldNetworkStatus==='online'?label+' · мобы: '+mobNetworkStatus:label;
+ el.textContent=worldNetworkStatus==='online'?
+  label+' · игроков: '+(Number.isInteger(onlinePopulation)?onlinePopulation:'—')+
+  ' · мобы: '+mobNetworkStatus:label;
 }
 function resetSharedMobAppearance(e){
  e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
@@ -2575,6 +2577,7 @@ const worldConnection=createWorldPresence({
  url:WORLD_WS_URL,
  onStatus:status=>{
   worldNetworkStatus=status;
+  if(status!=='online')onlinePopulation=null;
   if(status==='online')mobNetworkStatus='ожидание';
   if(status==='offline'||status==='solo')worldChatReady=false;
   showWorldNetworkStatus();
@@ -2582,6 +2585,12 @@ const worldConnection=createWorldPresence({
   if(status!=='connecting')updateChatControls();
  },
  onPlayers:updateRemoteSnapshot,
+ onPopulation:count=>{
+  // Exact number of WebSocket players supplied by the world server.
+  const next=Number.isInteger(count)&&count>=0?count:null;
+  if(next===onlinePopulation)return;
+  onlinePopulation=next;showWorldNetworkStatus();
+ },
  onMobs:updateSharedMobTargets,
  onWelcome:welcome=>{
   onlineSelfId=welcome.id;
