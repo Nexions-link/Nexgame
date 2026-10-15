@@ -1,19 +1,20 @@
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.0';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.0';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.0';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.0';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.0';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.0';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.0';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.0';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.0';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.0';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.0';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.1';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.1';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.1';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.1';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.1';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.1';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.1';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.1';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.1';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.1';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.1';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.1';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.0';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.0';
-import {projectPartyMember} from './party-map.js?v=0.3.6.0';
+import {createWorldPresence} from './online.js?v=0.3.6.1';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.1';
+import {projectPartyMember} from './party-map.js?v=0.3.6.1';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1068,6 +1069,7 @@ function finishEquipmentChange(slot){
  // Armor and shields keep their existing equipment-change behaviour.
  if(slot!=='weapon'){
   autoAttack=false;attackElapsed=-1;swingTarget=null;attackCooldown=0;
+  autoSwingClock.reset();
  }
  syncEquipmentVisuals();save();updateHUD();
 }
@@ -1427,6 +1429,7 @@ const hotbarButtons=[],hotbarVisuals=[];
 const keys=new Set(),joy={x:0,y:0,id:null},look={id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},pinch={id:null,x:0,y:0,startSpan:0,startDistance:0},stick=$('stick'),nub=$('nub');
 let gatherCast=null;
 const abilityRuntime=createAbilityRuntime();
+const autoSwingClock=createAutoSwingClock();
 let swingAbilityId='autoAttack';
 let modalKind=null,selected=null,autoAttack=false,swingTarget=null,attackElapsed=-1,attackCooldown=0,attackLanded=false,stompElapsed=-1,stompCooldown=0,stompLanded=false,shockAge=9,clock=0,saveClock=0,hudClock=0,velocityX=0,velocityZ=0,lastCombatAt=-100;
 let cameraYaw=0,cameraPitch=settings.cameraPitch,cameraDistance=10.5,actualCameraDistance=10.5;
@@ -1711,7 +1714,7 @@ function resetWorld(){
  combatFeedback.clear();
  state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[],actionBar:normalizeHotbar(null)};
  hotbarPending=null;renderHotbar();
- abilityRuntime.gcd=0;abilityRuntime.cooldowns=Object.create(null);swingAbilityId='autoAttack';
+ abilityRuntime.gcd=0;abilityRuntime.cooldowns=Object.create(null);autoSwingClock.reset();swingAbilityId='autoAttack';
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
   e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;
@@ -2179,6 +2182,9 @@ function tryAutoSwing(){
  }
  const fail=abilityFailure(getAbilityDefinition('autoAttack'),abilityContext(getAbilityDefinition('autoAttack')));
  if(fail){combatWarning(fail);return false}
+ // Delay the next visible swing until its prior network hit was accepted and
+ // the server's actual weapon-speed timer allows the next hit to land.
+ if(worldCombatReady&&!selected.trainingDummy&&!autoSwingClock.canStart())return false;
  attackElapsed=0;attackCooldown=playerStats().speed;attackLanded=false;swingTarget=selected;swingAbilityId='autoAttack';
  hideCombatWarning();return true;
 }
@@ -2208,7 +2214,10 @@ function damageEnemy(e,amount,source='autoAttack'){
  if(!isAliveTarget(e)||!Number.isFinite(amount)||amount<=0)return;
  // When a PvE-capable world server is connected, only it may change mob HP.
  if(worldCombatReady&&!e.trainingDummy){
-  if(worldConnection.sendAttack(source,e.index))lastCombatAt=clock;
+  if(worldConnection.sendAttack(source,e.index)){
+   lastCombatAt=clock;
+   if(source==='autoAttack')autoSwingClock.onSent();
+  }
   return;
  }
  lastCombatAt=clock;
@@ -3158,6 +3167,11 @@ function updateOnlineSceneWhileMenuOpen(dt){
 }
 function applySharedCombat(event,selfId){
  if(!event||!Array.isArray(event.hits))return;
+ if(event.actorId===selfId){
+  if(event.abilityId==='autoAttack')
+   autoSwingClock.onAccepted(Number.isFinite(event.cooldownMs)?event.cooldownMs:playerStats().speed*1000);
+  else reconcileAbilityCooldown(abilityRuntime,event.abilityId,event.cooldownMs,event.gcdMs);
+ }
  if(event.actorId!==selfId){
   const other=remotePlayers.get(event.actorId);
   if(other){
@@ -3221,7 +3235,16 @@ function applySharedKillCredit(event){
  save();updateHUD();
 }
 function showSharedCombatError(event){
- if(event?.reason)combatWarning(String(event.reason).slice(0,80),true);
+ if(!event)return;
+ if(event.abilityId==='autoAttack'){
+  // Server can reject a hit by a few ms due to RTT jitter: realign rather
+  // than showing a cooldown warning every time the local animation repeats.
+  autoSwingClock.onRejected(Number.isFinite(event.retryAfterMs)?event.retryAfterMs:playerStats().speed*1000);
+  if(event.reason==='Способность восстанавливается')return;
+ }else{
+  reconcileAbilityCooldown(abilityRuntime,event.abilityId,event.cooldownMs,event.gcdMs);
+ }
+ if(event.reason)combatWarning(String(event.reason).slice(0,80),true);
 }
 // Declared before connection callbacks: onStatus may fire synchronously.
 let respawnGraceUntil=0,respawnPending=false;
@@ -3229,7 +3252,10 @@ const worldConnection=createWorldPresence({
  url:WORLD_WS_URL,
  onStatus:status=>{
   worldNetworkStatus=status;
-  if(status!=='online')onlinePopulation=null;
+  if(status!=='online'){
+   onlinePopulation=null;
+   autoSwingClock.reset();
+  }
   if(status==='online')mobNetworkStatus='ожидание';
   if(status==='offline'||status==='solo')respawnPending=false;
   if(status==='offline'||status==='solo')worldChatReady=false;
@@ -3500,7 +3526,7 @@ function movement(dt){
    stompElapsed>=0?stompElapsed/.75:-1,0);
 }
 function revive(){cancelGather();lastCombatAt=clock;
- respawnGraceUntil=performance.now()+6000;respawnPending=!!worldConnection?.connected?.();state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;
+ respawnGraceUntil=performance.now()+6000;respawnPending=!!worldConnection?.connected?.();state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;autoSwingClock.reset();swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;
  worldConnection?.sendRespawn?.();
  clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){

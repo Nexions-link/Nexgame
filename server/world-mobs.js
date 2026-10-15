@@ -122,9 +122,13 @@ export function applyMulgoreAbility(mobs,player,abilityId,mobId,now=Date.now(),r
  if(!area&&(!Number.isInteger(mobId)||!target||target.deadUntil))
   return {ok:false,reason:'Цель недоступна'};
  if(!player.combatReadyAt)player.combatReadyAt=Object.create(null);
- if(now<(player.combatReadyAt[abilityId]||0)||
-   (abilityId!=='autoAttack'&&now<(player.gcdAt||0)))
-  return {ok:false,reason:'Способность восстанавливается'};
+ // Basic swings are governed only by weapon speed. Specials additionally
+ // obey the global cooldown. Tell the client how long to wait on rejection.
+ const cooldownMs=Math.max(0,Math.ceil((player.combatReadyAt[abilityId]||0)-now));
+ const gcdMs=Math.max(0,Math.ceil((player.gcdAt||0)-now));
+ if(cooldownMs>0||(abilityId!=='autoAttack'&&gcdMs>0))
+  return {ok:false,reason:'Способность восстанавливается',
+   cooldownMs,gcdMs,retryAfterMs:Math.max(cooldownMs,abilityId==='autoAttack'?0:gcdMs)};
  const stats=deriveStats(player.level||1,sanitizeEquipment(player.equipment,player.level||1));
  if(!area){
   const dx=target.x-player.x,dz=target.z-player.z,d=Math.hypot(dx,dz);
@@ -152,6 +156,10 @@ export function applyMulgoreAbility(mobs,player,abilityId,mobId,now=Date.now(),r
   }
   hits.push({id:mob.id,amount:damage,hp:mob.hp,dead:mob.hp===0,life:mob.life});
  }
- return {ok:true,event:{type:'combat',actorId:player.id,abilityId,hits},
-  deaths};
+ return {ok:true,event:{
+  type:'combat',actorId:player.id,abilityId,hits,
+  // Durations, not absolute server timestamps: safe across client clocks.
+  cooldownMs:Math.max(0,Math.ceil(player.combatReadyAt[abilityId]-now)),
+  gcdMs:Math.max(0,Math.ceil((player.gcdAt||0)-now))
+ },deaths};
 }

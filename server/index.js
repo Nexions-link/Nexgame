@@ -124,7 +124,9 @@ wss.on('connection',ws=>{
   if(data.type==='attack'){
    if(player.respawnShieldUntil>Date.now())return;
    const result=applyMulgoreAbility(mobs,player,data.abilityId,data.mobId);
-   if(!result.ok){send(ws,{type:'combatRejected',abilityId:data.abilityId,reason:result.reason});return}
+   if(!result.ok){send(ws,{type:'combatRejected',abilityId:data.abilityId,
+    reason:result.reason,retryAfterMs:result.retryAfterMs,
+    cooldownMs:result.cooldownMs,gcdMs:result.gcdMs});return}
    broadcast(result.event);
    for(const death of result.deaths){
     for(const attackerId of death.contributors){
