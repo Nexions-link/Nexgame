@@ -407,20 +407,28 @@ try {
     else {state.zoom = clamp(state.zoom + e.deltaY * .015, 6, 32); updateZoomLabel();}
   }, {passive:false});
   const orbitButton = $('orbitButton');
+  const minimapToggle = $('minimapFrame');
   orbitButton.addEventListener('click', () => {
     state.orbit = !state.orbit;
     orbitButton.setAttribute('aria-pressed', String(state.orbit));
-    orbitButton.textContent = state.orbit ? '⤺ К персонажу' : '🌍 Вся планета';
+    orbitButton.textContent = state.orbit ? '⤺ К персонажу' : 'Вся планета';
     stars.visible = state.orbit;
     atmosphere.visible = state.orbit;
     scene.background = state.orbit ? skyNight : skyDay;
-    $('planetOrbitQuick').setAttribute('aria-pressed',String(state.orbit));
-    $('planetOrbitQuick').title=state.orbit?'Вернуться к персонажу':'Вся планета';
-    $('planetOrbitQuick').setAttribute('aria-label',$('planetOrbitQuick').title);
+    // Mini-map is the single on-screen button for switching world views.
+    minimapToggle.setAttribute('aria-pressed', String(state.orbit));
+    minimapToggle.setAttribute('aria-label', state.orbit ?
+      'Вернуться к персонажу — нажать миникарту' : 'Открыть всю планету — нажать миникарту');
+    minimapToggle.title = state.orbit ? 'Вернуться к персонажу' : 'Вся планета';
     updateCameraClipping();
     cameraSnap = true;
   });
-  $('planetOrbitQuick').addEventListener('click',()=>orbitButton.click());
+  minimapToggle.addEventListener('click', () => orbitButton.click());
+  minimapToggle.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    orbitButton.click();
+  });
   const zoomButton = $('zoomButton');
   function updateZoomLabel() {zoomButton.textContent = '🔭 Камера: ' + (state.zoom > 19 ? 'далеко' : 'близко');}
   zoomButton.addEventListener('click', () => {
