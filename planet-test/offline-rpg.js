@@ -498,7 +498,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const caption=document.createElement('span');caption.className='planetAbilityName';
    const entryDef=entry?actionDefinition(entry,'warrior',state.level):null;
    caption.textContent=entry?HOTBAR_SHORT[entry.id]||entryDef?.name||'Умение':'Пусто';
-   button.append(key,icon,caption);
+   const cooldownShade=document.createElement('span');cooldownShade.className='planetCooldownShade';
+   const gcdShade=document.createElement('span');gcdShade.className='planetGcdShade';
+   const cooldownText=document.createElement('span');cooldownText.className='planetCooldownText';
+   button.append(key,icon,caption,cooldownShade,gcdShade,cooldownText);
    button.classList.toggle('is-empty',!entry);
    if(entry?.id==='autoAttack'&&autoplay)button.classList.add('is-active');
    const ability=entry?getAbilityDefinition(entry.id==='healingPotion'?'healingPotion':entry.id):null;
@@ -512,7 +515,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const [i,entry] of state.hotbar.entries()){
    const button=hotbar.children[i];if(!button)continue;
    const def=entry?getAbilityDefinition(entry.id):null;
-   button.classList.toggle('is-cooldown',!!def&&def.cooldown>0&&(runtime.cooldowns[def.id]||0)>0);
+   const remain=def?(runtime.cooldowns[def.id]||0):0,ratio=def?.cooldown?clamp(remain/def.cooldown,0,1):0;
+   const shade=button.querySelector('.planetCooldownShade');
+   const cd=button.querySelector('.planetCooldownText');
+   const gcd=button.querySelector('.planetGcdShade');
+   if(shade)shade.style.height=(ratio*100).toFixed(2)+'%';
+   if(cd)cd.textContent=remain>0?remain>=10?String(Math.ceil(remain)):remain.toFixed(1):'';
+   if(gcd)gcd.style.transform='scaleY('+(def?.gcd?clamp(runtime.gcd/1.5,0,1):0)+')';
+   button.classList.toggle('is-cooldown',remain>0);
    button.classList.toggle('is-active',entry?.id==='autoAttack'&&autoplay);
   }
  }
