@@ -1,53 +1,33 @@
 name: NexGame Online CI
 
-# A release is published by changing app.html LAST, after game.js/imports/style.css.
-# Do not test half-written multi-file releases after each individual file update.
+# Update multi-file releases (game.js, app.html and index.html) in ONE commit.
+# Pushing each file separately exposes an incomplete release to Pages and CI.
 on:
   push:
     branches: [main]
     paths:
+      - '*.js'
+      - '*.css'
+      - 'index.html'
       - 'app.html'
-      - 'tests/touch-respawn.test.mjs'
-      - 'plainstrider-model.js'
-      - 'tests/plainstrider-model.test.mjs'
+      - 'tests/**'
       - 'bestiary/**'
-      - 'tests/bestiary.test.mjs'
       - 'server/**'
+      - 'package.json'
       - '.github/workflows/nexgame-online.yml'
   pull_request:
     paths:
-      - 'game.js'
-      - 'plainstrider-model.js'
-      - 'tests/plainstrider-model.test.mjs'
-      - 'bestiary/**'
-      - 'tests/bestiary.test.mjs'
-      - 'movement-controls.js'
-      - 'tests/movement-controls.test.mjs'
-      - 'meadow.js'
-      - 'lake.js'
-      - 'tests/lake.test.mjs'
-      - 'landscape.js'
-      - 'tests/meadow.test.mjs'
-      - 'chest-ui.js'
-      - 'building-physics.js'
-      - 'tests/buildings.test.mjs'
+      - '*.js'
+      - '*.css'
       - 'index.html'
       - 'app.html'
-      - 'tests/bootstrap.test.mjs'
-      - 'style.css'
-      - 'tests/hud-layout.test.mjs'
-      - 'online.js'
-      - 'online-config.js'
-      - 'party-map.js'
-      - 'tests/party-map.test.mjs'
-      - 'tests/online-population.test.mjs'
+      - 'tests/**'
+      - 'bestiary/**'
       - 'server/**'
-      - 'items.js'
+      - 'package.json'
       - '.github/workflows/nexgame-online.yml'
   workflow_dispatch:
 
-# Only the newest push to a branch needs a full check. In-progress obsolete
-# releases are cancelled instead of reporting spurious failures to the user.
 concurrency:
   group: nexgame-online-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -58,44 +38,22 @@ permissions:
 jobs:
   shared-world:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - name: Syntax check client and server
+      - name: Install game and multiplayer dependencies
         run: |
-          node --check game.js
-          node --check tests/touch-respawn.test.mjs
-          node --check tests/gesture-respawn.test.mjs
-          node --check plainstrider-model.js
-          node --check tests/plainstrider-model.test.mjs
-          node --check bestiary/main.js
-          node --check bestiary/dolgonog.js
-          node --check bestiary/catalog.js
-          node --check tests/bestiary.test.mjs
-          node --check movement-controls.js
-          node --check tests/movement-controls.test.mjs
-          node --check meadow.js
-          node --check lake.js
-          node --check tests/lake.test.mjs
-          node --check landscape.js
-          node --check tests/meadow.test.mjs
-          node --check chest-ui.js
-          node --check building-physics.js
-          node --check tests/buildings.test.mjs
-          node --check online.js
-          node --check online-config.js
-          node --check party-map.js
-          node --check tests/party-map.test.mjs
-          node --check tests/hud-layout.test.mjs
-          node --check tests/bootstrap.test.mjs
-          node --check tests/online-population.test.mjs
+          npm install --no-audit --no-fund
+          npm install --prefix server --no-audit --no-fund
+      - name: Check syntax of active game, atlas, client tests and multiplayer server
+        run: |
+          npm run check
           npm run check --prefix server
-      - name: Install only server dependencies
-        run: npm install --prefix server --no-audit --no-fund
-      - name: Test private chat, party map, PvE and real WebSocket sessions
+          find . -path './.git' -prune -o -path './node_modules' -prune -o -path './server/node_modules' -prune -o -path './versions' -prune -o -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -r -n1 node --check
+      - name: Run all game and online multiplayer tests
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs tests/bestiary.test.mjs tests/plainstrider-model.test.mjs tests/touch-respawn.test.mjs tests/gesture-respawn.test.mjs
+          npm test
           npm test --prefix server

@@ -99,7 +99,6 @@ test('axe GLB is righted in both atlas viewer and equipped character',()=>{
  assert.match(game,/axe\.rotation\.copy\(old\.rotation\);axe\.rotation\.x\+=Math\.PI/);
  assert.match(viewer,/if\(entry\.id==='tauren-axe'\)current\.rotation\.x\+=Math\.PI/);
  assert.match(page,/atlas\.js\?v=0\.2\.1/);
- assert.match(read('app.html'),/game\.js\?v=0\.3\.5\.48/);
 });
 
 test('hand pose returns to previous left and right wrist angles while axe remains attached',()=>{
@@ -107,5 +106,4 @@ test('hand pose returns to previous left and right wrist angles while axe remain
  assert.match(game,/arm\.hand\.rotation\.x=i\?\(-Math\.PI\/2-\.38\*windup\+\.85\*swing\):Math\.PI/);
  assert.match(game,/const axe=group\(arms\[1\]\.hand/);
  assert.match(game,/const grip=hero\.arms\[1\]\.hand/);
- assert.match(read('app.html'),/game\.js\?v=0\.3\.5\.48/);
 });

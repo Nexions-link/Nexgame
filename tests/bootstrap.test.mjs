@@ -37,7 +37,7 @@ test('release identifiers and first-party module version stay consistent',()=>{
  assert.ok(game.includes('online-config.js?v='+release));
  assert.ok(game.includes('party-map.js?v='+release));
  // Existing older browser entrypoints will detect release on the bootstrap page.
- assert.match(boot,/<meta name="nexgame-release" content="NexGame · Alpha \d+\.\d+\.\d+\.\d+">/);
+ assert.ok(boot.includes('<meta name="nexgame-release" content="NexGame · Alpha '+release+'">'),'launcher and app shell must advertise the same release');
 });
 
 function mockRuntime({offline=false}={}){
