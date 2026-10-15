@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
-import {createOfflineRpg} from './offline-rpg.js?v=9';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=9';
+import {createOfflineRpg} from './offline-rpg.js?v=10';
+import {animateSphericalTauren} from './tauren-animation.js?v=1';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=10';
 initStartZoneMath(THREE);
 
 // Reuse the exact iOS gesture protection already proven in the main game.
@@ -274,7 +275,6 @@ try {
   relocateInstances();
   const hero=createTauren(THREE,scene);
   const actor=hero.root;
-  const limbs=[hero.legs[0].hip,hero.arms[0].shoulder,hero.legs[1].hip,hero.arms[1].shoulder];
   const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, orbitElevation: .34, orbitDistance: 3.22, legCycle: 0};
   const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:()=>createTauren(THREE,scene),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
@@ -579,12 +579,13 @@ try {
       state.legCycle += dt * 1.1;
     }
     updateActor();
-    limbs[0].rotation.x = Math.sin(state.legCycle) * power * .34;
-    limbs[2].rotation.x = -Math.sin(state.legCycle) * power * .34;
-    limbs[1].rotation.x = -Math.sin(state.legCycle) * power * .19;
-    limbs[3].rotation.x = Math.sin(state.legCycle) * power * .19;
     startZone.animate(elapsed);
     rpg.update(dt);
+    // Single native pose pass after gathering/combat state has updated.
+    // No second subsystem may reset the hip, knee, torso or arm angles.
+    animateSphericalTauren(hero,{
+      dt,time:elapsed,walk:power,phase:state.legCycle,...rpg.getAnimationState()
+    });
 
     if (state.orbit) {
       const r = R * state.orbitDistance;
