@@ -17,6 +17,7 @@ export function validatePlanetView(raw,allowedRadii=[87,174,261]){
   cameraPitch:finite(raw.cameraPitch,-.15,1.22,.36),
   zoom:finite(raw.zoom,6,44,13),
   orbit:raw.orbit===true,
+  cameraFollow:raw.cameraFollow===true,
   orbitAngle:finite(raw.orbitAngle,-1000,1000,.45),
   orbitElevation:finite(raw.orbitElevation,-1.12,1.12,.34),
   orbitDistance:finite(raw.orbitDistance,1.6,5.5,3.22),
@@ -34,7 +35,7 @@ export function writePlanetView(storage,state,radius){
    schema:1,radius,normal:[state.normal.x,state.normal.y,state.normal.z],
    heading:state.heading,cameraHeading:state.cameraHeading,
    cameraPitch:state.cameraPitch,zoom:state.zoom,
-   orbit:state.orbit,orbitAngle:state.orbitAngle,
+   orbit:state.orbit,cameraFollow:state.cameraFollow===true,orbitAngle:state.orbitAngle,
    orbitElevation:state.orbitElevation,orbitDistance:state.orbitDistance,
    lonUnwrapped:state.lonUnwrapped,meters:state.meters
   };
