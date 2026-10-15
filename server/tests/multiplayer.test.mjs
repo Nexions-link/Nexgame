@@ -200,8 +200,8 @@ test('respawn synchronizes a death teleport and stops shared mobs from striking 
   actor.ws.send(JSON.stringify({type:'join',name:'Защитник',x:-9,z:-23,yaw:0,level:1,hp:120,maxHp:120}));
   await new Promise(resolve=>setTimeout(resolve,80));
   actor.ws.send(JSON.stringify({type:'attack',abilityId:'autoAttack',mobId:0}));
-  await new Promise(resolve=>setTimeout(resolve,250));
-  assert.ok(actor.enemyAttacks.some(m=>m.mobId===0),'monster attacks before respawn');
+  await new Promise(resolve=>setTimeout(resolve,850));
+  assert.ok(actor.enemyAttacks.some(m=>m.mobId===0),'monster attacks after its windup, before respawn');
   const previousAttacks=actor.enemyAttacks.length;
   actor.ws.send(JSON.stringify({type:'respawn'}));
   await new Promise(resolve=>setTimeout(resolve,250));

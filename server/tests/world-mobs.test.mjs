@@ -130,6 +130,7 @@ test('another attacker cannot extend the leash or restore combat timeout',()=>{
  b.z=-.2; // 22.8 m from spawn.
  tickMulgoreMobs(mobs,.1,[a,b],now+30000);
  assert.equal(mob.aggroId,b.id);
+ a.hp=0; // No other living player should immediately take over aggro.
  b.z=.1; // 23.1 m from spawn.
  tickMulgoreMobs(mobs,.1,[a,b],now+30100);
  assert.equal(mob.aggroId,null);
