@@ -387,7 +387,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  for(const z of [-.4,.43]){const panel=group(body,0,0,z);panel.rotation.x=z>0?-.07:.07;taurenForm(panel,cloth,[[-.69,.37,.054],[-.53,.42,.055],[-.14,.50,.06]],10,.25);box(panel,T.trim,0,-.24,z>0?.069:-.069,.70,.08,.025);box(panel,T.ivory,0,-.44,z>0?.072:-.072,.065,.37,.025)}
  const arms=[];
  for(const s of [-1,1]){
-  const shoulder=group(chest,s*.99,.96,-.035),elbow=group(shoulder,s*.13,-.69,.015),hand=group(elbow,s*.025,-.69,.035);
+  const shoulder=group(chest,s*.99,.96,-.035),elbow=group(shoulder,s*.13,-.69,.015),hand=group(elbow,s*.025,-.69,.035);if(s===-1)hand.rotation.z=-Math.PI/2;
   ell(shoulder,pelt,s*.10,-.05,0,.48,.46,.47);
   taurenForm(shoulder,pelt,[[-.74,.235,.24,.02,s*.13],[-.53,.33,.33,0,s*.13],[-.29,.39,.37,-.01,s*.06],[.04,.35,.34,0]],12);
   taurenForm(elbow,pelt,[[-.68,.25,.24,.035,s*.025],[-.44,.33,.30,.025],[-.17,.35,.32,.01],[.04,.24,.25]],12);
