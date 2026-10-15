@@ -83,7 +83,7 @@ test('GLB axe blade faces forward while its lower tip points down at idle',async
  // The GLB has its cutting edge on local +X and lower point on -Y.
  // The right hand is pitched -90deg around X at rest.
  const hand=new Euler(-Math.PI/2,0,0,'XYZ');
- const axe=new Euler(Math.PI/2,0,-Math.PI/2,'YXZ');
+ const axe=new Euler(0,-Math.PI/2,-Math.PI/2,'YXZ');
  const transform=vector=>vector.clone().applyEuler(axe).applyEuler(hand);
  const blade=transform(new Vector3(1,0,0));
  const lowerTip=transform(new Vector3(0,-1,0));
