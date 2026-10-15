@@ -168,7 +168,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
    const cx=x+step*.5,cz=z+step*.5;
    if(Math.hypot(cx,cz)<84){
     const a=j*(grid+1)+i,b=a+grid+1;
-    indices.push(a,b,a+1,b,b+1,a+1);
+    indices.push(a,a+1,b,b,a+1,b+1);
    }
   }
  }
