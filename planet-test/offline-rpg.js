@@ -169,7 +169,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   marker.userData.questMarker=true;marker.userData.glyph=glyph;
   mentor.root.add(marker);
  }
- npc('vendor',6,11,'Борун Крепкая Ладонь');
+ const vendor=npc('vendor',6,11,'Борун Крепкая Ладонь');
+ const merchantLabel=makeLabel('Оружие и доспехи','#e5c574',23);
+ merchantLabel.position.y=3.85;vendor.root.add(merchantLabel);
  const herbalist=npc('herbalist',8,1,'Травница Тихая Заря');
  const herbMarker=makeLabel('!','#ffe180',72),herbTurnin=makeLabel('?','#ffe180',72);
  for(const [glyph,sprite] of [['!',herbMarker],['?',herbTurnin]]){
@@ -177,8 +179,26 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   sprite.userData.questMarker=true;sprite.userData.glyph=glyph;
   herbalist.root.add(sprite);
  }
+ // Shared radial ground-shadow texture. Only one transparent plane per mob.
+ const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=64;
+ const shadowContext=shadowCanvas.getContext('2d');
+ const shadowGradient=shadowContext.createRadialGradient(32,32,2,32,32,32);
+ shadowGradient.addColorStop(0,'rgba(12,24,16,0.36)');
+ shadowGradient.addColorStop(.5,'rgba(12,24,16,0.22)');
+ shadowGradient.addColorStop(1,'rgba(12,24,16,0)');
+ shadowContext.fillStyle=shadowGradient;shadowContext.fillRect(0,0,64,64);
+ const shadowTexture=new THREE.CanvasTexture(shadowCanvas);
+ const shadowGeometry=new THREE.PlaneGeometry(2.7,2.3);
+ const shadowMaterial=new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false,side:THREE.DoubleSide});
+ function addContactShadow(parent,scale=1){
+  const shadow=new THREE.Mesh(shadowGeometry,shadowMaterial);
+  shadow.rotation.x=-Math.PI/2;shadow.position.y=.06;
+  shadow.scale.setScalar(scale);shadow.renderOrder=1;parent.add(shadow);
+  return shadow;
+ }
  function createBird(x,z,i){
   const root=new THREE.Group();group.add(root);
+  const contactShadow=addContactShadow(root);
   const mat=new THREE.MeshStandardMaterial({color:i%2?'#917044':'#826649',roughness:1});
   const body=new THREE.Mesh(new THREE.SphereGeometry(1,12,9),mat);
   body.scale.set(.58,.48,.8);body.position.y=1.25;root.add(body);
@@ -189,7 +209,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
   const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
    spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
-   respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false};
+   respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false,contactShadow};
   const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);
   const alertTag=makeLabel('!','#ffc978',78);
   alertTag.position.y=4.95;alertTag.scale.set(1.55,1.4,1);alertTag.visible=false;
@@ -206,7 +226,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const bossTag=makeLabel('Грозоклюв · Исполин','#f9bd91',27);
  bossTag.position.y=3.4;bossTag.scale.set(4.7,.84,1);
  giant.root.add(bossTag);giant.alertTag.position.y=4.0;
- const dummyRoot=new THREE.Group();group.add(dummyRoot);
+ const dummyRoot=new THREE.Group();group.add(dummyRoot);addContactShadow(dummyRoot,1.1);
  const straw=new THREE.MeshStandardMaterial({color:'#bb9665',roughness:1});
  const dummyBody=new THREE.Mesh(new THREE.CylinderGeometry(.56,.63,2.2,12),straw);
  dummyBody.position.y=1.45;dummyRoot.add(dummyBody);
@@ -218,6 +238,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  // Preserve original locations in metres and project every mesh onto the sphere.
  const gathering=createGatherWorld({THREE,parent:group,place:e=>{entities.push(e);setModelAt(e);}});
  const gatherNodes=gathering.nodes;
+ const chestLabel=makeLabel('Общий сундук · 18','#ffe0a0',24);
+ chestLabel.position.y=5.4;gathering.chest.root.add(chestLabel);
  const mentorWorld=createMentorWorld({THREE,parent:group,
   place:e=>{entities.push(e);setModelAt(e);},getRadius,toNormal,heightAt});
  // Use the exact approved longstrider model and clips when the shared GLB loads.
@@ -233,7 +255,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const container=new THREE.Group();container.name='dolgonog-original-v0.1';
     container.scale.setScalar(PLAINSTRIDER_VISUAL_SCALE);
     container.add(bird);mob.root.add(container);
-    for(const child of [...mob.root.children])if(child.isMesh)child.visible=false;
+    for(const child of [...mob.root.children])if(child.isMesh&&child!==mob.contactShadow)child.visible=false;
     bird.traverse(obj=>{if(obj.isMesh){obj.castShadow=/^(Body|Head|Neck|Wing)/.test(obj.name);obj.receiveShadow=false;}});
     const mixer=new THREE.AnimationMixer(bird);
     const actions=Object.fromEntries(PLAINSTRIDER_REQUIRED_CLIPS.map(k=>[k,mixer.clipAction(asset.animations.find(a=>a.name===k))]));
@@ -713,6 +735,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const mob of mobs){
    mob.hit=Math.max(0,(mob.hit||0)-dt);
    mob.alertRemaining=Math.max(0,(mob.alertRemaining||0)-dt);
+   if(mob.contactShadow)mob.contactShadow.visible=mob.root.visible&&!mob.corpse;
    if(mob.alertTag){
     mob.alertTag.visible=mob.alertRemaining>0&&mob.root.visible&&!mob.corpse;
     if(mob.alertTag.visible)mob.alertTag.position.y=(mob.boss?4:4.95)+Math.sin(clock*7)*.1;
