@@ -28,7 +28,7 @@ test('real dagger item selects dagger visual instead of axe or sword',()=>{
  assert.equal(equippedWeaponKind({weapon:{id:'letterOpener'}},ITEM_CATALOG),'dagger');
 });
 test('dagger has independent, constrained 9-parameter tuning',()=>{
- assert.equal(DAGGER_TUNER_STORAGE_KEY,'nexgame-dagger-tuner-v2');
+ assert.equal(DAGGER_TUNER_STORAGE_KEY,'nexgame-dagger-tuner-v3');
  assert.equal(DAGGER_TUNER_GROUPS.flatMap(x=>x.fields).length,9);
  assert.deepEqual(normalizeDaggerTuning(null),DAGGER_TUNER_DEFAULTS);
  const selected=normalizeDaggerTuning({daggerY:-197,handX:999,posZ:.125,unknown:99});
@@ -68,18 +68,26 @@ test('atlas, launcher and real build tag remain internally consistent',()=>{
  assert.ok(index.includes('NexGame · Alpha '+version));
 });
 
-test('dagger uses the exact confirmed sword position on all nine axes',async()=>{
+test('dagger uses the exact nine approved pose values and retains independent blade angles',async()=>{
  const {SWORD_TUNER_DEFAULTS}=await import('../sword-tuner.js');
+ const expected={
+  handX:-180,handY:-67,handZ:-82,
+  daggerX:-3,daggerY:-180,daggerZ:-60,
+  posX:-.225,posY:-.19,posZ:-.025
+ };
+ assert.deepEqual({...DAGGER_TUNER_DEFAULTS},expected);
  for(const axis of ['X','Y','Z']){
   assert.equal(DAGGER_TUNER_DEFAULTS['hand'+axis],SWORD_TUNER_DEFAULTS['hand'+axis]);
-  assert.equal(DAGGER_TUNER_DEFAULTS['dagger'+axis],SWORD_TUNER_DEFAULTS['sword'+axis]);
   assert.equal(DAGGER_TUNER_DEFAULTS['pos'+axis],SWORD_TUNER_DEFAULTS['pos'+axis]);
+  assert.notEqual(DAGGER_TUNER_DEFAULTS['dagger'+axis],SWORD_TUNER_DEFAULTS['sword'+axis]);
  }
- assert.deepEqual(normalizeDaggerTuning(null),DAGGER_TUNER_DEFAULTS);
- assert.deepEqual(JSON.parse(serializeDaggerTuning(null)),DAGGER_TUNER_DEFAULTS);
- assert.match(read('dagger-tuner.js'),/nexgame-dagger-tuner-v2/);
+ assert.deepEqual(normalizeDaggerTuning(null),expected);
+ assert.deepEqual(JSON.parse(serializeDaggerTuning(null)),expected);
+ assert.match(read('dagger-tuner.js'),/nexgame-dagger-tuner-v3/);
  const game=read('game.js');
  assert.match(game,/DAGGER_TUNER_DEFAULTS\.daggerX\*Math\.PI\/180/);
+ assert.match(game,/DAGGER_TUNER_DEFAULTS\.daggerY\*Math\.PI\/180/);
+ assert.match(game,/DAGGER_TUNER_DEFAULTS\.daggerZ\*Math\.PI\/180/);
  assert.match(game,/applyDaggerTransform\(\);\s*syncEquipmentVisuals\(\)/);
 });
 

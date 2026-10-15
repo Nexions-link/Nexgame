@@ -1,9 +1,10 @@
-// W003 dagger position approved to match the existing W002 sword exactly.
-// A new storage version retires experimental local pose values and resets to this grip.
-export const DAGGER_TUNER_STORAGE_KEY='nexgame-dagger-tuner-v2';
+// W003 dagger pose approved in NexGame Alpha 0.3.5.58.
+// Wrist and handle offsets match W002; the blade itself has its own angles.
+// A new storage version retires earlier experimental poses.
+export const DAGGER_TUNER_STORAGE_KEY='nexgame-dagger-tuner-v3';
 export const DAGGER_TUNER_DEFAULTS=Object.freeze({
  handX:-180,handY:-67,handZ:-82,
- daggerX:-8,daggerY:-169,daggerZ:-101,
+ daggerX:-3,daggerY:-180,daggerZ:-60,
  posX:-0.225,posY:-0.19,posZ:-0.025
 });
 export const DAGGER_TUNER_GROUPS=[
