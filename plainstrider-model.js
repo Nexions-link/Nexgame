@@ -89,7 +89,7 @@ export function advancePlainstriderVisual(THREE,enemy,dt,moved=0,dead=false){
  // The mesh returns to its original position after the attack, never the physics root.
  const strike=dead?0:visual.attackRemaining>0?
   Math.sin(Math.PI*(1-visual.attackRemaining/.8))*.27:0;
- visual.container.rotation.x=-.14*strike-(recoil? .24*recoil:0);
+ visual.container.rotation.x=strike>0||recoil>0?-.14*strike-.24*recoil:0;
  visual.container.rotation.z=.10*recoil;
  visual.container.position.z=strike-(recoil? .19*recoil:0);
  const isAttacking=visual.attackRemaining>0;
