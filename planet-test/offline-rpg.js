@@ -98,6 +98,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
 
  let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,attackPulse=0,stompPulse=0;
+ let journalTab='current';
  const group=new THREE.Group();scene.add(group);
  // Production target marker: native gold ring, radially oriented so it
  // sits flat under a selected creature anywhere on the sphere.
@@ -557,17 +558,29 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     body.append(gear);
     line('Урон и здоровье',pretty(values.damageMin)+'–'+pretty(values.damageMax)+' урона · '+Math.ceil(state.hp)+' / '+values.maxHp+' HP');
   }else if(kind==='quests'){
-   if(state.gatherStage===0)line('Дары Мулгора','Новое задание у Тихой Зари (8, 1)');
-   else if(state.gatherStage===4)line('Дары Мулгора','Три собирательных задания выполнены!');
-   else{
-    const q=GATHER_QUESTS[state.gatherStage];
-    if(q)line(q.title,'Собрано: '+camp.gatherCount+'/'+q.count+
-      (state.gatherAvailable?' · Новое поручение у травницы':' · '+q.hint));
+   const tabs=document.createElement('div');tabs.className='planet-journal-tabs';tabs.setAttribute('role','tablist');
+   const labels={current:'Текущие',available:'Доступные',completed:'Выполненные'};
+   for(const [tab,label] of Object.entries(labels)){
+    const button=document.createElement('button');button.type='button';button.className='choice'+(journalTab===tab?' is-selected':'');
+    button.setAttribute('role','tab');button.setAttribute('aria-selected',String(journalTab===tab));
+    button.textContent=label;button.addEventListener('click',()=>{journalTab=tab;renderModal();});tabs.append(button);
    }
-   for(const entry of mentorJournalRows(state)){
-    line((entry.status==='completed'?'✓ ':entry.status==='available'?'! ':'• ')+entry.title,
-     entry.objective+' · '+entry.progress+(entry.reward?' · '+entry.reward:''));
+   body.append(tabs);
+   const entries=mentorJournalRows(state).map(item=>({...item,npc:'Наставник Каменный Рог'}));
+   for(let i=1;i<=3;i++){
+    const quest=GATHER_QUESTS[i],stage=state.gatherStage;
+    const status=stage>i?'completed':stage===i?(state.gatherAvailable?'available':'current'):i===1&&stage===0?'available':null;
+    if(!status)continue;
+    const count=status==='completed'?quest.count:state.inventory.filter(entry=>entry.id===quest.item).reduce((sum,entry)=>sum+entry.qty,0);
+    entries.push({id:'gather-'+i,status,title:quest.title,
+     objective:'Собрать '+quest.count+' шт.: '+(ITEM_CATALOG[quest.item]?.name||quest.item),
+     progress:status==='completed'?'Сдано травнице':status==='available'?'Доступно у травницы':'Собрано '+count+' / '+quest.count,
+     reward:quest.gold+' монет · '+quest.xp+' опыта',npc:'Травница Тихая Заря'});
    }
+   const visible=entries.filter(entry=>entry.status===journalTab);
+   for(const entry of visible)line((entry.status==='completed'?'✓ ':entry.status==='available'?'! ':'• ')+entry.title,
+    entry.objective+' · '+entry.progress+(entry.reward?' · '+entry.reward:'')+' · '+entry.npc);
+   if(!visible.length)line('Пока пусто','В этом разделе заданий пока нет.');
   }else if(kind==='merchant'){
    line('Борун Крепкая Ладонь','Твои монеты: '+pretty(state.gold));
    for(const id of MERCHANT_STOCK){const item=ITEM_CATALOG[id];if(!item?.buy)continue;
@@ -577,8 +590,18 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
        state.gold-=item.buy;persist();draw();msg('Куплено: '+item.name);}]]);}
   }else if(kind==='spells'){
    const intro=document.createElement('p');intro.className='spellbook-intro';
-   intro.textContent='Выбери способность и ячейку панели: сначала нажми свободную ячейку, затем открой книгу.';
+   intro.textContent='Выбери ячейку 1–8, затем способность или предмет. Занятую ячейку тоже можно заменить.';
    body.append(intro);
+   const picker=document.createElement('div');picker.className='planet-hotbar-slot-picker';
+   for(let i=0;i<8;i++){
+    const button=document.createElement('button');button.type='button';
+    button.className='choice'+(chooseSlot===i?' is-selected':'');
+    button.textContent=String(i+1);button.title='Выбрать ячейку '+(i+1);
+    button.setAttribute('aria-pressed',String(chooseSlot===i));
+    button.addEventListener('click',()=>{chooseSlot=i;renderModal();});
+    picker.append(button);
+   }
+   body.append(picker);
    const list=document.createElement('div');list.className='spellbook-list';
    const abilities=availableHotbarActions('warrior',state.level);
    for(const info of [...abilities.abilities,...abilities.items]){
