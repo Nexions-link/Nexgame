@@ -42,7 +42,7 @@ test('two live players share a single server chest and cannot withdraw the same 
   env:{...process.env,PORT:String(port),CHEST_DATA_FILE:join(directory,'chest.json')},stdio:'ignore'});
  let a,b;
  try{
-  const health=await started(port);assert.equal(health.protocol,6);
+  const health=await started(port);assert.equal(health.protocol,7);
   a=await connect(port);b=await connect(port);
   const welcomeA=await a.wait(m=>m.type==='welcome'),welcomeB=await b.wait(m=>m.type==='welcome');
   assert.ok(welcomeA.id&&welcomeB.id);
