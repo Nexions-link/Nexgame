@@ -4,7 +4,7 @@ import {readPlanetView,writePlanetView} from './world-save.js?v=2';
 import {cameraObstruction} from './sphere-physics.js?v=2';
 import {createOfflineRpg} from './offline-rpg.js?v=15';
 import {animateSphericalTauren} from './tauren-animation.js?v=2';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=12';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=12';
 initStartZoneMath(THREE);
 
 // Reuse the exact iOS gesture protection already proven in the main game.
@@ -630,7 +630,7 @@ try {
       const nextLocal = normalToLocal(nextNormal,R);
       // The automatic approach must obey the very same walkable surfaces
       // and house collisions as the joystick.
-      if((nextLocal.d<82 && lakeRadius(nextLocal.x,nextLocal.z)<.87)||
+      if((nextLocal.d<82 && !canWadeAtLocal(nextLocal.x,nextLocal.z))||
          (nextLocal.d<82 && !rpg.canMoveTo(nextLocal.x,nextLocal.z))) {
         if(approach)rpg.stopAutoApproach();
         power=0;
