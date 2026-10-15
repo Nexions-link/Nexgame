@@ -85,9 +85,9 @@ export function advancePlainstriderVisual(THREE,enemy,dt,moved=0,dead=false){
  // Brief visible recoil of the actual GLB, independently of Walk/Peck clips.
  // This moves only the asset container, never the authoritative world entity.
  const recoil=dead?0:hitReaction(enemy.hit);
- visual.container.rotation.x=-.24*recoil;
+ visual.container.rotation.x=recoil?-.24*recoil:0;
  visual.container.rotation.z=.10*recoil;
- visual.container.position.z=-.19*recoil;
+ visual.container.position.z=recoil?-.19*recoil:0;
  const isAttacking=visual.attackRemaining>0;
  const desired=dead?'corpse':isAttacking?'Peck':visual.walkGrace>0?'Walk':'Idle';
  transitionPlainstriderAnimation(THREE,visual,desired);
