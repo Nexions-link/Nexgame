@@ -78,7 +78,7 @@ test('active gameplay connects the catalog to equipment, loot and visuals',()=>{
 test('GLB axe blade faces forward while its lower tip points down at idle',async()=>{
  const {Euler,Vector3}=await import('three');
  const source=readFileSync(fileURLToPath(new URL('../game.js',import.meta.url)),'utf8');
- assert.ok(source.includes("axe.rotation.set(Math.PI/2,0,-Math.PI/2,'YXZ')"));
+ assert.ok(source.includes("axe.rotation.set(0,-Math.PI/2,-Math.PI/2,'YXZ')"));
  assert.ok(source.includes('axe.rotation.copy(old.rotation);axe.scale.copy(old.scale);'));
  // The GLB has its cutting edge on local +X and lower point on -Y.
  // The right hand is pitched -90deg around X at rest.
