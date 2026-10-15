@@ -23,7 +23,7 @@ const targets={enemy:enemy.root,dummy:dummy.root,dummyName:dummy.nameTag,corpse:
  hero:hero.root,npc:npc.actor.root,npcName:npc.nameTag,relic,merchantLabel,questMarker,herbalistMarker};
 const children=Object.fromEntries(Object.entries(targets).map(([key,value])=>[key,{parent:value}]));
 const canvas={handlers:{},style:{},addEventListener(type,fn){(this.handlers[type]??=[]).push(fn)},
- emit(type,args={}){const event={pointerId:8,pointerType:'touch',button:0,clientX:500,clientY:300,...args};
+ emit(type,args={}){const event={pointerId:8,pointerType:'touch',button:0,clientX:500,clientY:300,preventDefault(){},...args};
   for(const fn of this.handlers[type]||[])fn(event)},
  setPointerCapture(){},hasPointerCapture(){return false},releasePointerCapture(){}};
 let now=1000,mode='empty',clears=0,selects=0,loots=0,harvests=0,finishes=0;
@@ -31,7 +31,8 @@ const ctx={
  scene,renderer:{domElement:canvas},hero,npcs:[npc],relic,merchantLabel,questMarker,herbalistMarker,
  gatherNodes:[resource],enemies:[enemy,dummy,corpse],
  look:{id:null,x:0,y:0,startX:0,startY:0,selectOnly:false},
- modalKind:null,selected:enemy,autoAttack:true,hotbarPending:null,joy:{id:45,y:-1},
+ pinch:{id:null,x:0,y:0,startSpan:0,startDistance:0},cameraDistance:10.5,
+ modalKind:null,selected:enemy,selectedPlayerId:null,remotePlayers:new Map(),autoAttack:true,hotbarPending:null,joy:{id:45,y:-1},
  innerWidth:1000,innerHeight:700,camera:{},cameraYaw:0,cameraPitch:.5,cameraFollowCooldown:0,
  cameraSlider:{blur(){}},document:{activeElement:null},performance:{now:()=>now},
  THREE:{Vector2:class {constructor(x,y){this.x=x;this.y=y}},
@@ -41,6 +42,9 @@ const ctx={
  wrapYaw:n=>n,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),
  gatherNodeAvailable:()=>true,showCorpseLoot:()=>loots++,
  startGather:()=>{harvests++;return true},
+ updatePinchZoom:()=>{},setCameraDistance:()=>{},
+ finishPinch:()=>{ctx.pinch.id=null;ctx.pinch.startSpan=0},
+ selectRemotePlayer:()=>{},
  setTarget:target=>{ctx.selected=target;selects++},
  clearTarget:()=>{ctx.selected=null;ctx.autoAttack=false;clears++},
  cancelHotbarAssignment:()=>{ctx.hotbarPending=null},
