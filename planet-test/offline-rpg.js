@@ -11,7 +11,7 @@ import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
 import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=2';
-import {createCampActions} from './camp-actions.js?v=3';
+import {createCampActions} from './camp-actions.js?v=4';
 import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=2';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
