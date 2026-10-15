@@ -33,7 +33,7 @@ test('gray/common use round; green/blue use kite, independently of shield item i
  assert.equal(shieldModelForRarity('common'),'round');
  assert.equal(shieldModelForRarity('uncommon'),'kite');
  assert.equal(shieldModelForRarity('rare'),'kite');
- const gray=ITEM_CATALOG.crackedShield;
+ const gray=ITEM_CATALOG.bentShield;
  const green=ITEM_CATALOG.infantryBear;
  assert.equal(gray?.slot,'shield');
  assert.equal(green?.slot,'shield');
