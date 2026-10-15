@@ -1,21 +1,21 @@
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality} from './item-quality.js?v=0.3.6.2';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.2';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.2';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.2';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.2';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.2';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.2';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.2';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.2';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.2';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.2';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.2';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.2';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.3';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.3';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.3';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.3';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.3';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.3';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.3';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.3';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.3';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.3';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.3';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.3';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.3';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.2';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.2';
-import {projectPartyMember} from './party-map.js?v=0.3.6.2';
+import {createWorldPresence} from './online.js?v=0.3.6.3';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.3';
+import {projectPartyMember} from './party-map.js?v=0.3.6.3';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -456,9 +456,9 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
    const tip=mesh(g,G.cone,M.metal,0,.29+length+.09,0,.115,.22,.055);tip.rotation.y=Math.PI/4;g.visible=false;
   }
   const shield=group(arms[0].hand,-.12,-.02,-.34);shield.name='gear-shield';shield.rotation.y=Math.PI;
-  const disk=mesh(shield,new THREE.CylinderGeometry(.56,.56,.11,12),M.woodLight);disk.rotation.x=Math.PI/2;
-  mesh(shield,new THREE.TorusGeometry(.53,.04,5,16),M.metal,0,0,.075);
-  ell(shield,M.metal,0,0,.09,.16,.16,.08);
+  const disk=mesh(shield,new THREE.CylinderGeometry(.56,.56,.11,12),M.woodLight);disk.name='shield-face';disk.rotation.x=Math.PI/2;
+  const rim=mesh(shield,new THREE.TorusGeometry(.53,.04,5,16),M.metal,0,0,.075);rim.name='shield-rim';
+  const boss=ell(shield,M.metal,0,0,.09,.16,.16,.08);boss.name='shield-boss';
   for(const x of [-.22,0,.22])box(shield,M.wood,x,0,.066,.018,.92,.013);
   shield.visible=false;
  }
@@ -1081,7 +1081,10 @@ function syncEquipmentVisuals(){
    applyWeaponQuality(THREE,root,visualKind,weaponDef?.weaponKind===visualKind?weaponDef.rarity:'common');
   }
   const shieldModel=root.getObjectByName('gear-shield');
-  if(shieldModel)shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
+  if(shieldModel){
+   shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
+   if(shield)applyShieldQuality(THREE,root,shield.rarity);
+  }
  }
  if(characterView)characterView.nextFrame=0;
 }
@@ -3028,6 +3031,9 @@ function updateRemoteSnapshot(list){
   const remoteKind=hasEquipment?equippedWeaponKind(
    {weapon:p.equipment.weapon?{id:p.equipment.weapon}:null},ITEM_CATALOG):'axe';
   setWeaponVisuals(remote.actor.root,remoteKind,hasEquipment&&p.equipment.shield===true);
+  const remoteShield=ITEM_CATALOG[p.equipment?.shieldId];
+  if(hasEquipment&&p.equipment.shield)
+   applyShieldQuality(THREE,remote.actor.root,remoteShield?.rarity||'common');
   if(remoteKind!=='none'){
    const weaponDef=ITEM_CATALOG[p.equipment?.weapon];
    applyWeaponQuality(THREE,remote.actor.root,remoteKind,weaponDef?.rarity);

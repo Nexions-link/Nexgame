@@ -174,7 +174,8 @@ const interval=setInterval(()=>{
   moving:p.moving,hp:p.hp,maxHp:p.maxHp,
   equipment:{
    weapon:p.equipment?.weapon?.id||null,
-   shield:!!p.equipment?.shield
+   shield:!!p.equipment?.shield,
+   shieldId:p.equipment?.shield?.id||null
   }
  }));
  const mobSnapshot=snapshotMulgoreMobs(mobs);
