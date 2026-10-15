@@ -31,24 +31,25 @@ test('size helper is stable for model import feedback',()=>{
  assert.equal(humanBytes(1048576),'1.00 МБ');
  assert.equal(humanBytes(NaN),'—');
 });
-test('separate published bestiary is self-contained and versioned',()=>{
- const html=read('bestiary/index.html'),js=read('bestiary/main.js'),style=read('bestiary/style.css');
- assert.match(html,/type="importmap"/);
- assert.match(html,/src="\.\/main\.js\?v=0\.1\.2"/);
- assert.match(html,/href="\.\/style\.css\?v=0\.1\.2"/);
- assert.match(html,/id="viewerCanvas"/);
- assert.match(html,/id="glbUpload"/);
- assert.match(html,/id="saveDraft"/);
- assert.match(html,/id="creatureList"/);
- assert.match(html,/href="\.\.\/"/);
- assert.match(style,/@media\(max-width:680px\)/);
- assert.match(js,/GLTFLoader/);
- assert.match(js,/GLTFExporter/);
- assert.match(js,/setPointerCapture/);
- assert.match(js,/localStorage\.setItem/);
- assert.match(js,/normalizeCreatureParams/);
- assert.match(js,/createDolgonog/);
- assert.match(js,/source==='glb'/);
+test('published atlas unifies creature and weapon collections, preserving legacy links',()=>{
+ const home=read('bestiary/index.html'),weapon=read('bestiary/weapons.html');
+ const atlas=read('bestiary/atlas.html'),viewer=read('bestiary/atlas.js'),style=read('bestiary/atlas.css');
+ const catalog=read('bestiary/atlas-catalog.js');
+ assert.match(home,/atlas\.html/);
+ assert.match(weapon,/atlas\.html\?item=tauren-axe/);
+ assert.match(atlas,/type="importmap"/);
+ assert.match(atlas,/id="viewerCanvas"/);
+ assert.match(atlas,/id="categories"/);
+ assert.match(atlas,/id="entries"/);
+ assert.match(atlas,/id="search"/);
+ assert.match(atlas,/atlas\.js\?v=0\.2\.0/);
+ assert.match(style,/@media\(max-width:900px\)/);
+ assert.match(viewer,/GLTFLoader/);
+ assert.match(viewer,/OrbitControls/);
+ assert.match(viewer,/setAnimation/);
+ assert.match(catalog,/dolgonog-v0\.1\.glb/);
+ assert.match(catalog,/tauren-axe-v0\.1\.glb/);
+ for(const category of ['creatures','weapons','armor','items','world'])assert.ok(catalog.includes("id:'"+category+"'"));
 });
 test('dolgonog model API has independent preview and animation hooks',()=>{
  assert.equal(typeof createDolgonog,'function');
