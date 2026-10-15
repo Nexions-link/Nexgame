@@ -1,4 +1,4 @@
-// Planet Test PT 0.2.1: keep friendly proximity interaction and combat targeting
+// Planet Test PT 0.5.1: keep friendly proximity interaction and combat targeting
 // independent, mirroring the behaviour of the stable NexGame.
 import {TARGET_ACQUISITION_RADIUS} from '../target-selection.js?v=0.3.7.1';
 export const INTERACTION_RANGE=Object.freeze({gather:2.8,chest:4.7,mentor:4.7,vendor:4.7,herbalist:4.7,corpse:3.1});
@@ -27,7 +27,8 @@ export function cycleHostileTarget(mobs,dummy,current,dist,step=1){
  const nearby=mobs.concat(dummy?[dummy]:[]).map((entity,index)=>({entity,index,d:dist(entity)}))
   .filter(({entity,d})=>entity?.root?.visible&&entity.hp>0&&!entity.dead&&!entity.corpse&&
     Number.isFinite(d)&&d<=TARGET_ACQUISITION_RADIUS)
-  .sort((a,b)=>Number(a.entity.kind==='dummy')-Number(b.entity.kind==='dummy')||a.d-b.d||a.index-b.index)
+  // Strict nearest-first distance. No special treatment for training dummies.
+  .sort((a,b)=>a.d-b.d||a.index-b.index)
   .map(item=>item.entity);
  if(!nearby.length)return null;
  const currentIndex=nearby.indexOf(current);
