@@ -73,7 +73,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
  const detailRed=m('#9d5236',{polygonOffset:true,polygonOffsetFactor:-1.5,polygonOffsetUnits:-1.5});
  const waterMat=new THREE.MeshPhongMaterial({color:'#619fab',transparent:true,opacity:.87,shininess:45,depthWrite:false,side:THREE.DoubleSide});
  const shoreMat=new THREE.MeshStandardMaterial({color:'#b4a179',roughness:1,side:THREE.DoubleSide});
- const objects=[],meshGroups=[];
+ const objects=[],meshGroups=[],longhouseRoofs=[];
  function box(p,mat,x,y,z,w,h,d){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);o.position.set(x,y,z);p.add(o);return o}
  function cyl(p,mat,x,y,z,a,b,h,seg=9){const o=new THREE.Mesh(new THREE.CylinderGeometry(a,b,h,seg),mat);o.position.set(x,y,z);p.add(o);return o}
  function ell(p,mat,x,y,z,a,b,c){const o=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);o.position.set(x,y,z);o.scale.set(a,b,c);p.add(o);return o}
@@ -109,7 +109,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
   const roofR=4.7,slope=Math.atan2(roofR,hw),len=Math.hypot(hw,roofR)+.24;
   for(const sign of [-1,1]){
    const plank=box(g,hideDark,sign*(hw/2+.18),h+roofR/2,0,len,.27,d+1.05);
-   plank.rotation.z=-sign*slope;
+   plank.rotation.z=-sign*slope;longhouseRoofs.push(plank);
   }
   // One ridge beam fills the narrow gap while remaining visibly above the roof.
   rod(g,wood,0,h+roofR+.05,-hd-.65,0,h+roofR+.05,hd+.65,.31);
@@ -219,13 +219,59 @@ export function createStartZone(three,scene,getRadius,heightAt){
   return geometry;
  }
  const shore=radialGeometry(.97,1.22,5,90,'shore'),water=radialGeometry(0,.992,12,90,'water');
+ // The native lake uses a scrolling glint texture. This overlay receives
+ // its own radial geometry; a world-Y offset would clip into the globe.
+ const rippleTexture=texture((c,size)=>{
+  c.clearRect(0,0,size,size);
+  for(let i=0;i<65;i++){
+   const x=(i*83+27)%size,y=(i*137+43)%size;
+   c.beginPath();c.ellipse(x,y,5+(i%7)*2,1.3+(i%3)*.3,-.13,.12*Math.PI,.85*Math.PI);
+   c.strokeStyle=i%3===0?'rgba(255,255,228,.24)':'rgba(240,255,247,.16)';
+   c.lineWidth=.7+(i%3)*.3;c.stroke();
+  }
+ },256);
+ rippleTexture.wrapS=rippleTexture.wrapT=THREE.RepeatWrapping;
+ rippleTexture.repeat.set(5,3);
+ const shimmerGeometry=water.clone();shimmerGeometry.userData.offsetMode='shimmer';
  const shoreMesh=new THREE.Mesh(shore,shoreMat);shoreMesh.frustumCulled=false;scene.add(shoreMesh);
  const lakeMesh=new THREE.Mesh(water,waterMat);lakeMesh.frustumCulled=false;lakeMesh.renderOrder=3;scene.add(lakeMesh);
+ const shimmer=new THREE.Mesh(shimmerGeometry,new THREE.MeshBasicMaterial({
+  map:rippleTexture,color:0xffffff,transparent:true,opacity:.34,depthWrite:false,
+  side:THREE.DoubleSide,blending:THREE.AdditiveBlending
+ }));
+ shimmer.frustumCulled=false;shimmer.renderOrder=4;scene.add(shimmer);
+ // Lake edge reeds use ONE instanced batch, recreated on radius change.
+ const reeds=new THREE.InstancedMesh(new THREE.CylinderGeometry(.027,.052,1,5),
+  new THREE.MeshStandardMaterial({color:0x91ab70,roughness:1}),205);
+ reeds.frustumCulled=false;scene.add(reeds);
+ const reedPoints=[];
+ for(let i=0;i<75;i++){
+  const a=i/75*TAU,rad=1.035+.045*Math.sin(i*8.7);
+  for(let j=0;j<3;j++){
+   const angle=a+(j-1)*.005,rr=rad+(j-1)*.013;
+   const x=LAKE.x+Math.cos(angle)*LAKE.radiusX*rr*shoreVariation(angle);
+   const z=LAKE.z+Math.sin(angle)*LAKE.radiusZ*rr*shoreVariation(angle);
+   if(reedPoints.length>=205||pathWear(x,z)>.2)continue;
+   reedPoints.push({x,z,h:.7+((i*7+j*13)%9)*.11,spin:angle+(j-1)*.13});
+  }
+ }
+ const reedDummy=new THREE.Object3D(),reedQ=new THREE.Quaternion(),reedSpin=new THREE.Quaternion();
+ function rebuildReeds(){
+  for(let i=0;i<reedPoints.length;i++){
+   const reed=reedPoints[i],normal=localToNormal(reed.x,reed.z,getRadius());
+   reedDummy.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+reed.h/2);
+   reedQ.setFromUnitVectors(UP,normal);
+   reedDummy.quaternion.copy(reedQ).multiply(reedSpin.setFromAxisAngle(UP,reed.spin));
+   reedDummy.scale.set(.8,reed.h,.8);reedDummy.updateMatrix();
+   reeds.setMatrixAt(i,reedDummy.matrix);
+  }
+  reeds.count=reedPoints.length;reeds.instanceMatrix.needsUpdate=true;
+ }
  function updateSurface(geometry){
   const {planar,offsetMode}=geometry.userData,p=geometry.attributes.position;
   for(let i=0;i<planar.length;i+=2){
    const x=planar[i],z=planar[i+1],n=localToNormal(x,z,getRadius());
-   const altitude=offsetMode==='water'?LAKE_SURFACE+.11:heightAt(n)+.21;
+   const altitude=offsetMode==='water'?LAKE_SURFACE+.11:offsetMode==='shimmer'?LAKE_SURFACE+.135:heightAt(n)+.21;
    const r=getRadius()+altitude;p.setXYZ(i/2,n.x*r,n.y*r,n.z*r);
   }
   p.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingSphere();
@@ -237,10 +283,21 @@ export function createStartZone(three,scene,getRadius,heightAt){
    const r=getRadius()+heightAt(n)+.12;attr.setXYZ(i/2,n.x*r,n.y*r,n.z*r);
   }
   attr.needsUpdate=true;terrainGeo.computeVertexNormals();terrainGeo.computeBoundingSphere();
-  updateSurface(shore);updateSurface(water);refreshAnchors();updateBrush();
+  updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();
  }
  rebuild();
- return {rebuild,animate(t){flame.scale.y=1+Math.sin(t*9)*.12}};
+ let roofFaded=false;
+ function updateInteriorView(x,z){
+  const lx=-(z+2),lz=x+27;
+  const inside=Math.abs(lx)<9.25&&Math.abs(lz)<10.15;
+  if(inside!==roofFaded){
+   roofFaded=inside;
+   for(const roof of longhouseRoofs)roof.visible=!inside;
+  }
+ }
+ return {rebuild,updateInteriorView,
+  animate(t){flame.scale.y=1+Math.sin(t*9)*.12;
+   rippleTexture.offset.set(t*.006,t*.003);}};
 }
 
 
