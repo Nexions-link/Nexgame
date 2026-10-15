@@ -21,7 +21,8 @@ test('tuner changes wrist after animation and handles asynchronous GLB replaceme
  const src=read('game.js');
  assert.match(src,/actor===hero/);
  assert.match(src,/rightWristBaseX=arm\.hand\.rotation\.x;applyAxeWristTuning\(\)/);
- assert.match(src,/actor\.weapon&&arm\.hand\.getObjectByName\('gear-axe'\)\?\.visible/);
+ assert.match(src,/const axeVisible=arm\.hand\.getObjectByName\('gear-axe'\)\?\.visible/);
+ assert.match(src,/else if\(axeVisible\)/);
  assert.match(src,/AXE_TUNER_DEFAULTS\.handZ\*Math\.PI\/180/);
  assert.match(src,/applyAxeTransform\(\)/);
  assert.match(src,/old\.name='gear-axe-fallback';axe\.name='gear-axe';\s*applyAxeTransform\(\)/);
