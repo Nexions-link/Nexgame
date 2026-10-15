@@ -276,7 +276,7 @@ try {
   const hero=createTauren(THREE,scene);
   const actor=hero.root;
   const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, orbitElevation: .34, orbitDistance: 3.22, legCycle: 0};
-  const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:()=>createTauren(THREE,scene),playerNormal:()=>state.normal,
+  const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:options=>createTauren(THREE,scene,options),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
    toLocal:normalToLocal,heightAt,camera,canvas});
   let prevHeading = 0;
