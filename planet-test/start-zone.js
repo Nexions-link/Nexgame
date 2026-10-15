@@ -1,4 +1,6 @@
 import {createLandscapeMap} from '../landscape.js?v=0.3.7.0';
+import {createSphericalMeadow} from './sphere-meadow.js?v=1';
+import {canWalkCamp} from './sphere-physics.js?v=1';
 
 // Spherical NexGame starting zone prototype.
 // Layout, terrain, village and character geometry derived from the actual main-game
@@ -196,7 +198,14 @@ export function createStartZone(three,scene,getRadius,heightAt){
   if(Math.hypot(x+5,z-4)<12||lakeRadius(x,z)<1.25||pathWear(x,z)>.2||Math.hypot(x+27,z+2)<18)continue;
   brushPoints.push({x,z,s:.36+rnd()*.56,yaw:rnd()*TAU});
  }
- brush.count=brushPoints.length;brush.frustumCulled=false;scene.add(brush);
+ // Replaced by the actual NexGame meadow (grass, three flower colors,
+ // shrubs), so keep the original experimental brush instance hidden.
+ brush.count=0;brush.frustumCulled=false;scene.add(brush);
+ const meadow=createSphericalMeadow(THREE,{scene,getRadius,toNormal:localToNormal,heightAt,
+  accept:(x,z)=>Math.hypot(x,z)<69&&lakeRadius(x,z)>1.18&&pathWear(x,z)<.18&&
+   (Math.abs(x+27)>12.8||Math.abs(z+2)>12.5)&&
+   canWalkCamp(x,z,.5)});
+
  function updateBrush(){
   for(let i=0;i<brushPoints.length;i++){
    const {x,z,s,yaw}=brushPoints[i],n=localToNormal(x,z,getRadius());
@@ -313,7 +322,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
    const r=getRadius()+heightAt(n)+.12;attr.setXYZ(i/2,n.x*r,n.y*r,n.z*r);
   }
   attr.needsUpdate=true;terrainGeo.computeVertexNormals();terrainGeo.computeBoundingSphere();
-  updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();
+  updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();meadow.rebuild();
  }
  rebuild();
  let roofFaded=false;
@@ -332,7 +341,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
    houseWallMat.needsUpdate=true;
   }
  }
- return {rebuild,updateInteriorView,
+ return {rebuild,updateInteriorView,meadow,
   animate(t){flame.scale.y=1+Math.sin(t*9)*.12;
    rippleTexture.offset.set(t*.006,t*.003);}};
 }
