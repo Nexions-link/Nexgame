@@ -520,6 +520,29 @@ try {
     for(const route of ROUTES){
       ctx.beginPath();route.forEach(([x,z],i)=>i?ctx.lineTo(x*scale,z*scale):ctx.moveTo(x*scale,z*scale));ctx.stroke();
     }
+    const questMap=rpg.getQuestMapState();
+    if(questMap.guide){
+      // The same dotted route as in the 3D spherical world.
+      ctx.save();ctx.strokeStyle='#d43835';ctx.lineWidth=3;
+      ctx.setLineDash([7,7]);ctx.beginPath();
+      [[0,9],[1,24],[12,37],[32,43],[39,47]].forEach(([x,z],i)=>
+       i?ctx.lineTo(x*scale,z*scale):ctx.moveTo(x*scale,z*scale));
+      ctx.stroke();ctx.restore();
+    }
+    if(questMap.bossAlive){
+      const {x,z}=questMap.boss;
+      ctx.fillStyle='#d33f39';ctx.strokeStyle='#ffe4b5';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(x*scale,z*scale,5,0,TAU);ctx.fill();
+      if(questMap.guide)ctx.stroke();
+    }
+    if(questMap.relic){
+      ctx.fillStyle='#8af1e1';ctx.beginPath();
+      ctx.arc(questMap.relicPosition.x*scale,questMap.relicPosition.z*scale,4.6,0,TAU);ctx.fill();
+    }
+    if(questMap.scout){
+      ctx.fillStyle='#f4d5a0';ctx.beginPath();
+      ctx.arc(questMap.scoutPosition.x*scale,questMap.scoutPosition.z*scale,4.6,0,TAU);ctx.fill();
+    }
     ctx.fillStyle='#8d6541';ctx.fillRect(-37*scale,-12*scale,20*scale,21*scale);
     ctx.fillStyle='#f8df88';
     for(const [x,z] of [[-1.5,-5],[6,11]]){ctx.beginPath();ctx.arc(x*scale,z*scale,4,0,TAU);ctx.fill();}
