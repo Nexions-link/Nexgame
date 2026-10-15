@@ -53,6 +53,18 @@
 #mbody .rpgRow strong{font-weight:700;color:#4c351d}
 #mbody .rpgRow small{font:11px/1.35 system-ui,sans-serif;color:#6e502c}
 #mbody .rpgRow button{padding:7px 9px;background:#55432a;border:1px solid #947346;color:#f6e4b6;border-radius:3px;min-width:62px;touch-action:manipulation}
+#mbody .planetEquipmentGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:13px 0}
+#mbody .planetEquipmentGrid .equipment-slot{min-width:0;min-height:84px;touch-action:manipulation}
+#panel.character-modal #mbody .rpgRow strong{color:#e6d1a0}
+#panel.character-modal #mbody .rpgRow small{color:#b9b39f}
+#panel.character-modal .inventory-summary{color:#c1b99d;border-color:#877849}
+#panel.character-modal #mbody .rpgRow{border-color:#746b4a}
+#panel.character-modal #mbody .rpgRow button{background:#4d4c35}
+#mbody .inventory-detail button.choice{min-height:40px;margin:9px 8px 0 0;padding:8px 11px}
+#mbody .inventory-detail p{margin:8px 0 0}
+#mbody .spellbook-list{max-height:none}
+@media(max-width:440px){#mbody .planetEquipmentGrid{gap:5px}#mbody .planetEquipmentGrid .equipment-slot{min-height:70px;padding:4px 2px}#mbody .planetEquipmentGrid .equipment-slot small{font-size:9px}}
+
 #mbody{max-height:calc(79dvh - 135px);overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
 #mbody #radiusPicker{display:block!important;border:1px solid #977a4c;background:#d1b98142;padding:10px;margin:7px 0 12px}
 #radiusPicker .caption{text-align:center;font:700 12px system-ui,sans-serif;color:#4b3623}
