@@ -62,7 +62,10 @@ test('mob chases its shared aggro target, strikes it and gives up after leash',(
  const t=100000;
  assert.equal(applyMulgoreAbility(mobs,a,'autoAttack',0,t,fixedRoll).ok,true);
  a.z=-21;
- const attacks=tickMulgoreMobs(mobs,.1,[a],t+100);
+ const windup=tickMulgoreMobs(mobs,.1,[a],t+100);
+ assert.equal(windup.length,0,'Peck begins before the damage packet');
+ assert.equal(mobs[0].attackSeq,1);
+ const attacks=tickMulgoreMobs(mobs,.1,[a],t+600);
  assert.equal(attacks.length,1);
  assert.equal(attacks[0].targetId,'a');
  assert.equal(attacks[0].amount,9);

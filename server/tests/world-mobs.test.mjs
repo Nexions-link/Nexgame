@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
- MULGORE_MOB_SPAWNS,MOB_SPEED,MOB_AGGRO_LEASH_RANGE,createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,releaseMulgoreAggroForPlayer,applyMulgoreAbility
+ MULGORE_MOB_SPAWNS,MOB_SPEED,MOB_AGGRO_LEASH_RANGE,MOB_SIGHT_RANGE,MOB_BOSS_SIGHT_RANGE,MOB_ATTACK_WINDUP_MS,createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,releaseMulgoreAggroForPlayer,applyMulgoreAbility
 } from '../world-mobs.js';
 
 test('one consistent wildlife roster with stable IDs and boss coordinates',()=>{
@@ -29,7 +29,7 @@ test('snapshots are safe independent data objects',()=>{
  const mobs=createMulgoreMobs();
  const packet=snapshotMulgoreMobs(mobs);
  assert.equal(packet.length,9);
- assert.deepEqual(Object.keys(packet[0]),['id','x','z','yaw','phase','hp','maxHp','life','dead','aggroId','stunned']);
+ assert.deepEqual(Object.keys(packet[0]),['id','x','z','yaw','phase','hp','maxHp','life','dead','aggroId','stunned','attackSeq','returning']);
  packet[0].x=999;
  assert.equal(mobs[0].x,-9);
 });
@@ -144,4 +144,46 @@ test('respawn aggro release preserves damaged HP and contributors',()=>{
  assert.equal(mob.aggroId,null);
  assert.equal(mob.hp,damagedHp);
  assert.equal(mob.contributors.has(player.id),true);
+});
+
+test('wild creatures notice players on sight without the player attacking first',()=>{
+ const mobs=createMulgoreMobs(),now=120000;
+ const player={id:'visitor',x:-9,z:-23+MOB_SIGHT_RANGE-.25,hp:100};
+ const first=tickMulgoreMobs(mobs,.1,[player],now);
+ assert.equal(first.length,0,'sighting should not deal instant damage');
+ assert.equal(mobs[0].aggroId,player.id);
+ assert.equal(mobs[0].hp,mobs[0].maxHp,'detection does not hurt the monster');
+ assert.equal(MOB_BOSS_SIGHT_RANGE,9);
+});
+
+test('telegraphed peck is visible before the hit and can be dodged',()=>{
+ const mobs=createMulgoreMobs(),mob=mobs[0],now=220000;
+ const player={id:'bait',x:-9,z:-22,hp:100};
+ tickMulgoreMobs(mobs,.1,[player],now);
+ const start=tickMulgoreMobs(mobs,.1,[player],now+300);
+ assert.deepEqual(start,[]);
+ assert.equal(mob.attackSeq,1,'Peck animation started via sequence');
+ assert.equal(mob.windupUntil,now+300+MOB_ATTACK_WINDUP_MS);
+ assert.equal(tickMulgoreMobs(mobs,.1,[player],now+500).length,0);
+ player.z=-17;
+ assert.equal(tickMulgoreMobs(mobs,.1,[player],now+800).length,0,'moving away dodges impact');
+ assert.equal(mob.windupUntil,0);
+ player.z=-22;
+ tickMulgoreMobs(mobs,.1,[player],now+1800);
+ assert.equal(mob.attackSeq,2,'another windup can start after miss');
+ assert.equal(tickMulgoreMobs(mobs,.1,[player],now+2300).filter(x=>x.type==='mobAttack').length,1);
+});
+
+test('a monster breaks off past spawn leash and actively goes home',()=>{
+ const mobs=createMulgoreMobs(),mob=mobs[0],now=320000;
+ const player={id:'runner',x:-9,z:-22,hp:100};
+ tickMulgoreMobs(mobs,.1,[player],now);
+ mob.x=-9;mob.z=-11;
+ player.z=1; // 24m from spawn.
+ tickMulgoreMobs(mobs,.1,[player],now+100);
+ assert.equal(mob.aggroId,null);
+ assert.equal(mob.returning,true);
+ const before=Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ);
+ for(let t=2;t<=20;t++)tickMulgoreMobs(mobs,.1,[player],now+t*100);
+ assert.ok(Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<before);
 });

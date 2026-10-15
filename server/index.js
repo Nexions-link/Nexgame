@@ -14,7 +14,7 @@ const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
 const WORLD_PROTOCOL=7; // Adds safe explicit respawn, avoiding anti-teleport movement rejection.
-const WORLD_BUILD='0.3.6.9';
+const WORLD_BUILD='0.3.7.0';
 const MAX_MESSAGE_BYTES=8192; // inventory snapshot for a 108-slot character backpack
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
 const RESPAWN_POINT=Object.freeze({x:0,z:10});
@@ -60,7 +60,7 @@ wss.on('connection',ws=>{
  const id=randomUUID(),now=Date.now();
  const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,
   updatedAt:now,equipment:{},hp:120,maxHp:120,
-  lastMobAttackAt:0,lastRespawnAt:0,respawnShieldUntil:0};
+  lastMobAttackAt:0,lastRespawnAt:0,respawnShieldUntil:0,joined:false};
  let joined=false;
  clients.set(ws,id);players.set(id,player);
  send(ws,{type:'welcome',id,world:'mulgore',tickMs:TICK_MS,protocol:WORLD_PROTOCOL,build:WORLD_BUILD,
@@ -71,7 +71,7 @@ wss.on('connection',ws=>{
   let data;try{data=JSON.parse(String(raw))}catch{return}
   if(!data||typeof data!=='object')return;
   if(data.type==='join'){
-   if(joined)return;joined=true;
+   if(joined)return;joined=true;player.joined=true;
    const name=cleanName(data.name);if(name)player.name=name;
    // Initialize the player's first position from an existing browser save.
    // Coordinates are provisional until server-authoritative movement is added.
