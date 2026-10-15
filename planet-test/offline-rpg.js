@@ -90,6 +90,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
  const nameEl=$('playerName'),objective=$('qtext');
  const originalControls=$('labSettingsSources');
+ const settingsControls=[...originalControls.children];
  if(!hotbar||!modal||!toast||!nameEl||!$('playerFrame')||!$('minimap'))throw Error('Не загружен оригинальный интерфейс NexGame');
  const bind=(el,ev,fn)=>el.addEventListener(ev,fn);
  const stats=()=>deriveStats(state.level,state.equipment);
@@ -382,7 +383,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   };
   if(kind==='menu'){
    line('Сферический мир','Меняй радиус планеты, вращай её свайпами и проверяй оригинальную NexGame.');
-   for(const item of [...originalControls.children])body.append(item);
+   for(const item of settingsControls)body.append(item);
    line('Сетевая игра','Тестовая сборка работает локально, без сервера Render.');
   }else if(kind==='bag'){
    line('Сумка: '+state.inventory.length+'/12','Нажми «Надеть», чтобы экипировать снаряжение');
