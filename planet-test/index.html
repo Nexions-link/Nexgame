@@ -81,6 +81,27 @@
 #actionsBar .ability.is-active{border-color:#edce86;box-shadow:0 0 10px #e8c67c8c}
 #actionsBar .ability.is-cooldown{filter:grayscale(.75);opacity:.75}
 #actionsBar .ability.is-empty{opacity:.65}
+#actionsBar .ability{position:relative;overflow:hidden}
+#actionsBar .ability .planetCooldownShade{
+ position:absolute;z-index:3;left:0;right:0;top:0;height:0;
+ background:linear-gradient(180deg,#151d20d8,#18232c9a);
+ pointer-events:none;transition:height .12s linear
+}
+#actionsBar .ability .planetGcdShade{
+ position:absolute;z-index:4;inset:0;
+ background:linear-gradient(180deg,#cfbe84a1,#d2ae5970);
+ transform-origin:bottom center;transform:scaleY(0);
+ pointer-events:none;opacity:.45;transition:transform .12s linear
+}
+#actionsBar .ability .planetCooldownText{
+ position:absolute;z-index:5;top:32%;left:0;right:0;
+ pointer-events:none;color:#f6ecd6;font:bold 14px Georgia,serif;
+ text-shadow:0 2px 4px #090f15,1px 0 2px #090f15
+}
+.inventory-slot.occupied{border-color:var(--item-quality-color,#efe6d5)}
+.inventory-slot.occupied.rarity-uncommon{box-shadow:inset 0 0 9px #45c67f36}
+.inventory-slot.occupied.rarity-rare{box-shadow:inset 0 0 12px #579dec58}
+
 /* PT 0.3.1: compact edge notices instead of the original centred
    full-screen toast; ordinary targeting/attacks use the HUD, not popups. */
 #toast{
