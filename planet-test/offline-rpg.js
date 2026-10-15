@@ -24,6 +24,7 @@ import {incomingShieldHit,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackPro
 import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '../item-quality.js?v=0.3.7.1';
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=1';
+import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -119,6 +120,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  // The mesh is bent vertex-by-vertex onto the actual spherical terrain:
  // no texture intersection/z-fighting and a saturated red outline.
  const targetRing=createSphericalTargetRing({THREE,parent:group,getRadius,toNormal,heightAt});
+ const stompEffect=createSphericalStomp({THREE,parent:group,getRadius,heightAt});
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[],citizens=[];
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
@@ -443,7 +445,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(action.id==='healingPotion'){takeItem('healingPotion');state.hp=Math.min(stats().maxHp,state.hp+55);msg('Здоровье восстановлено');}
   else if(action.id==='heavyStrike')hitEnemy(target,def.damageBonus||8,action.id);
   else if(action.id==='thunderStomp'){
-   stompPulse=.55;
+   stompPulse=.55;stompEffect.trigger(playerNormal());
    let hits=0;for(const mob of mobs)if(!mob.dead&&distance(mob)<4.5){mob.stun=2.5;harm(mob,6,action.id);hits++;}
    msg('Громовая поступь: '+hits+' целей');
   }
@@ -728,7 +730,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   targetEntity(selected||null);
  });
- function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();targetRing.invalidate();updateSelection();draw();}
+ function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();targetRing.invalidate();stompEffect.invalidate();updateSelection();draw();}
  function canMoveTo(x,z){
   // One source of truth used by player, wildlife and camera obstruction.
   // NPCs have small personal-space circles but do not get treated as terrain.
@@ -870,6 +872,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   updateTrainingTarget(dummy,clock);
   combatFeedback.update(dt);
+  stompEffect.update(dt);
   updateSelection();
   if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
  }
