@@ -62,7 +62,7 @@ test('model remains in left hand; no changes to previously tuned weapons or shie
  const game=read('game.js'), quality=read('item-quality.js');
  assert.match(game,/const shield=group\(arms\[0\]\.hand,-\.12,-\.02,-\.34\)/);
  assert.match(game,/async function attachShieldAsset\(root,rarity\)/);
- assert.match(game,/void attachShieldAsset\(root,shield\.rarity\)/);
+ assert.match(game,/void attachShieldAsset\(root,rarity\)/);
  assert.match(game,/void attachShieldAsset\(remote\.actor\.root,rarity\)/);
  assert.match(game,/previous=mount\.getObjectByName\('shield-glb-model'\)/);
  assert.match(game,/for\(const child of mount\.children\)if\(child!==model\)child\.visible=false/);
