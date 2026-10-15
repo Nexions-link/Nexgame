@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
-import {createOfflineRpg} from './offline-rpg.js?v=10';
+import {createOfflineRpg} from './offline-rpg.js?v=11';
 import {animateSphericalTauren} from './tauren-animation.js?v=1';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=10';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=11';
 initStartZoneMath(THREE);
 
 // Reuse the exact iOS gesture protection already proven in the main game.
