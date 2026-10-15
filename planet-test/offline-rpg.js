@@ -15,6 +15,7 @@ import {createCampActions} from './camp-actions.js?v=5';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
 import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=2';
+import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -167,7 +168,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
   const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
    spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
-   respawn:0,returning:false,walk:0,visual:null,hit:0};
+   respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0};
   const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);
   mobs.push(entity);entities.push(entity);setModelAt(entity);return entity;
  }
@@ -309,7 +310,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   combatFeedback.hit(enemy,damage,skill);
   state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
   if(enemy.hp===0){
-   enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;autoplay=false;
+   enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;enemy.attackWindup=0;autoplay=false;
    enemy.root.rotateX(1.15);birdAnimation(enemy,1/60,0);
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
@@ -638,7 +639,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(!mob.root.visible){
     mob.respawn-=dt;
     if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
-     mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.hit=0;
+     mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.attackWindup=0;mob.hit=0;
      resetPlainstriderVisual(mob);setModelAt(mob);}
     continue;
    }
@@ -647,24 +648,44 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    mob.attackCd=Math.max(0,mob.attackCd-dt);mob.stun=Math.max(0,mob.stun-dt);
    const playerSpawnDistance=Math.hypot(local.x-mob.spawnX,local.z-mob.spawnZ);
    const dist=Math.hypot(local.x-mob.x,local.z-mob.z);
-   if(mob.aggro&&playerSpawnDistance>23){mob.aggro=false;mob.returning=true;mob.hp=mob.maxHp;}
+   if(mob.aggro&&playerSpawnDistance>23){mob.aggro=false;mob.returning=true;mob.hp=mob.maxHp;mob.attackWindup=0;}
    if(!mob.aggro&&!mob.returning&&dist<7&&playerSpawnDistance<23&&state.hp>0)mob.aggro=true;
    let dx=0,dz=0;
    if(mob.returning){dx=mob.spawnX-mob.x;dz=mob.spawnZ-mob.z;if(Math.hypot(dx,dz)<.25){mob.returning=false;mob.hp=mob.maxHp;}}
    else if(mob.aggro){dx=local.x-mob.x;dz=local.z-mob.z;}
    const len=Math.hypot(dx,dz),moving=len>.06&&mob.stun<=0;
    const beforeX=mob.x,beforeZ=mob.z;
-   if(moving&&(!mob.aggro||len>2.35)){
+   if(moving&&(!mob.aggro||len>2.35)&&mob.attackWindup<=0){
     const amount=Math.min(len,dt*(mob.aggro?2.05:1.45));
-    mob.x+=dx/len*amount;mob.z+=dz/len*amount;mob.yaw=Math.atan2(dx/len,dz/len);
+    mob.x+=dx/len*amount;mob.z+=dz/len*amount;
    }
-   if(mob.aggro&&dist<2.6&&mob.attackCd<=0&&mob.stun<=0&&state.hp>0){
-    const armor=stats().armor;
-    state.hp=Math.max(0,state.hp-Math.max(1,Math.round((5+Math.random()*3)*(1-armor/(armor+485)))));
-    mob.attackCd=2.1;state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
-    if(state.hp<=0){state.hp=stats().maxHp;state.resource=0;autoplay=false;mob.aggro=false;
-     msg('Герой возродился у костра');resetPosition?.();}
-    persist();
+   // Three.js bird GLB faces local +Z, and local up is radial to the sphere.
+   // Map-plane atan2(dx,dz) points in the wrong direction on the curved world.
+   const aim=mob.aggro&&state.hp>0?playerNormal():
+    mob.returning?toNormal(mob.spawnX,mob.spawnZ,getRadius()):null;
+   const normal=toNormal(mob.x,mob.z,getRadius());
+   const desiredYaw=aim?sphereFacingYaw(THREE,normal,aim):null;
+   // Face the moving player on EVERY frame, including stationary melee/Peck.
+   mob.yaw=turnSphereYaw(mob.yaw,desiredYaw,dt,mob.attackWindup>0?16:12);
+   const close=Math.hypot(local.x-mob.x,local.z-mob.z)<2.6;
+   if(mob.stun>0||!mob.aggro||state.hp<=0||!close){
+    mob.attackWindup=0;
+   }else if(mob.attackCd<=0){
+    if(mob.attackWindup<=0)mob.attackWindup=.4;
+    else{
+     mob.attackWindup=Math.max(0,mob.attackWindup-dt);
+     // An attack cannot land until the bird is visibly facing the player.
+     if(mob.attackWindup<=0&&sphereFacingError(mob.yaw,desiredYaw)>.32)
+      mob.attackWindup=.09;
+     else if(mob.attackWindup<=0){
+      const armor=stats().armor;
+      state.hp=Math.max(0,state.hp-Math.max(1,Math.round((5+Math.random()*3)*(1-armor/(armor+485)))));
+      mob.attackCd=2.1;state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
+      if(state.hp<=0){state.hp=stats().maxHp;state.resource=0;autoplay=false;mob.aggro=false;
+       msg('Герой возродился у костра');resetPosition?.();}
+      persist();
+     }
+    }
    }
    setModelAt(mob);
    birdAnimation(mob,dt,Math.hypot(mob.x-beforeX,mob.z-beforeZ));
