@@ -57,7 +57,9 @@ export function applyWeaponQuality(THREE,root,kind,rarity){
     m.emissive.copy(base.emissive);
     if((tier==='uncommon'||tier==='rare')&&accented)
      m.emissive.lerp(accentColor,tier==='rare'?.72:.52);
-    m.emissiveIntensity=base.intensity+(accented?profile.glow:0);
+    m.emissiveIntensity=(accented&&profile.glow>0)
+     ?Math.min(.22,Math.max(profile.glow,(Number.isFinite(base.intensity)?base.intensity:1)*profile.glow))
+     :base.intensity;
    }
    if(typeof base.roughness==='number')
     m.roughness=Math.max(.17,Math.min(1,base.roughness+(tier==='poor'?.15:tier==='rare'?-.08:0)));
