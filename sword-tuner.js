@@ -1,8 +1,10 @@
-export const SWORD_TUNER_STORAGE_KEY='nexgame-sword-tuner-v1';
+// Sword grip approved in-game for NexGame Alpha 0.3.5.54.
+// Keep separate from the axe; versioned key retires old experimental poses.
+export const SWORD_TUNER_STORAGE_KEY='nexgame-sword-tuner-v2';
 export const SWORD_TUNER_DEFAULTS=Object.freeze({
  handX:-180,handY:-67,handZ:-82,
- swordX:0,swordY:0,swordZ:0,
- posX:-0.555,posY:-0.19,posZ:-0.025
+ swordX:-8,swordY:-169,swordZ:-101,
+ posX:-0.225,posY:-0.19,posZ:-0.025
 });
 export const SWORD_TUNER_GROUPS=[
  {title:'Кисть · поворот',fields:['handX','handY','handZ']},
