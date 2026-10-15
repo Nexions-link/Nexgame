@@ -186,7 +186,7 @@ try {
   }
   // Atmosphere is intentionally subtle; it only appears in orbital view.
   const atmosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(R + 12, 60, 36),
+    new THREE.SphereGeometry(BASE_RADIUS + 12, 60, 36),
     new THREE.MeshBasicMaterial({color: '#bde9eb', side: THREE.BackSide, transparent: true, opacity: .10, depthWrite: false})
   );
   scene.add(atmosphere);
@@ -404,7 +404,7 @@ try {
       const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
       if (lastPinch) {
         if (state.orbit) state.orbitDistance = clamp(state.orbitDistance * lastPinch / Math.max(d, 2), 1.6, 5.5);
-        else state.zoom = clamp(state.zoom * lastPinch / Math.max(d, 2), 6, 32);
+        else state.zoom = clamp(state.zoom * lastPinch / Math.max(d, 2), 6, 44);
       }
       lastPinch = d;
       updateZoomLabel();
@@ -416,7 +416,7 @@ try {
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
     if (state.orbit) state.orbitDistance = clamp(state.orbitDistance + e.deltaY * .002, 1.6, 5.5);
-    else {state.zoom = clamp(state.zoom + e.deltaY * .015, 6, 32); updateZoomLabel();}
+    else {state.zoom = clamp(state.zoom + e.deltaY * .015, 6, 44); updateZoomLabel();}
     saveWorld();
   }, {passive:false});
   const orbitButton = $('orbitButton');
@@ -450,8 +450,9 @@ try {
     if(cameraDistanceInput)cameraDistanceInput.value=String(state.zoom);
     if(cameraDistanceValue)cameraDistanceValue.textContent=state.zoom.toFixed(1).replace('.',',')+' м';
   }
+  if(cameraDistanceInput){cameraDistanceInput.min='6';cameraDistanceInput.max='44';}
   cameraDistanceInput?.addEventListener('input',e=>{
-    state.zoom=clamp(Number(e.target.value)||13,6,32);
+    state.zoom=clamp(Number(e.target.value)||13,6,44);
     updateZoomLabel();saveWorld();
   });
   updateZoomLabel();
@@ -494,6 +495,9 @@ try {
     button.addEventListener('click', () => setRadius(Number(button.dataset.radius)));
   rpg.onRespawn(()=>{doReset();cameraSnap=true;});
   setRadius(R);
+  // Atmosphere geometry is created at BASE_RADIUS, so scale it even when
+  // a larger saved radius is restored without a resize event.
+  atmosphere.scale.setScalar((R+12)/(BASE_RADIUS+12));
   if(previousWorld?.orbit)orbitButton.click();
   saveWorld();
   stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
