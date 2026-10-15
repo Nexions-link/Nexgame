@@ -1240,7 +1240,7 @@ function syncEquipmentVisuals(){
   }
   const shieldModel=root.getObjectByName('gear-shield');
   if(shieldModel){
-   shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
+   shieldModel.scale.setScalar(!previewKind&&shield?.sourceId===2210?.8:1);
    const rarity=previewKind?(previewKind==='round'?'poor':'uncommon'):shield?.rarity;
    applyShieldTransform(root,previewKind||shieldModelForRarity(rarity));
    if(rarity){
