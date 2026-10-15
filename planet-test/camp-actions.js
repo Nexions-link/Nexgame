@@ -175,6 +175,7 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
   }
  }
  return {interact,render,update,cancel,available,
+  get casting(){return !!cast},
   get gatherCount(){return gatherCount()},
   get chest(){return chest}};
 }
