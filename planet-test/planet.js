@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
+import {createOfflineRpg} from './offline-rpg.js?v=1';
 import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=6';
 initStartZoneMath(THREE);
 
@@ -68,6 +69,12 @@ const smooth = (a, b, n) => { const t = clamp((n - a) / (b - a), 0, 1); return t
 const wrap = x => (x % TAU + TAU) % TAU;
 const angleDelta = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 const unitAt = (lon, lat) => v(Math.cos(lat) * Math.sin(lon), Math.sin(lat), Math.cos(lat) * Math.cos(lon));
+function localToNormalAt(x,z,r){
+  const d=Math.hypot(x,z);
+  if(d<1e-7)return v(0,0,1);
+  const angle=d/r,scale=Math.sin(angle)/d;
+  return v(x*scale,z*scale,Math.cos(angle));
+}
 function sectorIndex(lon) { return Math.floor(wrap(lon + Math.PI / 4) / (Math.PI / 2)) % 4; }
 function biomeWeights(lon) {
   const w = [];
@@ -269,6 +276,9 @@ try {
   const actor=hero.root;
   const limbs=[hero.legs[0].hip,hero.arms[0].shoulder,hero.legs[1].hip,hero.arms[1].shoulder];
   const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, legCycle: 0};
+  const rpg=createOfflineRpg({THREE,scene,hero,playerNormal:()=>state.normal,
+   getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
+   toLocal:normalToLocal,heightAt,camera,canvas});
   let prevHeading = 0;
   const cameraGoal = new THREE.Vector3();
   const focus = new THREE.Vector3();
@@ -344,6 +354,9 @@ try {
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
     if (['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d'].includes(k)) {e.preventDefault(); keys.add(k);}
+    if(/^[1-8]$/.test(k)&&!e.repeat&&!document.querySelector('#rpgModal:not([hidden])')){
+      e.preventDefault();rpg.handleSlotKey(k);
+    }
   });
   window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => {keys.clear(); releaseStick();});
@@ -411,6 +424,7 @@ try {
       reshapeGround();
       relocateInstances();
       startZone.rebuild();
+      rpg.resetWorldTransforms();
       atmosphere.scale.setScalar((R + 12) / (BASE_RADIUS + 12));
       stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
       doReset();
@@ -428,6 +442,7 @@ try {
   }
   for (const button of radiusButtons)
     button.addEventListener('click', () => setRadius(Number(button.dataset.radius)));
+  rpg.onRespawn(()=>{doReset();cameraSnap=true;});
   setRadius(BASE_RADIUS);
   stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
 
@@ -485,7 +500,8 @@ try {
       const nextNormal = state.normal.clone().applyAxisAngle(axis, step/R).normalize();
       const nextLocal = normalToLocal(nextNormal,R);
       // Keep deep lake water non-walkable, as in the main game's current build.
-      if(nextLocal.d<82 && lakeRadius(nextLocal.x,nextLocal.z)<.87) {
+      if((nextLocal.d<82 && lakeRadius(nextLocal.x,nextLocal.z)<.87)||
+         (nextLocal.d<82 && !rpg.canMoveTo(nextLocal.x,nextLocal.z))) {
         power=0;
       } else {
         const oldLon = Math.atan2(state.normal.x,state.normal.z);
@@ -505,6 +521,7 @@ try {
     limbs[1].rotation.x = -Math.sin(state.legCycle) * power * .19;
     limbs[3].rotation.x = Math.sin(state.legCycle) * power * .19;
     startZone.animate(elapsed);
+    rpg.update(dt);
 
     if (state.orbit) {
       state.orbitAngle += dt * .10;
