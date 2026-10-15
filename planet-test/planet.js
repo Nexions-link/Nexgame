@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
 import {readPlanetView,writePlanetView} from './world-save.js?v=2';
+import {cameraObstruction} from './sphere-physics.js?v=1';
 import {createOfflineRpg} from './offline-rpg.js?v=15';
-import {animateSphericalTauren} from './tauren-animation.js?v=1';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=11';
+import {animateSphericalTauren} from './tauren-animation.js?v=2';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=12';
 initStartZoneMath(THREE);
 
 // Reuse the exact iOS gesture protection already proven in the main game.
@@ -659,6 +660,15 @@ try {
       const minRadius = R + heightAt(cameraGoal.clone().normalize()) + 1.0;
       if (cameraGoal.length() < minRadius) cameraGoal.normalize().multiplyScalar(minRadius);
       camera.up.copy(state.normal);
+    }
+    if(!state.orbit){
+      const where=normalToLocal(state.normal,R);
+      startZone.updateInteriorView(where.x,where.z);
+      const hit=cameraObstruction(THREE,{
+       start:focus,desired:cameraGoal,getRadius:()=>R,toLocal:normalToLocal,
+       heightAt,heroLocal:where,clearance:.82
+      });
+      if(hit)cameraGoal.copy(hit);
     }
     if (cameraSnap) {camera.position.copy(cameraGoal);cameraSnap=false;}
     else camera.position.lerp(cameraGoal,1-Math.exp(-dt * (state.orbit&&touches.size===1?24:8.5)));
