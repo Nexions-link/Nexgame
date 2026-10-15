@@ -1,3 +1,4 @@
+import {blocksRockOrMesa} from './planet-landmarks.js?v=1';
 // PT 0.6.0 — spherical contact and third-person camera constraints.
 // Static footprints match the ORIGINAL camp's physical dimensions. Geometry
 // tests operate in local geodesic chart metres; world-space rays are converted
@@ -20,7 +21,8 @@ export function isInLonghouse(x,z){
 }
 export function canWalkCamp(x,z,playerRadius=.42){
  if(!Number.isFinite(x)||!Number.isFinite(z))return false;
- if(Math.hypot(x,z)>90)return true; // Local camp: rest of sphere uses its own biomes.
+ if(blocksRockOrMesa(x,z,playerRadius))return false;
+ if(Math.hypot(x,z)>90)return true; // Beyond camp: mesas still use shared collision.
  const r=playerRadius,p=toHouseCoordinates(x,z),ax=Math.abs(p.x),az=Math.abs(p.z);
  // Original longhouse measures 19.2×20.8 m with 6.8m front (+Z) doorway.
  // Collision affects shell only, leaving the interior walkable.
@@ -43,6 +45,7 @@ export function canWalkCamp(x,z,playerRadius=.42){
  return true;
 }
 function geometryAt(x,z,height,interior=false){
+ if(blocksRockOrMesa(x,z,.25,height))return true;
  const p=toHouseCoordinates(x,z),ax=Math.abs(p.x),az=Math.abs(p.z);
  if(height>=0&&height<13.8){
   const wallX=ax>9.25&&ax<10.05&&az<10.75;
