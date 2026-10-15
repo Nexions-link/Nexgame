@@ -459,18 +459,37 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
        if(!addItem(id))return msg('Сумка заполнена');
        state.gold-=item.buy;persist();draw();msg('Куплено: '+item.name);}]]);}
   }else if(kind==='spells'){
-   const actions=availableHotbarActions('warrior',state.level);
-   line('Выбор действия','Сначала нажми ячейку панели, затем выбери способность');
-   for(const info of [...actions.abilities,...actions.items])
-    line((ICON[info.id]||'✨')+' '+info.name,info.description,[['Назначить',()=>{
-     const slot=chooseSlot>=0?chooseSlot:state.hotbar.findIndex(x=>x===null);
-     if(slot<0)return msg('Сначала выбери ячейку на панели');
-     state.hotbar=assignHotbarSlot(state.hotbar,slot,{kind:info.kind,id:info.id},'warrior',state.level);
-     chooseSlot=-1;persist();draw();msg('Способность помещена в ячейку '+(slot+1));}]]);
-   line('Очистить ячейку','Выбери слот, затем очисти его',[['Очистить',()=>{
-    if(chooseSlot<0)return msg('Сначала выбери ячейку');
-    state.hotbar=assignHotbarSlot(state.hotbar,chooseSlot,null,'warrior',state.level);
-    chooseSlot=-1;persist();draw();}]]);
+   const intro=document.createElement('p');intro.className='spellbook-intro';
+   intro.textContent='Выбери способность и ячейку панели: сначала нажми свободную ячейку, затем открой книгу.';
+   body.append(intro);
+   const list=document.createElement('div');list.className='spellbook-list';
+   const abilities=availableHotbarActions('warrior',state.level);
+   for(const info of [...abilities.abilities,...abilities.items]){
+     const btn=document.createElement('button');btn.type='button';btn.className='spellbook-entry';
+     const icon=document.createElement('span');icon.className='spellbook-entry-icon';icon.textContent=ICON[info.id]||'✨';
+     const block=document.createElement('span');block.className='spellbook-entry-content';
+     const title=document.createElement('span');title.className='spellbook-entry-title';title.textContent=info.name;
+     const detail=document.createElement('span');detail.className='spellbook-entry-desc';detail.textContent=info.description;
+     const meta=document.createElement('span');meta.className='spellbook-entry-meta';
+     meta.textContent=info.kind==='item'?'Настоев: '+itemCount('healingPotion'):
+      (info.resourceCost?info.resourceCost+' ярости · ':'')+(info.cooldown?info.cooldown+' с восстановления':'Без перезарядки');
+     block.append(title,detail,meta);
+     const arrow=document.createElement('span');arrow.className='spellbook-entry-use';arrow.textContent='➜';
+     btn.append(icon,block,arrow);
+     btn.addEventListener('click',()=>{
+       const slot=chooseSlot>=0?chooseSlot:state.hotbar.findIndex(entry=>entry===null);
+       if(slot<0)return msg('Нажми нужную ячейку на панели');
+       state.hotbar=assignHotbarSlot(state.hotbar,slot,{kind:info.kind,id:info.id},'warrior',state.level);
+       chooseSlot=-1;persist();draw();msg('Назначено в ячейку '+(slot+1));
+     });list.append(btn);
+   }
+   const clear=document.createElement('button');clear.type='button';
+   clear.className='spellbook-entry spellbook-remove';clear.textContent='✕ Очистить выбранную ячейку';
+   clear.addEventListener('click',()=>{
+     if(chooseSlot<0)return msg('Сначала выбери ячейку панели');
+     state.hotbar=assignHotbarSlot(state.hotbar,chooseSlot,null,'warrior',state.level);
+     chooseSlot=-1;persist();draw();
+   });list.append(clear);body.append(list);
   }
  }
  const actions=[
