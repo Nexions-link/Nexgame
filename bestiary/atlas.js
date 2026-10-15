@@ -1,0 +1,66 @@
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {ATLAS_CATEGORIES,ATLAS_ENTRIES,filterAtlasEntries} from './atlas-catalog.js';
+const $=id=>document.getElementById(id);
+const canvas=$('viewerCanvas'),scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(38,1,.01,200);
+const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'default'});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.outputColorSpace=THREE.SRGBColorSpace;
+scene.add(new THREE.HemisphereLight(0xffeed8,0x405c50,2.2));
+const light=new THREE.DirectionalLight(0xffffff,2.6);light.position.set(5,9,6);scene.add(light);
+const controls=new OrbitControls(camera,canvas);controls.enableDamping=true;controls.enablePan=false;
+let category='all',activeId='dolgonog',current=null,mixer=null,actions={},currentAction=null,loadId=0;
+const loader=new GLTFLoader(),clock=new THREE.Clock(),center=new THREE.Vector3();let radius=2;
+function resetView(){camera.position.copy(center).add(new THREE.Vector3(radius*.9,radius*.5,radius*1.8));controls.target.copy(center);controls.update()}
+$('resetView').onclick=resetView;
+function paintCategories(){
+ $('categories').replaceChildren();
+ for(const c of [{id:'all',name:'Вся коллекция',icon:'▦'},...ATLAS_CATEGORIES]){
+  const button=document.createElement('button');button.className='category'+(category===c.id?' active':'');
+  const count=c.id==='all'?ATLAS_ENTRIES.length:ATLAS_ENTRIES.filter(e=>e.category===c.id).length;
+  button.innerHTML='<span></span><strong></strong><span class="count"></span>';
+  button.children[0].textContent=c.icon;button.children[1].textContent=c.name;button.children[2].textContent=count;
+  button.onclick=()=>{category=c.id;paintCategories();paintEntries()};
+  $('categories').append(button);
+ }
+}
+function paintEntries(){
+ const entries=filterAtlasEntries(category,$('search').value),host=$('entries');host.replaceChildren();$('counter').textContent=entries.length+' / '+ATLAS_ENTRIES.length;
+ if(!entries.length){const p=document.createElement('p');p.className='empty';p.textContent='В этой категории пока нет записей. Коллекция будет пополняться.';host.append(p);return}
+ for(const entry of entries){const b=document.createElement('button');b.className='entry'+(activeId===entry.id?' active':'');
+  b.innerHTML='<span class="glyph"></span><span><strong></strong><small></small></span>';
+  b.querySelector('.glyph').textContent=entry.category==='creatures'?'◈':'⚒';
+  b.querySelector('strong').textContent=entry.name;b.querySelector('small').textContent=entry.number+' · v'+entry.version;
+  b.onclick=()=>selectEntry(entry.id);host.append(b)}
+}
+$('search').addEventListener('input',paintEntries);
+function setAnimation(name){
+ if(!actions[name])return;
+ if(currentAction&&currentAction!==actions[name])currentAction.fadeOut(.2);
+ currentAction=actions[name];currentAction.reset().fadeIn(.2).play();
+ for(const b of $('animations').querySelectorAll('button'))b.classList.toggle('active',b.dataset.clip===name);
+}
+async function selectEntry(id){
+ const entry=ATLAS_ENTRIES.find(e=>e.id===id);if(!entry)return;activeId=id;paintEntries();
+ $('entryNumber').textContent='№ '+entry.number;$('entryVersion').textContent='ОРИГИНАЛ · v'+entry.version;
+ $('entryName').textContent=entry.name;$('entrySubtitle').textContent=entry.subtitle;
+ $('entryDescription').textContent=entry.description;
+ $('facts').replaceChildren();for(const [key,value] of entry.facts){const el=document.createElement('div');el.className='fact';const a=document.createElement('span'),b=document.createElement('strong');a.textContent=key;b.textContent=value;el.append(a,b);$('facts').append(el)}
+ $('modelStatus').textContent='ЗАГРУЗКА МОДЕЛИ';$('animationPanel').hidden=true;
+ const request=++loadId;
+ try{
+  const gltf=await loader.loadAsync(entry.asset+'?atlas=0.2.0');if(request!==loadId)return;
+  if(current){scene.remove(current);current.traverse(o=>{if(o.isMesh){/* shared GLB loader cache may reuse textures; avoid disposal */}})}
+  current=gltf.scene;scene.add(current);
+  const bounds=new THREE.Box3().setFromObject(current);bounds.getCenter(center);const size=bounds.getSize(new THREE.Vector3());radius=Math.max(size.length()*.68,.9);
+  controls.minDistance=radius*.6;controls.maxDistance=radius*5;resetView();
+  mixer=gltf.animations.length?new THREE.AnimationMixer(current):null;actions={};currentAction=null;
+  $('animations').replaceChildren();
+  for(const clip of gltf.animations){const action=mixer.clipAction(clip);actions[clip.name]=action;const b=document.createElement('button');b.textContent=clip.name;b.dataset.clip=clip.name;b.onclick=()=>setAnimation(clip.name);$('animations').append(b)}
+  $('animationPanel').hidden=!gltf.animations.length;
+  if(gltf.animations.length)setAnimation(gltf.animations.find(c=>c.name==='Idle')?.name||gltf.animations[0].name);
+  $('modelStatus').textContent='GLB · 3D АКТИВНА';
+ }catch(error){if(request===loadId){$('modelStatus').textContent='ОШИБКА ЗАГРУЗКИ';console.error(error)}}
+}
+function render(){requestAnimationFrame(render);const w=canvas.clientWidth,h=canvas.clientHeight;if(w>0&&h>0){const d=renderer.getPixelRatio();if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}}const dt=Math.min(clock.getDelta(),.06);mixer?.update(dt);controls.update();renderer.render(scene,camera)}
+paintCategories();paintEntries();selectEntry(new URLSearchParams(location.search).get('item')||'dolgonog');render();
