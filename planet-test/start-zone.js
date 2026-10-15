@@ -59,8 +59,10 @@ export function initStartZoneMath(THREELibrary){THREE=THREELibrary;}
 export function createStartZone(three,scene,getRadius,heightAt){
  initStartZoneMath(three);
  const UP=new THREE.Vector3(0,1,0);
- const m=c=>new THREE.MeshStandardMaterial({color:c,roughness:1,flatShading:true,side:THREE.DoubleSide});
+ const m=(c,extra={})=>new THREE.MeshStandardMaterial({color:c,roughness:1,flatShading:true,side:THREE.DoubleSide,...extra});
  const wood=m('#694528'),wood2=m('#987046'),hide=m('#cbb080'),hideDark=m('#9d7d50'),red=m('#9d5236'),teal=m('#3c7a70'),bone=m('#ded0a5'),leaf=m('#6f8d4c'),leaf2=m('#93a75a'),rock=m('#8c785e');
+ // Only offset thin fabric decorations, not the house's wall materials.
+ const detailRed=m('#9d5236',{polygonOffset:true,polygonOffsetFactor:-1.5,polygonOffsetUnits:-1.5});
  const waterMat=new THREE.MeshPhongMaterial({color:'#619fab',transparent:true,opacity:.87,shininess:45,depthWrite:false,side:THREE.DoubleSide});
  const shoreMat=new THREE.MeshStandardMaterial({color:'#b4a179',roughness:1,side:THREE.DoubleSide});
  const objects=[],meshGroups=[];
@@ -82,8 +84,10 @@ export function createStartZone(three,scene,getRadius,heightAt){
  // walkable longhouse, and four tents at the same positions and headings.
  {
   const g=anchor(-27,-2,Math.PI/2),w=19.2,d=20.8,h=9.1,hw=w/2,hd=d/2,door=6.8;
-  box(g,wood2,0,.12,0,w,.23,d);
-  box(g,red,0,.25,3.1,6.4,.035,6.4);
+  // The original carpet intersected the floor by 0.0025 m.
+  // Create a real 0.0425 m clearance to prevent depth flicker on iPhone.
+  box(g,wood2,0,.10,0,w,.20,d);
+  box(g,detailRed,0,.26,3.1,6.2,.035,6.2);
   for(const sx of [-1,1])for(const zz of [-1,1]){
     box(g,wood,sx*(hw-.3),h*.5,zz*(hd-.3),.78,h,.78);
     ell(g,bone,sx*(hw-.3),h+.15,zz*(hd-.3),.28,.31,.29);
@@ -93,12 +97,17 @@ export function createStartZone(three,scene,getRadius,heightAt){
   box(g,hide,0,h/2,-hd+t/2,w,h,t);
   for(const sign of [-1,1])box(g,hide,sign*(door/2+split/2),h/2,hd-t/2,split,h,t);
   box(g,hide,0,h-.82,hd-t/2,door,1.64,t);
-  const roofR=4.7,slope=Math.atan2(roofR,hw),len=Math.hypot(hw+.45,roofR+.15);
-  for(const sign of [-1,1]){const plank=box(g,hideDark,sign*hw/2,h+roofR/2,0,len,.32,d+1.1);plank.rotation.z=-sign*slope}
-  for(const zz of [-hd-.5,0,hd+.5])rod(g,wood,0,h+roofR,zz,0,h+roofR,zz+.01,.2);
+  // Roof halves no longer penetrate each other at the ridge.
+  const roofR=4.7,slope=Math.atan2(roofR,hw),len=Math.hypot(hw,roofR)+.24;
+  for(const sign of [-1,1]){
+   const plank=box(g,hideDark,sign*(hw/2+.18),h+roofR/2,0,len,.27,d+1.05);
+   plank.rotation.z=-sign*slope;
+  }
+  // One ridge beam fills the narrow gap while remaining visibly above the roof.
+  rod(g,wood,0,h+roofR+.05,-hd-.65,0,h+roofR+.05,hd+.65,.31);
   for(const sign of [-1,1]){
    rod(g,wood,sign*door/2,0,hd+.2,sign*door/2,h-1.65,hd+.2,.22);
-   box(g,red,sign*(door/2+.28),h-2.9,hd+.25,.45,2.5,.13);
+   box(g,detailRed,sign*(door/2+.3),h-2.88,hd+.32,.40,2.4,.08);
   }
   // Reproduce visible main-game beds, furniture, chest and central table.
   box(g,wood,-5.2,.65,-5,4.7,1,5.1);box(g,hideDark,-5.2,1.26,-5,4.2,.28,4.3);
@@ -202,7 +211,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
   const {planar,offsetMode}=geometry.userData,p=geometry.attributes.position;
   for(let i=0;i<planar.length;i+=2){
    const x=planar[i],z=planar[i+1],n=localToNormal(x,z,getRadius());
-   const altitude=offsetMode==='water'?LAKE_SURFACE+.11:heightAt(n)+.12;
+   const altitude=offsetMode==='water'?LAKE_SURFACE+.11:heightAt(n)+.21;
    const r=getRadius()+altitude;p.setXYZ(i/2,n.x*r,n.y*r,n.z*r);
   }
   p.needsUpdate=true;geometry.computeVertexNormals();geometry.computeBoundingSphere();
