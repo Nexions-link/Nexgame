@@ -455,6 +455,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('panel').classList.toggle('character-modal',kind==='character');
   $('panel').classList.toggle('inventory-modal',kind==='bag');
   $('msub').textContent='NEXGAME · ОФЛАЙН · КРУГЛЫЙ МИР';
+  $('cameraControl').hidden=kind!=='menu';
   title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
    merchant:'Торговец',spells:'Книга способностей',loot:'Добыча',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс'})[kind]||'NexGame';
   body.replaceChildren();
