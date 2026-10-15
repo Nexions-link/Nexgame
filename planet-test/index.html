@@ -10,9 +10,9 @@
 <title>NexGame · Прототип круглого мира</title>
 <style>
 :root{color-scheme:dark;--cream:#f8ecc9;--ink:#152b2c;--glass:rgba(16,38,43,.78);--stroke:rgba(234,221,184,.3);--gold:#e1bf7a}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 html,body{width:100%;height:100%;height:100dvh;margin:0;overflow:hidden;background:#8ac3d0;color:var(--cream);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none;touch-action:none}
-button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visible{outline:2px solid #f4d58d}
+button{font:inherit;touch-action:manipulation;cursor:pointer;-webkit-user-select:none;user-select:none}button:focus-visible{outline:2px solid #f4d58d}
 #viewport{position:absolute;inset:0;touch-action:none;outline:none}#viewport canvas{display:block;width:100%;height:100%;touch-action:none}
 #vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(9,28,32,.4),transparent 25%,transparent 66%,rgba(2,19,25,.26))}
 .panel{background:var(--glass);border:1px solid var(--stroke);border-radius:14px;box-shadow:0 9px 28px rgba(2,17,23,.18);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
@@ -75,6 +75,6 @@ button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visibl
 <div id="footer">Радиус 261 м · окружность 1 640 м · офлайн-тест</div>
 <div id="loading">Создаём маленькую планету…</div>
 <div id="failure" class="panel" role="alert"></div>
-<script type="module" src="./planet.js?v=5"></script>
+<script type="module" src="./planet.js?v=6"></script>
 </body>
 </html>
