@@ -99,7 +99,7 @@ test('weapon still respects level requirements and bag capacity when unequipped'
  h.state.level=1;
  assert.equal(h.api.equipInventorySlot(0),false,'higher-level sword is blocked');
  assert.equal(h.state.equipment.weapon.id,'wornAxe');
- assert.ok(h.messages.includes('Требуется уровень 2'));
+ assert.ok(h.messages.includes('Требуется уровень 3'));
  h.state.inventory[2]={id:'feather',qty:20};
  assert.equal(h.api.unequipSlot('weapon'),false);
  assert.equal(h.state.equipment.weapon.id,'wornAxe');
