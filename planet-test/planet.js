@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,createStartZone,createTauren,initStartZoneMath} from './start-zone.js';
+import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js';
 initStartZoneMath(THREE);
 
 // Isolated planet experiment: no imports, saves, WebSockets or assets from the main RPG.
@@ -245,9 +245,9 @@ try {
     actor.position.copy(normal).multiplyScalar(position + .06);
     const fwd = tangentEast.clone().multiplyScalar(Math.cos(state.heading))
       .addScaledVector(tangentNorth, Math.sin(state.heading)).normalize();
-    right.crossVectors(fwd, normal).normalize();
-    const back = new THREE.Vector3().crossVectors(right, normal).normalize();
-    orientation.makeBasis(right, normal, back);
+    // Tauren's face is model-local +Z; keep it facing the travel direction.
+    right.crossVectors(normal, fwd).normalize();
+    orientation.makeBasis(right, normal, fwd);
     actor.quaternion.setFromRotationMatrix(orientation);
   }
   function doReset() {
@@ -381,6 +381,7 @@ try {
   for (const button of radiusButtons)
     button.addEventListener('click', () => setRadius(Number(button.dataset.radius)));
   setRadius(BASE_RADIUS);
+  stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
 
   const globeCanvas = $('miniglobe');
   const gctx = globeCanvas.getContext('2d');
@@ -435,11 +436,21 @@ try {
       prevHeading = newHeading;
       axis.crossVectors(state.normal,travel).normalize();
       const step = WALK_SPEED * dt * power;
-      const oldLon = Math.atan2(state.normal.x,state.normal.z);
-      state.normal.applyAxisAngle(axis, step/R).normalize();
-      const newLon = Math.atan2(state.normal.x,state.normal.z);
-      state.lonUnwrapped += angleDelta(newLon,oldLon);
-      state.meters += step;
+      const nextNormal = state.normal.clone().applyAxisAngle(axis, step/R).normalize();
+      const nextLocal = normalToLocal(nextNormal,R);
+      // Keep deep lake water non-walkable, as in the main game's current build.
+      if(nextLocal.d<82 && lakeRadius(nextLocal.x,nextLocal.z)<.87) {
+        power=0;
+      } else {
+        const oldLon = Math.atan2(state.normal.x,state.normal.z);
+        state.normal.copy(nextNormal);
+        const newLon = Math.atan2(state.normal.x,state.normal.z);
+        state.lonUnwrapped += angleDelta(newLon,oldLon);
+        state.meters += step;
+      }
+      // do not turn walking into motion through water
+      /*
+      */
       state.legCycle += dt * power * 9.1;
     } else {
       state.legCycle += dt * 1.1;
