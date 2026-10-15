@@ -14,7 +14,7 @@ import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v
 import {createCampActions} from './camp-actions.js?v=6';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
-import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=2';
+import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=3';
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
 import {createMentorWorld} from './mentor-world.js?v=1';
@@ -282,6 +282,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const itemCount=id=>state.inventory.filter(x=>x.id===id).reduce((sum,x)=>sum+x.qty,0);
  const camp=createCampActions({state,herbalist,gathering,mobs,hero,distance,addItem,takeItem,
   itemCount,persist,levelCheck,draw,openWindow,closeWindow,msg,getClock:()=>clock});
+ const mentorChain=createMentorChain({state,persist,levelCheck,closeWindow,draw,msg});
  function equip(id){
   const def=ITEM_CATALOG[id];if(!def?.slot||!LABEL[def.slot])return msg('Предмет нельзя экипировать');
   if(state.level<(def.requiredLevel||1))return msg('Требуется '+def.requiredLevel+' уровень');
@@ -334,13 +335,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const nearby=nearestInteraction();
   if(!nearby)return msg('Подойди к жителю или предмету ближе');
   if(camp.interact(nearby)){draw();return;}
-  if(nearby.kind==='mentor'){
-   if(state.quest==='available'){state.quest='active';persist();msg('Задание: победить 3 долгоногов');}
-   else if(state.quest==='ready'){
-    state.quest='completed';state.gold+=10;state.xp+=45;persist();levelCheck();msg('Задание выполнено! +10 монет, +45 опыта');
-   }else msg(state.quest==='active'?'Победи долгоногов: '+state.kills+'/3':'Спасибо за помощь!');
-   openWindow('quests');
-  }else if(nearby.kind==='vendor')openWindow('merchant');
+  if(nearby.kind==='mentor')openWindow('mentor');
+  else if(nearby.kind==='relic')mentorChain.pickedRelic();
+  else if(nearby.kind==='vendor')openWindow('merchant');
   else if(nearby.kind==='mob'&&nearby.corpse)lootMob(nearby);
   draw();
  }
@@ -363,10 +360,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    setModelAt(enemy);birdAnimation(enemy,1/60,0);
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
-   const gear=rollEquipmentLoot(false);if(gear)enemy.loot.push(gear);
-   state.xp+=12;state.gold+=2;levelCheck();
-   if(state.quest==='active'){state.kills=Math.min(3,state.kills+1);if(state.kills===3)state.quest='ready';}
-   msg('Долгоног повержен · нажми «Взаимодействие» для добычи');
+   const gear=rollEquipmentLoot(!!enemy.boss);if(gear)enemy.loot.push(gear);
+   state.xp+=enemy.boss?70:22;state.gold+=enemy.boss?12:4;
+   levelCheck();mentorChain.killed(enemy);
+   if(!enemy.boss)msg('Долгоног повержен · доступна добыча');
    persist();
   }
   draw();
@@ -425,23 +422,26 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const hostile=target&&['mob','dummy'].includes(target.kind)&&target.root.visible&&target.hp>0&&!target.dead;
   $('targetFrame').hidden=!hostile;$('targetPlaceholder').hidden=!!hostile;
   if(hostile){
-    $('targetName').textContent=target.name;
+    $('targetName').textContent=target.boss?'Грозоклюв · 5 · Элитный':target.name;
     $('targetFill').style.width=clamp(target.hp/target.maxHp*100,0,100)+'%';
     $('targetHp').textContent=Math.ceil(target.hp)+' / '+target.maxHp;
     $('targetDistance').textContent='Дистанция: '+pretty(distance(target))+' м';
     $('targetStatus').textContent=target.corpse?'Доступна добыча':autoplay?'Автоатака':'Нажми 1 для автоатаки';
     $('dummyStats').hidden=target.kind!=='dummy';
   }
-  const questText=state.quest==='active'?'Победи долгоногов: '+state.kills+' / 3':
-    state.quest==='ready'?'Вернись к наставнику':state.quest==='completed'?'Задание выполнено':
-    'Поговори с наставником в лагере';
-  objective.textContent=questText;
-  $('qtitle').textContent='Испытание охотника';$('mainQuestTracker').hidden=state.quest==='completed';
-  $('quest-progress').textContent=state.quest==='active'?'Прогресс: '+state.kills+' / 3':'Одиночное задание';
+  const stage=state.quest,lines=QUEST_LINES[stage]||QUEST_LINES[12];
+  objective.textContent=stage===1?'Победи долгоногов: '+state.kills+' / 3':lines[1];
+  $('qtitle').textContent=lines[0];
+  $('mainQuestTracker').hidden=stage===12;
+  $('quest-progress').textContent=stage===12?'Цепочка · 5 / 5 ✓':'Цепочка · '+mentorChainNumber(stage)+' / 5';
+  const guidance=$('questGuidance');
+  guidance.hidden=stage!==7&&stage!==10;
+  if(stage===7)guidance.textContent='Разведка: найди каменную развилку (12, 37).';
+  if(stage===10)guidance.textContent='Красный пунктир ведёт к Грозоклюву · 108 HP';
   const nearby=modal.hidden&&!camp.casting?nearestInteraction():null;
   $('interact').hidden=!nearby;
   if(nearby)$('interact').textContent=nearby.kind==='gather'?
-    (nearby.pending?'Забрать':'Собрать'):nearby.kind==='chest'?'Открыть сундук':
+    (nearby.pending?'Забрать':'Собрать'):nearby.kind==='relic'?'Взять перо':nearby.kind==='chest'?'Открыть сундук':
     nearby.kind==='mob'?'Обыскать':nearby.kind==='vendor'?'Торговец':'Поговорить';
   $('targetNext')?.classList.toggle('target-selected',!!target&&target.hp>0&&!target.dead);
   if(refreshInteractive){
@@ -479,7 +479,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('msub').textContent='NEXGAME · ОФЛАЙН · КРУГЛЫЙ МИР';
   $('cameraControl').hidden=kind!=='menu';
   title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
-   merchant:'Торговец',spells:'Книга способностей',loot:'Добыча',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс'})[kind]||'NexGame';
+   merchant:'Торговец',spells:'Книга способностей',loot:'Добыча',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог'})[kind]||'NexGame';
   body.replaceChildren();
   const line=(label,caption,actions=[])=>{
    const row=document.createElement('div');row.className='rpgRow';
@@ -489,6 +489,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    body.append(row);
   };
   if(camp.render(kind,body,line))return;
+  if(kind==='mentor'){mentorChain.render(line);return;}
   if(kind==='menu'){
    line('Сферический мир','Меняй радиус планеты, вращай её свайпами и проверяй оригинальную NexGame.');
    for(const item of settingsControls)body.append(item);
@@ -561,11 +562,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     if(q)line(q.title,'Собрано: '+camp.gatherCount+'/'+q.count+
       (state.gatherAvailable?' · Новое поручение у травницы':' · '+q.hint));
    }
-   const summary=state.quest==='available'?'Доступно: поговори с Наставником Каменным Рогом':
-    state.quest==='active'?'Убито долгоногов: '+state.kills+'/3':
-    state.quest==='ready'?'Готово: вернись к Наставнику Каменному Рогу':'Выполнено!';
-   line('Испытание охотника','Победи 3 долгоногов. '+summary);
-   line('Награда','45 опыта и 10 монет');
+   for(const entry of mentorJournalRows(state)){
+    line((entry.status==='completed'?'✓ ':entry.status==='available'?'! ':'• ')+entry.title,
+     entry.objective+' · '+entry.progress+(entry.reward?' · '+entry.reward:''));
+   }
   }else if(kind==='merchant'){
    line('Борун Крепкая Ладонь','Твои монеты: '+pretty(state.gold));
    for(const id of MERCHANT_STOCK){const item=ITEM_CATALOG[id];if(!item?.buy)continue;
