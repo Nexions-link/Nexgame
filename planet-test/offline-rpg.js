@@ -5,7 +5,7 @@ import {ITEM_CATALOG,MERCHANT_STOCK,rollEquipmentLoot,deriveStats,itemStackLimit
 import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,activateAbility,changeResource,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
-import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf} from '../plainstrider-model.js?v=0.3.7.0';
+import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual,PLAINSTRIDER_VISUAL_SCALE} from '../plainstrider-model.js?v=0.3.7.0';
 import {AXE_TUNER_DEFAULTS} from '../axe-tuner.js?v=0.3.7.0';
 import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
 import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
@@ -112,16 +112,17 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   anchorQuat.setFromUnitVectors(up,normal);
   entity.root.quaternion.copy(anchorQuat).multiply(spinQuat.setFromAxisAngle(up,entity.yaw||0));
  }
- function makeLabel(name){
-  const canvasLabel=document.createElement('canvas');canvasLabel.width=512;canvasLabel.height=84;
-  const c=canvasLabel.getContext('2d');
-  c.font='600 31px system-ui';c.textAlign='center';c.textBaseline='middle';
-  c.lineJoin='round';c.lineWidth=3;c.strokeStyle='rgba(17,19,12,.78)';
-  c.strokeText(name.slice(0,27),256,43);
-  c.fillStyle='#ffebbc';c.fillText(name.slice(0,27),256,43);
-  const texture=new THREE.CanvasTexture(canvasLabel);
-  const mat=new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true});
-  const sprite=new THREE.Sprite(mat);sprite.position.y=4.15;sprite.scale.set(6.3,1.05,1);
+ // Identical native NexGame spriteText typography and palette, no backdrop.
+ function makeLabel(name,color='#f9df91',size=32){
+  const canvasLabel=document.createElement('canvas');canvasLabel.width=512;canvasLabel.height=96;
+  const ctx=canvasLabel.getContext('2d');
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold '+size+'px Georgia';
+  ctx.lineWidth=5;ctx.strokeStyle='#302817';ctx.fillStyle=color;
+  ctx.strokeText(String(name).slice(0,42),256,48);
+  ctx.fillText(String(name).slice(0,42),256,48);
+  const texture=new THREE.CanvasTexture(canvasLabel);texture.colorSpace=THREE.SRGBColorSpace;
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true}));
+  sprite.scale.set(4.3,.81,1);
   return sprite;
  }
  function npc(kind,x,z,name){
@@ -130,15 +131,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const npcActor=makeTauren();
   npcActor.root.scale.setScalar(kind==='mentor'?.97:.94);
   root.add(npcActor.root);
-  root.add(makeLabel(name));
+  const tag=makeLabel(name,'#d9e2a1',25);tag.position.y=4.45;root.add(tag);
   const e={kind,name,x,z,yaw:.2,root,radius:1.5};entities.push(e);setModelAt(e);return e;
  }
  npc('mentor',-1.5,-5,'Наставник Каменный Рог');
  npc('vendor',6,11,'Борун Крепкая Ладонь');
  const herbalist=npc('herbalist',8,1,'Травница Тихая Заря');
- const herbMarker=makeLabel('!'),herbTurnin=makeLabel('?');
+ const herbMarker=makeLabel('!','#ffe180',72),herbTurnin=makeLabel('?','#ffe180',72);
  for(const [glyph,sprite] of [['!',herbMarker],['?',herbTurnin]]){
-  sprite.position.y=5.45;sprite.scale.set(1.6,1.7,1);
+  sprite.position.y=5.65;sprite.scale.set(2.5,1.48,1);
   sprite.userData.questMarker=true;sprite.userData.glyph=glyph;
   herbalist.root.add(sprite);
  }
@@ -154,8 +155,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
   const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
    spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
-   respawn:0,returning:false,walk:0,visual:null};
-  root.add(makeLabel(entity.name));
+   respawn:0,returning:false,walk:0,visual:null,hit:0};
+  const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);
   mobs.push(entity);entities.push(entity);setModelAt(entity);return entity;
  }
  SPAWNS.forEach(([x,z],i)=>createBird(x,z,i));
@@ -164,7 +165,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const dummyBody=new THREE.Mesh(new THREE.CylinderGeometry(.56,.63,2.2,12),straw);
  dummyBody.position.y=1.45;dummyRoot.add(dummyBody);
  for(const s of [-1,1]){const arm=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,1.65,8),straw);arm.rotation.z=Math.PI/2;arm.position.set(s*.7,2.2,0);dummyRoot.add(arm);}
- dummyRoot.add(makeLabel(TRAINING_DUMMY.name));
+ const dummyTag=makeLabel(TRAINING_DUMMY.name,'#f4dfa6',26);dummyTag.position.y=4.04;dummyTag.scale.set(4.7,.82,1);dummyRoot.add(dummyTag);
  const dummy={kind:'dummy',name:TRAINING_DUMMY.name,root:dummyRoot,x:TRAINING_DUMMY.x,z:TRAINING_DUMMY.z,
   yaw:0,trainingDummy:true,maxHp:TRAINING_DUMMY.maxHp,hp:TRAINING_DUMMY.maxHp,trainingStats:createTrainingStats()};
  entities.push(dummy);setModelAt(dummy);
@@ -180,25 +181,22 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const asset=await loader.loadAsync('../bestiary/models/dolgonog-v0.1.glb?v=0.3.5.43');
    if(!validatePlainstriderGltf(asset))throw Error('Unexpected Dolgonog clips');
    for(const mob of mobs){
-    const model=asset.scene.clone(true);model.scale.setScalar(.6);mob.root.add(model);
+    const bird=asset.scene.clone(true);
+    const container=new THREE.Group();container.name='dolgonog-original-v0.1';
+    container.scale.setScalar(PLAINSTRIDER_VISUAL_SCALE);
+    container.add(bird);mob.root.add(container);
     for(const child of [...mob.root.children])if(child.isMesh)child.visible=false;
-    const mixer=new THREE.AnimationMixer(model);
-    const anim=Object.fromEntries(PLAINSTRIDER_REQUIRED_CLIPS.map(k=>[k,mixer.clipAction(asset.animations.find(a=>a.name===k))]));
-    anim.Idle.play();mob.visual={mixer,anim,mode:'Idle'};
+    bird.traverse(obj=>{if(obj.isMesh){obj.castShadow=/^(Body|Head|Neck|Wing)/.test(obj.name);obj.receiveShadow=false;}});
+    const mixer=new THREE.AnimationMixer(bird);
+    const actions=Object.fromEntries(PLAINSTRIDER_REQUIRED_CLIPS.map(k=>[k,mixer.clipAction(asset.animations.find(a=>a.name===k))]));
+    mob.birdVisual={container,bird,mixer,actions,mode:null,walkGrace:0,attackRemaining:0,lastAttackCd:mob.attackCd};
+    advancePlainstriderVisual(THREE,mob,1/60,0,!!mob.corpse);
    }
   }catch(err){console.warn('Planet offline Dolgonog fallback:',err);}
  })();
- function birdAnimation(mob,dt,moving=false,peck=false){
-  if(!mob.visual)return;
-  const {mixer,anim}=mob.visual,desired=peck?'Peck':moving?'Walk':'Idle';
-  if(mob.visual.mode!==desired){
-   anim[mob.visual.mode]?.fadeOut(.18);
-   const act=anim[desired];act.reset();
-   if(desired==='Peck'){act.setLoop(THREE.LoopOnce,1);act.clampWhenFinished=true;}
-   else{act.setLoop(THREE.LoopRepeat,Infinity);act.clampWhenFinished=false;}
-   act.fadeIn(.18).play();mob.visual.mode=desired;
-  }
-  mixer.update(dt);
+ // Smooth original NexGame GLB Idle, Walk, Peck and hit reactions.
+ function birdAnimation(mob,dt,moved=0){
+  if(mob.birdVisual)advancePlainstriderVisual(THREE,mob,dt,moved,!!mob.corpse);
  }
  function player(){return toLocal(playerNormal(),getRadius());}
  function distance(entity){const p=player();return Math.hypot(p.x-entity.x,p.z-entity.z);}
@@ -295,11 +293,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!enemy||!enemy.root.visible)return;
   if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);msg('Манекен: '+Math.round(damage)+' урона',1.2);draw();return;}
   if(enemy.kind!=='mob'||enemy.dead)return;
-  enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;
+  enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=.35;
   state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
   if(enemy.hp===0){
    enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;autoplay=false;
-   enemy.root.rotateX(1.15);
+   enemy.root.rotateX(1.15);birdAnimation(enemy,1/60,0);
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
    const gear=rollEquipmentLoot(false);if(gear)enemy.loot.push(gear);
