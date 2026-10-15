@@ -1333,3 +1333,32 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
 /* iOS Safari: forbid native double-tap smart zoom on the game surface. */
 html,body,#scene,#scene canvas,#hudTop,#actionsBar{touch-action:none!important;-webkit-touch-callout:none}
 input,textarea,select,[contenteditable="true"]{touch-action:auto!important}
+
+
+/* Mobile-first developer pose tuner, independent of the full-screen modal. */
+.axe-tuner[hidden],.axe-tuner textarea[hidden]{display:none!important}
+.axe-tuner{position:fixed;z-index:1100;right:max(10px,env(safe-area-inset-right));top:calc(env(safe-area-inset-top) + 126px);
+ width:min(310px,calc(100vw - 20px));max-height:min(65dvh,600px);display:flex;flex-direction:column;
+ border:1px solid #bb9c5d;border-radius:13px;color:#f3e5bf;background:rgba(28,29,23,.96);
+ box-shadow:0 7px 30px #000a;font:13px system-ui,sans-serif;overflow:hidden}
+.axe-tuner.axe-tuner-left{right:auto;left:max(10px,env(safe-area-inset-left))}
+.axe-tuner-header{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:8px 10px;
+ background:#454331;border-bottom:1px solid #8d7549}
+.axe-tuner-header strong{font-size:14px}
+.axe-tuner-header-buttons,.axe-tuner-actions{display:flex;gap:6px}
+.axe-tuner button{color:#fff0c9;background:#4c523b;border:1px solid #9f8652;border-radius:6px;min-height:34px}
+.axe-tuner-header-buttons button{min-width:34px;font-size:18px}
+.axe-tuner-body{overflow:auto;overscroll-behavior:contain;padding:10px;min-height:0}
+.axe-tuner-body p{margin:0 0 10px;color:#d6cba9;line-height:1.35;font-size:12px}
+.axe-tuner-section{margin:0 0 13px;padding:8px;border:1px solid #6b6243;border-radius:7px}
+.axe-tuner-section h3{font-size:12px;font-weight:600;line-height:1.3;margin:0 0 9px;color:#e6d194}
+.axe-tuner-field{display:grid;grid-template-columns:18px minmax(0,1fr) 49px;align-items:center;gap:7px;margin-bottom:8px}
+.axe-tuner-field:last-child{margin-bottom:0}
+.axe-tuner-field>span{font-weight:700}
+.axe-tuner-field input{width:100%;min-width:0;height:28px;accent-color:#d0aa66;touch-action:pan-x}
+.axe-tuner-field output{font:12px ui-monospace,monospace;text-align:right;color:#f6dd96;font-variant-numeric:tabular-nums}
+.axe-tuner-actions button{flex:1;padding:8px 5px}
+#axeTunerStatus{min-height:17px;font-size:11px;margin-top:7px;color:#eadba9}
+#axeTunerExport{box-sizing:border-box;width:100%;height:120px;margin-top:6px;background:#131712;color:#f8e7b8}
+.axe-tuner-collapsed .axe-tuner-body{display:none}
+@media(max-width:500px){.axe-tuner{top:calc(env(safe-area-inset-top) + 116px);max-height:52dvh}}

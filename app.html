@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>NexGame · Мулгор · Alpha 0.3.5.50</title>
-<!-- Alpha 0.3.5.50: axe axes aligned with the animated hand; cache-busted module. -->
-<link rel="stylesheet" href="./style.css?v=0.3.5.50">
+<title>NexGame · Мулгор · Alpha 0.3.5.51</title>
+<!-- Alpha 0.3.5.51: axe axes aligned with the animated hand; cache-busted module. -->
+<link rel="stylesheet" href="./style.css?v=0.3.5.51">
 <!-- Critical sizing for icon toolbar: must work even when Safari serves an older style.css. -->
 <style id="hud-toolbar-failsafe">
 #top{
@@ -140,7 +140,7 @@
 <div id="actionsBar" role="toolbar" aria-label="Панель из восьми настраиваемых ячеек"></div>
 <div id="xpWrap"><div id="xpFill"></div><span id="xpText">Опыт 0 / 100</span></div>
 <div id="help">1–8 — панель · Enter — чат · G — группа · B — книга · Tab — цель · I — рюкзак</div>
-<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Мир: одиночный</span><span>NexGame · Alpha 0.3.5.50</span></div>
+<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Мир: одиночный</span><span>NexGame · Alpha 0.3.5.51</span></div>
 <div id="combatError" role="status" aria-live="polite"></div><div id="toast" role="status"></div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" hidden><div id="panel"><button id="modalClose" type="button" aria-label="Закрыть окно">×</button><div class="panel-corner">◆</div><span class="eyebrow" id="msub"></span><h2 id="mtitle"></h2><div class="ornament">━━━━ ◆ ━━━━</div><div id="mbody"></div><section id="cameraControl" class="camera-settings" hidden aria-label="Настройки камеры">
   <div class="camera-label"><label for="cameraDistance">Расстояние до персонажа</label><span id="cameraDistanceValue">10,5</span></div>
@@ -161,9 +161,29 @@
   <label class="camera-follow-row" for="showFps"><input id="showFps" type="checkbox" role="switch" aria-describedby="fpsHelp"><span>Показывать FPS</span></label>
   <small id="fpsHelp" class="settings-help">Частота кадров во время игры. На паузе счётчик приостановлен.</small>
  </section><div id="choices"></div></div></div>
+<aside id="axeTuner" class="axe-tuner" aria-label="Отладочный тюнер кисти и топора" hidden>
+ <div class="axe-tuner-header">
+  <strong>🛠 Тюнер топора</strong>
+  <div class="axe-tuner-header-buttons">
+   <button type="button" id="axeTunerSide" aria-label="Переместить панель" title="Переместить">⇄</button>
+   <button type="button" id="axeTunerCollapse" aria-label="Свернуть или развернуть тюнер" title="Свернуть">▁</button>
+   <button type="button" id="axeTunerClose" aria-label="Закрыть тюнер" title="Закрыть">×</button>
+  </div>
+ </div>
+ <div class="axe-tuner-body">
+  <p>Меняй положение прямо в игре. Поворачивай камеру снаружи панели. Изменения сохраняются только на этом устройстве.</p>
+  <div id="axeTunerControls"></div>
+  <div class="axe-tuner-actions">
+   <button type="button" id="axeTunerReset">↺ Сброс</button>
+   <button type="button" id="axeTunerCopy">⧉ Скопировать</button>
+  </div>
+  <div id="axeTunerStatus" role="status" aria-live="polite"></div>
+  <textarea id="axeTunerExport" aria-label="Значения тюнера для копирования" readonly hidden></textarea>
+ </div>
+</aside>
 <!-- GLTFLoader imports the package name "three"; resolve it to the same engine instance. -->
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
-<script type="module" src="./game.js?v=0.3.5.50"></script>
+<script type="module" src="./game.js?v=0.3.5.51"></script>
 </body>
 </html>
 

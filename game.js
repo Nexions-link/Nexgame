@@ -1,13 +1,14 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.50';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.50';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.50';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.50';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.50';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.51';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.51';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.51';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.51';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.51';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.51';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.50';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.50';
-import {projectPartyMember} from './party-map.js?v=0.3.5.50';
+import {createWorldPresence} from './online.js?v=0.3.5.51';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.51';
+import {projectPartyMember} from './party-map.js?v=0.3.5.51';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -439,6 +440,81 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  return{root,body,chest,neck,head,arms,legs,tail,braids,shadow,phase:0,scale,walk:0};
 }
 const hero=makeTauren({weapon:true});
+// Relative wrist angles are added after each animation frame. Axe angles are
+// absolute in the hand's local YXZ coordinates; the GLB and fallback agree.
+let axeTuning={...AXE_TUNER_DEFAULTS};
+try{axeTuning=normalizeAxeTuning(JSON.parse(localStorage.getItem(AXE_TUNER_STORAGE_KEY)))}catch{}
+let rightWristBaseX=-Math.PI/2;
+const radians=degrees=>degrees*Math.PI/180;
+function applyAxeWristTuning(){
+ const hand=hero.arms[1].hand;
+ hand.rotation.set(rightWristBaseX+radians(axeTuning.handX),
+  radians(axeTuning.handY),radians(axeTuning.handZ),'XYZ');
+}
+function applyAxeTransform(){
+ const axe=hero.arms[1].hand.getObjectByName('gear-axe');
+ if(!axe)return;
+ axe.position.set(axeTuning.posX,axeTuning.posY,axeTuning.posZ);
+ axe.rotation.set(radians(axeTuning.axeX),radians(axeTuning.axeY),
+  radians(axeTuning.axeZ),'YXZ');
+}
+applyAxeWristTuning();applyAxeTransform();
+const axeTunerPanel=$('axeTuner'),axeTunerFields=new Map();
+function refreshAxeTuner(){
+ for(const [key,entry] of axeTunerFields){
+  entry.slider.value=String(axeTuning[key]);
+  entry.value.textContent=Number(axeTuning[key]).toFixed(key.startsWith('pos')?3:0)+AXE_TUNER_FIELDS[key].unit;
+ }
+}
+for(const section of AXE_TUNER_GROUPS){
+ const wrap=document.createElement('section');wrap.className='axe-tuner-section';
+ const heading=document.createElement('h3');heading.textContent=section.title;wrap.appendChild(heading);
+ for(const key of section.fields){
+  const spec=AXE_TUNER_FIELDS[key];
+  const row=document.createElement('label');row.className='axe-tuner-field';
+  const label=document.createElement('span');label.textContent=spec.label;
+  const value=document.createElement('output');
+  const slider=document.createElement('input');slider.type='range';slider.min=String(spec.minimum);
+  slider.max=String(spec.maximum);slider.step=String(spec.step);slider.setAttribute('aria-label',section.title+' · '+spec.label);
+  slider.addEventListener('input',()=>{
+   axeTuning=normalizeAxeTuning({...axeTuning,[key]:Number(slider.value)});
+   applyAxeWristTuning();applyAxeTransform();refreshAxeTuner();
+   try{localStorage.setItem(AXE_TUNER_STORAGE_KEY,serializeAxeTuning(axeTuning))}catch{}
+  });
+  row.append(label,slider,value);wrap.appendChild(row);axeTunerFields.set(key,{slider,value});
+ }
+ $('axeTunerControls').appendChild(wrap);
+}
+refreshAxeTuner();
+// Prevent dragging the tuner from also rotating the camera / using hotkeys.
+for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmove','touchend','keydown']){
+ axeTunerPanel.addEventListener(type,event=>event.stopPropagation());
+}
+function openAxeTuner(){
+ if(modalKind)closeDialog();
+ axeTunerPanel.hidden=false;axeTunerPanel.classList.remove('axe-tuner-collapsed');
+ refreshAxeTuner();
+}
+function closeAxeTuner(){axeTunerPanel.hidden=true}
+$('axeTunerClose').addEventListener('click',closeAxeTuner);
+$('axeTunerCollapse').addEventListener('click',()=>axeTunerPanel.classList.toggle('axe-tuner-collapsed'));
+$('axeTunerSide').addEventListener('click',()=>axeTunerPanel.classList.toggle('axe-tuner-left'));
+$('axeTunerReset').addEventListener('click',()=>{
+ axeTuning={...AXE_TUNER_DEFAULTS};applyAxeWristTuning();applyAxeTransform();refreshAxeTuner();
+ try{localStorage.removeItem(AXE_TUNER_STORAGE_KEY)}catch{}
+ $('axeTunerStatus').textContent='Исходное положение восстановлено';
+});
+$('axeTunerCopy').addEventListener('click',async()=>{
+ const text=serializeAxeTuning(axeTuning);
+ try{
+  if(!navigator.clipboard?.writeText)throw Error('no clipboard');
+  await navigator.clipboard.writeText(text);
+  $('axeTunerStatus').textContent='Значения скопированы — пришли их в чат';
+ }catch{
+  const output=$('axeTunerExport');output.hidden=false;output.value=text;output.focus();output.select();
+  $('axeTunerStatus').textContent='Выдели и скопируй значения ниже';
+ }
+});
 async function loadHeroAxeAsset(){
  const grip=hero.arms[1].hand,old=grip.getObjectByName('gear-axe');
  if(!old)return;
@@ -449,6 +525,7 @@ async function loadHeroAxeAsset(){
   axe.position.copy(old.position);axe.rotation.copy(old.rotation);axe.scale.copy(old.scale);
   grip.add(axe);axe.visible=old.visible;old.visible=false;
   old.name='gear-axe-fallback';axe.name='gear-axe';
+  applyAxeTransform();
  }catch(error){console.warn('Axe GLB unavailable; keeping procedural fallback',error)}
 }
 void loadHeroAxeAsset();
@@ -625,6 +702,7 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
   arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):Math.PI;
+  if(i===1&&actor===hero){rightWristBaseX=arm.hand.rotation.x;applyAxeWristTuning();}
  }
  const yaw=actor.root.rotation.y;
  for(let i=0;i<2;i++){const leg=actor.legs[i],p=(phase+i*.5)%1;let z=0,lift=0;if(p<.58)z=.775-1.55*p/.58;else{const t=(p-.58)/.42;z=-.775+1.55*smooth(0,1,t);lift=Math.sin(t*Math.PI)*.22}z*=w;lift*=w;
@@ -1310,6 +1388,7 @@ function pause(){
  choice('👥 Группа и имя',openPartyDialog);
  choice('⚙ Настройки камеры',cameraSettings);
  choice('Графика и FPS',graphicsSettings);
+ choice('🛠 Тюнер кисти и топора',openAxeTuner);
  choice('Начать заново',()=>{
   openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора. Настройки камеры и графики сохранятся.']);
   choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt');
