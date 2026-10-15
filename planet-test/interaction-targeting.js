@@ -7,7 +7,9 @@ export function nearbyInteractable(entities,dist,resourceReady){
  for(const entity of entities){
   if(!entity?.root?.visible)continue;
   let range=0;
-  if(entity.kind==='gather'){
+  if(entity.kind==='relic'){
+   range=2.8;
+  }else if(entity.kind==='gather'){
    if(!resourceReady(entity))continue;
    range=INTERACTION_RANGE.gather;
   }else if(entity.kind==='mob'){
