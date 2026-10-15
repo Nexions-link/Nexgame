@@ -58,7 +58,8 @@ test('original GLB is connected to wild birds, giant and both wildlife update pa
  assert.match(game,/catch\(error\)[\s\S]{0,180}procedural fallback/);
  const html=read('app.html');
  assert.match(html,/type="importmap"/);
- assert.match(html,/game\.js\?v=0\.3\.5\.\d+/);
+ const release=html.match(/NexGame · Мулгор · Alpha (\d+\.\d+\.\d+\.\d+)/)?.[1];
+ assert.ok(release&&html.includes('game.js?v='+release),'live game module follows the HTML release');
  const registry=read('bestiary/catalog.js');
  assert.match(registry,/version:'0\.1'/);
  assert.match(registry,/asset:'models\/dolgonog-v0\.1\.glb'/);
@@ -82,6 +83,7 @@ function mockAnimatedBird(){
   }
  ]));
  const visual={
+  container:{rotation:{x:0,z:0},position:{z:0}},
   mixer:{update(sec){events.push(['tick',sec])},stopAllAction(){events.push(['stop'])}},
   actions,mode:null,walkGrace:0,attackRemaining:0,lastAttackCd:0
  };
@@ -127,4 +129,21 @@ test('GLB loading and fallback status is inspectable from game HUD',()=>{
  const loader=read('index.html');
  assert.match(loader,/const importMapText=parsed\.querySelector/);
  assert.match(loader,/document\.head\.appendChild\(map\)/);
+});
+
+test('GLB impact moves the visual container briefly and fully releases on recovery',async()=>{
+ const {HIT_REACTION_SECONDS}=await import('../combat-feedback.js');
+ const {enemy,visual,THREE}=mockAnimatedBird();
+ enemy.hit=HIT_REACTION_SECONDS/2;
+ advancePlainstriderVisual(THREE,enemy,.016,0);
+ assert.ok(visual.container.rotation.x<0,'bird recoils backward');
+ assert.ok(visual.container.position.z<0,'bird slips briefly away from the impact');
+ enemy.hit=0;
+ advancePlainstriderVisual(THREE,enemy,.016,0);
+ assert.equal(visual.container.rotation.x,0);
+ assert.equal(visual.container.rotation.z,0);
+ assert.equal(visual.container.position.z,0);
+ enemy.hit=HIT_REACTION_SECONDS/2;
+ advancePlainstriderVisual(THREE,enemy,.016,0,true);
+ assert.equal(visual.container.position.z,0,'corpse does not jerk');
 });
