@@ -2,7 +2,7 @@
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT} from './native-hotbar-art.js?v=1';
 import {ITEM_CATALOG,MERCHANT_STOCK,rollEquipmentLoot,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.17';
-import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,activateAbility,changeResource,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT} from '../skills.js?v=0.3.5';
+import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,activateAbility,changeResource,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
 import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual,PLAINSTRIDER_VISUAL_SCALE} from '../plainstrider-model.js?v=0.3.7.0';
@@ -115,6 +115,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,
   attackRemaining=0,stompPulse=0,blockRemaining=0;
  const pendingHits=[];
+ let lastCombatAt=-100;
+ function inCombat(){
+  return pendingHits.length>0||mobs.some(m=>m.root.visible&&m.hp>0&&!m.corpse&&m.aggro);
+ }
  let journalTab='current';
  const group=new THREE.Group();scene.add(group);
  // The mesh is bent vertex-by-vertex onto the actual spherical terrain:
@@ -391,7 +395,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!enemy||!enemy.root.visible)return;
   if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);draw();return;}
   if(enemy.kind!=='mob'||enemy.dead)return;
-  enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=HIT_REACTION_SECONDS;
+  lastCombatAt=clock;enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=HIT_REACTION_SECONDS;
   combatFeedback.hit(enemy,damage,skill);
   state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
   if(enemy.hp===0){
@@ -416,7 +420,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   // 340 ms (0.425 animation progress). A player changing weapons keeps
   // the combat timeline, just as it does in the original game.
   const s=stats(),damage=s.damageMin+Math.random()*(s.damageMax-s.damageMin)+bonus;
-  pendingHits.push({enemy,damage,skill,remaining:MELEE_IMPACT_SECONDS});
+  lastCombatAt=clock;pendingHits.push({enemy,damage,skill,remaining:MELEE_IMPACT_SECONDS});
   attackRemaining=MELEE_ANIMATION_SECONDS;
  }
  function useAbility(slot){
@@ -460,7 +464,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('rageFill').style.width=state.resource+'%';
   $('rageText').textContent='Ярость '+Math.floor(state.resource)+' / 100';
   $('resourceBar').setAttribute('aria-valuenow',Math.floor(state.resource));
-  $('combatState').textContent=autoplay?'Автоатака':'Готов к бою';
+  $('combatState').textContent=inCombat()?'В бою':
+   state.hp<s.maxHp?(clock-lastCombatAt<5?'Отдых после боя':'Восстановление'):'Готов к бою';
   $('xpFill').style.width=Math.min(100,state.xp/(state.level*100)*100)+'%';
   $('xpText').textContent='Опыт '+state.xp+' / '+(state.level*100);
   const hostile=target&&['mob','dummy'].includes(target.kind)&&target.root.visible&&target.hp>0&&!target.dead;
@@ -760,6 +765,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
+  // Original NexGame regenerates +3 HP/s and loses 5 rage/s after five
+  // seconds of peace. This local test does not depend on network snapshots.
+  if(inCombat())lastCombatAt=clock;
+  else if(clock-lastCombatAt>5){
+   const hpBefore=state.hp,rageBefore=state.resource;
+   state.hp=Math.min(stats().maxHp,state.hp+3*dt);
+   if(state.resource>0)state.resource=changeResource(state.resource,-WARRIOR_RAGE_DECAY*dt,'warrior');
+   if((state.hp!==hpBefore||state.resource!==rageBefore)&&Math.floor(clock/2)!==Math.floor((clock-dt)/2))persist();
+  }
   camp.update(dt);
   // The original inhabitants have subtle idle breathing instead of frozen T-poses.
   for(let i=0;i<citizens.length;i++){
@@ -854,7 +868,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
        enemyNormal:toNormal(mob.x,mob.z,getRadius()),stats:stats(),
        raw:mob.boss?14:9,attackerLevel:mob.boss?5:1
       });
-      state.hp=Math.max(0,state.hp-result.damage);
+      lastCombatAt=clock;state.hp=Math.max(0,state.hp-result.damage);
       if(result.blocked){
        blockRemaining=result.blockSeconds;
        msg('Блок щитом · отражено '+result.absorbed+' урона',1.1);
