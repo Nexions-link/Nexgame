@@ -69,8 +69,8 @@ test('loot probabilities and boss chances do not change unexpectedly',()=>{
 test('active gameplay connects the catalog to equipment, loot and visuals',()=>{
  const game=readFileSync(fileURLToPath(new URL('../game.js',import.meta.url)),'utf8');
  for(const name of ['equipInventorySlot','unequipSlot','rollCorpseLoot','syncEquipmentVisuals']){
-  assert.match(game,new RegExp('function '+name+'\\('),name);
+  assert.ok(game.includes('function '+name+'('),name);
  }
- assert.match(game,/const shield=group\\(arms\\[0\\]\\.hand/);
- assert.match(game,/const grip=hero\\.arms\\[1\\]\\.hand/);
+ assert.ok(game.includes('const shield=group(arms[0].hand'));
+ assert.ok(game.includes('const grip=hero.arms[1].hand'));
 });
