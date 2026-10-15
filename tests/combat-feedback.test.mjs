@@ -55,6 +55,7 @@ test('client receives exactly one feedback event for each confirmed multiplayer 
  assert.match(game,/showCombatHit\(e,amount,source\)/);
  assert.match(game,/combatFeedback\.update\(dt\)/);
  assert.match(game,/combatFeedback\.clear\(\)/);
- assert.match(read('plainstrider-model.js'),/visual\.container\.position\.z=recoil\?-\.19\*recoil:0/);
+ assert.match(read('plainstrider-model.js'),/visual\.container\.position\.z=strike-\(recoil\? \.19\*recoil:0\)/);
+ assert.match(read('plainstrider-model.js'),/const strike=dead\?0:visual\.attackRemaining>0/);
  assert.match(read('app.html'),/id="combatFeedback"/);
 });
