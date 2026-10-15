@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
-import {createOfflineRpg} from './offline-rpg.js?v=3';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=8';
+import {createOfflineRpg} from './offline-rpg.js?v=5';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=9';
 initStartZoneMath(THREE);
 
 // Reuse the exact iOS gesture protection already proven in the main game.
@@ -320,7 +320,7 @@ try {
     const b=sectorIndex(Math.atan2(state.normal.x,state.normal.z));
     const local=normalToLocal(state.normal,R),inStartingZone=local.d<74;
     const currentName=inStartingZone?'Стартовая зона NexGame':NAMES[b];
-    if(force||zoneName.textContent!==currentName){zoneName.textContent=currentName;zoneLabel.textContent=inStartingZone?'ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД':LABELS[b];}
+    if(force||zoneName.textContent!==currentName){zoneName.textContent=currentName;zoneLabel.textContent=inStartingZone?'ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД':LABELS[b];$('area').textContent=inStartingZone?'Лагерь Нараче':currentName;}
     drawGlobe();
     drawNativeMinimap();
   }
