@@ -386,20 +386,65 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    for(const item of settingsControls)body.append(item);
    line('Сетевая игра','Тестовая сборка работает локально, без сервера Render.');
   }else if(kind==='bag'){
-   line('Сумка: '+state.inventory.length+'/12','Нажми «Надеть», чтобы экипировать снаряжение');
-   for(const item of state.inventory){
-    const def=ITEM_CATALOG[item.id],slot=def?.slot;
-    line((def?.icon||'🧪')+' '+(def?.name||'Лечебный настой')+' ×'+item.qty,def?.description||'Восстанавливает здоровье',
-     slot?[['Надеть',()=>equip(item.id)]]:[['Удалить',()=>{takeItem(item.id,1);draw();}]]);
-   }
+    const summary=document.createElement('div');summary.className='inventory-summary';
+    summary.textContent='Ячейки '+state.inventory.length+' / 12 · Монеты '+pretty(state.gold)+' · Настои '+itemCount('healingPotion');
+    const grid=document.createElement('div');grid.className='inventory-grid';
+    const detail=document.createElement('div');detail.className='inventory-detail';
+    detail.textContent='Нажми на предмет, чтобы узнать подробности.';
+    for(let i=0;i<12;i++){
+      const item=state.inventory[i],def=item&&ITEM_CATALOG[item.id];
+      const cell=document.createElement('button');cell.type='button';
+      cell.className='inventory-slot'+(item?' occupied':' empty');
+      cell.setAttribute('aria-label',item?(def?.name||'Лечебный настой'):'Пустая ячейка '+(i+1));
+      if(item){
+        const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=def?.icon||'🧪';
+        const qty=document.createElement('span');qty.className='slot-count';qty.textContent=item.qty>1?item.qty:'';
+        cell.append(icon,qty);
+        cell.addEventListener('click',()=>{
+          detail.replaceChildren();
+          const name=document.createElement('strong');name.textContent=def?.name||'Лечебный настой';
+          const description=document.createElement('p');description.textContent=def?.description||'Восстанавливает здоровье';
+          detail.append(name,description);
+          const commands=[...(def?.slot?[['Надеть',()=>equip(item.id)]]:[]),
+            ['🗑 Удалить',()=>{takeItem(item.id,1);draw();}]];
+          for(const [label,action] of commands){
+            const b=document.createElement('button');b.type='button';b.className='choice';b.textContent=label;
+            b.addEventListener('click',action);detail.append(b);
+          }
+          for(const el of grid.children)el.classList.remove('active');
+          cell.classList.add('active');
+        });
+      }else{const dot=document.createElement('span');dot.className='slot-empty-mark';dot.textContent='·';cell.append(dot);}
+      grid.append(cell);
+    }
+    body.append(summary,grid,detail);
   }else if(kind==='character'){
-   const s=stats();line('Таурен · Воин · '+state.level+' уровень','Опыт: '+state.xp+'/'+state.level*100+' · Монеты: '+state.gold);
-   line('Характеристики','Сила '+s.strength+' · Выносливость '+s.stamina+' · Броня '+s.armor+' · Урон '+pretty(s.damageMin)+'–'+pretty(s.damageMax));
-   for(const slot of EQUIP_SLOTS){const id=state.equipment[slot]?.id;
-    line(LABEL[slot],id?(ITEM_CATALOG[id].name):'Не экипировано',
-     id?[['Снять',()=>{if(state.inventory.length>=12)return msg('Сумка заполнена');
-      addItem(id);delete state.equipment[slot];state.hp=Math.min(state.hp,stats().maxHp);persist();draw();void updateEquipmentVisuals();}]]:[]);
-   }
+    const values=stats(),summary=document.createElement('div');summary.className='inventory-summary';
+    summary.textContent='Таурен · Воин · '+state.level+' ур. · '+state.xp+'/'+state.level*100+' опыта · '+pretty(state.gold)+' монет';
+    body.append(summary);
+    const statsBlock=document.createElement('dl');statsBlock.className='character-stats';
+    for(const [name,value] of [['Сила',values.strength],['Выносливость',values.stamina],['Броня',values.armor]]){
+      const cell=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');
+      dt.textContent=name;dd.textContent=value;cell.append(dt,dd);statsBlock.append(cell);
+    }
+    body.append(statsBlock);
+    const gear=document.createElement('div');gear.className='planetEquipmentGrid';
+    for(const slot of EQUIP_SLOTS){
+      const id=state.equipment[slot]?.id,def=ITEM_CATALOG[id];
+      const btn=document.createElement('button');btn.type='button';
+      btn.className='equipment-slot'+(def?' equipped':'');
+      const icon=document.createElement('span');icon.textContent=def?.icon||'◇';icon.style.fontSize='25px';
+      const caption=document.createElement('small');caption.textContent=LABEL[slot]+': '+(def?.name||'Пусто');
+      btn.append(icon,caption);btn.title=def?'Снять '+def.name:LABEL[slot];
+      if(def)btn.addEventListener('click',()=>{
+        if(state.inventory.length>=12)return msg('Сумка заполнена');
+        addItem(id);delete state.equipment[slot];state.hp=Math.min(state.hp,stats().maxHp);
+        persist();draw();void updateEquipmentVisuals();
+      });
+      gear.append(btn);
+    }
+    body.append(gear);
+    line('Урон и здоровье',pretty(values.damageMin)+'–'+pretty(values.damageMax)+' урона · '+Math.ceil(state.hp)+' / '+values.maxHp+' HP');
   }else if(kind==='quests'){
    const summary=state.quest==='available'?'Доступно: поговори с Наставником Каменным Рогом':
     state.quest==='active'?'Убито долгоногов: '+state.kills+'/3':
