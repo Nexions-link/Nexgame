@@ -1,6 +1,7 @@
 import {createLandscapeMap} from '../landscape.js?v=0.3.7.0';
 import {createSphericalMeadow} from './sphere-meadow.js?v=1';
-import {canWalkCamp} from './sphere-physics.js?v=1';
+import {canWalkCamp} from './sphere-physics.js?v=2';
+import {VALLEY_MESAS,VALLEY_ROCKS} from './planet-landmarks.js?v=1';
 
 // Spherical NexGame starting zone prototype.
 // Layout, terrain, village and character geometry derived from the actual main-game
@@ -70,7 +71,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
  hideTexture.wrapS=THREE.RepeatWrapping;
  hideTexture.repeat.set(3,1);
  const m=(c,extra={})=>new THREE.MeshStandardMaterial({color:c,roughness:1,flatShading:true,side:THREE.DoubleSide,...extra});
- const wood=m('#694528'),wood2=m('#987046'),hide=m('#e0c899',{map:hideTexture}),hideDark=m('#e0c899',{map:hideTexture}),red=m('#9d5236'),teal=m('#3c7a70'),bone=m('#ded0a5'),leaf=m('#6f8d4c'),leaf2=m('#93a75a'),rock=m('#8c785e');
+ const wood=m('#694528'),wood2=m('#987046'),hide=m('#e0c899',{map:hideTexture}),hideDark=m('#e0c899',{map:hideTexture}),red=m('#9d5236'),teal=m('#3c7a70'),bone=m('#ded0a5'),leaf=m('#6f8d4c'),leaf2=m('#93a75a'),rock=m('#8c785e'),rockLight=m('#aa926c'),rockDark=m('#6e593c');
  // Only offset thin fabric decorations, not the house's wall materials.
  const detailRed=m('#9d5236',{polygonOffset:true,polygonOffsetFactor:-1.5,polygonOffsetUnits:-1.5});
  const waterMat=new THREE.MeshPhongMaterial({color:'#619fab',transparent:true,opacity:.87,shininess:45,depthWrite:false,side:THREE.DoubleSide});
@@ -182,6 +183,36 @@ export function createStartZone(three,scene,getRadius,heightAt){
  for(let i=0;i<9;i++){const a=TAU*i/9;ell(fire,rock,Math.sin(a)*1.15,.2,Math.cos(a)*1.15,.35,.22,.30)}
  for(let i=0;i<3;i++){const log=cyl(fire,wood,0,.25,0,.18,.18,1.9);log.rotation.z=Math.PI/2;log.rotation.y=i*Math.PI/3}
  const flame=new THREE.Mesh(new THREE.ConeGeometry(.5,1.3,7),new THREE.MeshBasicMaterial({color:'#ffb253'}));flame.position.y=.7;fire.add(flame);embers.push(flame);
+ // Sculpted sandstone mesas and isolated boulders in the original valley.
+ // A single instanced batch for each material means four additional draw calls.
+ const mesaBase=new THREE.InstancedMesh(new THREE.CylinderGeometry(.8,1,1,8),rockDark,VALLEY_MESAS.length);
+ const mesaCap=new THREE.InstancedMesh(new THREE.CylinderGeometry(.82,.85,1,8),rockLight,VALLEY_MESAS.length);
+ const mesaGrass=new THREE.InstancedMesh(new THREE.CylinderGeometry(.76,.82,1,8),leaf,VALLEY_MESAS.length);
+ const boulders=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),rock,VALLEY_ROCKS.length);
+ for(const obj of [mesaBase,mesaCap,mesaGrass,boulders]){obj.frustumCulled=false;scene.add(obj)}
+ const stoneDummy=new THREE.Object3D(),stoneQ=new THREE.Quaternion(),stoneYaw=new THREE.Quaternion();
+ function rebuildStones(){
+  const radius=getRadius();
+  function place(inst,i,x,z,offset,sx,sy,sz,spin){
+   const n=localToNormal(x,z,radius);
+   stoneDummy.position.copy(n).multiplyScalar(radius+heightAt(n)+offset);
+   stoneQ.setFromUnitVectors(UP,n);
+   stoneDummy.quaternion.copy(stoneQ).multiply(stoneYaw.setFromAxisAngle(UP,spin));
+   stoneDummy.scale.set(sx,sy,sz);stoneDummy.updateMatrix();
+   inst.setMatrixAt(i,stoneDummy.matrix);
+  }
+  for(let i=0;i<VALLEY_MESAS.length;i++){
+   const v=VALLEY_MESAS[i];
+   place(mesaBase,i,v.x,v.z,v.height/2-2,v.radius,v.height,v.radius,v.spin);
+   place(mesaCap,i,v.x,v.z,v.height-2.8,v.radius*.85,2.3,v.radius*.85,v.spin);
+   place(mesaGrass,i,v.x,v.z,v.height-1,v.radius*.76,1.3,v.radius*.76,v.spin);
+  }
+  for(let i=0;i<VALLEY_ROCKS.length;i++){
+   const v=VALLEY_ROCKS[i],size=v.radius/.7;
+   place(boulders,i,v.x,v.z,size*.34,size,size*.7,size*.9,v.spin);
+  }
+  for(const obj of [mesaBase,mesaCap,mesaGrass,boulders])obj.instanceMatrix.needsUpdate=true;
+ }
  // Trees use the exact tree layout of the current NexGame zone.
  function tree(x,z,scale){
   const g=anchor(x,z);g.scale.setScalar(scale);
@@ -322,7 +353,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
    const r=getRadius()+heightAt(n)+.12;attr.setXYZ(i/2,n.x*r,n.y*r,n.z*r);
   }
   attr.needsUpdate=true;terrainGeo.computeVertexNormals();terrainGeo.computeBoundingSphere();
-  updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();meadow.rebuild();
+  updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();meadow.rebuild();rebuildStones();
  }
  rebuild();
  let roofFaded=false;
