@@ -165,11 +165,8 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
   $('gatherCastFill').style.width=percent.toFixed(1)+'%';
   $('gatherCastTime').textContent=Math.max(0,GATHER_CAST_SECONDS-cast.elapsed).toFixed(1).replace('.',',')+' с';
   $('gatherCast').setAttribute('aria-valuenow',String(Math.round(percent)));
-  // Spherical rig knees bend during the 1.5-second collection cast.
-  if(hero?.legs?.[0]?.hip&&hero?.legs?.[1]?.hip){
-   hero.legs[0].hip.rotation.x=.52;
-   hero.legs[1].hip.rotation.x=-.52;
-  }
+  // The main character animation owns this cast pose. Directly rotating
+  // hip joints here was overwritten by the frame-by-frame walking animation.
   if(cast.elapsed>=GATHER_CAST_SECONDS){
    cast=null;$('gatherCast').hidden=true;node.pending=true;lootNode=node;openWindow('gatherLoot');
   }
