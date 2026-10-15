@@ -38,7 +38,7 @@ function restore(){
   safe.gatherStage=clamp(Math.floor(Number(raw.gatherStage)||0),0,4);
   safe.gatherAvailable=!!raw.gatherAvailable&&safe.gatherStage>=2&&safe.gatherStage<=3;
   safe.chestInventory=Array.isArray(raw.chestInventory)?
-   raw.chestInventory.slice(0,OFFLINE_CHEST.slots).filter(entry=>entry&&ITEM_CATALOG[entry.id]&&Number.isFinite(entry.qty)&&entry.qty>0)
+   raw.chestInventory.slice(0,OFFLINE_CHEST.slots).filter(entry=>entry&&(ITEM_CATALOG[entry.id]||entry.id==='healingPotion')&&Number.isFinite(entry.qty)&&entry.qty>0)
     .map(entry=>({id:entry.id,qty:clamp(Math.floor(entry.qty),1,itemStackLimit(entry.id))})):[];
   safe.inventory=Array.isArray(raw.inventory)?raw.inventory.slice(0,12).filter(x=>x&&
    (ITEM_CATALOG[x.id]||x.id==='healingPotion')&&Number.isFinite(x.qty)&&x.qty>0).map(x=>({id:x.id,qty:Math.min(itemStackLimit(x.id),Math.floor(x.qty))})):safe.inventory;
