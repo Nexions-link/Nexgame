@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
-import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=5';
+import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=6';
 initStartZoneMath(THREE);
 
 // Reuse the exact iOS gesture protection already proven in the main game.
