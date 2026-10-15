@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#132c2e">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>NexGame · Прототип круглого мира</title>
+<style>
+:root{color-scheme:dark;--cream:#f8ecc9;--ink:#152b2c;--glass:rgba(16,38,43,.78);--stroke:rgba(234,221,184,.3);--gold:#e1bf7a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;height:100dvh;margin:0;overflow:hidden;background:#8ac3d0;color:var(--cream);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none;touch-action:none}
+button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visible{outline:2px solid #f4d58d}
+#viewport{position:absolute;inset:0;touch-action:none;outline:none}#viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+#vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(9,28,32,.4),transparent 25%,transparent 66%,rgba(2,19,25,.26))}
+.panel{background:var(--glass);border:1px solid var(--stroke);border-radius:14px;box-shadow:0 9px 28px rgba(2,17,23,.18);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#hud{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:calc(env(safe-area-inset-left,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);display:flex;justify-content:space-between;gap:10px;pointer-events:none}
+#identity{padding:11px 13px;max-width:245px;pointer-events:auto}#identity .eyebrow{font-size:9px;letter-spacing:2.2px;color:var(--gold);font-weight:800}h1{font-family:Georgia,serif;font-size:21px;font-weight:normal;letter-spacing:.4px;margin:2px 0 2px}#identity small{font-size:11px;line-height:1.25;color:#e8dcc0}
+#statistics{padding:10px 12px;min-width:128px;text-align:right;pointer-events:auto}#statistics .caption{color:#d0d9c5;font-size:10px;letter-spacing:.5px}#statistics strong{display:block;font-size:23px;font-variant-numeric:tabular-nums;color:#ffe8ae;line-height:1.25}#statistics .sub{font-size:10px;color:#cad8cc}
+#zoneTag{position:absolute;top:calc(env(safe-area-inset-top,0px) + 110px);left:50%;transform:translateX(-50%);pointer-events:none;text-align:center;white-space:nowrap;text-shadow:0 2px 9px #163033}
+#zoneTag b{display:block;font:normal 21px Georgia,serif;letter-spacing:1.2px}#zoneTag small{font-size:10px;letter-spacing:2.4px;color:#f1e9cb}
+#tools{position:absolute;right:calc(env(safe-area-inset-right,0px) + 12px);bottom:calc(env(safe-area-inset-bottom,0px) + 22px);display:flex;flex-direction:column;align-items:stretch;gap:8px;width:145px}
+.tool{min-height:42px;border-radius:11px;border:1px solid rgba(255,233,173,.4);background:rgba(16,41,44,.83);color:#ffefd0;font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.16)}
+.tool[aria-pressed="true"]{background:rgba(214,178,112,.96);color:#202a23;border-color:#ffe1a0}
+#stickBase{position:absolute;left:calc(env(safe-area-inset-left,0px) + 21px);bottom:calc(env(safe-area-inset-bottom,0px) + 30px);height:114px;width:114px;border:2px solid rgba(255,246,211,.62);border-radius:50%;background:rgba(14,47,52,.3);backdrop-filter:blur(6px);touch-action:none;display:grid;place-items:center}
+#stickBase:before,#stickBase:after{content:"";position:absolute;background:rgba(244,234,198,.25)}#stickBase:before{width:1px;height:86px}#stickBase:after{height:1px;width:86px}
+#stickThumb{width:47px;height:47px;background:radial-gradient(circle at 35% 30%,#e9d9a6,#8d946c);border:2px solid #f6e7c0;border-radius:50%;box-shadow:0 4px 12px #122928a0;position:relative;z-index:1;transform:translate(0,0);pointer-events:none}
+#footer{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);transform:translateX(-50%);font-size:10px;color:#fff6d4;text-shadow:0 1px 5px #0d3136;pointer-events:none;white-space:nowrap}
+#instruction{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:15px 19px;max-width:min(335px,87vw);text-align:center;font-size:13px;line-height:1.6;pointer-events:none;transition:opacity .65s ease;z-index:4}#instruction[hidden]{display:none}
+#instruction b{font-family:Georgia,serif;font-size:19px;font-weight:normal}
+#compass{position:absolute;left:calc(env(safe-area-inset-left,0px) + 16px);top:calc(env(safe-area-inset-top,0px) + 111px);width:95px;height:95px;pointer-events:none;opacity:.85}
+#compass canvas{width:100%;height:100%}
+#loading{position:absolute;inset:0;background:linear-gradient(145deg,#234444,#618a81);display:grid;place-items:center;font:normal 21px Georgia,serif;z-index:10;transition:opacity .35s}
+#loading.is-done{opacity:0;pointer-events:none}
+#failure{display:none;position:absolute;left:15px;right:15px;top:40%;z-index:12;padding:20px;text-align:center;line-height:1.5}
+#failure:not(:empty){display:block}
+@media(max-height:600px){#zoneTag{top:92px}#stickBase{width:94px;height:94px;bottom:12px}#tools{bottom:12px}.tool{min-height:35px}#footer{display:none}}
+@media(max-width:420px){#identity{max-width:198px}h1{font-size:19px}#statistics{min-width:108px;padding:10px}#statistics strong{font-size:20px}#zoneTag{top:calc(env(safe-area-inset-top,0px) + 112px)}#compass{width:75px;height:75px;top:calc(env(safe-area-inset-top,0px) + 150px)}#footer{font-size:9px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px)}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"}}</script>
+</head>
+<body>
+<main id="viewport" aria-label="Сферическая планета NexGame"></main>
+<div id="vignette"></div>
+<div id="hud">
+  <div id="identity" class="panel"><div class="eyebrow">NEXGAME · WORLD LAB</div><h1>Круглый мир</h1><small>Отдельная экспериментальная сборка</small></div>
+  <div id="statistics" class="panel"><span class="caption">Путь по экватору</span><strong id="progress">0%</strong><span class="sub" id="distance">0 м · оборотов: 0</span></div>
+</div>
+<div id="zoneTag"><b id="zoneName">Степь Рассвета</b><small id="zoneLabel">НАЧАЛО ПУТЕШЕСТВИЯ</small></div>
+<div id="compass"><canvas id="miniglobe" width="220" height="220" aria-label="Глобус с текущим положением"></canvas></div>
+<div id="instruction" class="panel"><b>Новая планета</b><div>Джойстик — двигаться · свайп — камера<br>Удерживай вперёд, чтобы обойти экватор за ~2:15</div></div>
+<div id="stickBase" role="application" aria-label="Виртуальный джойстик"><div id="stickThumb"></div></div>
+<nav id="tools" aria-label="Управление обзором">
+  <button id="orbitButton" type="button" class="tool" aria-pressed="false">🌍 Вся планета</button>
+  <button id="zoomButton" type="button" class="tool">🔭 Камера: близко</button>
+  <button id="resetButton" type="button" class="tool">↺ В начало</button>
+</nav>
+<div id="footer">Радиус 87 м · окружность 547 м · без переходов</div>
+<div id="loading">Создаём маленькую планету…</div>
+<div id="failure" class="panel" role="alert"></div>
+<script type="module" src="./planet.js?v=1"></script>
+</body>
+</html>
