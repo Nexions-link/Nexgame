@@ -6,7 +6,7 @@
  <meta name="theme-color" content="#111b19">
  <meta name="description" content="NexGame Bestiary — отдельная мастерская 3D-моделей существ. Просмотр, анимации, редактирование и подготовка к добавлению в игру.">
  <title>NexGame · Бестиарий существ</title>
- <link rel="stylesheet" href="./style.css?v=0.1.1">
+ <link rel="stylesheet" href="./style.css?v=0.2.0">
  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
 </head>
 <body>
@@ -41,13 +41,18 @@
     </section>
     <section class="creature-header">
       <div class="creature-ident"><span class="creature-no">№ 001</span><span class="short-rule"></span><span id="creatureCategory">РАВНИННАЯ ПТИЦА</span></div>
-      <div class="creature-heading"><div><h2 id="creatureTitle">Долгоног</h2><div class="tags" id="creatureTags"></div></div><span class="current-version" id="currentVersion">ПРОТОТИП · v0.1</span></div>
+      <div class="creature-heading"><div><h2 id="creatureTitle">Долгоног</h2><div class="tags" id="creatureTags"></div></div><span class="current-version" id="currentVersion">ДОЛГОНОГ · v0.2</span></div>
     </section>
     <div class="detail-layout">
       <section class="viewer-card" aria-label="Интерактивная 3D-модель">
         <div class="viewer-banner">
           <span class="viewer-kicker"><span class="live-dot"></span> ИНТЕРАКТИВНАЯ 3D-МОДЕЛЬ</span>
-          <span id="viewerSource" class="viewer-source">ВОССОЗДАННЫЙ ПРОТОТИП</span>
+          <span id="viewerSource" class="viewer-source">ЗАГРУЗКА GLB v0.2</span>
+        </div>
+        <div class="version-picker" role="group" aria-label="Сравнение версий долгонога">
+          <span class="version-title">СРАВНИТЬ ВЕРСИИ</span>
+          <button type="button" data-version="0.1" aria-pressed="false"><span>v0.1</span> Оригинал</button>
+          <button type="button" data-version="0.2" aria-pressed="true" class="active"><span>v0.2</span> Новый клюв</button>
         </div>
         <div class="canvas-wrap" id="canvasWrap">
           <canvas id="viewerCanvas" aria-label="Трёхмерный просмотр долгонога"></canvas>
@@ -79,7 +84,7 @@
           <div><dt>Анимации</dt><dd id="animationCount">3</dd></div>
           <div><dt>Источник</dt><dd id="factSource">Процедурный прототип</dd></div>
         </dl>
-        <div class="source-info"><span class="notice-icon">i</span><span>Это оригинальный GLB долгонога из чата «Работа»: 3 226 треугольников, анимации Idle, Walk и Peck. Правки модели сохраняются как локальный черновик.</span></div>
+        <div class="source-info"><span class="notice-icon">i</span><span>Доступны v0.1 (исходник) и v0.2 (округлый клюв, цельнее переходы, мягче освещение поверхности). Переключай версии при одинаковой камере и анимации. Исходные Idle, Walk и Peck сохранены.</span></div>
        </section>
        <section class="editor-panel">
         <div class="panel-head"><span>02 / МАСТЕРСКАЯ</span><span class="unsaved" id="draftStatus">БАЗОВАЯ ФОРМА</span></div>
@@ -104,12 +109,12 @@
        </section>
        <section class="import-panel">
         <div class="panel-head"><span>03 / ФАЙЛЫ И ЭКСПОРТ</span><span>↗</span></div>
-        <p>Оригинальный <b>dolgonog-v0.1.glb</b> загружается автоматически. Можно сравнить другую модель через импорт или скачать отредактированный GLB с анимациями.</p>
+        <p><b>Долгоног v0.2.glb</b> загружается автоматически. v0.1 хранится рядом для сравнения. Кнопка скачивания экспортирует текущую модель; можно также получить исходные файлы из GitHub.</p>
         <div class="file-actions">
          <label class="import-button" for="glbUpload">↑ Загрузить свой GLB<input id="glbUpload" type="file" accept=".glb,model/gltf-binary" hidden></label>
          <button type="button" id="exportGlb">↓ Скачать текущую модель</button>
         </div>
-        <p id="fileFeedback" class="file-feedback" role="status">Оригинальный GLB находится в репозитории NexGame. Дополнительный импорт выполняется локально.</p>
+        <p id="fileFeedback" class="file-feedback" role="status">GLB v0.1 и v0.2 находятся в GitHub. Правки в мастерской сохраняются локально.</p>
        </section>
       </div>
     </div>
@@ -121,6 +126,6 @@
    </div>
   </main>
  </div>
- <script type="module" src="./main.js?v=0.1.1"></script>
+ <script type="module" src="./main.js?v=0.2.0"></script>
 </body>
 </html>

@@ -13,7 +13,9 @@ test('catalog has stable unique IDs and original source is not misrepresented',(
  const bird=CREATURES.find(c=>c.id==='dolgonog');
  assert.ok(bird);assert.equal(bird.number,'001');
  assert.equal(bird.source,'original-glb');
- assert.equal(bird.asset,'models/dolgonog-v0.1.glb');
+ assert.equal(bird.asset,'models/dolgonog-v0.2.glb');
+ assert.equal(bird.versions['0.1'],'models/dolgonog-v0.1.glb');
+ assert.equal(bird.versions['0.2'],'models/dolgonog-v0.2.glb');
  assert.ok(bird.animations.includes('idle')&&bird.animations.includes('walk')&&bird.animations.includes('attack'));
 });
 test('editor sanitizes imported settings and keeps colors constrained to CSS hex',()=>{
@@ -34,8 +36,8 @@ test('size helper is stable for model import feedback',()=>{
 test('separate published bestiary is self-contained and versioned',()=>{
  const html=read('bestiary/index.html'),js=read('bestiary/main.js'),style=read('bestiary/style.css');
  assert.match(html,/type="importmap"/);
- assert.match(html,/src="\.\/main\.js\?v=0\.1\.1"/);
- assert.match(html,/href="\.\/style\.css\?v=0\.1\.1"/);
+ assert.match(html,/src="\.\/main\.js\?v=0\.2\.0"/);
+ assert.match(html,/href="\.\/style\.css\?v=0\.2\.0"/);
  assert.match(html,/id="viewerCanvas"/);
  assert.match(html,/id="glbUpload"/);
  assert.match(html,/id="saveDraft"/);
@@ -83,7 +85,7 @@ test('3D viewer uses the original GLB and allows editing its real mesh',()=>{
  const js=read('bestiary/main.js');
  const edit=read('bestiary/original-edits.js');
  assert.match(js,/loadOfficialGlb\(\)/);
- assert.match(js,/models\/dolgonog-v0\.1\.glb/);
+ assert.match(js,/dolgonog-v'\+loadingVersion/);
  assert.match(js,/source==='glb'&&imported\?\.editable/);
  assert.match(js,/attack:\/attack\|peck\|hit/);
  assert.match(js,/animations:source==='glb'/);
@@ -91,4 +93,30 @@ test('3D viewer uses the original GLB and allows editing its real mesh',()=>{
  assert.match(edit,/pos\.setXYZ/);
  assert.match(edit,/attribute\.setXYZ/);
  assert.doesNotMatch(edit,/attribute\.array\[/);
+});
+
+test('v0.2 is a valid lightweight animated GLB, preserving the original rig',()=>{
+ const path=resolve(root,'bestiary/models/dolgonog-v0.2.glb');
+ const bin=readFileSync(path);
+ assert.equal(bin.length,485068);
+ assert.equal(bin.toString('ascii',0,4),'glTF');
+ assert.equal(bin.readUInt32LE(8),bin.length);
+ const l=bin.readUInt32LE(12);
+ const j=JSON.parse(bin.toString('utf8',20,20+l));
+ assert.equal(j.meshes.length,12);
+ assert.equal(j.materials.length,1);
+ assert.deepEqual(j.animations.map(a=>a.name),['Idle','Walk','Peck']);
+ const triangles=j.meshes.reduce((total,m)=>total+m.primitives.reduce((n,p)=>n+j.accessors[p.attributes.POSITION].count/3,0),0);
+ assert.equal(triangles,3472);
+ assert.ok(triangles<5000);
+ assert.ok(j.nodes.some(n=>n.name==='Head_mesh'));
+});
+test('comparison loads both versions and preserves camera control',()=>{
+ const html=read('bestiary/index.html');
+ const js=read('bestiary/main.js');
+ assert.match(html,/data-version="0\.1"/);
+ assert.match(html,/data-version="0\.2"/);
+ assert.match(js,/selectedVersion='0\.2'/);
+ assert.match(js,/dolgonog-v'\+loadingVersion/);
+ assert.match(js,/loadOfficialGlb\(\)/);
 });
