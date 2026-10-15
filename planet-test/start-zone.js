@@ -29,6 +29,10 @@ export function startHeightAt(x,z){
  const bank=LAKE_SURFACE+.26+.17*Math.sin(Math.PI*(r-1)/.24);
  return bank+(native-bank)*smooth(1.025,1.24,r);
 }
+// Original lake physics: shallow water is traversable, deep lakebed is not.
+export function canWadeAtLocal(x,z){
+ return Math.max(0,LAKE_SURFACE-startHeightAt(x,z))<=1.12;
+}
 export function pathWear(x,z){
  let v=0;
  for(const p of PATHS){const d=p.dx*p.dx+p.dz*p.dz;const t=clamp01(((x-p.ax)*p.dx+(z-p.az)*p.dz)/d),dist=Math.hypot(x-p.ax-p.dx*t,z-p.az-p.dz*t);
