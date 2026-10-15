@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 
 // Isolated planet experiment: no imports, saves, WebSockets or assets from the main RPG.
-const R = 87.0;
+const BASE_RADIUS = 87.0;
+const AVAILABLE_RADII = [87, 174, 261];
+let R = BASE_RADIUS;
 const WALK_SPEED = 4.05;
 const TAU = Math.PI * 2;
 const NAMES = ['Степь Рассвета', 'Шепчущий лес', 'Янтарные пустоши', 'Каменные высоты'];
@@ -61,7 +63,7 @@ try {
   const skyDay = new THREE.Color('#97c6d1');
   const skyNight = new THREE.Color('#101c32');
   scene.background = skyDay;
-  const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .1, 900);
+  const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .1, 3800);
   const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'default'});
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.45));
   renderer.setSize(innerWidth, innerHeight);
@@ -82,9 +84,11 @@ try {
   const groundGeo = new THREE.SphereGeometry(R, 180, 112);
   const pos = groundGeo.attributes.position;
   const colorData = new Float32Array(pos.count * 3);
+  const groundDirections = new Float32Array(pos.count * 3);
   const n0 = new THREE.Vector3();
   for (let i = 0; i < pos.count; i++) {
     n0.fromBufferAttribute(pos, i).normalize();
+    groundDirections.set([n0.x, n0.y, n0.z], i * 3);
     const h = heightAt(n0);
     pos.setXYZ(i, n0.x * (R + h), n0.y * (R + h), n0.z * (R + h));
     const c = colorAt(n0, h);
@@ -94,6 +98,21 @@ try {
   groundGeo.computeVertexNormals();
   const ground = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({vertexColors: true, roughness: 1, flatShading: false}));
   scene.add(ground);
+  // Reposition vertex data from immutable unit directions, so switching size
+  // never accumulates distortion or scales terrain elevation in metres.
+  function reshapeGround() {
+    for (let i = 0; i < pos.count; i++) {
+      const j = i * 3;
+      n0.set(groundDirections[j], groundDirections[j+1], groundDirections[j+2]);
+      const elevation = heightAt(n0), distance = R + elevation;
+      pos.setXYZ(i, n0.x * distance, n0.y * distance, n0.z * distance);
+    }
+    pos.needsUpdate = true;
+    groundGeo.computeVertexNormals();
+    groundGeo.attributes.normal.needsUpdate = true;
+    groundGeo.computeBoundingSphere();
+    groundGeo.computeBoundingBox();
+  }
   // Atmosphere is intentionally subtle; it only appears in orbital view.
   const atmosphere = new THREE.Mesh(
     new THREE.SphereGeometry(R + 12, 60, 36),
@@ -132,7 +151,8 @@ try {
     else if (chance(.52)) rockData.push(p);
     else flowerData.push(p);
   }
-  // All foliage uses instancing, keeping draw calls low on iPhone.
+  // Keep the same instance geometry and scale across planet sizes.
+  const instanceLayers = [];
   function instances(points, geo, material, centerY, dimensions, tintFn) {
     if (!points.length) return null;
     const mesh = new THREE.InstancedMesh(geo, material, points.length);
@@ -152,7 +172,25 @@ try {
     mesh.instanceMatrix.needsUpdate = true;
     mesh.frustumCulled = false; // Globe wraps: avoid incorrect culling of an entire instanced forest.
     scene.add(mesh);
+    instanceLayers.push({mesh, points, centerY, dimensions});
     return mesh;
+  }
+  function relocateInstances() {
+    const matrix = new THREE.Object3D();
+    const q = new THREE.Quaternion(), spin = new THREE.Quaternion();
+    for (const layer of instanceLayers) {
+      const {mesh,points,centerY,dimensions} = layer;
+      for (let i=0; i<points.length; i++) {
+        const p=points[i], normal=unitAt(p.lon,p.lat);
+        matrix.position.copy(normal).multiplyScalar(R+heightAt(normal)+centerY*p.scale);
+        q.setFromUnitVectors(yAxis,normal);
+        matrix.quaternion.copy(q).multiply(spin.setFromAxisAngle(yAxis,p.spin));
+        matrix.scale.set(dimensions[0]*p.scale,dimensions[1]*p.scale,dimensions[2]*p.scale);
+        matrix.updateMatrix();
+        mesh.setMatrixAt(i,matrix.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate=true;
+    }
   }
   instances(trunkData, new THREE.CylinderGeometry(.18, .27, 1.55, 6), new THREE.MeshStandardMaterial({color: '#65472e', roughness: 1}), .78, [1, 1, 1]);
   instances(foliageData, new THREE.DodecahedronGeometry(1, 1), new THREE.MeshStandardMaterial({color: '#ffffff', roughness: 1, flatShading: true}), 2.46, [1.55, 1.65, 1.55], p => p.tint > .6 ? '#89a65b' : '#5e934c');
@@ -167,12 +205,27 @@ try {
   function addShape(parent, geo, mat, x, y, z) {
     const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z); parent.add(mesh); return mesh;
   }
+  const localAnchors = [];
   function setLocalAnchor(group, lon, lat) {
-    const n = unitAt(lon, lat);
+    // Buildings retain their real-world dimensions AND their distances from
+    // each other instead of spreading apart when the globe is enlarged.
+    const n = unitAt(lon * BASE_RADIUS / R, lat * BASE_RADIUS / R);
     group.position.copy(n).multiplyScalar(R + heightAt(n));
     group.quaternion.setFromUnitVectors(yAxis, n);
+    localAnchors.push({group,lon,lat});
     scene.add(group);
     return group;
+  }
+  function relocateAnchors() {
+    const oldAlignment = new THREE.Quaternion(), localRotation = new THREE.Quaternion();
+    for (const {group,lon,lat} of localAnchors) {
+      // Preserve hut rotation around its own up axis.
+      oldAlignment.setFromUnitVectors(yAxis,group.position.clone().normalize());
+      localRotation.copy(oldAlignment).invert().multiply(group.quaternion);
+      const n=unitAt(lon*BASE_RADIUS/R,lat*BASE_RADIUS/R);
+      group.position.copy(n).multiplyScalar(R+heightAt(n));
+      group.quaternion.setFromUnitVectors(yAxis,n).multiply(localRotation);
+    }
   }
   // A tiny camp inspired by the role of our existing starting village;
   // its geometry is entirely separate from the real game.
@@ -354,6 +407,36 @@ try {
     updateZoomLabel();
   });
   $('resetButton').addEventListener('click', () => {doReset(); cameraSnap = true;});
+
+  // Resize the actual sphere and all objects (not a uniform scene-scale).
+  // Restart at the village after a change for a fair same-camera comparison.
+  const radiusButtons = [...document.querySelectorAll('[data-radius]')];
+  const worldMetrics = $('worldMetrics');
+  const footer = $('footer');
+  function setRadius(nextRadius) {
+    if (!AVAILABLE_RADII.includes(nextRadius)) return;
+    if (R !== nextRadius) {
+      R = nextRadius;
+      reshapeGround();
+      relocateInstances();
+      relocateAnchors();
+      atmosphere.scale.setScalar((R + 12) / (BASE_RADIUS + 12));
+      stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
+      doReset();
+      cameraSnap = true;
+    }
+    const length = TAU * R;
+    const totalSeconds = Math.round(length / WALK_SPEED);
+    const duration = Math.floor(totalSeconds / 60) + ':' + String(totalSeconds % 60).padStart(2,'0');
+    for (const button of radiusButtons)
+      button.setAttribute('aria-pressed', String(Number(button.dataset.radius) === R));
+    worldMetrics.textContent = Math.round(length) + ' м по экватору · ' + duration + ' бегом';
+    footer.textContent = 'Радиус ' + R + ' м · окружность ' + Math.round(length) + ' м · без переходов';
+    $('instruction').querySelector('div').textContent = 'Джойстик — двигаться · свайп — камера · Экватор: ' + duration;
+  }
+  for (const button of radiusButtons)
+    button.addEventListener('click', () => setRadius(Number(button.dataset.radius)));
+  setRadius(BASE_RADIUS);
 
   const globeCanvas = $('miniglobe');
   const gctx = globeCanvas.getContext('2d');
