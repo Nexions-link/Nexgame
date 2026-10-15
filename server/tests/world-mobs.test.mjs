@@ -75,7 +75,7 @@ test('server immediately abandons attackers when player is dead or under respawn
 
 test('aggro keeps striking a motionless player after 16 seconds without new damage',()=>{
  const mobs=createMulgoreMobs(),mob=mobs[0],now=100000;
- const player={id:'stationary',x:-9,z:-21,hp:100,respawnShieldUntil:0,level:1,yaw:0,equipment:{}};
+ const player={id:'stationary',x:-9,z:-21,hp:100,respawnShieldUntil:0,level:1,yaw:Math.PI,equipment:{}};
  assert.equal(applyMulgoreAbility(mobs,player,'autoAttack',0,now,()=>.5).ok,true);
  const damagedHp=mob.hp;
  let strikes=0;
@@ -91,7 +91,7 @@ test('aggro keeps striking a motionless player after 16 seconds without new dama
 
 test('50 m leash is strictly measured from first aggro, not spawn, mob or last hit',()=>{
  const mobs=createMulgoreMobs(),mob=mobs[0],now=200000;
- const player={id:'runner',x:-9,z:-21,hp:100,respawnShieldUntil:0,level:1,yaw:0,equipment:{}};
+ const player={id:'runner',x:-9,z:-21,hp:100,respawnShieldUntil:0,level:1,yaw:Math.PI,equipment:{}};
  assert.equal(MOB_AGGRO_LEASH_RANGE,50);
  assert.equal(applyMulgoreAbility(mobs,player,'autoAttack',0,now,()=>.5).ok,true);
  const lowHp=mob.hp;
@@ -130,7 +130,7 @@ test('additional hits and a new attacker cannot move an existing leash origin',(
 
 test('dropping aggro for a respawned player clears the old leash origin',()=>{
  const mobs=createMulgoreMobs(),mob=mobs[0],now=400000;
- const player={id:'respawn',x:-9,z:-22,hp:100,level:1,yaw:0,equipment:{}};
+ const player={id:'respawn',x:-9,z:-22,hp:100,level:1,yaw:Math.PI,equipment:{}};
  applyMulgoreAbility(mobs,player,'autoAttack',0,now,()=>.5);
  assert.equal(releaseMulgoreAggroForPlayer(mobs,player.id),1);
  assert.equal(mob.aggroId,null);
