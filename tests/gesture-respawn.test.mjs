@@ -33,5 +33,7 @@ test('world server clears aggro and broadcasts fresh mob state at respawn',()=>{
  assert.match(server,/broadcast\(\{type:'mobSnapshot',mobs:snapshotMulgoreMobs\(mobs,now\)\}\)/);
  assert.match(server,/player\.lastMobAttackAt=0/);
  assert.match(read('online.js'),/m\.type==='mobSnapshot'/);
- assert.match(server,/WORLD_BUILD='0\.3\.5\.45'/);
+ const release=read('app.html').match(/NexGame · Мулгор · Alpha (\d+\.\d+\.\d+\.\d+)/)?.[1];
+ assert.ok(release,'game release exists');
+ assert.ok(server.includes("WORLD_BUILD='"+release+"'"),'world server build matches game release');
 });
