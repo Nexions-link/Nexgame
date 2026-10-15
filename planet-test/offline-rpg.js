@@ -23,6 +23,7 @@ import {animateSphericalTauren} from './tauren-animation.js?v=2';
 import {incomingShieldHit,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackProgress} from './sphere-combat.js?v=1';
 import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '../item-quality.js?v=0.3.7.1';
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
+import {canWalkCamp} from './sphere-physics.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -719,16 +720,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  });
  function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();targetRing.invalidate();updateSelection();draw();}
  function canMoveTo(x,z){
-  const near=entities.filter(e=>['mentor','vendor','herbalist'].includes(e.kind)).some(e=>Math.hypot(x-e.x,z-e.z)<.8);
-  if(near)return false;
-  for(const [tx,tz,r] of [[11,-7,3.6],[-15,12,3.3],[13,16,2.9],[-23,-15,2.6]])
-   if(Math.hypot(x-tx,z-tz)<r)return false;
-  // Exact main house orientation is PI/2. Allow the 6.8m doorway on the +Z side.
-  const lx=-(z+2),lz=x+27;
-  if(Math.abs(lx)<10.1&&Math.abs(lz)<10.9){
-   if((Math.abs(lx)>9.05||Math.abs(lz)>9.9)&&!(Math.abs(lx)<3.45&&lz>9.2))return false;
-  }
-  return true;
+  // One source of truth used by player, wildlife and camera obstruction.
+  // NPCs have small personal-space circles but do not get treated as terrain.
+  if(!canWalkCamp(x,z))return false;
+  return !citizens.some(entity=>Math.hypot(x-entity.x,z-entity.z)<.75);
  }
  function getApproachTarget(){
   if(!autoplay||modal.hidden===false||camp.casting||state.hp<=0)return null;
