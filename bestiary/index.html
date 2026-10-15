@@ -6,7 +6,7 @@
  <meta name="theme-color" content="#111b19">
  <meta name="description" content="NexGame Bestiary — отдельная мастерская 3D-моделей существ. Просмотр, анимации, редактирование и подготовка к добавлению в игру.">
  <title>NexGame · Бестиарий существ</title>
- <link rel="stylesheet" href="./style.css?v=0.1.0">
+ <link rel="stylesheet" href="./style.css?v=0.1.1">
  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
 </head>
 <body>
@@ -79,7 +79,7 @@
           <div><dt>Анимации</dt><dd id="animationCount">3</dd></div>
           <div><dt>Источник</dt><dd id="factSource">Процедурный прототип</dd></div>
         </dl>
-        <div class="source-info"><span class="notice-icon">i</span><span>Исходный GLB с прежнего сайта пока недоступен. Текущая 3D-фигура — редактируемая реконструкция, не оригинальный файл.</span></div>
+        <div class="source-info"><span class="notice-icon">i</span><span>Это оригинальный GLB долгонога из чата «Работа»: 3 226 треугольников, анимации Idle, Walk и Peck. Правки модели сохраняются как локальный черновик.</span></div>
        </section>
        <section class="editor-panel">
         <div class="panel-head"><span>02 / МАСТЕРСКАЯ</span><span class="unsaved" id="draftStatus">БАЗОВАЯ ФОРМА</span></div>
@@ -104,12 +104,12 @@
        </section>
        <section class="import-panel">
         <div class="panel-head"><span>03 / ФАЙЛЫ И ЭКСПОРТ</span><span>↗</span></div>
-        <p>Если есть исходный <b>dolgonog.glb</b>, открой его здесь — появятся родные анимации файла.</p>
+        <p>Оригинальный <b>dolgonog-v0.1.glb</b> загружается автоматически. Можно сравнить другую модель через импорт или скачать отредактированный GLB с анимациями.</p>
         <div class="file-actions">
          <label class="import-button" for="glbUpload">↑ Загрузить свой GLB<input id="glbUpload" type="file" accept=".glb,model/gltf-binary" hidden></label>
          <button type="button" id="exportGlb">↓ Скачать текущую модель</button>
         </div>
-        <p id="fileFeedback" class="file-feedback" role="status">Загруженные файлы остаются в браузере, пока не будут добавлены в репозиторий.</p>
+        <p id="fileFeedback" class="file-feedback" role="status">Оригинальный GLB находится в репозитории NexGame. Дополнительный импорт выполняется локально.</p>
        </section>
       </div>
     </div>
@@ -121,6 +121,6 @@
    </div>
   </main>
  </div>
- <script type="module" src="./main.js?v=0.1.0"></script>
+ <script type="module" src="./main.js?v=0.1.1"></script>
 </body>
 </html>

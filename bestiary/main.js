@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {CREATURES,DRAFT_KEY,normalizeCreatureParams,humanBytes} from './catalog.js';
 import {DEFAULT_DOLGONOG,createDolgonog,countTriangles,disposeDolgonog} from './dolgonog.js';
+import {isDolgonogRig,applyOriginalDolgonogEdits} from './original-edits.js';
 
 const $=id=>document.getElementById(id);
 const entry=CREATURES[0];
@@ -92,25 +93,34 @@ function resetView(){
  orbit={yaw:.58,pitch:.19,distance:8.2};placeCamera();
 }
 function showSource(){
- $('viewerSource').textContent=source==='glb'?'ЗАГРУЖЕННЫЙ GLB · ЛОКАЛЬНО':'ВОССОЗДАННЫЙ ПРОТОТИП';
- $('factSource').textContent=source==='glb'?'Локальный файл GLB':'Процедурная реконструкция';
+ const official=source==='glb'&&imported?.origin==='official';
+ const local=source==='glb'&&imported?.origin==='local';
+ $('viewerSource').textContent=official?'ОРИГИНАЛ · GLB v0.1':
+  local?'ЗАГРУЖЕННЫЙ GLB · ЛОКАЛЬНО':'РЕЗЕРВНАЯ РЕКОНСТРУКЦИЯ';
+ $('factSource').textContent=official?'Авторский GLB из чата «Работа»':
+  local?'Локальный файл GLB':'Резервная процедурная модель';
  $('triangleCount').textContent=model?countTriangles(model.root).toLocaleString('ru-RU')+' треуг.':'—';
  $('animationCount').textContent=source==='glb'?(imported?.animations.length??0)+' (GLB)':3;
- $('currentVersion').textContent=source==='glb'?'ФАЙЛ GLB · ПРОСМОТР':'ПРОТОТИП · v0.1';
- const locked=source==='glb';
+ $('currentVersion').textContent=official?'ОРИГИНАЛ · v0.1':local?'ЛОКАЛЬНЫЙ GLB':'РЕЗЕРВНАЯ МОДЕЛЬ';
+ const locked=source==='glb'&&!imported?.editable;
  document.querySelectorAll('[data-scalar],[data-color]').forEach(el=>{el.disabled=locked});
  $('saveDraft').disabled=locked;
  $('copySettings').disabled=locked;
- $('draftStatus').textContent=locked?'ПРОСМОТР GLB':dirty?'НЕСОХРАНЁННЫЕ ПРАВКИ':'ЛОКАЛЬНЫЙ ЧЕРНОВИК';
+ $('draftStatus').textContent=locked?'НЕПОДДЕРЖИВАЕМЫЙ РИГ':dirty?'НЕСОХРАНЁННЫЕ ПРАВКИ':'ЛОКАЛЬНЫЙ ЧЕРНОВИК';
 }
 function removeModel(){
  if(!model)return;
+ if(mixer){mixer.stopAllAction();mixer.uncacheRoot(imported?.scene||model.root);}
  scene.remove(model.root);
  if(source==='procedural')disposeDolgonog(model.root);
  else{
-  model.root.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){
-   for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();
-  }});
+  const geometries=new Set(),materials=new Set();
+  model.root.traverse(o=>{
+   if(o.geometry)geometries.add(o.geometry);
+   if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);
+  });
+  for(const g of geometries)g.dispose();
+  for(const m of materials)m.dispose();
  }
  model=null;mixer=null;
 }
@@ -119,13 +129,52 @@ function installProcedural(){
  model=createDolgonog(THREE,params);scene.add(model.root);
  showSource();
 }
+async function installGlb(buffer,{origin='official',filename='dolgonog-v0.1.glb'}={}){
+ const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js');
+ const parsed=await new GLTFLoader().parseAsync(buffer,'');
+ if(!parsed.scene)throw Error('В файле GLB отсутствует 3D-сцена');
+ const wrapper=new THREE.Group();wrapper.name='bestiary-glb-root';
+ wrapper.add(parsed.scene);
+ const box=new THREE.Box3().setFromObject(parsed.scene);
+ const size=new THREE.Vector3(),centre=new THREE.Vector3();
+ box.getSize(size);box.getCenter(centre);
+ if(!Number.isFinite(size.y)||size.y<=0)throw Error('Неверный размер модели');
+ const scale=3.7/Math.max(size.y,size.x*.8,size.z*.8,.1);
+ parsed.scene.position.set(-centre.x,-box.min.y,-centre.z);
+ wrapper.scale.setScalar(scale);
+ const editable=isDolgonogRig(parsed.scene);
+ removeModel();
+ source='glb';imported={scene:parsed.scene,animations:parsed.animations,origin,filename,editable};
+ model={root:wrapper};scene.add(wrapper);
+ if(editable)applyOriginalDolgonogEdits(THREE,parsed.scene,params);
+ mixer=parsed.animations.length?new THREE.AnimationMixer(parsed.scene):null;
+ showSource();playAnimation(playing);
+ return {editable,animations:parsed.animations.length,triangles:countTriangles(wrapper)};
+}
+async function loadOfficialGlb(){
+ try{
+  const url='./models/dolgonog-v0.1.glb?v=0.1.1';
+  const response=await fetch(url,{cache:'no-cache'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const buffer=await response.arrayBuffer();
+  if(buffer.byteLength<20||new DataView(buffer).getUint32(0,true)!==0x46546c67)
+   throw Error('Неверный заголовок GLB');
+  const result=await installGlb(buffer,{origin:'official'});
+  notify('Оригинальный GLB загружен: '+humanBytes(buffer.byteLength)+
+   ', '+result.triangles.toLocaleString('ru-RU')+' треугольников и '+
+   result.animations+' анимации. Черновик можно редактировать.');
+ }catch(error){
+  console.error('Could not load official GLB:',error);
+  notify('Исходный GLB пока недоступен; показана резервная модель.',true);
+ }finally{$('loadingState').hidden=true}
+}
 function playAnimation(animation){
  playing=animation;
  document.querySelectorAll('.anim').forEach(b=>{
   const active=b.dataset.animation===animation;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));
  });
  if(source!=='glb'||!mixer||!imported)return;
- const patterns={idle:/idle|wait|stand|ожидан/i,walk:/walk|run|ход|бег/i,attack:/attack|hit|удар/i};
+ const patterns={idle:/idle|wait|stand|ожидан/i,walk:/walk|run|ход|бег/i,attack:/attack|peck|hit|удар/i};
  const clip=imported.animations.find(a=>patterns[animation].test(a.name))||
   imported.animations[['idle','walk','attack'].indexOf(animation)];
  mixer.stopAllAction();
@@ -138,25 +187,29 @@ $('toggleGrid').addEventListener('click',()=>{
 });
 $('resetView').addEventListener('click',resetView);
 function updateDraft(){
- dirty=true;syncInputs();if(source==='procedural')installProcedural();
+ dirty=true;syncInputs();
+ if(source==='glb'&&imported?.editable)applyOriginalDolgonogEdits(THREE,imported.scene,params);
+ else if(source==='procedural')installProcedural();
 }
 document.querySelectorAll('[data-scalar]').forEach(input=>input.addEventListener('input',()=>{
- if(source==='glb')return;
+ if(source==='glb'&&!imported?.editable)return;
  params[input.dataset.scalar]=Number(input.value);updateDraft();
 }));
 document.querySelectorAll('[data-color]').forEach(input=>input.addEventListener('input',()=>{
- if(source==='glb')return;
+ if(source==='glb'&&!imported?.editable)return;
  params[input.dataset.color]=input.value;updateDraft();
 }));
 $('saveDraft').addEventListener('click',()=>{
- if(source==='glb')return;
+ if(source==='glb'&&!imported?.editable)return;
  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(params));dirty=false;syncInputs();notify('Черновик долгонога сохранён в этом браузере.')}
  catch(error){notify('Сохранение недоступно. Проверь разрешения браузера.',true)}
 });
 $('resetDraft').addEventListener('click',()=>{
  params={...DEFAULT_DOLGONOG};dirty=false;try{localStorage.removeItem(DRAFT_KEY)}catch(e){}
- installProcedural();syncInputs();playAnimation('idle');
- notify('Восстановлен базовый редактируемый прототип v0.1.');
+ if(source==='glb'&&imported?.editable)applyOriginalDolgonogEdits(THREE,imported.scene,params);
+ else if(source==='procedural')installProcedural();
+ syncInputs();showSource();playAnimation('idle');
+ notify('Сброшены правки. Исходная модель долгонога сохранена.');
 });
 $('copySettings').addEventListener('click',async()=>{
  const json=JSON.stringify({id:entry.id,version:entry.version,params},null,2);
@@ -210,7 +263,7 @@ function frame(t){
 const observer=new ResizeObserver(fitView);observer.observe(wrap);
 window.addEventListener('resize',fitView);
 installProcedural();playAnimation('idle');fitView();resetView();
-$('loadingState').hidden=true;requestAnimationFrame(frame);
+requestAnimationFrame(frame);loadOfficialGlb();
 // Local GLB import does not write the repository or access an external upload server.
 $('glbUpload').addEventListener('change',async event=>{
  const file=event.target.files?.[0];if(!file)return;
@@ -218,27 +271,12 @@ $('glbUpload').addEventListener('change',async event=>{
  if(file.size>25*1024*1024){notify('GLB больше 25 МБ. Для iPhone нужен более лёгкий файл.',true);return}
  notify('Читаем '+file.name+'…');
  try{
-  const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js');
-  const parsed=await new GLTFLoader().parseAsync(await file.arrayBuffer(),'');
-  if(!parsed.scene)throw new Error('No scene in GLB');
-  removeModel();
-  source='glb';imported={animations:parsed.animations};
-  // Preserve original scale (authentic GLB) while centering it in the viewer.
-  const wrapper=new THREE.Group();wrapper.name='imported-dolgonog';
-  wrapper.add(parsed.scene);
-  const box=new THREE.Box3().setFromObject(parsed.scene),size=new THREE.Vector3(),centre=new THREE.Vector3();
-  box.getSize(size);box.getCenter(centre);
-  if(!Number.isFinite(size.y)||size.y<=0)throw new Error('Invalid GLB bounds');
-  const scale=3.7/Math.max(size.y,size.x*.8,size.z*.8,.1);
-  parsed.scene.position.set(-centre.x,-box.min.y,-centre.z);
-  wrapper.scale.setScalar(scale);
-  model={root:wrapper};
-  scene.add(wrapper);
-  mixer=parsed.animations.length?new THREE.AnimationMixer(parsed.scene):null;
-  showSource();playAnimation('idle');
-  notify('GLB «'+file.name+'» открыт: '+humanBytes(file.size)+'. Файл пока только на этом устройстве.');
- }catch(error){console.error('GLB import:',error);installProcedural();playAnimation('idle');
-  notify('Не удалось прочитать GLB. Показан процедурный прототип.',true)
+  const result=await installGlb(await file.arrayBuffer(),{origin:'local',filename:file.name});
+  notify('GLB «'+file.name+'» открыт: '+humanBytes(file.size)+'. '+
+   (result.editable?'Поддерживается редактирование долгонога.':'Риг отличается, доступен только просмотр.')+
+   ' Файл загружен локально, репозиторий не изменён.');
+ }catch(error){console.error('GLB import:',error);
+  notify('Ошибка при чтении GLB. Предыдущая модель сохранена.',true);
  }
  event.target.value='';
 });
@@ -247,13 +285,13 @@ $('exportGlb').addEventListener('click',async()=>{
  const button=$('exportGlb');button.disabled=true;notify('Создаём GLB…');
  try{
   const {GLTFExporter}=await import('three/addons/exporters/GLTFExporter.js');
-  const result=await new GLTFExporter().parseAsync(model.root,{binary:true,onlyVisible:true});
+  const result=await new GLTFExporter().parseAsync(model.root,{binary:true,onlyVisible:true,animations:source==='glb'?(imported?.animations||[]):[]});
   const blob=new Blob([result],{type:'model/gltf-binary'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=source==='glb'?'dolgonog-imported.glb':'dolgonog-reconstruction-v0.1.glb';
+  a.href=url;a.download=source==='glb'?'dolgonog-edited-v0.1.glb':'dolgonog-reconstruction-v0.1.glb';
   document.body.append(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
-  notify('Снимок текущей 3D-модели сохранён в GLB. Процедурные анимации в него не включены.');
+  notify(source==='glb'?'Экспортирован GLB с правками и исходными анимациями.':'Экспортирована резервная модель без анимаций.');
  }catch(error){console.error(error);notify('Экспорт GLB не удался на этом устройстве.',true)}
  finally{button.disabled=false}
 });
