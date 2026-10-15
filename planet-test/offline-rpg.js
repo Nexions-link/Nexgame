@@ -14,10 +14,11 @@ import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v
 import {createCampActions} from './camp-actions.js?v=6';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
-import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=3';
+import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=4';
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
 import {createMentorWorld} from './mentor-world.js?v=1';
+import {createSphericalTargetRing} from './spherical-target-ring.js?v=1';
 import {animateSphericalTauren} from './tauren-animation.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
@@ -101,14 +102,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,attackPulse=0,stompPulse=0;
  let journalTab='current';
  const group=new THREE.Group();scene.add(group);
- // Production target marker: native gold ring, radially oriented so it
- // sits flat under a selected creature anywhere on the sphere.
- const selectionRoot=new THREE.Group();group.add(selectionRoot);
- const selection=new THREE.Mesh(new THREE.RingGeometry(.8,.88,40),
-  new THREE.MeshBasicMaterial({color:0xf6d580,transparent:true,opacity:.88,
-   side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}));
- selection.rotation.x=-Math.PI/2;
- selectionRoot.add(selection);selectionRoot.visible=false;
+ // The mesh is bent vertex-by-vertex onto the actual spherical terrain:
+ // no texture intersection/z-fighting and a saturated red outline.
+ const targetRing=createSphericalTargetRing({THREE,parent:group,getRadius,toNormal,heightAt});
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[],citizens=[];
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
@@ -274,18 +270,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const a=playerNormal(),b=toNormal(entity.x,entity.z,getRadius());
   return getRadius()*Math.acos(clamp(a.dot(b),-1,1));
  }
- function updateSelection(){
-  const alive=target&&['mob','dummy'].includes(target.kind)&&target.root.visible&&
-   target.hp>0&&!target.dead&&!target.corpse;
-  selectionRoot.visible=!!alive;
-  if(!alive)return;
-  const normal=toNormal(target.x,target.z,getRadius());
-  selectionRoot.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.24);
-  selectionRoot.quaternion.setFromUnitVectors(up,normal);
-  selection.material.color.setHex(distance(target)>3.45?0xd97456:0xe9db84);
-  selection.material.opacity=autoplay?.96:.85;
-  selection.scale.setScalar(target.kind==='dummy'?1.16:1);
- }
+ function updateSelection(){targetRing.update(target);}
  function addItem(id,qty=1){
   if(!ITEM_CATALOG[id]&&id!=='healingPotion')return false;
   const cap=itemStackLimit(id);
@@ -656,7 +641,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
  }
  const actions=[
-  ['targetNext',targetNearest],['interact',interact],
+  ['targetNext',()=>targetNearest(1)],['interact',interact],
   ['bag',()=>openWindow('bag')],['character',()=>openWindow('character')],
   ['journal',()=>openWindow('quests')],['questJournalOpen',()=>openWindow('quests')],
   ['spellbookButton',()=>{chooseSlot=-1;openWindow('spells')}],
@@ -697,7 +682,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   targetEntity(selected||null);
  });
- function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();updateSelection();draw();}
+ function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();targetRing.invalidate();updateSelection();draw();}
  function canMoveTo(x,z){
   const near=entities.filter(e=>['mentor','vendor','herbalist'].includes(e.kind)).some(e=>Math.hypot(x-e.x,z-e.z)<.8);
   if(near)return false;
