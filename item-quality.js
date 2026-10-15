@@ -10,7 +10,7 @@ export function itemRarity(rarity){
  return Object.prototype.hasOwnProperty.call(QUALITY_VISUALS,rarity)?rarity:'common';
 }
 export function highestLootRarity(items,catalog){
- let strongest='common',rank=0;
+ let strongest='common',rank=-1;
  for(const item of items||[]){
   const name=itemRarity(catalog?.[item?.id]?.rarity);
   const value=QUALITY_VISUALS[name].rank;
