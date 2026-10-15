@@ -111,7 +111,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const stats=()=>deriveStats(state.level,state.equipment);
  if(state.hp==null)state.hp=stats().maxHp;
  function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch{}}
- function msg(text,seconds=3){toast.textContent=text;toast.hidden=false;toast.classList.add('show');messageUntil=clock+seconds;}
+ function msg(text,seconds=2.35){
+  toast.textContent=text;toast.hidden=false;toast.classList.add('show');
+  messageUntil=clock+Math.min(4,Math.max(1,seconds));
+ }
  function setModelAt(entity){
   const normal=toNormal(entity.x,entity.z,getRadius());
   entity.root.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.09);
@@ -267,7 +270,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   // The production target cycle searches living hostiles within 40 m,
   // not nearby NPCs, collectibles or chests.
   const next=cycleHostileTarget(mobs,dummy,target,distance,step);
-  if(next){targetEntity(next);msg('Цель: '+next.name);}
+  if(next){targetEntity(next);}
   else if(!target)msg('В радиусе 40 м нет противников');
  }
  function nearestInteraction(){
@@ -304,7 +307,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function harm(enemy,damage,skill='autoAttack'){
   if(!enemy||!enemy.root.visible)return;
-  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);msg('Манекен: '+Math.round(damage)+' урона',1.2);draw();return;}
+  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);draw();return;}
   if(enemy.kind!=='mob'||enemy.dead)return;
   enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=HIT_REACTION_SECONDS;
   combatFeedback.hit(enemy,damage,skill);
@@ -334,7 +337,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!action)return msg('Пустая ячейка');
   const def=getAbilityDefinition(action.abilityId),d=target?distance(target):Infinity;
   if(action.id==='autoAttack'){
-   if(autoplay){autoplay=false;msg('Автоатака выключена');draw();return;}
+   if(autoplay){autoplay=false;draw();return;}
    // Match main NexGame: pressing autoattack can acquire a living hostile
    // even if the user hasn't clicked the target-cycle button yet.
    if(!target||target.hp<=0||target.dead||!target.root.visible){
@@ -344,7 +347,6 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    }
    if(distance(target)>20){msg('Цель слишком далеко — подойди на 20 м');draw();return;}
    autoplay=true;swing=0;
-   msg(distance(target)>3.45?'Автоатака: сближение с целью':'Автоатака включена');
    draw();return;
   }
   const ctx={runtime,classId:'warrior',level:state.level,resource:state.resource,
@@ -703,6 +705,6 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const n=Number(key);if(Number.isInteger(n)&&n>=1&&n<=8){useAbility(n-1);return true;}
   return false;
  }
- persist();draw();void updateEquipmentVisuals();msg('Офлайн RPG: выбери долгонога или поговори с наставником',5);
+ persist();draw();void updateEquipmentVisuals();
  return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,getAnimationState,draw,get state(){return state}};
 }
