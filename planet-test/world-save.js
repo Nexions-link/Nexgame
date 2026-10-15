@@ -15,7 +15,7 @@ export function validatePlanetView(raw,allowedRadii=[87,174,261]){
   heading:finite(raw.heading,-Math.PI*4,Math.PI*4,0),
   cameraHeading:finite(raw.cameraHeading,-Math.PI*4,Math.PI*4,0),
   cameraPitch:finite(raw.cameraPitch,-.15,1.22,.36),
-  zoom:finite(raw.zoom,6,32,13),
+  zoom:finite(raw.zoom,6,44,13),
   orbit:raw.orbit===true,
   orbitAngle:finite(raw.orbitAngle,-1000,1000,.45),
   orbitElevation:finite(raw.orbitElevation,-1.12,1.12,.34),
