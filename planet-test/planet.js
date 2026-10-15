@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
 import {createOfflineRpg} from './offline-rpg.js?v=3';
-import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=8';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=8';
 initStartZoneMath(THREE);
 
 // Reuse the exact iOS gesture protection already proven in the main game.
@@ -322,10 +322,11 @@ try {
     const currentName=inStartingZone?'Стартовая зона NexGame':NAMES[b];
     if(force||zoneName.textContent!==currentName){zoneName.textContent=currentName;zoneLabel.textContent=inStartingZone?'ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД':LABELS[b];}
     drawGlobe();
+    drawNativeMinimap();
   }
 
   const joystick = {x: 0, y: 0, pointer: null};
-  const base = $('stickBase'), thumb = $('stickThumb');
+  const base = $('stick'), thumb = $('nub');
   function updateStick(e) {
     const rect = base.getBoundingClientRect();
     const dx = e.clientX - rect.left - rect.width / 2;
@@ -354,7 +355,7 @@ try {
   window.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
     if (['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d'].includes(k)) {e.preventDefault(); keys.add(k);}
-    if(/^[1-8]$/.test(k)&&!e.repeat&&!document.querySelector('#rpgModal:not([hidden])')){
+    if(/^[1-8]$/.test(k)&&!e.repeat&&document.querySelector('#modal[hidden]')){
       e.preventDefault();rpg.handleSlotKey(k);
     }
   });
@@ -410,9 +411,13 @@ try {
     stars.visible = state.orbit;
     atmosphere.visible = state.orbit;
     scene.background = state.orbit ? skyNight : skyDay;
+    $('planetOrbitQuick').setAttribute('aria-pressed',String(state.orbit));
+    $('planetOrbitQuick').title=state.orbit?'Вернуться к персонажу':'Вся планета';
+    $('planetOrbitQuick').setAttribute('aria-label',$('planetOrbitQuick').title);
     updateCameraClipping();
     cameraSnap = true;
   });
+  $('planetOrbitQuick').addEventListener('click',()=>orbitButton.click());
   const zoomButton = $('zoomButton');
   function updateZoomLabel() {zoomButton.textContent = '🔭 Камера: ' + (state.zoom > 19 ? 'далеко' : 'близко');}
   zoomButton.addEventListener('click', () => {
@@ -455,6 +460,32 @@ try {
   setRadius(BASE_RADIUS);
   stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
 
+  // Original NexGame mini-map frame/canvas, now mapped to tangent metres on the sphere.
+  const nativeMap=$('minimap'),nativeCtx=nativeMap.getContext('2d');
+  function drawNativeMinimap(){
+    if(!nativeCtx)return;
+    const ctx=nativeCtx,size=240,scale=3.8;
+    const center=normalToLocal(state.normal,R);
+    ctx.clearRect(0,0,size,size);
+    ctx.fillStyle='#798755';ctx.fillRect(0,0,size,size);
+    ctx.save();ctx.translate(size/2,size/2);
+    ctx.translate(-center.x*scale,-center.z*scale);
+    ctx.fillStyle='#59734c';
+    ctx.beginPath();ctx.ellipse(30*scale,26*scale,17.2*scale,12.5*scale,0,0,TAU);ctx.fill();
+    ctx.fillStyle='#6098a5';
+    ctx.beginPath();ctx.ellipse(30*scale,26*scale,16.4*scale,11.7*scale,0,0,TAU);ctx.fill();
+    ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#c0ab76';ctx.lineWidth=8;
+    for(const route of ROUTES){
+      ctx.beginPath();route.forEach(([x,z],i)=>i?ctx.lineTo(x*scale,z*scale):ctx.moveTo(x*scale,z*scale));ctx.stroke();
+    }
+    ctx.fillStyle='#8d6541';ctx.fillRect(-37*scale,-12*scale,20*scale,21*scale);
+    ctx.fillStyle='#f8df88';
+    for(const [x,z] of [[-1.5,-5],[6,11]]){ctx.beginPath();ctx.arc(x*scale,z*scale,4,0,TAU);ctx.fill();}
+    ctx.restore();
+    ctx.fillStyle='#fff2bb';ctx.strokeStyle='#342916';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(size/2,size/2,6,0,TAU);ctx.fill();ctx.stroke();
+    $('mapLabel').textContent=center.d<82?'Лагерь Нараче':'Сферический мир';
+  }
   const globeCanvas = $('miniglobe');
   const gctx = globeCanvas.getContext('2d');
   function drawGlobe() {
