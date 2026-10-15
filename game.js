@@ -1,23 +1,23 @@
-import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.5';
-import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.5';
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.5';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.5';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.5';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.5';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.5';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.5';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.5';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.5';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.5';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.5';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.5';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.5';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.5';
+import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.6';
+import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.6';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.6';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.6';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.6';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.6';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.6';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.6';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.6';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.6';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.6';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.6';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.6';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.6';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.6';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.5';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.5';
-import {projectPartyMember} from './party-map.js?v=0.3.6.5';
+import {createWorldPresence} from './online.js?v=0.3.6.6';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.6';
+import {projectPartyMember} from './party-map.js?v=0.3.6.6';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -783,7 +783,7 @@ void attachDaggerAsset(hero);
 // Two shield poses are independent, in localStorage only; never touch inventory.
 const shieldTuning=Object.fromEntries(SHIELD_TUNER_VARIANTS.map(kind=>{
  let input=null;try{input=JSON.parse(localStorage.getItem(shieldTunerStorageKey(kind)))}catch{}
- return [kind,normalizeShieldTuning(input)];
+ return [kind,normalizeShieldTuning(input,kind)];
 }));
 let shieldPreview=null,shieldTunerKind='round';
 const shieldTunerPanel=$('shieldTuner'),shieldTunerFields=new Map();
@@ -819,11 +819,11 @@ for(const section of SHIELD_TUNER_GROUPS){
   slider.min=spec.min;slider.max=spec.max;slider.step=spec.step;
   slider.setAttribute('aria-label',section.title+' · '+spec.label);
   slider.addEventListener('input',()=>{
-   shieldTuning[shieldTunerKind]=normalizeShieldTuning({...shieldTuning[shieldTunerKind],[key]:Number(slider.value)});
+   shieldTuning[shieldTunerKind]=normalizeShieldTuning({...shieldTuning[shieldTunerKind],[key]:Number(slider.value)},shieldTunerKind);
    applyShieldTransform(hero.root,shieldTunerKind);
    if(characterView?.actor)applyShieldTransform(characterView.actor.root,
     shieldModelForRarity(ITEM_CATALOG[state.equipment.shield?.id]?.rarity));
-   try{localStorage.setItem(shieldTunerStorageKey(shieldTunerKind),serializeShieldTuning(shieldTuning[shieldTunerKind]))}catch{}
+   try{localStorage.setItem(shieldTunerStorageKey(shieldTunerKind),serializeShieldTuning(shieldTuning[shieldTunerKind],shieldTunerKind))}catch{}
    refreshShieldTuner();
    $('shieldTunerStatus').textContent='Сохранено на устройстве';
   });
@@ -851,13 +851,13 @@ $('shieldTunerClose').addEventListener('click',closeShieldTuner);
 $('shieldTunerCollapse').addEventListener('click',()=>shieldTunerPanel.classList.toggle('axe-tuner-collapsed'));
 $('shieldTunerSide').addEventListener('click',()=>shieldTunerPanel.classList.toggle('axe-tuner-left'));
 $('shieldTunerReset').addEventListener('click',()=>{
- shieldTuning[shieldTunerKind]={...SHIELD_TUNER_DEFAULTS};
+ shieldTuning[shieldTunerKind]={...SHIELD_TUNER_DEFAULTS[shieldTunerKind]};
  try{localStorage.removeItem(shieldTunerStorageKey(shieldTunerKind))}catch{}
  refreshShieldTuner();syncEquipmentVisuals();
  $('shieldTunerExport').hidden=true;$('shieldTunerStatus').textContent='Сброшен только выбранный щит';
 });
 $('shieldTunerCopy').addEventListener('click',async()=>{
- const value=serializeShieldTuning(shieldTuning[shieldTunerKind]);
+ const value=serializeShieldTuning(shieldTuning[shieldTunerKind],shieldTunerKind);
  try{
   if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
   await navigator.clipboard.writeText(value);$('shieldTunerStatus').textContent='JSON скопирован';
