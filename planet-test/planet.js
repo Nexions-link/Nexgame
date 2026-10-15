@@ -376,10 +376,10 @@ try {
     const last = touches.get(e.pointerId);
     if (touches.size === 1) {
       if (state.orbit) {
-        // Globe "grab" direction: drag the surface to the same screen side
-        // as the finger, instead of navigating an inverted orbit camera.
+        // Horizontal orbit is intentionally reversed to match perceived globe motion.
+        // Keep the vertical drag direction unchanged, as requested.
         const dragX=e.clientX-last.x, dragY=e.clientY-last.y;
-        state.orbitAngle += dragX * .006;
+        state.orbitAngle -= dragX * .006;
         state.orbitElevation = clamp(state.orbitElevation + dragY * .0045, -1.12, 1.12);
       } else {
         state.cameraHeading -= (e.clientX - last.x) * .007;
