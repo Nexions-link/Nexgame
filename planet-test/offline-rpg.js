@@ -737,10 +737,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  });
  function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();targetRing.invalidate();stompEffect.invalidate();updateSelection();draw();}
  function canMoveTo(x,z){
-  // One source of truth used by player, wildlife and camera obstruction.
-  // NPCs have small personal-space circles but do not get treated as terrain.
-  if(!canWalkCamp(x,z))return false;
-  return !citizens.some(entity=>Math.hypot(x-entity.x,z-entity.z)<.75);
+  // Friendly NPCs are interaction targets, not physical colliders in the
+  // main NexGame. Use the shared geometry for houses, furniture and nature.
+  return canWalkCamp(x,z);
  }
  function getApproachTarget(){
   if(!autoplay||modal.hidden===false||camp.casting||state.hp<=0)return null;
