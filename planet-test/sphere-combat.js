@@ -11,6 +11,14 @@ export function sphericalForwardFacing(THREE,heroNormal,heroRoot,enemyNormal){
  if(tangent.lengthSq()<1e-12)return false;
  return facing.dot(tangent.normalize())>=0;
 }
+// The native warrior swing only lands within the front hemisphere
+// (at least 0.04 forward cosine), calculated in the radial tangent frame.
+export function sphericalMeleeFacing(THREE,heroNormal,heroRoot,enemyNormal,minimumCos=.04){
+ const forward=new THREE.Vector3(0,0,1).applyQuaternion(heroRoot.quaternion);
+ const toward=new THREE.Vector3().copy(enemyNormal).addScaledVector(heroNormal,-enemyNormal.dot(heroNormal));
+ if(toward.lengthSq()<1e-12)return true;
+ return forward.dot(toward.normalize())>=minimumCos;
+}
 export function incomingShieldHit({THREE,heroNormal,heroRoot,enemyNormal,stats,raw,attackerLevel=1,rng=Math.random}){
  const hasShield=(stats?.blockChance||0)>0;
  const front=hasShield?sphericalForwardFacing(THREE,heroNormal,heroRoot,enemyNormal):false;
