@@ -19,6 +19,7 @@ function harness(overrides={}){
  const messages=[];let saved=0,visuals=0,updates=0;
  const env={
   state,ITEM_CATALOG,
+  autoSwingClock:{reset(){}},
   inCombat:()=>combat,
   msg:message=>messages.push(message),
   playerStats:()=>deriveStats(state.level,state.equipment),
