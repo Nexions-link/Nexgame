@@ -12,6 +12,7 @@ import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=2';
 import {createCampActions} from './camp-actions.js?v=3';
+import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=2';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -244,15 +245,22 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   draw();
  }
  function targetEntity(entity){
-  if(entity?.kind==='mob'&&entity.dead&&!entity.corpse)return;
+  if(entity&&!['mob','dummy'].includes(entity.kind))entity=null;
+  if(entity&&(entity.hp<=0||entity.dead||!entity.root.visible))entity=null;
+  if(target!==entity)autoplay=false;
   target=entity;
   draw();
  }
- function targetNearest(){
-  const nearest=entities.filter(x=>x.root.visible&&!(x.kind==='mob'&&x.dead&&!x.corpse))
-   .map(x=>({entity:x,d:distance(x)})).filter(x=>x.d<18).sort((a,b)=>a.d-b.d)[0];
-  if(nearest){targetEntity(nearest.entity);msg('Цель: '+nearest.entity.name);}
-  else msg('Рядом никого нет');
+ function targetNearest(step=1){
+  if(!modal.hidden)return;
+  // The production target cycle searches living hostiles within 40 m,
+  // not nearby NPCs, collectibles or chests.
+  const next=cycleHostileTarget(mobs,dummy,target,distance,step);
+  if(next){targetEntity(next);msg('Цель: '+next.name);}
+  else if(!target)msg('В радиусе 40 м нет противников');
+ }
+ function nearestInteraction(){
+  return nearbyInteractable(entities,distance,camp.available);
  }
  function openWindow(kind){
   if(kind!=='gatherLoot')camp.cancel();
@@ -260,19 +268,20 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function closeWindow(){modal.hidden=true;}
  function interact(){
-  if(!target)return targetNearest();
-  if(distance(target)>(target.kind==='gather'?2.8:target.kind==='chest'?OFFLINE_CHEST.range:4.5))return msg('Подойди ближе к цели');
-  if(camp.interact(target)){draw();return;}
-  if(target.kind==='mentor'){
+  if(!modal.hidden||camp.casting)return;
+  // Approach alone enables NPC dialogue, gathering, storage and corpse loot.
+  // It never requires a selected combat target.
+  const nearby=nearestInteraction();
+  if(!nearby)return msg('Подойди к жителю или предмету ближе');
+  if(camp.interact(nearby)){draw();return;}
+  if(nearby.kind==='mentor'){
    if(state.quest==='available'){state.quest='active';persist();msg('Задание: победить 3 долгоногов');}
    else if(state.quest==='ready'){
     state.quest='completed';state.gold+=10;state.xp+=45;persist();levelCheck();msg('Задание выполнено! +10 монет, +45 опыта');
    }else msg(state.quest==='active'?'Победи долгоногов: '+state.kills+'/3':'Спасибо за помощь!');
    openWindow('quests');
-  }else if(target.kind==='vendor')openWindow('merchant');
-  else if(target.kind==='mob'&&target.corpse)lootMob(target);
-  else if(target.kind==='dummy')msg('Тренировочный манекен: бей для проверки урона');
-  else msg('Используй способности на панели');
+  }else if(nearby.kind==='vendor')openWindow('merchant');
+  else if(nearby.kind==='mob'&&nearby.corpse)lootMob(nearby);
   draw();
  }
  function levelCheck(){
@@ -341,7 +350,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('combatState').textContent=autoplay?'Автоатака':'Готов к бою';
   $('xpFill').style.width=Math.min(100,state.xp/(state.level*100)*100)+'%';
   $('xpText').textContent='Опыт '+state.xp+' / '+(state.level*100);
-  const hostile=target&&['mob','dummy'].includes(target.kind);
+  const hostile=target&&['mob','dummy'].includes(target.kind)&&target.root.visible&&target.hp>0&&!target.dead;
   $('targetFrame').hidden=!hostile;$('targetPlaceholder').hidden=!!hostile;
   if(hostile){
     $('targetName').textContent=target.name;
@@ -357,13 +366,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   objective.textContent=questText;
   $('qtitle').textContent='Испытание охотника';$('mainQuestTracker').hidden=state.quest==='completed';
   $('quest-progress').textContent=state.quest==='active'?'Прогресс: '+state.kills+' / 3':'Одиночное задание';
-  const canInteract=!!target&&target.root.visible&&distance(target)<
-    (target.kind==='gather'?2.8:target.kind==='chest'?OFFLINE_CHEST.range:5.5);
-  $('interact').hidden=!canInteract;
-  if(canInteract)$('interact').textContent=target.kind==='gather'?'Собрать':
-    target.kind==='chest'?'Открыть сундук':target.corpse?'Забрать добычу':
-    target.kind==='mentor'||target.kind==='herbalist'?'Поговорить':
-    target.kind==='vendor'?'Торговец':'Взаимодействие';
+  const nearby=modal.hidden&&!camp.casting?nearestInteraction():null;
+  $('interact').hidden=!nearby;
+  if(nearby)$('interact').textContent=nearby.kind==='gather'?
+    (nearby.pending?'Забрать':'Собрать'):nearby.kind==='chest'?'Открыть сундук':
+    nearby.kind==='mob'?'Обыскать':nearby.kind==='vendor'?'Торговец':'Поговорить';
+  $('targetNext')?.classList.toggle('target-selected',!!target&&target.hp>0&&!target.dead);
   if(refreshInteractive){
   hotbar.replaceChildren();
   state.hotbar.forEach((entry,i)=>{
@@ -544,7 +552,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!modal.hidden)return;
   const shortcut={i:'bag',c:'character',j:'quests',b:'spells'};
   if(shortcut[key]&&!e.repeat){openWindow(shortcut[key]);e.preventDefault();}
-  if(key==='tab'){targetNearest();e.preventDefault();}
+  if(key==='tab'){targetNearest(e.shiftKey?-1:1);e.preventDefault();}
   if(key==='e'){interact();e.preventDefault();}
  });
  // Tap actors by their actual Three.js shapes; ordinary terrain taps clear selection.
@@ -562,11 +570,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const intersects=picker.intersectObjects(roots,true);
   const hit=intersects.find(v=>v.distance<100)?.object;
   const selected=hit?visible.find(o=>{let p=hit;while(p){if(p===o.root)return true;p=p.parent;}return false;}):null;
+  if(selected?.kind==='mob'&&selected.corpse){
+   if(distance(selected)<=3.1)lootMob(selected);
+   return;
+  }
   targetEntity(selected||null);
  });
  function resetWorldTransforms(){for(const e of entities)setModelAt(e);draw();}
  function canMoveTo(x,z){
-  const near=entities.filter(e=>e.kind==='mentor'||e.kind==='vendor').some(e=>Math.hypot(x-e.x,z-e.z)<.8);
+  const near=entities.filter(e=>['mentor','vendor','herbalist'].includes(e.kind)).some(e=>Math.hypot(x-e.x,z-e.z)<.8);
   if(near)return false;
   for(const [tx,tz,r] of [[11,-7,3.6],[-15,12,3.3],[13,16,2.9],[-23,-15,2.6]])
    if(Math.hypot(x-tx,z-tz)<r)return false;
