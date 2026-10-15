@@ -1,6 +1,8 @@
 // Test-only spherical copies of the main NexGame gathering resources.
 // Quest locations and timings mirror game.js (main), but all objects remain
 // in this independent offline scene and do not write to the production save.
+import {lakeRadius} from './start-zone.js?v=9';
+
 export const GATHER_QUESTS=[
  null,
  {title:'Цветы равнин',item:'meadowFlower',count:4,gold:12,xp:35,
@@ -29,6 +31,16 @@ export function createGatherWorld({THREE,parent,place}){
     spark: new THREE.MeshBasicMaterial({color:'#faeabd'})
   };
   const nodes=[];
+  // The spherical lake has real depth. Nudge shore-side resources onto solid
+  // ground if their original flat-map coordinates land under the water surface.
+  function onDryGround(x,z){
+    let tries=0;
+    while(lakeRadius(x,z)<1.23 && tries++<30){
+      const dx=x-30,dz=z-26,length=Math.max(.1,Math.hypot(dx,dz));
+      x+=dx/length;z+=dz/length;
+    }
+    return [x,z];
+  }
   function obj(group,shape,mat,x,y,z,sx=1,sy=1,sz=1){
     const mesh=new THREE.Mesh(shape,mat);mesh.position.set(x,y,z);
     mesh.scale.set(sx,sy,sz);group.add(mesh);return mesh;
@@ -37,7 +49,8 @@ export function createGatherWorld({THREE,parent,place}){
   const cone=new THREE.ConeGeometry(1,1,8);
   const cyl=new THREE.CylinderGeometry(1,1,1,7);
   for(let stage=1;stage<=3;stage++){
-    GATHER_QUESTS[stage].locations.forEach(([x,z],index)=>{
+    GATHER_QUESTS[stage].locations.forEach(([baseX,baseZ],index)=>{
+      const [x,z]=onDryGround(baseX,baseZ);
       const group=new THREE.Group();group.name='gather-'+stage+'-'+index;parent.add(group);
       if(stage===1){
         obj(group,cyl,mats.stem,0,.20,0,.035,.4,.035);
