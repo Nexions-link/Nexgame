@@ -971,7 +971,7 @@ function updateHerbalistMarker(){
 }
 const relic=group(scene,35,heightAt(35,-14)+1.7,-11.8);const featherMat=material(0x79c8ba,{emissive:0x2c5b45,emissiveIntensity:.5});ell(relic,featherMat,0,.15,0,.18,.48,.08);rod(relic,M.bone,[0,-.4,0],[0,.53,0],.025);const relicShadow=contactShadow(1);
 // Lightweight wildlife: animated joint groups, no skinned meshes or animation files.
-function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
+function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,stunned:0,attackCd:0,attackWindup:0,returning:false,alertRemaining:0,phase:index,roamTime:rand()*8,index}}
 const enemies=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]].map(([x,z],i)=>makePlainstrider(x,z,i));
 for(const enemy of enemies){enemy.name='Равнинный долгоног';enemy.baseScale=1;enemy.boss=false}
 const giant=makePlainstrider(BOSS_X,BOSS_Z,enemies.length);
@@ -983,6 +983,20 @@ giant.nameTag=spriteText('Грозоклюв · Исполин','#f9bd91',27);
 giant.nameTag.scale.set(4.7,.84,1);scene.add(giant.nameTag);
 giant.nameTag.position.set(BOSS_X,heightAt(BOSS_X,BOSS_Z)+4.65,BOSS_Z);
 enemies.push(giant);
+// Low-cost aggro marker, visible briefly when a wild creature notices a player.
+for(const e of enemies){
+ const alert=spriteText('!','#ffc978',78);
+ alert.scale.set(1.55,1.4,1);alert.visible=false;scene.add(alert);
+ e.alertTag=alert;
+}
+function animateMobAlert(e,dt){
+ e.alertRemaining=Math.max(0,(e.alertRemaining||0)-dt);
+ if(!e.alertTag)return;
+ e.alertTag.visible=e.dead<=0&&e.alertRemaining>0;
+ if(e.alertTag.visible)e.alertTag.position.set(e.root.position.x,
+  heightAt(e.root.position.x,e.root.position.z)+(e.boss?5.9:3.6)+Math.sin(clock*7)*.08,
+  e.root.position.z);
+}
 // Every confirmed hit (including other players' hits) uses this same
 // lightweight presentation layer. The world server remains authoritative.
 const combatFeedback=createCombatFeedback({THREE,document,camera,layer:$('combatFeedback')});
@@ -1935,7 +1949,7 @@ function resetWorld(){
  abilityRuntime.gcd=0;abilityRuntime.cooldowns=Object.create(null);autoSwingClock.reset();swingAbilityId='autoAttack';
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
-  e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;
+  e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;e.attackWindup=0;e.returning=false;e.alertRemaining=0;
   e.root.visible=true;e.shadow.visible=true;
   e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
@@ -3268,7 +3282,7 @@ function showWorldNetworkStatus(){
 function resetSharedMobAppearance(e){
  e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
  refreshLootMarkerQuality(e);
- e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
+ e.aggro=false;e.stunned=0;e.attackCd=0;e.attackWindup=0;e.returning=false;e.alertRemaining=0;e.hit=0;
  e.root.visible=e.shadow.visible=true;
  e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
  e.legs[0].rotation.x=e.legs[1].rotation.x=0;
@@ -3290,8 +3304,14 @@ function syncSharedMobState(e,row){
  if(!row.dead&&e.serverDead)resetSharedMobAppearance(e);
  e.serverDead=row.dead;
  e.hp=row.hp;e.maxHp=row.maxHp;
+ if(row.aggroId&&!e.serverAggroId)e.alertRemaining=1.05;
  e.serverAggroId=row.aggroId;
  e.aggro=!!row.aggroId&&row.aggroId===onlineSelfId;
+ e.returning=!!row.returning;
+ if(Number.isInteger(row.attackSeq)&&row.attackSeq!==e.serverAttackSeq){
+  if(e.serverAttackSeq!==undefined)e.attackCd=e.boss?1.8:1.5;
+  e.serverAttackSeq=row.attackSeq;
+ }
  if(row.stunned)e.stunned=Math.max(e.stunned,.18);
 }
 function updateSharedMobTargets(snapshot){
@@ -3312,7 +3332,8 @@ function updateSharedMobTargets(snapshot){
   next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw,
    phase:Number.isFinite(row.phase)?row.phase:null,
    hp:row.hp,maxHp:row.maxHp,life:row.life,dead:row.dead,
-   aggroId:row.aggroId,stunned:row.stunned});
+   aggroId:row.aggroId,stunned:row.stunned,attackSeq:row.attackSeq,
+    returning:row.returning});
  }
  if(next.size!==SHARED_MOB_COUNT){
   sharedMobsConnected=false;worldCombatReady=false;sharedMobTargets.clear();
@@ -3360,6 +3381,7 @@ function animateSharedMob(e,dt,target){
  e.body.rotation.x=(e.attackCd>1.15?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0)-.25*recoil;
  e.body.rotation.z=(e.stunned>0?Math.sin(clock*8)*.08:0)+.13*recoil;
  advancePlainstriderVisual(THREE,e,dt,moved);
+ animateMobAlert(e,dt);
  e.shadow.position.set(p.x,p.y+.055,p.z);
  if(e.boss&&e.nameTag){
   e.nameTag.visible=true;e.nameTag.position.set(p.x,p.y+4.65,p.z);
@@ -3375,6 +3397,7 @@ function animateSharedCorpse(e,dt,target){
  e.legs[0].rotation.x=-.55*fall;e.legs[1].rotation.x=.3*fall;
  e.body.rotation.x=0;e.body.rotation.z=0;
  advancePlainstriderVisual(THREE,e,dt,0,true);
+ animateMobAlert(e,dt);
  e.shadow.position.set(p.x,heightAt(p.x,p.z)+.055,p.z);
  if(e.boss&&e.nameTag)e.nameTag.visible=false;
  if(e.lootMarker.visible){
@@ -3442,13 +3465,13 @@ function applyMobAttack(event,selfId){
  const enemy=enemies[event?.mobId];
  if(!enemy||enemy.trainingDummy||enemy.serverLife!==event.life)return;
  if(event.targetId!==selfId){
-  enemy.attackCd=enemy.boss?1.8:1.5;return;
+  if(enemy.attackCd<=.15)enemy.attackCd=enemy.boss?1.8:1.5;return;
  }
  // Ignore combat packets generated at the corpse's old coordinates before
  // the world server has acknowledged the instantaneous respawn teleport.
  if(respawnPending||performance.now()<respawnGraceUntil||
     Math.hypot(state.x-enemy.root.position.x,state.z-enemy.root.position.z)>(enemy.boss?4.4:3.4))return;
- enemy.attackCd=enemy.boss?1.8:1.5;
+ if(enemy.attackCd<=.15)enemy.attackCd=enemy.boss?1.8:1.5;
  const amount=enemy.boss?14:9;
  lastCombatAt=clock;
  const suffered=incomingDamage(enemy,amount);
@@ -3795,13 +3818,14 @@ function updateEnemy(e,dt){
   e.legs[0].rotation.x=-.55*fall;
   e.legs[1].rotation.x=.3*fall;
   advancePlainstriderVisual(THREE,e,dt,0,true);
+  animateMobAlert(e,dt);
   if(e.lootMarker.visible){
    e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.1+Math.sin(clock*3.6)*.13,e.root.position.z);
   }
   if(e.dead<=0){
    e.dead=0;e.corpseAge=0;e.hp=e.maxHp;e.loot=[];
    e.lootMarker.visible=false;e.root.visible=e.shadow.visible=true;if(e.boss&&e.nameTag)e.nameTag.visible=true;
-   e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
+   e.aggro=false;e.stunned=0;e.attackCd=0;e.attackWindup=0;e.returning=false;e.alertRemaining=0;e.hit=0;
    e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
    e.legs[0].rotation.x=e.legs[1].rotation.x=0;
    resetPlainstriderVisual(e);
@@ -3832,6 +3856,7 @@ function updateEnemy(e,dt){
  e.body.rotation.x=(e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0)-.25*recoil;
  e.body.rotation.z=(e.stunned>0?Math.sin(clock*8)*.08:0)+.13*recoil;
  advancePlainstriderVisual(THREE,e,dt,moved);
+ animateMobAlert(e,dt);
  e.shadow.position.set(p.x,p.y+.055,p.z);
 }
 // After leaving combat, health gradually returns without consuming potions.
