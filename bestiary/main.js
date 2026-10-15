@@ -6,8 +6,7 @@ import {isDolgonogRig,applyOriginalDolgonogEdits} from './original-edits.js';
 const $=id=>document.getElementById(id);
 const entry=CREATURES[0];
 let model=null,source='procedural',imported=null,mixer=null,playing='idle',clock=0;
-let selectedVersion='0.2-ref';
-const draftKey=()=>DRAFT_KEY+'-v'+selectedVersion;
+const draftKey=()=>DRAFT_KEY+'-v0.1';
 let currentLoad=0;
 let params={...DEFAULT_DOLGONOG},dirty=false,rendered=false;
 const canvas=$('viewerCanvas'),wrap=$('canvasWrap'),msg=$('fileFeedback');
@@ -98,15 +97,14 @@ function resetView(){
 function showSource(){
  const official=source==='glb'&&imported?.origin==='official';
  const local=source==='glb'&&imported?.origin==='local';
- $('viewerSource').textContent=official?'АВТОРСКИЙ GLB · v'+selectedVersion:
+ $('viewerSource').textContent=official?'ОРИГИНАЛ · GLB v0.1':
   local?'ЗАГРУЖЕННЫЙ GLB · ЛОКАЛЬНО':'РЕЗЕРВНАЯ РЕКОНСТРУКЦИЯ';
  $('factSource').textContent=official?'Авторский GLB из чата «Работа»':
   local?'Локальный файл GLB':'Резервная процедурная модель';
  $('triangleCount').textContent=model?countTriangles(model.root).toLocaleString('ru-RU')+' треуг.':'—';
  $('animationCount').textContent=source==='glb'?(imported?.animations.length??0)+' (GLB)':3;
- $('currentVersion').textContent=official?'ДОЛГОНОГ · v'+selectedVersion:local?'ЛОКАЛЬНЫЙ GLB':'РЕЗЕРВНАЯ МОДЕЛЬ';
- document.querySelectorAll('[data-version]').forEach(button=>{const active=button.dataset.version===selectedVersion;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active))});
- $('factVersion').textContent='v'+selectedVersion+' · '+(official?'авторский GLB':'мастерская');
+ $('currentVersion').textContent=official?'ОРИГИНАЛ · v0.1':local?'ЛОКАЛЬНЫЙ GLB':'РЕЗЕРВНАЯ МОДЕЛЬ';
+ $('factVersion').textContent='v0.1 · '+(official?'авторский GLB':'мастерская');
  const locked=source==='glb'&&!imported?.editable;
  document.querySelectorAll('[data-scalar],[data-color]').forEach(el=>{el.disabled=locked});
  $('saveDraft').disabled=locked;
@@ -160,8 +158,7 @@ async function installGlb(buffer,{origin='official',filename='dolgonog-v0.1.glb'
 async function loadOfficialGlb(){
  const run=++currentLoad;
  try{
-  const loadingVersion=selectedVersion;
-  const url='./models/dolgonog-v'+loadingVersion+'.glb?v=0.2.1';
+  const url='./models/dolgonog-v0.1.glb?v=0.1.2';
   const response=await fetch(url,{cache:'no-cache'});
   if(!response.ok)throw Error('HTTP '+response.status);
   const buffer=await response.arrayBuffer();
@@ -170,7 +167,7 @@ async function loadOfficialGlb(){
    throw Error('Неверный заголовок GLB');
   const result=await installGlb(buffer,{origin:'official',token:run});
   if(!result)return;
-  notify('Долгоног v'+selectedVersion+' загружен: '+humanBytes(buffer.byteLength)+
+  notify('Оригинальный долгоног загружен: '+humanBytes(buffer.byteLength)+
    ', '+result.triangles.toLocaleString('ru-RU')+' треугольников и '+
    result.animations+' анимации. Черновик можно редактировать.');
  }catch(error){
@@ -211,7 +208,7 @@ document.querySelectorAll('[data-color]').forEach(input=>input.addEventListener(
 }));
 $('saveDraft').addEventListener('click',()=>{
  if(source==='glb'&&!imported?.editable)return;
- try{localStorage.setItem(draftKey(),JSON.stringify(params));dirty=false;syncInputs();notify('Черновик долгонога v'+selectedVersion+' сохранён в этом браузере.')}
+ try{localStorage.setItem(draftKey(),JSON.stringify(params));dirty=false;syncInputs();notify('Черновик долгонога сохранён в этом браузере.')}
  catch(error){notify('Сохранение недоступно. Проверь разрешения браузера.',true)}
 });
 $('resetDraft').addEventListener('click',()=>{
@@ -222,7 +219,7 @@ $('resetDraft').addEventListener('click',()=>{
  notify('Сброшены правки. Исходная модель долгонога сохранена.');
 });
 $('copySettings').addEventListener('click',async()=>{
- const json=JSON.stringify({id:entry.id,version:selectedVersion,params},null,2);
+ const json=JSON.stringify({id:entry.id,version:'0.1',params},null,2);
  try{
   if(navigator.clipboard&&window.isSecureContext)await navigator.clipboard.writeText(json);
   else{
@@ -273,15 +270,6 @@ function frame(t){
 const observer=new ResizeObserver(fitView);observer.observe(wrap);
 window.addEventListener('resize',fitView);
 installProcedural();playAnimation('idle');fitView();resetView();
-document.querySelectorAll('[data-version]').forEach(button=>button.addEventListener('click',()=>{
- if(button.dataset.version===selectedVersion)return;
- selectedVersion=button.dataset.version;
- params={...DEFAULT_DOLGONOG};
- try{params=normalizeCreatureParams(JSON.parse(localStorage.getItem(draftKey())),DEFAULT_DOLGONOG)}catch(e){}
- dirty=false;syncInputs();showSource();
- notify('Переключаем долгонога на v'+selectedVersion+'…');
- loadOfficialGlb();
-}));
 requestAnimationFrame(frame);loadOfficialGlb();
 // Local GLB import does not write the repository or access an external upload server.
 $('glbUpload').addEventListener('change',async event=>{

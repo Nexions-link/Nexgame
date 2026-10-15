@@ -7,6 +7,8 @@ on:
     branches: [main]
     paths:
       - 'app.html'
+      - 'plainstrider-model.js'
+      - 'tests/plainstrider-model.test.mjs'
       - 'bestiary/**'
       - 'tests/bestiary.test.mjs'
       - 'server/**'
@@ -14,6 +16,8 @@ on:
   pull_request:
     paths:
       - 'game.js'
+      - 'plainstrider-model.js'
+      - 'tests/plainstrider-model.test.mjs'
       - 'bestiary/**'
       - 'tests/bestiary.test.mjs'
       - 'movement-controls.js'
@@ -62,6 +66,8 @@ jobs:
       - name: Syntax check client and server
         run: |
           node --check game.js
+          node --check plainstrider-model.js
+          node --check tests/plainstrider-model.test.mjs
           node --check bestiary/main.js
           node --check bestiary/dolgonog.js
           node --check bestiary/catalog.js
@@ -88,5 +94,5 @@ jobs:
         run: npm install --prefix server --no-audit --no-fund
       - name: Test private chat, party map, PvE and real WebSocket sessions
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs tests/bestiary.test.mjs
+          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs tests/bestiary.test.mjs tests/plainstrider-model.test.mjs
           npm test --prefix server

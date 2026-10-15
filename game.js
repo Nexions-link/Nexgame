@@ -1,12 +1,13 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.41';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.41';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.41';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.41';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.42';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.42';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.42';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.42';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.42';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.41';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.41';
-import {projectPartyMember} from './party-map.js?v=0.3.5.41';
+import {createWorldPresence} from './online.js?v=0.3.5.42';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.42';
+import {projectPartyMember} from './party-map.js?v=0.3.5.42';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -521,6 +522,23 @@ function makeTrainingDummy(){
 }
 const trainingDummy=makeTrainingDummy();
 enemies.push(trainingDummy);
+// Load the ONE original GLB and share its geometry/material between all
+// wild dolgonogs and the scaled-up boss. Gameplay starts immediately;
+// procedural meshes stay available as a fallback if loading fails offline.
+async function loadOriginalDolgonogs(){
+ try{
+  const {GLTFLoader}=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js');
+  const gltf=await new GLTFLoader().loadAsync(PLAINSTRIDER_GLB);
+  if(!validatePlainstriderGltf(gltf))throw Error('Unexpected dolgonog rig/animations');
+  for(const enemy of enemies)if(!enemy.trainingDummy){
+   attachPlainstriderGltf(THREE,enemy,gltf);
+   advancePlainstriderVisual(THREE,enemy,0,0,enemy.dead>0);
+  }
+ }catch(error){
+  console.warn('Original Dolgonog GLB unavailable; keeping procedural fallback:',error);
+ }
+}
+void loadOriginalDolgonogs();
 const CORPSE_DURATION=65,CORPSE_FALL_TIME=.85,LOOT_INTERACT_RANGE=3.3;
 const corpseLootTexture=texture((c,size)=>{
  c.clearRect(0,0,size,size);
@@ -2555,6 +2573,7 @@ function resetSharedMobAppearance(e){
  e.root.visible=e.shadow.visible=true;
  e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
  e.legs[0].rotation.x=e.legs[1].rotation.x=0;
+ resetPlainstriderVisual(e);
  if(e.boss&&e.nameTag)e.nameTag.visible=true;
 }
 function syncSharedMobState(e,row){
@@ -2639,6 +2658,7 @@ function animateSharedMob(e,dt,target){
  e.body.position.y=1.23+Math.abs(stride)*.025*power;
  e.body.rotation.x=e.attackCd>1.15?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;
  e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
+ advancePlainstriderVisual(THREE,e,dt,moved);
  e.shadow.position.set(p.x,p.y+.055,p.z);
  if(e.boss&&e.nameTag){
   e.nameTag.visible=true;e.nameTag.position.set(p.x,p.y+4.65,p.z);
@@ -2653,6 +2673,7 @@ function animateSharedCorpse(e,dt,target){
  p.y=heightAt(p.x,p.z)+.13*fall;
  e.legs[0].rotation.x=-.55*fall;e.legs[1].rotation.x=.3*fall;
  e.body.rotation.x=0;e.body.rotation.z=0;
+ advancePlainstriderVisual(THREE,e,dt,0,true);
  e.shadow.position.set(p.x,heightAt(p.x,p.z)+.055,p.z);
  if(e.boss&&e.nameTag)e.nameTag.visible=false;
  if(e.lootMarker.visible){
@@ -3028,6 +3049,7 @@ function updateEnemy(e,dt){
   e.root.position.y=heightAt(e.root.position.x,e.root.position.z)+.13*fall;
   e.legs[0].rotation.x=-.55*fall;
   e.legs[1].rotation.x=.3*fall;
+  advancePlainstriderVisual(THREE,e,dt,0,true);
   if(e.lootMarker.visible){
    e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.1+Math.sin(clock*3.6)*.13,e.root.position.z);
   }
@@ -3037,6 +3059,7 @@ function updateEnemy(e,dt){
    e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
    e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
    e.legs[0].rotation.x=e.legs[1].rotation.x=0;
+   resetPlainstriderVisual(e);
    e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
    e.shadow.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ)+.055,e.spawnZ);
   }
@@ -3058,6 +3081,7 @@ function updateEnemy(e,dt){
   }
  if(e.boss&&e.nameTag){e.nameTag.visible=true;e.nameTag.position.set(p.x,heightAt(p.x,p.z)+4.65,p.z)}
   const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;e.body.rotation.x=e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
+ advancePlainstriderVisual(THREE,e,dt,moved);
  e.shadow.position.set(p.x,p.y+.055,p.z);
 }
 // After leaving combat, health gradually returns without consuming potions.
