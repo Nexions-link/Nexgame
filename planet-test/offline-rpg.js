@@ -768,10 +768,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function getAnimationState(){
   return {gather:camp.casting,attack:attackPulse/.55,stomp:stompPulse/.55};
  }
+ function getQuestMapState(){
+  return {
+   stage:state.quest,guide:state.quest===10,
+   scout:state.quest===7||state.quest===8,
+   relic:state.quest===4,
+   bossAlive:giant.root.visible&&!giant.corpse&&giant.hp>0,
+   boss:{x:giant.x,z:giant.z},scoutPosition:SCOUT_POSITION,relicPosition:RELIC_POSITION
+  };
+ }
  function handleSlotKey(key){
   const n=Number(key);if(Number.isInteger(n)&&n>=1&&n<=8){useAbility(n-1);return true;}
   return false;
  }
  persist();draw();void updateEquipmentVisuals();
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,getAnimationState,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,getAnimationState,getQuestMapState,draw,get state(){return state}};
 }
