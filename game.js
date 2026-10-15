@@ -1,21 +1,22 @@
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.3';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.3';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.3';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.3';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.3';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.3';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.3';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.3';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.3';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.3';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.3';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.3';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.3';
+import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.4';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.4';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.4';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.4';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.4';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.4';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.4';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.4';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.4';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.4';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.4';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.4';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.4';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.4';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.3';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.3';
-import {projectPartyMember} from './party-map.js?v=0.3.6.3';
+import {createWorldPresence} from './online.js?v=0.3.6.4';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.4';
+import {projectPartyMember} from './party-map.js?v=0.3.6.4';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -774,6 +775,44 @@ async function attachDaggerAsset(actor){
 }
 void attachDaggerAsset(hero);
 
+// Reuse both original shield GLBs for all players; leave the old procedural
+// shield in place as a fallback whenever the asset cannot be downloaded.
+const shieldAssetPromises=new Map();
+async function attachShieldAsset(root,rarity){
+ const mount=root?.getObjectByName('gear-shield');
+ if(!mount)return;
+ const key=shieldModelForRarity(rarity),spec=SHIELD_MODELS[key];
+ const existing=mount.getObjectByName('shield-glb-model');
+ if(existing&&mount.userData.shieldVariant===key){
+  styleShieldGlb(THREE,existing,rarity);
+  return;
+ }
+ const ticket=(mount.userData.shieldRequest||0)+1;
+ mount.userData.shieldRequest=ticket;
+ try{
+  if(!shieldAssetPromises.has(key))
+   shieldAssetPromises.set(key,import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js')
+    .then(({GLTFLoader})=>new GLTFLoader().loadAsync(spec.path+'?asset=1'))
+    .catch(error=>{shieldAssetPromises.delete(key);throw error}));
+  const gltf=await shieldAssetPromises.get(key);
+  if(mount.userData.shieldRequest!==ticket||!mount.parent)return;
+  const previous=mount.getObjectByName('shield-glb-model');
+  if(previous)mount.remove(previous);
+  const model=gltf.scene.clone(true);
+  model.name='shield-glb-model';
+  model.scale.setScalar(spec.scale);
+  styleShieldGlb(THREE,model,rarity);
+  mount.add(model);
+  // Hide only the old procedural fallback and its decorative overlay.
+  for(const child of mount.children)if(child!==model)child.visible=false;
+  mount.userData.shieldVariant=key;
+  if(characterView?.actor?.root===root)characterView.nextFrame=0;
+ }catch(error){
+  // Keep the previously equipped model or procedural fallback visible.
+  console.warn('Shield GLB unavailable, keeping fallback:',error);
+ }
+}
+
 
 
 const mentor=makeTauren({fur:0x725438,cloth:M.teal,scale:.95});mentor.root.position.set(-1.5,heightAt(-1.5,-5),-5);mentor.root.rotation.y=.2;
@@ -1083,7 +1122,12 @@ function syncEquipmentVisuals(){
   const shieldModel=root.getObjectByName('gear-shield');
   if(shieldModel){
    shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
-   if(shield)applyShieldQuality(THREE,root,shield.rarity);
+   if(shield){
+    const glb=shieldModel.getObjectByName('shield-glb-model');
+    if(glb)styleShieldGlb(THREE,glb,shield.rarity);
+    else applyShieldQuality(THREE,root,shield.rarity);
+    void attachShieldAsset(root,shield.rarity);
+   }
   }
  }
  if(characterView)characterView.nextFrame=0;
@@ -3032,8 +3076,14 @@ function updateRemoteSnapshot(list){
    {weapon:p.equipment.weapon?{id:p.equipment.weapon}:null},ITEM_CATALOG):'axe';
   setWeaponVisuals(remote.actor.root,remoteKind,hasEquipment&&p.equipment.shield===true);
   const remoteShield=ITEM_CATALOG[p.equipment?.shieldId];
-  if(hasEquipment&&p.equipment.shield)
-   applyShieldQuality(THREE,remote.actor.root,remoteShield?.rarity||'common');
+  if(hasEquipment&&p.equipment.shield){
+   const shieldRoot=remote.actor.root.getObjectByName('gear-shield');
+   const glb=shieldRoot?.getObjectByName('shield-glb-model');
+   const rarity=remoteShield?.rarity||'common';
+   if(glb)styleShieldGlb(THREE,glb,rarity);
+   else applyShieldQuality(THREE,remote.actor.root,rarity);
+   void attachShieldAsset(remote.actor.root,rarity);
+  }
   if(remoteKind!=='none'){
    const weaponDef=ITEM_CATALOG[p.equipment?.weapon];
    applyWeaponQuality(THREE,remote.actor.root,remoteKind,weaponDef?.rarity);

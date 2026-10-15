@@ -60,7 +60,8 @@ test('dagger GLB replacement, equipment, remote heroes and preview are wired tog
  assert.match(axe,/axeX:-165,axeY:-1,axeZ:-101/);
 });
 test('atlas, launcher and real build tag remain internally consistent',()=>{
- assert.match(read('bestiary/atlas.html'),/atlas\.js\?v=0\.2\.3/);
+ const atlasVersion=read('bestiary/atlas-catalog.js').match(/ATLAS_VERSION='([^']+)'/)?.[1];
+ assert.ok(atlasVersion&&read('bestiary/atlas.html').includes('atlas.js?v='+atlasVersion));
  const app=read('app.html'),index=read('index.html');
  const version=app.match(/NexGame · Мулгор · Alpha (\d+\.\d+\.\d+\.\d+)/)?.[1];
  assert.ok(version);
