@@ -1,9 +1,12 @@
 // Developer-only local pose tuning. No gameplay stats or multiplayer data use this.
-export const AXE_TUNER_STORAGE_KEY='nexgame-axe-tuner-v1';
+// Confirmed visual alignment from the in-game tuner, Alpha 0.3.5.52.
+// Increment the storage key when built-in defaults change so older local
+// experiments never override the corrected pose after updating.
+export const AXE_TUNER_STORAGE_KEY='nexgame-axe-tuner-v2';
 export const AXE_TUNER_DEFAULTS=Object.freeze({
- handX:0,handY:0,handZ:0,
- axeX:0,axeY:-90,axeZ:-90,
- posX:0,posY:-0.23,posZ:0.135
+ handX:-180,handY:-67,handZ:-82,
+ axeX:-165,axeY:-1,axeZ:-101,
+ posX:-0.555,posY:-0.19,posZ:-0.025
 });
 export const AXE_TUNER_GROUPS=[
  {title:'Правая кисть · добавочный поворот',fields:['handX','handY','handZ']},

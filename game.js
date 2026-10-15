@@ -1,14 +1,14 @@
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.51';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.51';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.51';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.51';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.51';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.51';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.52';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.52';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.52';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.52';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.52';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.52';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.51';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.51';
-import {projectPartyMember} from './party-map.js?v=0.3.5.51';
+import {createWorldPresence} from './online.js?v=0.3.5.52';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.52';
+import {projectPartyMember} from './party-map.js?v=0.3.5.52';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -413,7 +413,15 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
  if(weapon){
   // Place the grip inside the closed right palm rather than floating above it.
-   const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(0,-Math.PI/2,-Math.PI/2,'YXZ');
+   const axe=group(arms[1].hand,
+    AXE_TUNER_DEFAULTS.posX,AXE_TUNER_DEFAULTS.posY,AXE_TUNER_DEFAULTS.posZ);
+  axe.name='gear-axe';
+  // Every Tauren with an axe (including remote players) starts with the
+  // visually approved pose. The local tuner can override the hero's pose.
+  axe.rotation.set(
+   AXE_TUNER_DEFAULTS.axeX*Math.PI/180,
+   AXE_TUNER_DEFAULTS.axeY*Math.PI/180,
+   AXE_TUNER_DEFAULTS.axeZ*Math.PI/180,'YXZ');
   rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
   for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
   // Move the complete axe head to the opposite end of the haft (local -Y).
@@ -437,7 +445,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
   shield.visible=false;
  }
  root.scale.setScalar(scale);fuse(root);const shadow=contactShadow(2.7*scale);
- return{root,body,chest,neck,head,arms,legs,tail,braids,shadow,phase:0,scale,walk:0};
+ return{root,body,chest,neck,head,arms,legs,tail,braids,shadow,phase:0,scale,walk:0,weapon};
 }
 const hero=makeTauren({weapon:true});
 // Relative wrist angles are added after each animation frame. Axe angles are
@@ -702,7 +710,17 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
   arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):Math.PI;
-  if(i===1&&actor===hero){rightWristBaseX=arm.hand.rotation.x;applyAxeWristTuning();}
+  if(i===1&&actor.weapon&&arm.hand.getObjectByName('gear-axe')?.visible){
+   if(actor===hero){
+    rightWristBaseX=arm.hand.rotation.x;applyAxeWristTuning();
+   }else{
+    // Shared default pose for online characters and equipment preview.
+    arm.hand.rotation.set(
+     arm.hand.rotation.x+AXE_TUNER_DEFAULTS.handX*Math.PI/180,
+     AXE_TUNER_DEFAULTS.handY*Math.PI/180,
+     AXE_TUNER_DEFAULTS.handZ*Math.PI/180,'XYZ');
+   }
+  }
  }
  const yaw=actor.root.rotation.y;
  for(let i=0;i<2;i++){const leg=actor.legs[i],p=(phase+i*.5)%1;let z=0,lift=0;if(p<.58)z=.775-1.55*p/.58;else{const t=(p-.58)/.42;z=-.775+1.55*smooth(0,1,t);lift=Math.sin(t*Math.PI)*.22}z*=w;lift*=w;

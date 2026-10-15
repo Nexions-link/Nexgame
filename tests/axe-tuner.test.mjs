@@ -21,6 +21,8 @@ test('tuner changes wrist after animation and handles asynchronous GLB replaceme
  const src=read('game.js');
  assert.match(src,/actor===hero/);
  assert.match(src,/rightWristBaseX=arm\.hand\.rotation\.x;applyAxeWristTuning\(\)/);
+ assert.match(src,/actor\.weapon&&arm\.hand\.getObjectByName\('gear-axe'\)\?\.visible/);
+ assert.match(src,/AXE_TUNER_DEFAULTS\.handZ\*Math\.PI\/180/);
  assert.match(src,/applyAxeTransform\(\)/);
  assert.match(src,/old\.name='gear-axe-fallback';axe\.name='gear-axe';\s*applyAxeTransform\(\)/);
  assert.match(src,/choice\('🛠 Тюнер кисти и топора',openAxeTuner\)/);
@@ -36,4 +38,20 @@ test('release and touch-friendly control panel are present',()=>{
  assert.match(css,/\.axe-tuner-field input/);
  assert.match(css,/\.axe-tuner\[hidden\]/);
  assert.match(css,/52dvh/);
+});
+
+test('user-approved axe pose is now the shared default and survives reset',()=>{
+ assert.deepEqual({...AXE_TUNER_DEFAULTS},{
+  handX:-180,handY:-67,handZ:-82,
+  axeX:-165,axeY:-1,axeZ:-101,
+  posX:-.555,posY:-.19,posZ:-.025
+ });
+ assert.deepEqual(JSON.parse(serializeAxeTuning(null)),AXE_TUNER_DEFAULTS);
+ const tuner=read('axe-tuner.js');
+ assert.match(tuner,/nexgame-axe-tuner-v2/);
+ const game=read('game.js');
+ assert.match(game,/AXE_TUNER_DEFAULTS\.posX,AXE_TUNER_DEFAULTS\.posY,AXE_TUNER_DEFAULTS\.posZ/);
+ assert.match(game,/AXE_TUNER_DEFAULTS\.axeX\*Math\.PI\/180/);
+ assert.match(game,/if\(actor===hero\)/);
+ assert.match(game,/if\(i===1&&actor\.weapon/);
 });
