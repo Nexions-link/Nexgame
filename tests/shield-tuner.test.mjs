@@ -34,7 +34,7 @@ test('game supports safe shield preview, live transform, remote players and rest
   assert.ok(ui.includes('id="'+id+'"'),id);
  assert.match(s,/function applyShieldTransform\(root,kind\)/);
  assert.match(s,/function applyShieldWristPose\(actor,baseX\)/);
- assert.match(s,/if\(i===0\)applyShieldWristPose\(actor,arm\.hand\.rotation\.x\)/);
+ assert.match(s,/if\(i===0\)applyShieldWristPose\(actor,arm\.hand\.rotation\.x\+block\.wristX\)/);
  assert.match(s,/mount\.position\.set\(p\.posX,p\.posY,p\.posZ\)/);
  assert.match(s,/const previewKind=root===hero\.root\?shieldPreview:null/);
  assert.match(s,/setWeaponVisuals\(root,visualKind,!!shield\|\|!!previewKind\)/);

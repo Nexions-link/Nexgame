@@ -1,23 +1,24 @@
-import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.6';
-import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.6';
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.6';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.6';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.6';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.6';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.6';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.6';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.6';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.6';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.6';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.6';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.6';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.6';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.6';
+import {SHIELD_BLOCK_SECONDS,shieldBlockPose} from './shield-block.js?v=0.3.6.7';
+import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.7';
+import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.7';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.7';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.7';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.7';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.7';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.7';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.7';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.7';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.7';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.7';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.7';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.7';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.7';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.7';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.6';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.6';
-import {projectPartyMember} from './party-map.js?v=0.3.6.6';
+import {createWorldPresence} from './online.js?v=0.3.6.7';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.7';
+import {projectPartyMember} from './party-map.js?v=0.3.6.7';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1141,10 +1142,19 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  }
  const crouch=stomp>=0?.14*Math.sin(Math.min(stomp/.55,1)*Math.PI):0;
  const bend=clamp(gather,0,1);
+ const shieldVisible=actor.arms[0]?.hand.getObjectByName('gear-shield')?.visible===true;
+ const block=shieldVisible?shieldBlockPose(actor.blockRemaining):shieldBlockPose(0);
+ actor.chest.rotation.x+=block.chestX;
+ actor.chest.rotation.y+=block.chestY;
  actor.body.position.y-=crouch+.47*bend;
  if(daggerStab)actor.body.position.z+=.16*daggerStab.extend;
  actor.chest.rotation.x+=.20*bend;actor.neck.rotation.x+=.1*bend;
  for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?swingProfile.shoulderWindup*windup-swingProfile.shoulderSwing*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0))+(i?swingProfile.shoulderSlash*swing:0);arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?swingProfile.elbowWindup*windup:0)-.45*bend;
+  if(i===0&&block.power>0){
+   arm.shoulder.rotation.x+=block.shoulderX;
+   arm.shoulder.rotation.z+=block.shoulderZ;
+   arm.elbow.rotation.x+=block.elbowX;
+  }
   if(i===1&&daggerStab){
    // Pull the forearm in close, then thrust straight forward at the impact.
    // The elbow opens on extension; no lateral slashing arc is introduced.
@@ -1155,7 +1165,7 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
   arm.hand.rotation.x=i?(-Math.PI/2-swingProfile.wristWindup*windup+swingProfile.wristSwing*swing):Math.PI;
-  if(i===0)applyShieldWristPose(actor,arm.hand.rotation.x);
+  if(i===0)applyShieldWristPose(actor,arm.hand.rotation.x+block.wristX);
   if(i===1&&daggerStab)arm.hand.rotation.x+=.12*daggerStab.draw-.08*daggerStab.extend;
   if(i===1&&actor.weapon){
    const daggerVisible=arm.hand.getObjectByName('gear-dagger')?.visible;
@@ -1259,7 +1269,10 @@ function incomingDamage(enemy,raw,rng=Math.random){
  const inFront=Math.sin(hero.root.rotation.y)*dx+Math.cos(hero.root.rotation.y)*dz>=0;
  const blocked=stats.blockChance>0&&inFront&&rng()<stats.blockChance;
  const damage=Math.max(blocked?0:1,Math.round(raw*(1-armorReduction(stats.armor,enemy.boss?5:1))-(blocked?stats.blockValue:0)));
- if(blocked)msg('Блок щитом! Поглощено до '+stats.blockValue+' урона',1100);
+ if(blocked){
+  hero.blockRemaining=SHIELD_BLOCK_SECONDS;
+  msg('Блок щитом! Поглощено до '+stats.blockValue+' урона',1100);
+ }
  return damage;
 }
 function finishEquipmentChange(slot){
@@ -1913,6 +1926,7 @@ function graphicsSettings(){
  choice('▶ Продолжить игру',closeDialog);
 }
 function resetWorld(){
+ hero.blockRemaining=0;
  cancelGather();
  for(const node of gatherNodes){node.pending=false;node.readyAt=0;node.root.visible=false}
  combatFeedback.clear();
@@ -3757,7 +3771,7 @@ function movement(dt){
   daggerPreview&&daggerPreviewAttackElapsed>=0?daggerPreviewAttackElapsed/.8:attackElapsed>=0?attackElapsed/.8:-1,
    stompElapsed>=0?stompElapsed/.75:-1,0);
 }
-function revive(){cancelGather();lastCombatAt=clock;
+function revive(){hero.blockRemaining=0;cancelGather();lastCombatAt=clock;
  respawnGraceUntil=performance.now()+6000;respawnPending=!!worldConnection?.connected?.();state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;autoSwingClock.reset();swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;
  worldConnection?.sendRespawn?.();
  clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
@@ -3858,6 +3872,7 @@ function animateCamera(dt){
 }
 function update(dt){
  clock+=dt;saveClock+=dt;hudClock+=dt;
+ hero.blockRemaining=Math.max(0,(hero.blockRemaining||0)-Math.max(0,dt));
  // Tuner preview demonstrates the real dagger attack but never calls combat.
  if(daggerPreview&&daggerPreviewAttackElapsed>=0){
   daggerPreviewAttackElapsed+=dt;
