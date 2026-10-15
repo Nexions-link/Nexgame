@@ -1,7 +1,7 @@
 // Standalone offline port of NexGame's herbalist, harvesting and house-chest
 // gameplay. All quest parameters and locations are shared with gather-world.js,
 // and progress is stored only in the isolated Planet Test save.
-import {GATHER_QUESTS,GATHER_INTERACT_RANGE,GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS,OFFLINE_CHEST} from './gather-world.js?v=2';
+import {GATHER_QUESTS,GATHER_INTERACT_RANGE,GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS,OFFLINE_CHEST} from './gather-world.js?v=3';
 import {ITEM_CATALOG,itemStackLimit} from '../items.js?v=0.3.5.17';
 const $=id=>document.getElementById(id);
 export function createCampActions({state,herbalist,gathering,mobs,hero,distance,addItem,takeItem,itemCount,
@@ -25,7 +25,7 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
   if(distance(node)>GATHER_INTERACT_RANGE)return msg('Подойди ближе к растению');
   if(fighting())return msg('Нельзя собирать во время боя');
   if(node.pending){lootNode=node;openWindow('gatherLoot');return;}
-  cast={node,elapsed:0,hp:state.hp};
+  cast={node,elapsed:0,hp:state.hp,position:hero.root.position.clone()};
   $('gatherCast').hidden=false;
   $('gatherCastLabel').textContent='Сбор: '+ITEM_CATALOG[node.item].name;
   $('gatherCastTime').textContent='1,5 с';$('gatherCastFill').style.width='0%';
@@ -156,8 +156,9 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
    }
   }
   if(!cast)return;
-  const {node,hp}=cast;
-  if(!available(node)||distance(node)>GATHER_INTERACT_RANGE||fighting()||state.hp<hp){
+  const {node,hp,position}=cast;
+  if(!available(node)||distance(node)>GATHER_INTERACT_RANGE||fighting()||state.hp<hp||
+     hero.root.position.distanceToSquared(position)>.14*.14){
    cancel('Сбор прерван');return;
   }
   cast.elapsed=Math.min(GATHER_CAST_SECONDS,cast.elapsed+dt);
