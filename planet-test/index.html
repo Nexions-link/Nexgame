@@ -102,6 +102,16 @@
 }
 #toast[hidden]{display:none}
 #toast.show{opacity:1}
+/* Planet Test native journal and spellbook micro-controls, iPhone first. */
+.planet-journal-tabs,.planet-hotbar-slot-picker{display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 11px}
+.planet-journal-tabs .choice,.planet-hotbar-slot-picker .choice{
+ flex:1;min-width:0;min-height:36px;padding:7px 5px;border:1px solid #896e49;
+ background:#2e3029;color:#e4d2a7;border-radius:4px;
+ font:700 11px/1.2 system-ui,sans-serif;touch-action:manipulation}
+.planet-journal-tabs .choice.is-selected,.planet-hotbar-slot-picker .choice.is-selected{
+ color:#2b2117;background:#d1aa67;border-color:#f9da98;box-shadow:inset 0 0 0 1px #f6d593}
+.planet-hotbar-slot-picker{display:grid;grid-template-columns:repeat(8,minmax(0,1fr))}
+.planet-hotbar-slot-picker .choice{font-size:13px;min-height:35px}
 #chatDock,#partyHud,#partyInvitation{display:none!important}
 #mbody .rpgRow button:focus-visible{outline:2px solid #e7b467}
 @media(max-width:760px){#actionsBar .ability .planetAbilityIcon{font-size:22px;line-height:39px}}
