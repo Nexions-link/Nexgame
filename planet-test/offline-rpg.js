@@ -5,6 +5,10 @@ import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,activateAbi
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
 import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf} from '../plainstrider-model.js?v=0.3.7.0';
+import {AXE_TUNER_DEFAULTS} from '../axe-tuner.js?v=0.3.7.0';
+import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
+import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
+import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -36,8 +40,49 @@ function restore(){
   return safe;
  }catch{return initial();}
 }
-export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNormal,toLocal,heightAt,camera,canvas}){
+export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRadius,toNormal,toLocal,heightAt,camera,canvas}){
  const state=restore(),runtime=createAbilityRuntime();
+ const rightHand=hero.arms[1]?.hand,leftHand=hero.arms[0]?.hand;
+ const modelSlots={weapon:null,shield:null};
+ const modelLoader=import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js')
+  .then(({GLTFLoader})=>new GLTFLoader()).catch(()=>null);
+ let visualRequest=0;
+ const radians=d=>d*Math.PI/180;
+ async function updateEquipmentVisuals(){
+  const request=++visualRequest;
+  const weaponDef=ITEM_CATALOG[state.equipment.weapon?.id];
+  const shieldDef=ITEM_CATALOG[state.equipment.shield?.id];
+  const weaponKind=weaponDef?.weaponKind||null;
+  const shieldKind=shieldDef?.rarity==='uncommon'?'kite':shieldDef?'round':null;
+  for(const [slot,model] of Object.entries(modelSlots)){
+   if(model){model.removeFromParent();modelSlots[slot]=null;}
+  }
+  if(rightHand)rightHand.rotation.set(0,0,0);
+  if(leftHand)leftHand.rotation.set(0,0,0);
+  const loader=await modelLoader;if(!loader||request!==visualRequest)return;
+  const desired=[];
+  if(weaponKind&&rightHand){
+   const data={axe:['tauren-axe-v0.1.glb',AXE_TUNER_DEFAULTS,'axe'],sword:['plains-sword-v0.1.glb',SWORD_TUNER_DEFAULTS,'sword'],dagger:['steppe-dagger-v0.1.glb',DAGGER_TUNER_DEFAULTS,'dagger']}[weaponKind];
+   if(data)desired.push(['weapon','../assets/weapons/'+data[0],data[1],data[2],rightHand]);
+  }
+  if(shieldKind&&leftHand){
+   const name=shieldKind==='kite'?'nexgame_kite_shield_quality.glb':'nexgame_round_shield_poor.glb';
+   desired.push(['shield','../assets/shields/'+name,SHIELD_TUNER_DEFAULTS[shieldKind],shieldKind,leftHand]);
+  }
+  for(const [slot,url,tuning,kind,hand] of desired){
+   try{
+    const gltf=await loader.loadAsync(url);
+    if(request!==visualRequest)return;
+    const mesh=gltf.scene;mesh.name='planet-rpg-'+kind;
+    mesh.position.set(tuning.posX,tuning.posY,tuning.posZ);
+    const key=slot==='shield'?'shield':kind;
+    mesh.rotation.set(radians(tuning[key+'X']),radians(tuning[key+'Y']),radians(tuning[key+'Z']),'YXZ');
+    if(slot==='weapon')hand.rotation.set(radians(tuning.handX),radians(tuning.handY),radians(tuning.handZ),'XYZ');
+    hand.add(mesh);modelSlots[slot]=mesh;
+   }catch(err){console.warn('Planet equipment model unavailable',url,err);}
+  }
+ }
+
  let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1;
  const group=new THREE.Group();scene.add(group);
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
@@ -67,14 +112,10 @@ export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNorm
  }
  function npc(kind,x,z,name){
   const root=new THREE.Group();root.name='planet-'+kind;group.add(root);
-  // Physical original Tauren character silhouettes are used for the camp NPCs.
-  // Their meshes come from the same source generator as the main hero.
-  const skin=new THREE.MeshStandardMaterial({color:kind==='mentor'?0xa88a65:0x8b795d,roughness:1});
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(.75,.62,1.75,10),skin);body.position.y=1.65;root.add(body);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.48,12,9),skin);head.position.y=2.75;root.add(head);
-  const horn=new THREE.MeshStandardMaterial({color:'#e6d9b7'});
-  for(const s of [-1,1]){const piece=new THREE.Mesh(new THREE.ConeGeometry(.16,.68,8),horn);piece.position.set(s*.49,3.02,0);piece.rotation.z=s*.8;root.add(piece);}
-  const clothing=new THREE.Mesh(new THREE.ConeGeometry(.86,1.35,8),new THREE.MeshStandardMaterial({color:kind==='mentor'?'#48736a':'#805338'}));clothing.position.y=1.05;root.add(clothing);
+  // Full procedurally modelled Tauren identical to the playable hero.
+  const npcActor=makeTauren();
+  npcActor.root.scale.setScalar(kind==='mentor'?.97:.94);
+  root.add(npcActor.root);
   root.add(makeLabel(name));
   const e={kind,name,x,z,yaw:.2,root,radius:1.5};entities.push(e);setModelAt(e);return e;
  }
@@ -110,10 +151,9 @@ export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNorm
  // Procedural fallback remains available if the CDN or asset fails.
  void (async()=>{
   try{
-   const [{GLTFLoader},gltf]=await Promise.all([
-    import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js'),
-    Promise.resolve(null)]);
-   const asset=await new GLTFLoader().loadAsync('../bestiary/models/dolgonog-v0.1.glb?v=0.3.5.43');
+   const loader=await modelLoader;
+   if(!loader)throw Error('GLTFLoader unavailable');
+   const asset=await loader.loadAsync('../bestiary/models/dolgonog-v0.1.glb?v=0.3.5.43');
    if(!validatePlainstriderGltf(asset))throw Error('Unexpected Dolgonog clips');
    for(const mob of mobs){
     const model=asset.scene.clone(true);model.scale.setScalar(.6);mob.root.add(model);
@@ -167,7 +207,7 @@ export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNorm
   const maxBefore=stats().maxHp;
   state.equipment[def.slot]={id};
   state.hp=Math.min(stats().maxHp,state.hp+Math.max(0,stats().maxHp-maxBefore));
-  persist();draw();msg('Надето: '+def.name);
+  persist();draw();void updateEquipmentVisuals();msg('Надето: '+def.name);
  }
  function lootMob(mob){
   if(!mob?.corpse||!mob.loot)return;
@@ -223,6 +263,7 @@ export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNorm
   state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
   if(enemy.hp===0){
    enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;autoplay=false;
+   enemy.root.rotateX(1.15);
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
    const gear=rollEquipmentLoot(false);if(gear)enemy.loot.push(gear);
@@ -308,7 +349,7 @@ export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNorm
    for(const slot of EQUIP_SLOTS){const id=state.equipment[slot]?.id;
     line(LABEL[slot],id?(ITEM_CATALOG[id].name):'Не экипировано',
      id?[['Снять',()=>{if(state.inventory.length>=12)return msg('Сумка заполнена');
-      addItem(id);delete state.equipment[slot];state.hp=Math.min(state.hp,stats().maxHp);persist();draw();}]]:[]);
+      addItem(id);delete state.equipment[slot];state.hp=Math.min(state.hp,stats().maxHp);persist();draw();void updateEquipmentVisuals();}]]:[]);
    }
   }else if(kind==='quests'){
    const summary=state.quest==='available'?'Доступно: поговори с Наставником Каменным Рогом':
@@ -391,15 +432,14 @@ export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNorm
    hitEnemy(target);swing=stats().speed;
   }
   for(const mob of mobs){
-   if(mob.dead){
-    mob.dead=Math.max(0,mob.dead-dt);
-    if(mob.corpse){mob.root.rotation.z=0;continue;}
+   if(!mob.root.visible){
     mob.respawn-=dt;
     if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
-     mob.root.visible=true;mob.returning=false;mob.aggro=false;}
-    if(!mob.root.visible)continue;
+     mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;setModelAt(mob);}
+    continue;
    }
-   if(!mob.root.visible)continue;
+   if(mob.corpse)continue;
+   if(mob.dead>0){mob.dead=Math.max(0,mob.dead-dt);continue;}
    mob.attackCd=Math.max(0,mob.attackCd-dt);mob.stun=Math.max(0,mob.stun-dt);
    const playerSpawnDistance=Math.hypot(local.x-mob.spawnX,local.z-mob.spawnZ);
    const dist=Math.hypot(local.x-mob.x,local.z-mob.z);
@@ -433,6 +473,6 @@ export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNorm
   const n=Number(key);if(Number.isInteger(n)&&n>=1&&n<=8){useAbility(n-1);return true;}
   return false;
  }
- persist();draw();msg('Офлайн RPG: выбери долгонога или поговори с наставником',5);
+ persist();draw();void updateEquipmentVisuals();msg('Офлайн RPG: выбери долгонога или поговори с наставником',5);
  return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,draw,get state(){return state}};
 }
