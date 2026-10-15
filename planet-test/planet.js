@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {screenMoveVector,turnTowardsAngle} from '../movement-controls.js?v=0.3.7.0';
-import {readPlanetView,writePlanetView} from './world-save.js?v=2';
+import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=2';
 import {createOfflineRpg} from './offline-rpg.js?v=15';
 import {animateSphericalTauren} from './tauren-animation.js?v=2';
