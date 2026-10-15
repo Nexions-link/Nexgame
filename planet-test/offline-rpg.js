@@ -438,6 +438,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   guidance.hidden=stage!==7&&stage!==10;
   if(stage===7)guidance.textContent='Разведка: найди каменную развилку (12, 37).';
   if(stage===10)guidance.textContent='Красный пунктир ведёт к Грозоклюву · 108 HP';
+  const glyph=mentorGlyph(state.quest);
+  for(const child of mentor.root.children)if(child.userData.questMarker)child.visible=child.userData.glyph===glyph;
   const nearby=modal.hidden&&!camp.casting?nearestInteraction():null;
   $('interact').hidden=!nearby;
   if(nearby)$('interact').textContent=nearby.kind==='gather'?
@@ -649,7 +651,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   targetEntity(selected||null);
  });
- function resetWorldTransforms(){for(const e of entities)setModelAt(e);updateSelection();draw();}
+ function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();updateSelection();draw();}
  function canMoveTo(x,z){
   const near=entities.filter(e=>['mentor','vendor','herbalist'].includes(e.kind)).some(e=>Math.hypot(x-e.x,z-e.z)<.8);
   if(near)return false;
@@ -678,6 +680,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
   camp.update(dt);
+  mentorWorld.update(state,clock);
+  if(state.quest===7&&distance(mentorWorld.scout)<5.5)mentorChain.discoveredScout();
   const local=player();
   swing-=dt;
   if(autoplay&&target&&['mob','dummy'].includes(target.kind)&&!target.dead&&distance(target)<3.45&&swing<=0){
@@ -685,28 +689,42 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   for(const mob of mobs){
    mob.hit=Math.max(0,(mob.hit||0)-dt);
+   mob.alertRemaining=Math.max(0,(mob.alertRemaining||0)-dt);
+   if(mob.alertTag){
+    mob.alertTag.visible=mob.alertRemaining>0&&mob.root.visible&&!mob.corpse;
+    if(mob.alertTag.visible)mob.alertTag.position.y=(mob.boss?4:4.95)+Math.sin(clock*7)*.1;
+   }
    if(!mob.root.visible){
     mob.respawn-=dt;
     if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
-     mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.attackWindup=0;mob.hit=0;
+     mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.attackWindup=0;mob.hit=0;mob.corpseAge=0;mob.alertRemaining=0;
      resetPlainstriderVisual(mob);setModelAt(mob);}
     continue;
    }
-   if(mob.corpse)continue;
+   if(mob.corpse){
+    mob.corpseAge=(mob.corpseAge||0)+dt;
+    if(mob.corpseAge>32){
+     mob.corpse=false;mob.root.visible=false;mob.respawn=12;mob.loot=[];
+     if(target===mob){target=null;autoplay=false;}
+    }
+    continue;
+   }
    if(mob.dead>0){mob.dead=Math.max(0,mob.dead-dt);continue;}
    mob.attackCd=Math.max(0,mob.attackCd-dt);mob.stun=Math.max(0,mob.stun-dt);
    const spawnNormal=toNormal(mob.spawnX,mob.spawnZ,getRadius());
    const playerSpawnDistance=getRadius()*Math.acos(clamp(playerNormal().dot(spawnNormal),-1,1));
    const dist=distance(mob);
    if(mob.aggro&&playerSpawnDistance>23){mob.aggro=false;mob.returning=true;mob.hp=mob.maxHp;mob.attackWindup=0;}
-   if(!mob.aggro&&!mob.returning&&dist<7&&playerSpawnDistance<23&&state.hp>0)mob.aggro=true;
+   if(!mob.aggro&&!mob.returning&&dist<(mob.boss?9:7)&&playerSpawnDistance<23&&state.hp>0){
+    mob.aggro=true;mob.alertRemaining=1.05;
+   }
    let dx=0,dz=0;
    if(mob.returning){dx=mob.spawnX-mob.x;dz=mob.spawnZ-mob.z;if(Math.hypot(dx,dz)<.25){mob.returning=false;mob.hp=mob.maxHp;}}
    else if(mob.aggro){dx=local.x-mob.x;dz=local.z-mob.z;}
    const len=Math.hypot(dx,dz),moving=len>.06&&mob.stun<=0;
    const beforeX=mob.x,beforeZ=mob.z;
-   if(moving&&(!mob.aggro||len>2.35)&&mob.attackWindup<=0){
-    const amount=Math.min(len,dt*(mob.aggro?2.05:1.45));
+   if(moving&&(!mob.aggro||len>(mob.boss?3:2.35))&&mob.attackWindup<=0){
+    const amount=Math.min(len,dt*(mob.aggro?(mob.boss?1.75:2.05):1.45));
     mob.x+=dx/len*amount;mob.z+=dz/len*amount;
    }
    // Three.js bird GLB faces local +Z, and local up is radial to the sphere.
@@ -717,11 +735,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const desiredYaw=aim?sphereFacingYaw(THREE,normal,aim):null;
    // Face the moving player on EVERY frame, including stationary melee/Peck.
    mob.yaw=turnSphereYaw(mob.yaw,desiredYaw,dt,mob.attackWindup>0?16:12);
-   const close=distance(mob)<2.6;
+   const close=distance(mob)<(mob.boss?3:2.6);
    if(mob.stun>0||!mob.aggro||state.hp<=0||!close){
     mob.attackWindup=0;
    }else if(mob.attackCd<=0){
-    if(mob.attackWindup<=0)mob.attackWindup=.4;
+    if(mob.attackWindup<=0)mob.attackWindup=mob.boss?.45:.4;
     else{
      mob.attackWindup=Math.max(0,mob.attackWindup-dt);
      // An attack cannot land until the bird is visibly facing the player.
@@ -729,8 +747,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       mob.attackWindup=.09;
      else if(mob.attackWindup<=0){
       const armor=stats().armor;
-      state.hp=Math.max(0,state.hp-Math.max(1,Math.round((5+Math.random()*3)*(1-armor/(armor+485)))));
-      mob.attackCd=2.1;state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
+      state.hp=Math.max(0,state.hp-Math.max(1,Math.round((mob.boss?14:9)*(1-armor/(armor+485)))));
+      mob.attackCd=mob.boss?1.8:2.1;state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
       if(state.hp<=0){state.hp=stats().maxHp;state.resource=0;autoplay=false;mob.aggro=false;
        msg('Герой возродился у костра');resetPosition?.();}
       persist();
