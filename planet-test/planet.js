@@ -448,9 +448,7 @@ try {
         state.lonUnwrapped += angleDelta(newLon,oldLon);
         state.meters += step;
       }
-      // do not turn walking into motion through water
-      /*
-      */
+      // Animated stride stops when the shoreline blocks movement.
       state.legCycle += dt * power * 9.1;
     } else {
       state.legCycle += dt * 1.1;
