@@ -53,7 +53,7 @@ jobs:
           npm run check
           npm run check --prefix server
           find . -path './.git' -prune -o -path './node_modules' -prune -o -path './server/node_modules' -prune -o -path './versions' -prune -o -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -r -n1 node --check
-      - name: Run all game and online multiplayer tests
+      - name: Run maintained game and online multiplayer regression tests
         run: |
           npm test
           npm test --prefix server
