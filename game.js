@@ -1,18 +1,18 @@
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.5.60';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.60';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.60';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.60';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.60';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.60';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.60';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.60';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.60';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.60';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.5.61';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.61';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.61';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.61';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.61';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.61';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.61';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.61';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.61';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.61';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.60';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.60';
-import {projectPartyMember} from './party-map.js?v=0.3.5.60';
+import {createWorldPresence} from './online.js?v=0.3.5.61';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.61';
+import {projectPartyMember} from './party-map.js?v=0.3.5.61';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -1051,28 +1051,33 @@ function incomingDamage(enemy,raw,rng=Math.random){
  if(blocked)msg('Блок щитом! Поглощено до '+stats.blockValue+' урона',1100);
  return damage;
 }
-function finishEquipmentChange(){
- // Swapping stamina items never heals; removing stamina clamps current health to the new cap.
+function finishEquipmentChange(slot){
+ // Equipment stat changes never heal; removing stamina clamps to the new cap.
  state.hp=Math.min(state.hp,playerStats().maxHp);
- autoAttack=false;attackElapsed=-1;swingTarget=null;attackCooldown=0;
+ // Weapon swaps during a fight preserve autoattack, the current swing and its
+ // cooldown. Resetting a timer here would enable instantaneous extra attacks.
+ // Armor and shields keep their existing equipment-change behaviour.
+ if(slot!=='weapon'){
+  autoAttack=false;attackElapsed=-1;swingTarget=null;attackCooldown=0;
+ }
  syncEquipmentVisuals();save();updateHUD();
 }
 function equipInventorySlot(index,expected=state.inventory[index]){
  const item=state.inventory[index],def=ITEM_CATALOG[item?.id];
  if(!item||item!==expected||!def?.slot)return false;
- if(inCombat()){msg('Сначала выйди из боя, чтобы сменить экипировку');return false}
+ if(def.slot!=='weapon'&&inCombat()){msg('Сначала выйди из боя, чтобы сменить экипировку');return false}
  if(state.level<(def.requiredLevel||1)){msg('Требуется уровень '+def.requiredLevel);return false}
  // Exchange within the same backpack cell, including when all 12 cells are occupied.
  const previous=state.equipment[def.slot];
  state.equipment[def.slot]={id:item.id,qty:1};
  state.inventory[index]=previous?{id:previous.id,qty:1}:null;
- finishEquipmentChange();msg('Надето: '+def.name);return true;
+ finishEquipmentChange(def.slot);msg('Надето: '+def.name);return true;
 }
 function unequipSlot(slot,expected=state.equipment[slot]){
  const item=state.equipment[slot];if(!item||item!==expected)return false;
- if(inCombat()){msg('Сначала выйди из боя, чтобы снять экипировку');return false}
+ if(slot!=='weapon'&&inCombat()){msg('Сначала выйди из боя, чтобы снять экипировку');return false}
  if(!storeItem({id:item.id,qty:1},false)){msg('Для снятой вещи нужно свободное место в рюкзаке');return false}
- state.equipment[slot]=null;finishEquipmentChange();msg('Снято: '+ITEM_CATALOG[item.id].name);return true;
+ state.equipment[slot]=null;finishEquipmentChange(slot);msg('Снято: '+ITEM_CATALOG[item.id].name);return true;
 }
 function refreshCharacter(){modalKind=null;character()}
 const coins=value=>value+' мон.';
