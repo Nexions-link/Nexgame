@@ -10,6 +10,7 @@ import {AXE_TUNER_DEFAULTS} from '../axe-tuner.js?v=0.3.7.0';
 import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
 import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
+import {GATHER_QUESTS,GATHER_INTERACT_RANGE,GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -20,7 +21,7 @@ const pretty=num=>Number(num).toLocaleString('ru-RU',{maximumFractionDigits:1});
 const LABEL={weapon:'Оружие',shield:'Щит',head:'Голова',chest:'Грудь',legs:'Ноги',hands:'Руки',waist:'Пояс',wrists:'Запястья',feet:'Ступни'};
 const EQUIP_SLOTS=['weapon','shield','head','chest','legs','hands','waist','wrists','feet'];
 const ICON={autoAttack:'⚔️',thunderStomp:'💥',heavyStrike:'🪓',healingPotion:'🧪'};
-const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:'available',hotbar:DEFAULT_HOTBAR});
+const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:'available',gatherStage:0,gatherAvailable:false,chestInventory:[],hotbar:DEFAULT_HOTBAR});
 function restore(){
  try {
   const raw=JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -33,6 +34,11 @@ function restore(){
   safe.hp=raw.hp==null?null:Math.max(1,Number(raw.hp)||1);
   safe.kills=clamp(Math.floor(Number(raw.kills)||0),0,3);
   safe.quest=['available','active','ready','completed'].includes(raw.quest)?raw.quest:'available';
+  safe.gatherStage=clamp(Math.floor(Number(raw.gatherStage)||0),0,4);
+  safe.gatherAvailable=!!raw.gatherAvailable&&safe.gatherStage>=2&&safe.gatherStage<=3;
+  safe.chestInventory=Array.isArray(raw.chestInventory)?
+   raw.chestInventory.slice(0,OFFLINE_CHEST.slots).filter(entry=>entry&&ITEM_CATALOG[entry.id]&&Number.isFinite(entry.qty)&&entry.qty>0)
+    .map(entry=>({id:entry.id,qty:clamp(Math.floor(entry.qty),1,itemStackLimit(entry.id))})):[];
   safe.inventory=Array.isArray(raw.inventory)?raw.inventory.slice(0,12).filter(x=>x&&
    (ITEM_CATALOG[x.id]||x.id==='healingPotion')&&Number.isFinite(x.qty)&&x.qty>0).map(x=>({id:x.id,qty:Math.min(itemStackLimit(x.id),Math.floor(x.qty))})):safe.inventory;
   safe.equipment={};
@@ -84,7 +90,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
  }
 
- let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1;
+ let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null;
  const group=new THREE.Group();scene.add(group);
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[];
@@ -127,6 +133,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  npc('mentor',-1.5,-5,'Наставник Каменный Рог');
  npc('vendor',6,11,'Борун Крепкая Ладонь');
+ const herbalist=npc('herbalist',8,1,'Травница Тихая Заря');
+ const herbMarker=makeLabel('!');
+ herbMarker.position.y=1.15;herbMarker.scale.set(1.6,1.7,1);
+ herbalist.root.add(herbMarker);
  function createBird(x,z,i){
   const root=new THREE.Group();group.add(root);
   const mat=new THREE.MeshStandardMaterial({color:i%2?'#917044':'#826649',roughness:1});
@@ -153,6 +163,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const dummy={kind:'dummy',name:TRAINING_DUMMY.name,root:dummyRoot,x:TRAINING_DUMMY.x,z:TRAINING_DUMMY.z,
   yaw:0,trainingDummy:true,maxHp:TRAINING_DUMMY.maxHp,hp:TRAINING_DUMMY.maxHp,trainingStats:createTrainingStats()};
  entities.push(dummy);setModelAt(dummy);
+ // Preserve original locations in metres and project every mesh onto the sphere.
+ const gathering=createGatherWorld({THREE,parent:group,place:e=>{entities.push(e);setModelAt(e);}});
+ const gatherNodes=gathering.nodes;
  // Use the exact approved longstrider model and clips when the shared GLB loads.
  // Procedural fallback remains available if the CDN or asset fails.
  void (async()=>{
