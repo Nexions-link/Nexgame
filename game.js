@@ -428,7 +428,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
    const length=kind==='sword'?1.12:.62;box(g,M.metal,0,.29+length/2,0,.16,length,.065);
    const tip=mesh(g,G.cone,M.metal,0,.29+length+.09,0,.115,.22,.055);tip.rotation.y=Math.PI/4;g.visible=false;
   }
-  const shield=group(arms[0].hand,-.12,-.02,.34);shield.name='gear-shield';
+  const shield=group(arms[0].hand,-.12,-.02,-.34);shield.name='gear-shield';shield.rotation.y=Math.PI;
   const disk=mesh(shield,new THREE.CylinderGeometry(.56,.56,.11,12),M.woodLight);disk.rotation.x=Math.PI/2;
   mesh(shield,new THREE.TorusGeometry(.53,.04,5,16),M.metal,0,0,.075);
   ell(shield,M.metal,0,0,.09,.16,.16,.08);
