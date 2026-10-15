@@ -1,6 +1,46 @@
 import * as THREE from 'three';
+import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
 import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=5';
 initStartZoneMath(THREE);
+
+// Reuse the exact iOS gesture protection already proven in the main game.
+// Prevent iOS Safari smart-zoom on double-tap. It can persist even after a
+// refresh and looks like a stuck camera zoom. Do not prevent the two-finger
+// pointer gesture: the game still uses it for its own camera distance.
+let lastTouchTap=null;
+const editableTapTarget=element=>element?.closest?.('input,textarea,select,[contenteditable="true"]');
+document.addEventListener('touchstart',event=>{
+ if(editableTapTarget(event.target)||event.touches.length!==1)return;
+ const t=event.touches[0],now=performance.now();
+ if(lastTouchTap&&now-lastTouchTap.time<350&&
+    Math.hypot(t.clientX-lastTouchTap.x,t.clientY-lastTouchTap.y)<42){
+  event.preventDefault();lastTouchTap=null;
+ }
+},{passive:false,capture:true});
+document.addEventListener('touchend',event=>{
+ if(editableTapTarget(event.target))return;
+ if(event.touches.length||event.changedTouches.length!==1){
+  lastTouchTap=null;return;
+ }
+ const finger=event.changedTouches[0],now=performance.now();
+ const close=lastTouchTap&&now-lastTouchTap.time<330&&
+  Math.hypot(finger.clientX-lastTouchTap.x,finger.clientY-lastTouchTap.y)<36;
+ lastTouchTap={time:now,x:finger.clientX,y:finger.clientY};
+ if(close){event.preventDefault();lastTouchTap=null}
+},{passive:false,capture:true});
+document.addEventListener('dblclick',event=>{
+ if(!editableTapTarget(event.target))event.preventDefault();
+},{capture:true});
+for(const gesture of ['gesturestart','gesturechange','gestureend']){
+ document.addEventListener(gesture,event=>{
+  if(!editableTapTarget(event.target))event.preventDefault();
+ },{passive:false,capture:true});
+}
+
+// Guard selection/callouts on the 3D surface without blocking UI buttons.
+const planetViewport=document.getElementById('viewport');
+planetViewport.addEventListener('selectstart',event=>event.preventDefault());
+planetViewport.addEventListener('contextmenu',event=>event.preventDefault());
 
 // Isolated planet experiment: no imports, saves, WebSockets or assets from the main RPG.
 const BASE_RADIUS = START_RADIUS;
@@ -428,16 +468,14 @@ try {
 
     let horizontal = joystick.x + Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
     let forward = -joystick.y + Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown'));
-    let power = clamp(Math.hypot(horizontal,forward), 0, 1);
-    if (power < .11 || state.orbit) power = 0;
+    // The same deadzone, analog strength and camera-relative stick used by NexGame.
+    // The spherical tangent basis maps flat X -> East and flat Z -> -North.
+    const input=screenMoveVector(horizontal, -forward, state.cameraHeading-Math.PI/2);
+    let power=state.orbit?0:input.strength;
     if (power > 0) {
-      const inputLength = Math.hypot(horizontal, forward);
-      horizontal /= inputLength;
-      forward /= inputLength;
       tangentBasis(state.normal);
-      camForward.copy(tangentEast).multiplyScalar(Math.cos(state.cameraHeading)).addScaledVector(tangentNorth, Math.sin(state.cameraHeading));
-      right.crossVectors(camForward,state.normal).normalize();
-      travel.copy(camForward).multiplyScalar(forward).addScaledVector(right,horizontal).normalize();
+      travel.copy(tangentEast).multiplyScalar(input.x)
+        .addScaledVector(tangentNorth,-input.z).normalize();
       const newHeading = Math.atan2(travel.dot(tangentNorth),travel.dot(tangentEast));
       const turn = angleDelta(newHeading,state.heading);
       state.heading += turn * Math.min(1, dt * 11);
