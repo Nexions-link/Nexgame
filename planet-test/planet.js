@@ -275,7 +275,7 @@ try {
   const hero=createTauren(THREE,scene);
   const actor=hero.root;
   const limbs=[hero.legs[0].hip,hero.arms[0].shoulder,hero.legs[1].hip,hero.arms[1].shoulder];
-  const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, legCycle: 0};
+  const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, orbitElevation: .34, orbitDistance: 3.22, legCycle: 0};
   const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:()=>createTauren(THREE,scene),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
    toLocal:normalToLocal,heightAt,camera,canvas});
@@ -373,15 +373,23 @@ try {
     if (!touches.has(e.pointerId)) return;
     e.preventDefault();
     const last = touches.get(e.pointerId);
-    if (touches.size === 1 && !state.orbit) {
-      state.cameraHeading -= (e.clientX - last.x) * .007;
-      state.cameraPitch = clamp(state.cameraPitch + (e.clientY - last.y) * .005, -.15, 1.22);
+    if (touches.size === 1) {
+      if (state.orbit) {
+        state.orbitAngle -= (e.clientX - last.x) * .006;
+        state.orbitElevation = clamp(state.orbitElevation - (e.clientY - last.y) * .0045, -1.12, 1.12);
+      } else {
+        state.cameraHeading -= (e.clientX - last.x) * .007;
+        state.cameraPitch = clamp(state.cameraPitch + (e.clientY - last.y) * .005, -.15, 1.22);
+      }
     }
     touches.set(e.pointerId, {x:e.clientX,y:e.clientY});
-    if (touches.size === 2 && !state.orbit) {
+    if (touches.size === 2) {
       const p = [...touches.values()];
       const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
-      if (lastPinch) state.zoom = clamp(state.zoom * lastPinch / Math.max(d, 2), 6, 32);
+      if (lastPinch) {
+        if (state.orbit) state.orbitDistance = clamp(state.orbitDistance * lastPinch / Math.max(d, 2), 1.6, 5.5);
+        else state.zoom = clamp(state.zoom * lastPinch / Math.max(d, 2), 6, 32);
+      }
       lastPinch = d;
       updateZoomLabel();
     }
@@ -391,7 +399,8 @@ try {
   canvas.addEventListener('pointercancel', untrack);
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    if (!state.orbit) {state.zoom = clamp(state.zoom + e.deltaY * .015, 6, 32); updateZoomLabel();}
+    if (state.orbit) state.orbitDistance = clamp(state.orbitDistance + e.deltaY * .002, 1.6, 5.5);
+    else {state.zoom = clamp(state.zoom + e.deltaY * .015, 6, 32); updateZoomLabel();}
   }, {passive:false});
   const orbitButton = $('orbitButton');
   orbitButton.addEventListener('click', () => {
@@ -524,9 +533,11 @@ try {
     rpg.update(dt);
 
     if (state.orbit) {
-      state.orbitAngle += dt * .10;
-      const r = R * 3.22;
-      cameraGoal.set(Math.sin(state.orbitAngle)*r, r*.34, Math.cos(state.orbitAngle)*r);
+      const r = R * state.orbitDistance;
+      const horizontalRadius = r * Math.cos(state.orbitElevation);
+      cameraGoal.set(Math.sin(state.orbitAngle) * horizontalRadius,
+        Math.sin(state.orbitElevation) * r,
+        Math.cos(state.orbitAngle) * horizontalRadius);
       camera.up.set(0,1,0);
       focus.set(0,0,0);
     } else {
