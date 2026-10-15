@@ -140,13 +140,11 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
   const ready=stage===0||(state.gatherAvailable&&stage<=3);
   const complete=q&&!state.gatherAvailable&&count>=q.count;
   // Quest punctuation matches the main game's ! and ? convention.
-  herbalist.root.children.forEach(obj=>{
-   if(!obj.isSprite)return;
-   obj.visible=false;
-  });
-  if(herbalist.root.children.length){
-   const marker=herbalist.root.children.find(obj=>obj.isSprite&&obj.userData.questMarker);
-   if(marker)marker.visible=!!ready||!!complete;
+  // Preserve NPC names; quest glyphs are separate sprites.
+  for(const marker of herbalist.root.children){
+   if(!marker.userData.questMarker)continue;
+   marker.visible=(ready&&marker.userData.glyph==='!')||
+     (complete&&marker.userData.glyph==='?');
   }
   const tracker=$('gatherQuestTracker');
   if(tracker){
@@ -167,6 +165,11 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
   $('gatherCastFill').style.width=percent.toFixed(1)+'%';
   $('gatherCastTime').textContent=Math.max(0,GATHER_CAST_SECONDS-cast.elapsed).toFixed(1).replace('.',',')+' с';
   $('gatherCast').setAttribute('aria-valuenow',String(Math.round(percent)));
+  // Spherical rig knees bend during the 1.5-second collection cast.
+  if(hero?.legs?.[0]?.hip&&hero?.legs?.[1]?.hip){
+   hero.legs[0].hip.rotation.x=.52;
+   hero.legs[1].hip.rotation.x=-.52;
+  }
   if(cast.elapsed>=GATHER_CAST_SECONDS){
    cast=null;$('gatherCast').hidden=true;node.pending=true;lootNode=node;openWindow('gatherLoot');
   }
