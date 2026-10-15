@@ -7,9 +7,9 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>NexGame · Мулгор · Alpha 0.3.5.55</title>
-<!-- Alpha 0.3.5.55: finalized sword grip and preserved independently calibrated axe grip. -->
-<link rel="stylesheet" href="./style.css?v=0.3.5.55">
+<title>NexGame · Мулгор · Alpha 0.3.5.56</title>
+<!-- Alpha 0.3.5.56: finalized sword grip and preserved independently calibrated axe grip. -->
+<link rel="stylesheet" href="./style.css?v=0.3.5.56">
 <!-- Critical sizing for icon toolbar: must work even when Safari serves an older style.css. -->
 <style id="hud-toolbar-failsafe">
 #top{
@@ -140,7 +140,7 @@
 <div id="actionsBar" role="toolbar" aria-label="Панель из восьми настраиваемых ячеек"></div>
 <div id="xpWrap"><div id="xpFill"></div><span id="xpText">Опыт 0 / 100</span></div>
 <div id="help">1–8 — панель · Enter — чат · G — группа · B — книга · Tab — цель · I — рюкзак</div>
-<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Мир: одиночный</span><span>NexGame · Alpha 0.3.5.55</span></div>
+<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Мир: одиночный</span><span>NexGame · Alpha 0.3.5.56</span></div>
 <div id="combatError" role="status" aria-live="polite"></div><div id="toast" role="status"></div>
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" hidden><div id="panel"><button id="modalClose" type="button" aria-label="Закрыть окно">×</button><div class="panel-corner">◆</div><span class="eyebrow" id="msub"></span><h2 id="mtitle"></h2><div class="ornament">━━━━ ◆ ━━━━</div><div id="mbody"></div><section id="cameraControl" class="camera-settings" hidden aria-label="Настройки камеры">
   <div class="camera-label"><label for="cameraDistance">Расстояние до персонажа</label><span id="cameraDistanceValue">10,5</span></div>
@@ -194,9 +194,29 @@
   <textarea id="swordTunerExport" aria-label="Скопируй настройки меча" readonly hidden></textarea>
  </div>
 </aside>
+<aside id="daggerTuner" class="axe-tuner" aria-label="Отладочный тюнер кинжала" hidden>
+ <div class="axe-tuner-header">
+  <strong>🗡 Тюнер кинжала</strong>
+  <div class="axe-tuner-header-buttons">
+   <button type="button" id="daggerTunerSide" aria-label="Переместить панель">⇄</button>
+   <button type="button" id="daggerTunerCollapse" aria-label="Свернуть или развернуть панель">▁</button>
+   <button type="button" id="daggerTunerClose" aria-label="Закрыть тюнер">×</button>
+  </div>
+ </div>
+ <div class="axe-tuner-body">
+  <p>Примерка без смены снаряжения. Поворачивай кисть и кинжал в игре, затем скопируй JSON. Настройки сохраняются на устройстве.</p>
+  <div id="daggerTunerControls"></div>
+  <div class="axe-tuner-actions">
+   <button type="button" id="daggerTunerReset">↺ Сброс</button>
+   <button type="button" id="daggerTunerCopy">⧉ Скопировать</button>
+  </div>
+  <div id="daggerTunerStatus" role="status" aria-live="polite"></div>
+  <textarea id="daggerTunerExport" aria-label="Значения кинжала для копирования" readonly hidden></textarea>
+ </div>
+</aside>
 <!-- GLTFLoader imports the package name "three"; resolve it to the same engine instance. -->
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
-<script type="module" src="./game.js?v=0.3.5.55"></script>
+<script type="module" src="./game.js?v=0.3.5.56"></script>
 </body>
 </html>
 

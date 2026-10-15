@@ -1,16 +1,17 @@
-import {WEAPON_KINDS,weaponSwingProfile,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.55';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.55';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.55';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.55';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.55';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.55';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.55';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.55';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.56';
+import {WEAPON_KINDS,weaponSwingProfile,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.56';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.56';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.56';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.56';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.56';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.56';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.56';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.56';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.55';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.55';
-import {projectPartyMember} from './party-map.js?v=0.3.5.55';
+import {createWorldPresence} from './online.js?v=0.3.5.56';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.56';
+import {projectPartyMember} from './party-map.js?v=0.3.5.56';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -440,6 +441,12 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
     g.rotation.set(SWORD_TUNER_DEFAULTS.swordX*Math.PI/180,
      SWORD_TUNER_DEFAULTS.swordY*Math.PI/180,SWORD_TUNER_DEFAULTS.swordZ*Math.PI/180,'YXZ');
    }
+   if(kind==='dagger'){
+    // Use the initial dagger grip also on remote players and inspection clones.
+    g.position.set(DAGGER_TUNER_DEFAULTS.posX,DAGGER_TUNER_DEFAULTS.posY,DAGGER_TUNER_DEFAULTS.posZ);
+    g.rotation.set(DAGGER_TUNER_DEFAULTS.daggerX*Math.PI/180,
+     DAGGER_TUNER_DEFAULTS.daggerY*Math.PI/180,DAGGER_TUNER_DEFAULTS.daggerZ*Math.PI/180,'YXZ');
+   }
    rod(g,M.wood,[0,-.23,0],[0,.21,0],.067);box(g,M.metal,0,.25,0,.43,.07,.12);
    const length=kind==='sword'?1.12:.62;box(g,M.metal,0,.29+length/2,0,.16,length,.065);
    const tip=mesh(g,G.cone,M.metal,0,.29+length+.09,0,.115,.22,.055);tip.rotation.y=Math.PI/4;g.visible=false;
@@ -508,6 +515,7 @@ for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmo
 function openAxeTuner(){
  if(modalKind)closeDialog();
  if(!swordTunerPanel.hidden)closeSwordTuner();
+ if(!daggerTunerPanel.hidden)closeDaggerTuner();
  axeTunerPanel.hidden=false;axeTunerPanel.classList.remove('axe-tuner-collapsed');
  refreshAxeTuner();
 }
@@ -592,6 +600,7 @@ for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmo
 function openSwordTuner(){
  if(modalKind)closeDialog();
  if(!axeTunerPanel.hidden)closeAxeTuner();
+ if(!daggerTunerPanel.hidden)closeDaggerTuner();
  swordPreview=true;swordTunerPanel.hidden=false;swordTunerPanel.classList.remove('axe-tuner-collapsed');
  syncEquipmentVisuals();applySwordTransform();applySwordWristTuning();refreshSwordTuner();
  $('swordTunerStatus').textContent='Меч примеряется без смены экипировки.';
@@ -638,6 +647,113 @@ async function attachSwordAsset(actor){
  }catch(error){swordAssetPromise=null;console.warn('Sword GLB unavailable; fallback remains',error)}
 }
 void attachSwordAsset(hero);
+
+/* Dagger pose tuning is visual only. Never change equipment, damage or saves. */
+let daggerTuning={...DAGGER_TUNER_DEFAULTS};
+try{daggerTuning=normalizeDaggerTuning(JSON.parse(localStorage.getItem(DAGGER_TUNER_STORAGE_KEY)))}catch{}
+let daggerPreview=false;
+function applyDaggerWristTuning(){
+ hero.arms[1].hand.rotation.set(rightWristBaseX+radians(daggerTuning.handX),
+  radians(daggerTuning.handY),radians(daggerTuning.handZ),'XYZ');
+}
+function applyDaggerTransform(){
+ const model=hero.arms[1].hand.getObjectByName('gear-dagger');
+ if(!model)return;
+ model.position.set(daggerTuning.posX,daggerTuning.posY,daggerTuning.posZ);
+ model.rotation.set(radians(daggerTuning.daggerX),radians(daggerTuning.daggerY),
+  radians(daggerTuning.daggerZ),'YXZ');
+}
+applyDaggerTransform();
+const daggerTunerPanel=$('daggerTuner'),daggerTunerFields=new Map();
+function refreshDaggerTuner(){
+ for(const [key,field] of daggerTunerFields){
+  field.slider.value=String(daggerTuning[key]);
+  field.output.textContent=Number(daggerTuning[key]).toFixed(key.startsWith('pos')?3:0)+DAGGER_TUNER_FIELDS[key].unit;
+ }
+}
+for(const section of DAGGER_TUNER_GROUPS){
+ const group=document.createElement('section');group.className='axe-tuner-section';
+ const title=document.createElement('h3');title.textContent=section.title;group.appendChild(title);
+ for(const key of section.fields){
+  const spec=DAGGER_TUNER_FIELDS[key],row=document.createElement('label');
+  row.className='axe-tuner-field';
+  const legend=document.createElement('span');legend.textContent=spec.label;
+  const output=document.createElement('output'),slider=document.createElement('input');
+  slider.type='range';slider.min=String(spec.min);slider.max=String(spec.max);slider.step=String(spec.step);
+  slider.setAttribute('aria-label',section.title+' · '+spec.label);
+  slider.addEventListener('input',()=>{
+   daggerTuning=normalizeDaggerTuning({...daggerTuning,[key]:Number(slider.value)});
+   applyDaggerTransform();if(daggerPreview)applyDaggerWristTuning();refreshDaggerTuner();
+   try{localStorage.setItem(DAGGER_TUNER_STORAGE_KEY,serializeDaggerTuning(daggerTuning))}catch{}
+  });
+  row.append(legend,slider,output);group.appendChild(row);daggerTunerFields.set(key,{slider,output});
+ }
+ $('daggerTunerControls').appendChild(group);
+}
+refreshDaggerTuner();
+for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmove','touchend','keydown']){
+ daggerTunerPanel.addEventListener(type,event=>event.stopPropagation());
+}
+function openDaggerTuner(){
+ if(modalKind)closeDialog();
+ if(!axeTunerPanel.hidden)closeAxeTuner();
+ if(!swordTunerPanel.hidden)closeSwordTuner();
+ daggerPreview=true;daggerTunerPanel.hidden=false;daggerTunerPanel.classList.remove('axe-tuner-collapsed');
+ syncEquipmentVisuals();applyDaggerTransform();applyDaggerWristTuning();refreshDaggerTuner();
+ $('daggerTunerStatus').textContent='Кинжал показан для примерки. Экипировка не меняется.';
+}
+function closeDaggerTuner(){
+ daggerPreview=false;daggerTunerPanel.hidden=true;syncEquipmentVisuals();
+}
+$('daggerTunerClose').addEventListener('click',closeDaggerTuner);
+$('daggerTunerCollapse').addEventListener('click',()=>daggerTunerPanel.classList.toggle('axe-tuner-collapsed'));
+$('daggerTunerSide').addEventListener('click',()=>daggerTunerPanel.classList.toggle('axe-tuner-left'));
+$('daggerTunerReset').addEventListener('click',()=>{
+ daggerTuning={...DAGGER_TUNER_DEFAULTS};applyDaggerTransform();
+ if(daggerPreview)applyDaggerWristTuning();refreshDaggerTuner();
+ try{localStorage.removeItem(DAGGER_TUNER_STORAGE_KEY)}catch{}
+ $('daggerTunerExport').hidden=true;
+ $('daggerTunerStatus').textContent='Сброшено к исходному положению';
+});
+$('daggerTunerCopy').addEventListener('click',async()=>{
+ const data=serializeDaggerTuning(daggerTuning);
+ try{
+  if(!navigator.clipboard?.writeText)throw Error('Clipboard not available');
+  await navigator.clipboard.writeText(data);
+  $('daggerTunerStatus').textContent='Значения скопированы — пришли их в чат';
+ }catch{
+  const textarea=$('daggerTunerExport');textarea.hidden=false;textarea.value=data;
+  textarea.focus();textarea.select();
+  $('daggerTunerStatus').textContent='Скопируй выделенные значения';
+ }
+});
+// Load a single GLB; replace the fallback and clone real geometry for each actor.
+let daggerAssetPromise=null;
+async function attachDaggerAsset(actor){
+ const hand=actor.arms[1].hand,old=hand.getObjectByName('gear-dagger');
+ if(!old||old.userData?.nexgameGlbWeapon)return;
+ try{
+  if(!daggerAssetPromise)daggerAssetPromise=import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js')
+   .then(({GLTFLoader})=>new GLTFLoader().loadAsync('./assets/weapons/steppe-dagger-v0.1.glb?v=1'));
+  const asset=await daggerAssetPromise;
+  if(!old.parent||!actor.root.parent)return;
+  const dagger=asset.scene.clone(true),visible=old.visible;
+  dagger.position.copy(old.position);dagger.rotation.copy(old.rotation);dagger.scale.copy(old.scale);
+  old.name='gear-dagger-fallback';old.visible=false;
+  dagger.name='gear-dagger';dagger.userData.nexgameGlbWeapon=true;
+  dagger.visible=visible;hand.add(dagger);
+  if(actor===hero){
+   applyDaggerTransform();
+   syncEquipmentVisuals();
+   if(characterView?.actor)void attachDaggerAsset(characterView.actor);
+  }else if(characterView?.actor===actor)syncEquipmentVisuals();
+ }catch(error){
+  daggerAssetPromise=null;
+  console.warn('Dagger GLB unavailable; keeping procedural fallback',error);
+ }
+}
+void attachDaggerAsset(hero);
+
 
 
 const mentor=makeTauren({fur:0x725438,cloth:M.teal,scale:.95});mentor.root.position.set(-1.5,heightAt(-1.5,-5),-5);mentor.root.rotation.y=.2;
@@ -822,9 +938,16 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
   // follows a wood-chopping arc: raised on windup, edge down on impact.
   arm.hand.rotation.x=i?(-Math.PI/2-swingProfile.wristWindup*windup+swingProfile.wristSwing*swing):Math.PI;
   if(i===1&&actor.weapon){
+   const daggerVisible=arm.hand.getObjectByName('gear-dagger')?.visible;
    const swordVisible=arm.hand.getObjectByName('gear-sword')?.visible;
    const axeVisible=arm.hand.getObjectByName('gear-axe')?.visible;
-   if(swordVisible){
+   if(daggerVisible){
+    if(actor===hero){rightWristBaseX=arm.hand.rotation.x;applyDaggerWristTuning();}
+    else arm.hand.rotation.set(
+     arm.hand.rotation.x+DAGGER_TUNER_DEFAULTS.handX*Math.PI/180,
+     DAGGER_TUNER_DEFAULTS.handY*Math.PI/180,
+     DAGGER_TUNER_DEFAULTS.handZ*Math.PI/180,'XYZ');
+   }else if(swordVisible){
     if(actor===hero){rightWristBaseX=arm.hand.rotation.x;applySwordWristTuning();}
     else arm.hand.rotation.set(
      arm.hand.rotation.x+SWORD_TUNER_DEFAULTS.handX*Math.PI/180,
@@ -888,7 +1011,7 @@ function syncEquipmentVisuals(){
  const kind=equippedWeaponKind(state.equipment,ITEM_CATALOG),
   shield=ITEM_CATALOG[state.equipment.shield?.id];
  for(const root of [hero.root,characterView?.actor.root].filter(Boolean)){
-  const visualKind=root===hero.root&&swordPreview?'sword':kind;
+  const visualKind=root===hero.root&&daggerPreview?'dagger':root===hero.root&&swordPreview?'sword':kind;
   setWeaponVisuals(root,visualKind,!!shield);
   const shieldModel=root.getObjectByName('gear-shield');
   if(shieldModel)shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
@@ -1526,6 +1649,7 @@ function pause(){
  choice('Графика и FPS',graphicsSettings);
  choice('🛠 Тюнер кисти и топора',openAxeTuner);
  choice('⚔ Тюнер меча · примерка',openSwordTuner);
+ choice('🗡 Тюнер кинжала · примерка',openDaggerTuner);
  choice('Начать заново',()=>{
   openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора. Настройки камеры и графики сохранятся.']);
   choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt');
@@ -2779,6 +2903,7 @@ function updateRemoteSnapshot(list){
   if(!remote){
    const actor=makeTauren({fur:0x977c61,cloth:M.teal,scale:.94,weapon:true});
    void attachSwordAsset(actor);
+   void attachDaggerAsset(actor);
    actor.root.position.set(p.x,heightAt(p.x,p.z),p.z);actor.root.rotation.y=p.yaw;
    const nameTag=spriteText(String(p.name||'Странник').slice(0,24)+' · '+(p.level||1),'#c3f1ff',26);
    scene.add(nameTag);

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {ATLAS_CATEGORIES,ATLAS_ENTRIES,filterAtlasEntries} from './atlas-catalog.js?v=0.2.2';
+import {ATLAS_CATEGORIES,ATLAS_ENTRIES,filterAtlasEntries} from './atlas-catalog.js?v=0.2.3';
 const $=id=>document.getElementById(id);
 const canvas=$('viewerCanvas'),scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(38,1,.01,200);
 const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'default'});
