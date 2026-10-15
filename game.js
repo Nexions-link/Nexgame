@@ -1,13 +1,13 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.46';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.46';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.46';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.46';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.46';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.47';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.47';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.47';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.47';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.47';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.46';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.46';
-import {projectPartyMember} from './party-map.js?v=0.3.5.46';
+import {createWorldPresence} from './online.js?v=0.3.5.47';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.47';
+import {projectPartyMember} from './party-map.js?v=0.3.5.47';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -624,7 +624,9 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?1.85*windup-.48*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0));arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?.6*windup:0)-.45*bend;
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
-  arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):Math.PI;
+  // Local wrist X: left +90° counterclockwise, right -90° clockwise
+  // relative to the previous idle positions. Weapon follows right-hand rig.
+  arm.hand.rotation.x=i?(-Math.PI-.38*windup+.85*swing):(Math.PI*1.5);
  }
  const yaw=actor.root.rotation.y;
  for(let i=0;i<2;i++){const leg=actor.legs[i],p=(phase+i*.5)%1;let z=0,lift=0;if(p<.58)z=.775-1.55*p/.58;else{const t=(p-.58)/.42;z=-.775+1.55*smooth(0,1,t);lift=Math.sin(t*Math.PI)*.22}z*=w;lift*=w;
