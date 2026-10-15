@@ -356,9 +356,9 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
   legs.push({hip,knee,foot,sign:s});
  }
  const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
-  return {root,arms,legs,head};
+  return {root,body,chest,neck,tail,braids,arms,legs,head};
 }
 
   const actor=makeTauren({weapon:false});
-  return {root:actor.root,arms:actor.arms,legs:actor.legs,head:actor.head};
+  return {root:actor.root,body:actor.body,chest:actor.chest,neck:actor.neck,tail:actor.tail,braids:actor.braids,arms:actor.arms,legs:actor.legs,head:actor.head};
 }
