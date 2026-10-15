@@ -51,8 +51,10 @@ test('final sword grip uses all 9 confirmed user values independently of axe',()
  assert.match(game,/model\.rotation\.set\(radians\(swordTuning\.swordX\),radians\(swordTuning\.swordY\),/);
  assert.match(game,/sword\.rotation\.copy\(old\.rotation\)/);
  const app=read('app.html'),index=read('index.html');
- assert.match(app,/game\.js\?v=0\.3\.5\.54/);
- assert.match(index,/NexGame · Alpha 0\.3\.5\.54/);
+ const release=app.match(/NexGame · Мулгор · Alpha (\d+\.\d+\.\d+\.\d+)/)?.[1];
+ assert.ok(release,'app shell has a release identifier');
+ assert.ok(app.includes('game.js?v='+release));
+ assert.ok(index.includes('NexGame · Alpha '+release));
  // Axe always retains its previously approved independent baseline.
  const axe=read('axe-tuner.js');
  assert.match(axe,/handX:-180,handY:-67,handZ:-82/);
