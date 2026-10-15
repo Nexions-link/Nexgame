@@ -126,14 +126,14 @@ test('reference-inspired model fits 5000 triangle budget and keeps source rig',(
  const bin=readFileSync(resolve(root,'bestiary/models/dolgonog-v0.2-ref.glb'));
  assert.equal(bin.toString('ascii',0,4),'glTF');
  assert.equal(bin.readUInt32LE(4),2);
- assert.equal(bin.readUInt32LE(8),731984);
+ assert.equal(bin.readUInt32LE(8),738912);
  const l=bin.readUInt32LE(12);
  const j=JSON.parse(bin.toString('utf8',20,20+l));
  assert.equal(j.meshes.length,12);
  assert.equal(j.materials.length,1);
  assert.deepEqual(j.animations.map(a=>a.name),['Idle','Walk','Peck']);
  const tris=j.meshes.reduce((sum,m)=>sum+m.primitives.reduce((n,p)=>n+j.accessors[p.attributes.POSITION].count/3,0),0);
- assert.equal(tris,4448);
+ assert.equal(tris,4512);
  assert.ok(tris<=5000);
  const node=j.nodes.find(n=>n.name==='Body_mesh');
  const p=j.meshes[node.mesh].primitives[0];
