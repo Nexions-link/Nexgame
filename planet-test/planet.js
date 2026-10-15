@@ -376,8 +376,11 @@ try {
     const last = touches.get(e.pointerId);
     if (touches.size === 1) {
       if (state.orbit) {
-        state.orbitAngle -= (e.clientX - last.x) * .006;
-        state.orbitElevation = clamp(state.orbitElevation - (e.clientY - last.y) * .0045, -1.12, 1.12);
+        // Globe "grab" direction: drag the surface to the same screen side
+        // as the finger, instead of navigating an inverted orbit camera.
+        const dragX=e.clientX-last.x, dragY=e.clientY-last.y;
+        state.orbitAngle += dragX * .006;
+        state.orbitElevation = clamp(state.orbitElevation + dragY * .0045, -1.12, 1.12);
       } else {
         state.cameraHeading -= (e.clientX - last.x) * .007;
         state.cameraPitch = clamp(state.cameraPitch + (e.clientY - last.y) * .005, -.15, 1.22);
@@ -583,7 +586,7 @@ try {
       camera.up.copy(state.normal);
     }
     if (cameraSnap) {camera.position.copy(cameraGoal);cameraSnap=false;}
-    else camera.position.lerp(cameraGoal,1-Math.exp(-dt * 8.5));
+    else camera.position.lerp(cameraGoal,1-Math.exp(-dt * (state.orbit&&touches.size===1?24:8.5)));
     camera.lookAt(focus);
     renderer.render(scene,camera);
     if (uiClock > .12) {uiClock = 0;updateHUD();}
