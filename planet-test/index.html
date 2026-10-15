@@ -221,6 +221,15 @@
 <div id="loading">Загружаем сферический мир NexGame…</div>
 <div id="failure" role="alert"></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
-<script type="module" src="./planet.js?v=13"></script>
+<script type="module">
+  // If a dependency fails to load, show a useful error instead of an endless sky.
+  import('./planet.js?v=14').catch(error=>{
+    const loading=document.getElementById('loading');
+    const failure=document.getElementById('failure');
+    if(loading)loading.classList.add('is-done');
+    if(failure)failure.textContent='Ошибка загрузки NexGame: '+(error?.message||String(error));
+    console.error('NexGame spherical bootstrap:',error);
+  });
+</script>
 </body>
 </html>
