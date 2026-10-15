@@ -1,24 +1,24 @@
-import {SHIELD_BLOCK_SECONDS,shieldBlockPose} from './shield-block.js?v=0.3.6.9';
-import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.9';
-import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.9';
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.9';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.9';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.9';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.9';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.9';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.9';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.9';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.9';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.9';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.9';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.9';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.9';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.9';
+import {SHIELD_BLOCK_SECONDS,shieldBlockPose} from './shield-block.js?v=0.3.7.0';
+import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.7.0';
+import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.7.0';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.7.0';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.7.0';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.7.0';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.7.0';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.7.0';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.7.0';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.7.0';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.7.0';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.7.0';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.7.0';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.7.0';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.7.0';
+import {createMeadowDecorations} from './meadow.js?v=0.3.7.0';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.9';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.9';
-import {projectPartyMember} from './party-map.js?v=0.3.6.9';
+import {createWorldPresence} from './online.js?v=0.3.7.0';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.7.0';
+import {projectPartyMember} from './party-map.js?v=0.3.7.0';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -3835,22 +3835,51 @@ function updateEnemy(e,dt){
   return;
  }
  e.hit=Math.max(0,e.hit-dt);e.stunned=Math.max(0,e.stunned-dt);e.attackCd=Math.max(0,e.attackCd-dt);e.roamTime+=dt;const p=e.root.position,dist=Math.hypot(state.x-p.x,state.z-p.z);
- // The solo fallback matches the server: no timeout, leash from spawn.
+ // Offline behavior mirrors the world server: notice, pursue, wind up, peck, return.
  if(e.aggro&&Math.hypot(state.x-e.spawnX,state.z-e.spawnZ)>23){
-  e.aggro=false;e.hp=e.maxHp;
+  e.aggro=false;e.returning=true;e.attackWindup=0;e.hp=e.maxHp;
  }
- let tx=e.spawnX+Math.sin(e.roamTime*.18+e.index)*2.2,tz=e.spawnZ+Math.cos(e.roamTime*.14+e.index)*2.2,speed=.42;
+ if(e.returning&&Math.hypot(p.x-e.spawnX,p.z-e.spawnZ)<.65)e.returning=false;
+ if(!e.aggro&&!e.returning&&state.hp>0&&
+    Math.hypot(state.x-e.spawnX,state.z-e.spawnZ)<=23&&
+    dist<(e.boss?9:7)){
+  e.aggro=true;e.returning=false;e.alertRemaining=1.05;
+ }
+ let tx=e.spawnX+Math.sin(e.roamTime*.18+e.index)*2.2,
+     tz=e.spawnZ+Math.cos(e.roamTime*.14+e.index)*2.2,speed=.42;
+ if(e.returning){tx=e.spawnX;tz=e.spawnZ;speed=1.4}
  if(e.aggro){tx=state.x;tz=state.z;speed=e.boss?1.75:2.1}
  const d=Math.hypot(tx-p.x,tz-p.z),oldX=p.x,oldZ=p.z;
- if(d>(e.aggro?(e.boss?2.75:1.75):.25)&&e.stunned===0){const dx=(tx-p.x)/d*speed*dt,dz=(tz-p.z)/d*speed*dt;if(clearAt(p.x+dx,p.z+dz,.36)){p.x+=dx;p.z+=dz}else if(clearAt(p.x+dx,p.z,.36))p.x+=dx;else if(clearAt(p.x,p.z+dz,.36))p.z+=dz;const goal=Math.atan2(dx,dz);e.root.rotation.y+=Math.atan2(Math.sin(goal-e.root.rotation.y),Math.cos(goal-e.root.rotation.y))*(1-Math.exp(-dt*6))}
- if(e.aggro&&dist<(e.boss?3:2.1)&&e.attackCd===0&&e.stunned===0){
+ const face=Math.atan2(tx-p.x,tz-p.z);
+ if(e.aggro&&d>.001)
+  e.root.rotation.y+=Math.atan2(Math.sin(face-e.root.rotation.y),Math.cos(face-e.root.rotation.y))*(1-Math.exp(-dt*6));
+ const reach=e.aggro?(e.boss?2.75:1.75):e.returning?.35:.25;
+ if(d>reach&&e.stunned===0&&e.attackWindup<=0){
+  const step=Math.min(speed*dt,d-reach),side=e.index%2?-1:1;
+  // Probe the actual world colliders before advancing; prefer one side.
+  for(const turn of [0,side*.5,side,side*1.5,-side*.5,-side,-side*1.5,side*2,-side*2]){
+   const angle=face+turn,sx=Math.sin(angle),sz=Math.cos(angle),probe=Math.min(.8,d-reach);
+   if(!clearAt(p.x+sx*step,p.z+sz*step,.36)||
+      !clearAt(p.x+sx*probe,p.z+sz*probe,.36))continue;
+   p.x+=sx*step;p.z+=sz*step;
+   if(!e.aggro)e.root.rotation.y+=Math.atan2(Math.sin(angle-e.root.rotation.y),Math.cos(angle-e.root.rotation.y))*(1-Math.exp(-dt*6));
+   break;
+  }
+ }
+ if(e.stunned>0)e.attackWindup=0;
+ else if(e.attackWindup>0){
+  e.attackWindup-=dt;
+  if(e.attackWindup<=0&&e.aggro&&
+     Math.hypot(state.x-p.x,state.z-p.z)<(e.boss?3:2.1)){
    lastCombatAt=clock;
    const suffered=incomingDamage(e,e.boss?14:9);
    state.hp-=suffered;
    if(suffered>0)gainClassResource(WARRIOR_RAGE_ON_HURT);
-   e.attackCd=e.boss?1.8:1.5;
    if(state.hp<=0)revive();
   }
+ }else if(e.aggro&&d<(e.boss?3:2.1)&&e.attackCd===0){
+  e.attackWindup=.45;e.attackCd=e.boss?1.8:1.5;
+ }
  if(e.boss&&e.nameTag){e.nameTag.visible=true;e.nameTag.position.set(p.x,heightAt(p.x,p.z)+4.65,p.z)}
   const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;const recoil=hitReaction(e.hit);
  e.body.rotation.x=(e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0)-.25*recoil;
