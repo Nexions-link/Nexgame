@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {ATLAS_CATEGORIES,ATLAS_ENTRIES,filterAtlasEntries} from './atlas-catalog.js?v=0.2.4';
+import {ATLAS_CATEGORIES,ATLAS_ENTRIES,filterAtlasEntries} from './atlas-catalog.js?v=0.2.5';
 const $=id=>document.getElementById(id);
 const canvas=$('viewerCanvas'),scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(38,1,.01,200);
 const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'default'});
@@ -49,7 +49,7 @@ async function selectEntry(id){
  $('modelStatus').textContent='ЗАГРУЗКА МОДЕЛИ';$('animationPanel').hidden=true;
  const request=++loadId;
  try{
-  const gltf=await loader.loadAsync(entry.asset+'?atlas=0.2.4');if(request!==loadId)return;
+  const gltf=await loader.loadAsync(entry.asset+'?atlas=0.2.5');if(request!==loadId)return;
   if(current){scene.remove(current);current.traverse(o=>{if(o.isMesh){/* shared GLB loader cache may reuse textures; avoid disposal */}})}
   current=gltf.scene;
   // The exported axe's local up direction is inverted; align it for display.
