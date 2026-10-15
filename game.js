@@ -610,7 +610,7 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?1.85*windup-.48*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0));arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?.6*windup:0)-.45*bend;
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
-  arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):0;
+  arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):Math.PI;
  }
  const yaw=actor.root.rotation.y;
  for(let i=0;i<2;i++){const leg=actor.legs[i],p=(phase+i*.5)%1;let z=0,lift=0;if(p<.58)z=.775-1.55*p/.58;else{const t=(p-.58)/.42;z=-.775+1.55*smooth(0,1,t);lift=Math.sin(t*Math.PI)*.22}z*=w;lift*=w;
