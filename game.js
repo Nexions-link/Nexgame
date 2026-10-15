@@ -1,22 +1,23 @@
-import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.4';
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.4';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.4';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.4';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.4';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.4';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.4';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.4';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.4';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.4';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.4';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.4';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.4';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.4';
+import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.5';
+import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.5';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.5';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.5';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.5';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.5';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.5';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.5';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.5';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.5';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.5';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.5';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.5';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.5';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.5';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.4';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.4';
-import {projectPartyMember} from './party-map.js?v=0.3.6.4';
+import {createWorldPresence} from './online.js?v=0.3.6.5';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.5';
+import {projectPartyMember} from './party-map.js?v=0.3.6.5';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -521,6 +522,7 @@ function openAxeTuner(){
  if(modalKind)closeDialog();
  if(!swordTunerPanel.hidden)closeSwordTuner();
  if(!daggerTunerPanel.hidden)closeDaggerTuner();
+ if(!shieldTunerPanel.hidden)closeShieldTuner();
  axeTunerPanel.hidden=false;axeTunerPanel.classList.remove('axe-tuner-collapsed');
  refreshAxeTuner();
 }
@@ -606,6 +608,7 @@ function openSwordTuner(){
  if(modalKind)closeDialog();
  if(!axeTunerPanel.hidden)closeAxeTuner();
  if(!daggerTunerPanel.hidden)closeDaggerTuner();
+ if(!shieldTunerPanel.hidden)closeShieldTuner();
  swordPreview=true;swordTunerPanel.hidden=false;swordTunerPanel.classList.remove('axe-tuner-collapsed');
  syncEquipmentVisuals();applySwordTransform();applySwordWristTuning();refreshSwordTuner();
  $('swordTunerStatus').textContent='Меч примеряется без смены экипировки.';
@@ -708,6 +711,7 @@ function openDaggerTuner(){
  daggerPreviewAttackElapsed=-1;
  if(!axeTunerPanel.hidden)closeAxeTuner();
  if(!swordTunerPanel.hidden)closeSwordTuner();
+ if(!shieldTunerPanel.hidden)closeShieldTuner();
  daggerPreview=true;daggerTunerPanel.hidden=false;daggerTunerPanel.classList.remove('axe-tuner-collapsed');
  syncEquipmentVisuals();applyDaggerTransform();applyDaggerWristTuning();refreshDaggerTuner();
  $('daggerTunerStatus').textContent='Кинжал показан для примерки. Экипировка не меняется.';
@@ -775,6 +779,118 @@ async function attachDaggerAsset(actor){
 }
 void attachDaggerAsset(hero);
 
+
+// Two shield poses are independent, in localStorage only; never touch inventory.
+const shieldTuning=Object.fromEntries(SHIELD_TUNER_VARIANTS.map(kind=>{
+ let input=null;try{input=JSON.parse(localStorage.getItem(shieldTunerStorageKey(kind)))}catch{}
+ return [kind,normalizeShieldTuning(input)];
+}));
+let shieldPreview=null,shieldTunerKind='round';
+const shieldTunerPanel=$('shieldTuner'),shieldTunerFields=new Map();
+function applyShieldTransform(root,kind){
+ const mount=root?.getObjectByName('gear-shield');if(!mount)return;
+ const name=SHIELD_TUNER_VARIANTS.includes(kind)?kind:'round',p=shieldTuning[name];
+ mount.userData.shieldPoseKind=name;
+ mount.position.set(p.posX,p.posY,p.posZ);
+ mount.rotation.set(radians(p.shieldX),radians(p.shieldY),radians(p.shieldZ),'YXZ');
+}
+function applyShieldWristPose(actor,baseX){
+ const mount=actor.arms[0]?.hand.getObjectByName('gear-shield');
+ if(!mount?.visible)return;
+ const p=shieldTuning[mount.userData.shieldPoseKind||'round'];
+ actor.arms[0].hand.rotation.set(baseX+radians(p.handX),radians(p.handY),radians(p.handZ),'XYZ');
+}
+function refreshShieldTuner(){
+ for(const [key,row] of shieldTunerFields){
+  row.slider.value=String(shieldTuning[shieldTunerKind][key]);
+  row.output.textContent=Number(shieldTuning[shieldTunerKind][key]).toFixed(key.startsWith('pos')?3:0)+SHIELD_TUNER_FIELDS[key].unit;
+ }
+ $('shieldTunerTitle').textContent=shieldTunerKind==='round'?'🛡 Круглый щит':'🛡 Вытянутый щит';
+ for(const kind of SHIELD_TUNER_VARIANTS)
+  $('shieldTuner'+(kind==='round'?'Round':'Kite')).setAttribute('aria-pressed',String(shieldTunerKind===kind));
+}
+for(const section of SHIELD_TUNER_GROUPS){
+ const wrap=document.createElement('section');wrap.className='axe-tuner-section';
+ const title=document.createElement('h3');title.textContent=section.title;wrap.appendChild(title);
+ for(const key of section.fields){
+  const spec=SHIELD_TUNER_FIELDS[key],label=document.createElement('label');label.className='axe-tuner-field';
+  const span=document.createElement('span');span.textContent=spec.label;
+  const slider=document.createElement('input'),output=document.createElement('output');slider.type='range';
+  slider.min=spec.min;slider.max=spec.max;slider.step=spec.step;
+  slider.setAttribute('aria-label',section.title+' · '+spec.label);
+  slider.addEventListener('input',()=>{
+   shieldTuning[shieldTunerKind]=normalizeShieldTuning({...shieldTuning[shieldTunerKind],[key]:Number(slider.value)});
+   applyShieldTransform(hero.root,shieldTunerKind);
+   if(characterView?.actor)applyShieldTransform(characterView.actor.root,
+    shieldModelForRarity(ITEM_CATALOG[state.equipment.shield?.id]?.rarity));
+   try{localStorage.setItem(shieldTunerStorageKey(shieldTunerKind),serializeShieldTuning(shieldTuning[shieldTunerKind]))}catch{}
+   refreshShieldTuner();
+   $('shieldTunerStatus').textContent='Сохранено на устройстве';
+  });
+  label.append(span,slider,output);wrap.appendChild(label);shieldTunerFields.set(key,{slider,output});
+ }
+ $('shieldTunerControls').appendChild(wrap);
+}
+function chooseShieldTuner(kind){
+ if(!SHIELD_TUNER_VARIANTS.includes(kind))return;
+ shieldTunerKind=kind;shieldPreview=kind;refreshShieldTuner();syncEquipmentVisuals();
+ $('shieldTunerStatus').textContent='Примерка без смены экипировки';
+}
+function openShieldTuner(kind='round'){
+ if(modalKind)closeDialog();
+ if(!axeTunerPanel.hidden)closeAxeTuner();
+ if(!swordTunerPanel.hidden)closeSwordTuner();
+ if(!daggerTunerPanel.hidden)closeDaggerTuner();
+ shieldTunerPanel.hidden=false;shieldTunerPanel.classList.remove('axe-tuner-collapsed');
+ chooseShieldTuner(kind);
+}
+function closeShieldTuner(){shieldPreview=null;shieldTunerPanel.hidden=true;syncEquipmentVisuals()}
+for(const name of ['Round','Kite'])
+ $('shieldTuner'+name).addEventListener('click',()=>chooseShieldTuner(name.toLowerCase()));
+$('shieldTunerClose').addEventListener('click',closeShieldTuner);
+$('shieldTunerCollapse').addEventListener('click',()=>shieldTunerPanel.classList.toggle('axe-tuner-collapsed'));
+$('shieldTunerSide').addEventListener('click',()=>shieldTunerPanel.classList.toggle('axe-tuner-left'));
+$('shieldTunerReset').addEventListener('click',()=>{
+ shieldTuning[shieldTunerKind]={...SHIELD_TUNER_DEFAULTS};
+ try{localStorage.removeItem(shieldTunerStorageKey(shieldTunerKind))}catch{}
+ refreshShieldTuner();syncEquipmentVisuals();
+ $('shieldTunerExport').hidden=true;$('shieldTunerStatus').textContent='Сброшен только выбранный щит';
+});
+$('shieldTunerCopy').addEventListener('click',async()=>{
+ const value=serializeShieldTuning(shieldTuning[shieldTunerKind]);
+ try{
+  if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
+  await navigator.clipboard.writeText(value);$('shieldTunerStatus').textContent='JSON скопирован';
+ }catch{
+  const box=$('shieldTunerExport');box.hidden=false;box.value=value;box.focus();box.select();
+  $('shieldTunerStatus').textContent='Скопируй выделенные значения';
+ }
+});
+for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmove','touchend','keydown'])
+ shieldTunerPanel.addEventListener(type,event=>event.stopPropagation());
+// Compact accordion shared by weapon tuners and the new shield tuner.
+function initializeCompactTuner(panel){
+ const sections=[...panel.querySelectorAll('.axe-tuner-section')];
+ for(const [i,section] of sections.entries()){
+  const heading=section.querySelector('h3');if(!heading)continue;
+  const show=(panel===shieldTunerPanel?i===0:i===sections.length-1);
+  section.classList.toggle('is-open',show);heading.setAttribute('aria-expanded',String(show));
+  heading.setAttribute('role','button');heading.tabIndex=0;
+  const toggle=()=>{
+   const open=!section.classList.contains('is-open');
+   for(const item of sections){item.classList.remove('is-open');item.querySelector('h3')?.setAttribute('aria-expanded','false')}
+   if(open){section.classList.add('is-open');heading.setAttribute('aria-expanded','true')}
+  };
+  heading.addEventListener('click',toggle);
+  heading.addEventListener('keydown',event=>{
+   if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle()}
+  });
+ }
+}
+for(const panel of [axeTunerPanel,swordTunerPanel,daggerTunerPanel,shieldTunerPanel])
+ initializeCompactTuner(panel);
+refreshShieldTuner();
+
 // Reuse both original shield GLBs for all players; leave the old procedural
 // shield in place as a fallback whenever the asset cannot be downloaded.
 const shieldAssetPromises=new Map();
@@ -803,6 +919,7 @@ async function attachShieldAsset(root,rarity){
   model.scale.setScalar(spec.scale);
   styleShieldGlb(THREE,model,rarity);
   mount.add(model);
+  applyShieldTransform(root,key);
   // Hide only the old procedural fallback and its decorative overlay.
   for(const child of mount.children)if(child!==model)child.visible=false;
   mount.userData.shieldVariant=key;
@@ -1038,6 +1155,7 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
   arm.hand.rotation.x=i?(-Math.PI/2-swingProfile.wristWindup*windup+swingProfile.wristSwing*swing):Math.PI;
+  if(i===0)applyShieldWristPose(actor,arm.hand.rotation.x);
   if(i===1&&daggerStab)arm.hand.rotation.x+=.12*daggerStab.draw-.08*daggerStab.extend;
   if(i===1&&actor.weapon){
    const daggerVisible=arm.hand.getObjectByName('gear-dagger')?.visible;
@@ -1114,7 +1232,8 @@ function syncEquipmentVisuals(){
   shield=ITEM_CATALOG[state.equipment.shield?.id];
  for(const root of [hero.root,characterView?.actor.root].filter(Boolean)){
   const visualKind=root===hero.root&&daggerPreview?'dagger':root===hero.root&&swordPreview?'sword':kind;
-  setWeaponVisuals(root,visualKind,!!shield);
+  const previewKind=root===hero.root?shieldPreview:null;
+  setWeaponVisuals(root,visualKind,!!shield||!!previewKind);
   if(visualKind!=='none'){
    const weaponDef=ITEM_CATALOG[state.equipment.weapon?.id];
    applyWeaponQuality(THREE,root,visualKind,weaponDef?.weaponKind===visualKind?weaponDef.rarity:'common');
@@ -1122,11 +1241,13 @@ function syncEquipmentVisuals(){
   const shieldModel=root.getObjectByName('gear-shield');
   if(shieldModel){
    shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
-   if(shield){
+   const rarity=previewKind?(previewKind==='round'?'poor':'uncommon'):shield?.rarity;
+   applyShieldTransform(root,previewKind||shieldModelForRarity(rarity));
+   if(rarity){
     const glb=shieldModel.getObjectByName('shield-glb-model');
-    if(glb)styleShieldGlb(THREE,glb,shield.rarity);
-    else applyShieldQuality(THREE,root,shield.rarity);
-    void attachShieldAsset(root,shield.rarity);
+    if(glb)styleShieldGlb(THREE,glb,rarity);
+    else applyShieldQuality(THREE,root,rarity);
+    void attachShieldAsset(root,rarity);
    }
   }
  }
@@ -1772,6 +1893,8 @@ function pause(){
  choice('🛠 Тюнер кисти и топора',openAxeTuner);
  choice('⚔ Тюнер меча · примерка',openSwordTuner);
  choice('🗡 Тюнер кинжала · примерка',openDaggerTuner);
+ choice('🛡 Тюнер круглого щита',()=>openShieldTuner('round'));
+ choice('🛡 Тюнер вытянутого щита',()=>openShieldTuner('kite'));
  choice('Начать заново',()=>{
   openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора. Настройки камеры и графики сохранятся.']);
   choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt');
@@ -3080,6 +3203,7 @@ function updateRemoteSnapshot(list){
    const shieldRoot=remote.actor.root.getObjectByName('gear-shield');
    const glb=shieldRoot?.getObjectByName('shield-glb-model');
    const rarity=remoteShield?.rarity||'common';
+   applyShieldTransform(remote.actor.root,shieldModelForRarity(rarity));
    if(glb)styleShieldGlb(THREE,glb,rarity);
    else applyShieldQuality(THREE,remote.actor.root,rarity);
    void attachShieldAsset(remote.actor.root,rarity);
