@@ -188,3 +188,25 @@ test('a monster breaks off past spawn leash and actively goes home',()=>{
  for(let t=2;t<=20;t++)tickMulgoreMobs(mobs,.1,[player],now+t*100);
  assert.ok(Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<before);
 });
+
+test('lost idle mobs return home and old extremely displaced mobs recover',()=>{
+ const mobs=createMulgoreMobs(),mob=mobs[0],now=700000;
+ mob.x=mob.spawnX+8;
+ tickMulgoreMobs(mobs,.1,[],now);
+ assert.equal(mob.returning,true);
+ mob.x=mob.spawnX+32;
+ mob.returning=false;
+ tickMulgoreMobs(mobs,.1,[],now+100);
+ assert.equal(mob.x,mob.spawnX);
+ assert.equal(mob.z,mob.spawnZ);
+ assert.equal(mob.aggroId,null);
+});
+test('mob pathfinding cannot move farther than 27m from fixed spawn',()=>{
+ const mobs=createMulgoreMobs(),mob=mobs[0],now=800000;
+ const player={id:'runner',x:mob.spawnX+22,z:mob.spawnZ,hp:100};
+ tickMulgoreMobs(mobs,.1,[player],now);
+ mob.aggroId=player.id;
+ for(let tick=1;tick<=400;tick++)tickMulgoreMobs(mobs,.1,[player],now+tick*100);
+ assert.ok(Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<=27+1e-7);
+ assert.equal(mob.aggroId,player.id);
+});

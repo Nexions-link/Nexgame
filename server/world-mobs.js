@@ -36,6 +36,9 @@ function mobStep(mob,tx,tz,speed,dt,reach){
  for(const angle of angles){
   const face=yaw+angle,sx=Math.sin(face),sz=Math.cos(face);
   const nx=mob.x+sx*length,nz=mob.z+sz*length;
+  const oldHome=Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ);
+  const newHome=Math.hypot(nx-mob.spawnX,nz-mob.spawnZ);
+  if(newHome>MOB_AGGRO_LEASH_RANGE+4&&newHome>=oldHome)continue;
   const probe=Math.min(.8,d-reach);
   if(!mobWalkable(nx,nz)||!mobWalkable(mob.x+sx*probe,mob.z+sz*probe))continue;
   mob.x=nx;mob.z=nz;mob.phase+=length*4;
@@ -88,6 +91,15 @@ export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
   }
   mob.roamTime+=dt;
   let target=mob.aggroId?people.get(mob.aggroId):null;
+  if(!mob.aggroId){
+   const fromSpawn=Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ);
+   if(fromSpawn>30){
+    // Repair an idle mob displaced outside the supported world by old AI.
+    mob.x=mob.spawnX;mob.z=mob.spawnZ;mob.returning=false;mob.windupUntil=0;
+   }else if(fromSpawn>6){
+    mob.returning=true;
+   }
+  }
   if(mob.aggroId&&(!target||target.hp<=0||target.respawnShieldUntil>now||
      Math.hypot(target.x-mob.spawnX,target.z-mob.spawnZ)>MOB_AGGRO_LEASH_RANGE)){
    resetMulgoreMob(mob);target=null;

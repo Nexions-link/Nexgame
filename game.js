@@ -1,24 +1,25 @@
-import {SHIELD_BLOCK_SECONDS,shieldBlockPose} from './shield-block.js?v=0.3.7.0';
-import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.7.0';
-import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.7.0';
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.7.0';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.7.0';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.7.0';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.7.0';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.7.0';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.7.0';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.7.0';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.7.0';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.7.0';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.7.0';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.7.0';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.7.0';
-import {createMeadowDecorations} from './meadow.js?v=0.3.7.0';
+import {SHIELD_BLOCK_SECONDS,shieldBlockPose} from './shield-block.js?v=0.3.7.1';
+import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.7.1';
+import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.7.1';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.7.1';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.7.1';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.7.1';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.7.1';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.7.1';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.7.1';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.7.1';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.7.1';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.7.1';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.7.1';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.7.1';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.7.1';
+import {createMeadowDecorations} from './meadow.js?v=0.3.7.1';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.7.0';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.7.0';
-import {projectPartyMember} from './party-map.js?v=0.3.7.0';
+import {createWorldPresence} from './online.js?v=0.3.7.1';
+import {collectSharedMobTargets,mobSnapshotErrorLabel} from './mob-network.js?v=0.3.7.1';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.7.1';
+import {projectPartyMember} from './party-map.js?v=0.3.7.1';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -3321,24 +3322,12 @@ function updateSharedMobTargets(snapshot){
   mobNetworkStatus='нет связи';showWorldNetworkStatus();return;
  }
  if(!Array.isArray(snapshot))return;
- const next=new Map();
- for(const row of snapshot){
-  if(!Number.isInteger(row?.id)||row.id<0||row.id>=enemies.length)continue;
-  const mob=enemies[row.id];
-  if(!mob||mob.trainingDummy||!Number.isFinite(row.x)||
-     !Number.isFinite(row.z)||!Number.isFinite(row.yaw))continue;
-  // Keep a buffer around the 23 m spawn-centered chase limit.
-   if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>27)continue;
-  next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw,
-   phase:Number.isFinite(row.phase)?row.phase:null,
-   hp:row.hp,maxHp:row.maxHp,life:row.life,dead:row.dead,
-   aggroId:row.aggroId,stunned:row.stunned,attackSeq:row.attackSeq,
-    returning:row.returning});
- }
+ const {targets:next,rejected}=collectSharedMobTargets(snapshot,enemies);
  if(next.size!==SHARED_MOB_COUNT){
   sharedMobsConnected=false;worldCombatReady=false;sharedMobTargets.clear();
   lastSharedMobPacketAt=0;
-  mobNetworkStatus=snapshot.length===0?'нет данных от сервера':next.size+'/'+SHARED_MOB_COUNT+' (ошибка)';
+  mobNetworkStatus=snapshot.length===0?'нет данных от сервера':
+    mobSnapshotErrorLabel(rejected,next.size,SHARED_MOB_COUNT);
   showWorldNetworkStatus();return;
  }
  const firstSnapshot=!sharedMobsConnected;
