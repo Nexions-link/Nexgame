@@ -12,7 +12,8 @@ import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=2';
 import {createCampActions} from './camp-actions.js?v=4';
-import {createCombatFeedback,HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
+import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
+import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
 import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=2';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
@@ -100,7 +101,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
  const feedbackLayer=$('combatFeedback');
  if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
- const combatFeedback=createCombatFeedback({THREE,document,camera,layer:feedbackLayer});
+ const combatFeedback=createSphereCombatFeedback({THREE,document,camera,layer:feedbackLayer});
  const nameEl=$('playerName'),objective=$('qtext');
  const originalControls=$('labSettingsSources');
  const settingsControls=[...originalControls.children];
