@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
+import {screenMoveVector,turnTowardsAngle} from '../movement-controls.js?v=0.3.7.0';
 import {readPlanetView,writePlanetView} from './world-save.js?v=2';
 import {cameraObstruction} from './sphere-physics.js?v=2';
 import {createOfflineRpg} from './offline-rpg.js?v=15';
@@ -283,6 +283,7 @@ try {
     lonUnwrapped:previousWorld?.lonUnwrapped??0,meters:previousWorld?.meters??0,
     heading:previousWorld?.heading??0,cameraHeading:previousWorld?.cameraHeading??0,
     cameraPitch:previousWorld?.cameraPitch??.36,zoom:previousWorld?.zoom??13,
+    cameraFollow:previousWorld?.cameraFollow??false,
     orbit:false,orbitAngle:previousWorld?.orbitAngle??.45,
     orbitElevation:previousWorld?.orbitElevation??.34,
     orbitDistance:previousWorld?.orbitDistance??3.22,legCycle:0
@@ -376,6 +377,7 @@ try {
   window.addEventListener('blur', () => {keys.clear(); releaseStick();});
 
   const touches = new Map();
+  let followCooldown=0;
   let lastPinch = 0;
   canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
@@ -397,6 +399,7 @@ try {
       } else {
         state.cameraHeading -= (e.clientX - last.x) * .007;
         state.cameraPitch = clamp(state.cameraPitch + (e.clientY - last.y) * .005, -.15, 1.22);
+        if(Math.hypot(e.clientX-last.x,e.clientY-last.y)>.8)followCooldown=2.6;
       }
     }
     touches.set(e.pointerId, {x:e.clientX,y:e.clientY});
@@ -446,6 +449,15 @@ try {
   });
   const zoomButton = $('zoomButton');
   const cameraDistanceInput=$('cameraDistance'),cameraDistanceValue=$('cameraDistanceValue');
+  const cameraFollowSwitch=$('cameraFollow');
+  if(cameraFollowSwitch){
+   cameraFollowSwitch.checked=state.cameraFollow;
+   cameraFollowSwitch.addEventListener('change',()=>{
+    state.cameraFollow=!!cameraFollowSwitch.checked;
+    followCooldown=state.cameraFollow?1:0;
+    saveWorld();
+   });
+  }
   function updateZoomLabel(){
     zoomButton.textContent='🔭 Камера: '+(state.zoom>19?'далеко':'близко');
     if(cameraDistanceInput)cameraDistanceInput.value=String(state.zoom);
@@ -633,6 +645,12 @@ try {
     } else {
       state.legCycle += dt * 1.1;
     }
+    followCooldown=Math.max(0,followCooldown-dt);
+    // Spherical analogue of native followCameraYaw: tangent heading is the
+    // camera's view-forward, not the eye-backward yaw of the flat implementation.
+    // Follow only after controls are released; never overwrite vertical pitch.
+    if(state.cameraFollow&&!state.orbit&&power<.11&&touches.size===0&&followCooldown<=0)
+     state.cameraHeading=turnTowardsAngle(state.cameraHeading,state.heading,dt,3.8);
     updateActor();
     startZone.animate(elapsed);
     rpg.update(dt);
