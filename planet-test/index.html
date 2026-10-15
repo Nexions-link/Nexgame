@@ -81,6 +81,25 @@
 #actionsBar .ability.is-active{border-color:#edce86;box-shadow:0 0 10px #e8c67c8c}
 #actionsBar .ability.is-cooldown{filter:grayscale(.75);opacity:.75}
 #actionsBar .ability.is-empty{opacity:.65}
+/* PT 0.3.1: compact edge notices instead of the original centred
+   full-screen toast; ordinary targeting/attacks use the HUD, not popups. */
+#toast{
+ top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 194px);
+ left:calc(env(safe-area-inset-left,0px) + 10px);right:auto;
+ transform:translateY(8px);
+ max-width:min(250px,64vw);width:max-content;
+ padding:7px 10px;border:1px solid #9c8654;border-radius:5px;
+ background:#25271ddf;color:#e9d9b5;
+ font:12px/1.4 system-ui,-apple-system,sans-serif;
+ text-align:left;text-shadow:0 1px 2px #14140e;
+ box-shadow:0 2px 10px #0004;
+ opacity:0;pointer-events:none;
+ transition:opacity .18s,transform .18s;
+}
+#toast.show{opacity:1;transform:translateY(0)}
+@media(max-width:600px){
+ #toast{bottom:calc(env(safe-area-inset-bottom,0px) + 194px);max-width:min(220px,60vw);font-size:11px;padding:6px 8px}
+}
 #toast[hidden]{display:none}
 #toast.show{opacity:1}
 #chatDock,#partyHud,#partyInvitation{display:none!important}
