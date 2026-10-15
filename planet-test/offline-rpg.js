@@ -97,6 +97,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
 
  let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,attackPulse=0,stompPulse=0;
  const group=new THREE.Group();scene.add(group);
+ // Production target marker: native gold ring, radially oriented so it
+ // sits flat under a selected creature anywhere on the sphere.
+ const selectionRoot=new THREE.Group();group.add(selectionRoot);
+ const selection=new THREE.Mesh(new THREE.RingGeometry(.8,.88,40),
+  new THREE.MeshBasicMaterial({color:0xf6d580,transparent:true,opacity:.88,
+   side:THREE.DoubleSide,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}));
+ selection.rotation.x=-Math.PI/2;
+ selectionRoot.add(selection);selectionRoot.visible=false;
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[];
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
@@ -215,7 +223,22 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(mob.birdVisual)advancePlainstriderVisual(THREE,mob,dt,moved,!!mob.corpse);
  }
  function player(){return toLocal(playerNormal(),getRadius());}
- function distance(entity){const p=player();return Math.hypot(p.x-entity.x,p.z-entity.z);}
+ function distance(entity){
+  const a=playerNormal(),b=toNormal(entity.x,entity.z,getRadius());
+  return getRadius()*Math.acos(clamp(a.dot(b),-1,1));
+ }
+ function updateSelection(){
+  const alive=target&&['mob','dummy'].includes(target.kind)&&target.root.visible&&
+   target.hp>0&&!target.dead&&!target.corpse;
+  selectionRoot.visible=!!alive;
+  if(!alive)return;
+  const normal=toNormal(target.x,target.z,getRadius());
+  selectionRoot.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.24);
+  selectionRoot.quaternion.setFromUnitVectors(up,normal);
+  selection.material.color.setHex(distance(target)>3.45?0xd97456:0xe9db84);
+  selection.material.opacity=autoplay?.96:.85;
+  selection.scale.setScalar(target.kind==='dummy'?1.16:1);
+ }
  function addItem(id,qty=1){
   if(!ITEM_CATALOG[id]&&id!=='healingPotion')return false;
   const cap=itemStackLimit(id);
@@ -255,7 +278,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const item of mob.loot){if(addItem(item.id,item.qty)){msg('Получено: '+(ITEM_CATALOG[item.id]?.name||item.id));}
    else remaining.push(item);}
   mob.loot=remaining;
-  if(!remaining.length){mob.corpse=false;mob.root.visible=false;mob.respawn=12;target=null;}
+  if(!remaining.length){mob.corpse=false;mob.root.visible=false;mob.respawn=12;target=null;updateSelection();}
   draw();
  }
  function targetEntity(entity){
@@ -263,7 +286,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(entity&&(entity.hp<=0||entity.dead||!entity.root.visible))entity=null;
   if(target!==entity)autoplay=false;
   target=entity;
-  draw();
+  updateSelection();draw();
  }
  function targetNearest(step=1){
   if(!modal.hidden)return;
@@ -602,7 +625,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   targetEntity(selected||null);
  });
- function resetWorldTransforms(){for(const e of entities)setModelAt(e);draw();}
+ function resetWorldTransforms(){for(const e of entities)setModelAt(e);updateSelection();draw();}
  function canMoveTo(x,z){
   const near=entities.filter(e=>['mentor','vendor','herbalist'].includes(e.kind)).some(e=>Math.hypot(x-e.x,z-e.z)<.8);
   if(near)return false;
@@ -694,6 +717,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   updateTrainingTarget(dummy,clock);
   combatFeedback.update(dt);
+  updateSelection();
   if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
  }
  let resetPosition=null;
