@@ -54,27 +54,27 @@ button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visibl
   <div id="identity" class="panel"><div class="eyebrow">NEXGAME · WORLD LAB</div><h1>Круглый мир</h1><small>Отдельная экспериментальная сборка</small></div>
   <div id="statistics" class="panel"><span class="caption">Путь по экватору</span><strong id="progress">0%</strong><span class="sub" id="distance">0 м · оборотов: 0</span></div>
 </div>
-<div id="zoneTag"><b id="zoneName">Степь Рассвета</b><small id="zoneLabel">НАЧАЛО ПУТЕШЕСТВИЯ</small></div>
+<div id="zoneTag"><b id="zoneName">Стартовая зона NexGame</b><small id="zoneLabel">ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД</small></div>
 <div id="compass"><canvas id="miniglobe" width="220" height="220" aria-label="Глобус с текущим положением"></canvas></div>
-<div id="instruction" class="panel"><b>Новая планета</b><div>Джойстик — двигаться · свайп — камера<br>Удерживай вперёд, чтобы обойти экватор за ~2:15</div></div>
+<div id="instruction" class="panel"><b>Новая планета</b><div>Джойстик — двигаться · свайп — камера<br>Пройди лагерь и озеро. Экватор планеты: ~6:45</div></div>
 <div id="stickBase" role="application" aria-label="Виртуальный джойстик"><div id="stickThumb"></div></div>
 <section id="radiusPicker" class="panel" aria-label="Размер планеты">
     <div class="caption">🌍 ИЗМЕНИТЬ РАЗМЕР ПЛАНЕТЫ</div>
     <div id="radiusChoices">
-      <button class="radius-choice" data-radius="87" type="button" aria-pressed="true">87 м</button>
+      <button class="radius-choice" data-radius="87" type="button" aria-pressed="false">87 м</button>
       <button class="radius-choice" data-radius="174" type="button" aria-pressed="false">174 м</button>
-      <button class="radius-choice" data-radius="261" type="button" aria-pressed="false">261 м</button>
+      <button class="radius-choice" data-radius="261" type="button" aria-pressed="true">261 м</button>
     </div>
-    <div id="worldMetrics" aria-live="polite">547 м по экватору · 2:15 бегом</div>
+    <div id="worldMetrics" aria-live="polite">1 640 м по экватору · 6:45 бегом</div>
   </section>
 <nav id="tools" aria-label="Управление обзором">
   <button id="orbitButton" type="button" class="tool" aria-pressed="false">🌍 Вся планета</button>
   <button id="zoomButton" type="button" class="tool">🔭 Камера: близко</button>
   <button id="resetButton" type="button" class="tool">↺ В начало</button>
 </nav>
-<div id="footer">Радиус 87 м · окружность 547 м · без переходов</div>
+<div id="footer">Радиус 261 м · окружность 1 640 м · офлайн-тест</div>
 <div id="loading">Создаём маленькую планету…</div>
 <div id="failure" class="panel" role="alert"></div>
-<script type="module" src="./planet.js?v=3"></script>
+<script type="module" src="./planet.js?v=4"></script>
 </body>
 </html>
