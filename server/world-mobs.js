@@ -12,6 +12,37 @@ export const MOB_CORPSE_MS=65000;
 const MELEE_RANGE=3.95,STOMP_RANGE=4.9;
 export const MOB_AGGRO_LEASH_RANGE=23; // World units: measured from this mob's fixed spawn position.
 const normalSpeed=2.1,bossSpeed=1.75;
+export const MOB_SIGHT_RANGE=7,MOB_BOSS_SIGHT_RANGE=9,MOB_ATTACK_WINDUP_MS=450;
+const RETURN_SPEED=1.4;
+// Static landmarks mirrored from the game scene. Prevent wandering through
+// tents, trees, totems and the house; no runtime pathfinding dependency.
+const blockers=[[11,-7,3.65],[-15,12,3.3],[13,16,2.96],[-23,-15,2.6],
+ [-3,-5,.75],[5,9,.56],[-5,25,.6],[35,-14,.94],[-6,7,1.05],
+ [-26,21,.48],[54,35,.4],[34,-26,.38],[-34,-30,.46],
+ [9,49,.48],[-39,40,.44],[51,25,.52],[50,-8,.32],[-47,-7,.44]];
+function mobWalkable(x,z){
+ if(Math.abs(x)>68||Math.abs(z)>68||
+  normalizedLakeRadius(x,z,LAKE_BLUEPRINT)<=.83)return false;
+ // House walls are approximated as a solid rectangle; birds stay outdoors.
+ if(Math.abs(x+27)<11.3&&Math.abs(z+2)<10.5)return false;
+ return blockers.every(([bx,bz,r])=>Math.hypot(x-bx,z-bz)>r+.38);
+}
+function mobStep(mob,tx,tz,speed,dt,reach){
+ const dx=tx-mob.x,dz=tz-mob.z,d=Math.hypot(dx,dz);
+ if(d<=reach)return null;
+ const length=Math.min(speed*dt,d-reach),yaw=Math.atan2(dx,dz);
+ const side=mob.id%2?-1:1;
+ const angles=[0,side*.5,side*1.0,side*1.5,-side*.5,-side*1,-side*1.5,side*2,-side*2];
+ for(const angle of angles){
+  const face=yaw+angle,sx=Math.sin(face),sz=Math.cos(face);
+  const nx=mob.x+sx*length,nz=mob.z+sz*length;
+  const probe=Math.min(.8,d-reach);
+  if(!mobWalkable(nx,nz)||!mobWalkable(mob.x+sx*probe,mob.z+sz*probe))continue;
+  mob.x=nx;mob.z=nz;mob.phase+=length*4;
+  return face;
+ }
+ return null;
+}
 const valid=(n,min,max)=>Number.isFinite(n)&&n>=min&&n<=max;
 
 export function createMulgoreMobs(){
@@ -20,13 +51,15 @@ export function createMulgoreMobs(){
   boss:index===MULGORE_MOB_SPAWNS.length-1,
   hp:index===MULGORE_MOB_SPAWNS.length-1?108:54,
   maxHp:index===MULGORE_MOB_SPAWNS.length-1?108:54,
-  life:1,deadUntil:0,aggroId:null,contributors:new Map(),
-  stunnedUntil:0,attackAt:0,lastCombatAt:0
+  life:1,deadUntil:0,aggroId:null,returning:false,attackSeq:0,windupUntil:0,
+  contributors:new Map(),stunnedUntil:0,attackAt:0,lastCombatAt:0
  }));
 }
 export function resetMulgoreMob(mob,{respawn=false}={}){
+ const hadAggro=!!mob.aggroId;
  mob.hp=mob.maxHp;mob.aggroId=null;mob.contributors.clear();
- mob.deadUntil=0;mob.stunnedUntil=0;mob.attackAt=0;mob.lastCombatAt=0;
+ mob.deadUntil=0;mob.stunnedUntil=0;mob.attackAt=0;mob.windupUntil=0;mob.lastCombatAt=0;
+ mob.returning=!respawn&&hadAggro;
  if(respawn){mob.life++;mob.x=mob.spawnX;mob.z=mob.spawnZ;mob.roamTime=0;}
 }
 // Clear hostile target immediately on death/respawn without changing loot
@@ -37,15 +70,16 @@ export function releaseMulgoreAggroForPlayer(mobs,playerId){
  for(const mob of mobs){
   if(mob.aggroId!==playerId)continue;
   mob.aggroId=null;
+  mob.returning=true;mob.windupUntil=0;
   mob.attackAt=0;
   released++;
  }
  return released;
 }
 export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
- if(!valid(dt,0.000001,Infinity))return [];
+ if(!valid(dt,.000001,Infinity))return [];
  dt=Math.min(dt,MOB_TICK_LIMIT);
- const people=new Map(players.map(p=>[p.id,p]));
+ const people=new Map(players.filter(p=>p.joined!==false).map(p=>[p.id,p]));
  const events=[];
  for(const mob of mobs){
   if(mob.deadUntil){
@@ -53,38 +87,63 @@ export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
    else continue;
   }
   mob.roamTime+=dt;
-  const target=mob.aggroId?people.get(mob.aggroId):null;
-  // No inactivity timeout: stop only when the target leaves 23 m from spawn
-  // (or on disconnect, death or respawn).
-  const awayFromSpawn=target?Math.hypot(
-   target.x-mob.spawnX,target.z-mob.spawnZ):Infinity;
+  let target=mob.aggroId?people.get(mob.aggroId):null;
   if(mob.aggroId&&(!target||target.hp<=0||target.respawnShieldUntil>now||
-    awayFromSpawn>MOB_AGGRO_LEASH_RANGE)){
-   resetMulgoreMob(mob);
+     Math.hypot(target.x-mob.spawnX,target.z-mob.spawnZ)>MOB_AGGRO_LEASH_RANGE)){
+   resetMulgoreMob(mob);target=null;
+  }
+  // Returning mobs must get home before starting a new fight.
+  if(mob.returning&&Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<.65){
+   mob.returning=false;
+  }
+  if(!mob.aggroId&&!mob.returning){
+   let nearest=null,best=mob.boss?MOB_BOSS_SIGHT_RANGE:MOB_SIGHT_RANGE;
+   for(const player of people.values()){
+    if(player.hp<=0||player.respawnShieldUntil>now||
+       !Number.isFinite(player.x)||!Number.isFinite(player.z)||
+       Math.hypot(player.x-mob.spawnX,player.z-mob.spawnZ)>MOB_AGGRO_LEASH_RANGE)continue;
+    const d=Math.hypot(player.x-mob.x,player.z-mob.z);
+    if(d<best){best=d;nearest=player;}
+   }
+   if(nearest){
+    mob.aggroId=nearest.id;
+    mob.attackAt=now+280;target=nearest;
+   }
   }
   const opponent=mob.aggroId?people.get(mob.aggroId):null;
   const stunned=mob.stunnedUntil>now;
-  const tx=opponent?opponent.x:mob.spawnX+Math.sin(mob.roamTime*.18+mob.id)*2.2;
-  const tz=opponent?opponent.z:mob.spawnZ+Math.cos(mob.roamTime*.14+mob.id)*2.2;
-  const speed=opponent?(mob.boss?bossSpeed:normalSpeed):MOB_SPEED;
-  const dx=tx-mob.x,dz=tz-mob.z,d=Math.hypot(dx,dz);
-  const threshold=opponent?(mob.boss?2.75:1.75):.25;
-  if(!stunned&&d>threshold){
-   const step=Math.min(speed*dt,d-threshold);
-   const nx=mob.x+dx/d*step,nz=mob.z+dz/d*step;
-   // Until swimming is supported, even server-authoritative mobs keep
-   // out of deep water instead of walking along the lake bottom.
-   if(normalizedLakeRadius(nx,nz,LAKE_BLUEPRINT)>.83){
-    mob.x=nx;mob.z=nz;mob.phase+=step*4;
-   }
-   const facing=Math.atan2(dx,dz);
-   mob.yaw+=Math.atan2(Math.sin(facing-mob.yaw),Math.cos(facing-mob.yaw))
-    *(1-Math.exp(-dt*6));
+  const tx=opponent?opponent.x:mob.returning?mob.spawnX:
+   mob.spawnX+Math.sin(mob.roamTime*.18+mob.id)*2.2;
+  const tz=opponent?opponent.z:mob.returning?mob.spawnZ:
+   mob.spawnZ+Math.cos(mob.roamTime*.14+mob.id)*2.2;
+  const speed=opponent?(mob.boss?bossSpeed:normalSpeed):mob.returning?RETURN_SPEED:MOB_SPEED;
+  const d=Math.hypot(tx-mob.x,tz-mob.z);
+  if(opponent&&d>.001){
+   const facing=Math.atan2(tx-mob.x,tz-mob.z);
+   mob.yaw+=Math.atan2(Math.sin(facing-mob.y),Math.cos(facing-mob.y))*(1-Math.exp(-dt*6));
   }
-  if(opponent&&!stunned&&d<(mob.boss?3:2.1)&&now>=mob.attackAt){
+  if(!stunned&&(!opponent||!mob.windupUntil)){
+   const heading=mobStep(mob,tx,tz,speed,dt,
+    opponent?(mob.boss?2.75:1.75):mob.returning?.35:.25);
+   if(!opponent&&heading!==null){
+    mob.yaw+=Math.atan2(Math.sin(heading-mob.yaw),Math.cos(heading-mob.yaw))
+     *(1-Math.exp(-dt*6));
+   }
+  }
+  if(stunned||!opponent){mob.windupUntil=0;continue;}
+  const distance=Math.hypot(opponent.x-mob.x,opponent.z-mob.z);
+  if(mob.windupUntil){
+   if(now>=mob.windupUntil){
+    mob.windupUntil=0;
+    if(distance<(mob.boss?3:2.1))
+     events.push({type:'mobAttack',mobId:mob.id,targetId:opponent.id,
+      amount:mob.boss?14:9,life:mob.life});
+   }
+  }else if(distance<(mob.boss?3:2.1)&&now>=mob.attackAt){
+   // Begin visible Peck before delivering damage. A moving player can dodge.
+   mob.attackSeq++;
+   mob.windupUntil=now+MOB_ATTACK_WINDUP_MS;
    mob.attackAt=now+(mob.boss?1800:1500);
-   events.push({type:'mobAttack',mobId:mob.id,targetId:opponent.id,
-    amount:mob.boss?14:9,life:mob.life});
   }
  }
  return events;
@@ -92,7 +151,8 @@ export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
 export function snapshotMulgoreMobs(mobs,now=Date.now()){
  return mobs.map(mob=>({id:mob.id,x:mob.x,z:mob.z,yaw:mob.yaw,
   phase:mob.phase,hp:mob.hp,maxHp:mob.maxHp,life:mob.life,
-  dead:mob.deadUntil>now,aggroId:mob.aggroId,stunned:mob.stunnedUntil>now}));
+  dead:mob.deadUntil>now,aggroId:mob.aggroId,stunned:mob.stunnedUntil>now,
+  attackSeq:mob.attackSeq,returning:mob.returning}));
 }
 export function sanitizeEquipment(equipment,level){
  if(!equipment||typeof equipment!=='object'||Array.isArray(equipment))return {};
@@ -152,10 +212,10 @@ export function applyMulgoreAbility(mobs,player,abilityId,mobId,now=Date.now(),r
   if(mob.deadUntil)continue;
   mob.hp=Math.max(0,mob.hp-damage);
   mob.contributors.set(player.id,(mob.contributors.get(player.id)||0)+damage);
-  mob.aggroId=player.id;mob.lastCombatAt=now;
-  if(area)mob.stunnedUntil=now+2500;
+  mob.aggroId=player.id;mob.returning=false;mob.lastCombatAt=now;
+  if(area){mob.stunnedUntil=now+2500;mob.windupUntil=0;}
   if(mob.hp===0){
-   mob.deadUntil=now+MOB_CORPSE_MS;mob.aggroId=null;
+   mob.deadUntil=now+MOB_CORPSE_MS;mob.aggroId=null;mob.windupUntil=0;
    deaths.push({id:mob.id,life:mob.life,boss:mob.boss,
     contributors:[...mob.contributors.keys()]});
   }
