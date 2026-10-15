@@ -1,10 +1,10 @@
-// First original W003 dagger pose: intentionally provisional until tuned on an iPhone.
-// This is separate from the approved axe and sword grips.
-export const DAGGER_TUNER_STORAGE_KEY='nexgame-dagger-tuner-v1';
+// W003 dagger position approved to match the existing W002 sword exactly.
+// A new storage version retires experimental local pose values and resets to this grip.
+export const DAGGER_TUNER_STORAGE_KEY='nexgame-dagger-tuner-v2';
 export const DAGGER_TUNER_DEFAULTS=Object.freeze({
  handX:-180,handY:-67,handZ:-82,
- daggerX:-10,daggerY:-168,daggerZ:-102,
- posX:-0.185,posY:-0.165,posZ:-0.020
+ daggerX:-8,daggerY:-169,daggerZ:-101,
+ posX:-0.225,posY:-0.19,posZ:-0.025
 });
 export const DAGGER_TUNER_GROUPS=[
  {title:'Правая кисть · поворот',fields:['handX','handY','handZ']},

@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {ITEM_CATALOG} from '../items.js';
 import {
- WEAPON_KINDS,weaponSwingProfile,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals
+ WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals
 } from '../weapon-visuals.js';
 const source=path=>readFileSync(fileURLToPath(new URL('../'+path,import.meta.url)),'utf8');
 
@@ -57,4 +57,23 @@ test('server snapshots advertise validated weapon ID and shield only',()=>{
  assert.match(server,/weapon:p\.equipment\?\.weapon\?\.id\|\|null/);
  assert.match(server,/shield:!!p\.equipment\?\.shield/);
  assert.match(source('game.js'),/setWeaponVisuals\(remote\.actor\.root,remoteKind/);
+});
+
+test('dagger attacks use a short draw, straight stab at impact, and retraction',()=>{
+ const idle=daggerThrustPose(-1);
+ assert.deepEqual(idle,{draw:0,extend:0});
+ const prep=daggerThrustPose(.15),impact=daggerThrustPose(.34/.8),recovery=daggerThrustPose(.65);
+ assert.ok(prep.draw>.5,'the hand pulls in before a stab');
+ assert.ok(prep.extend<.01,'no early strike');
+ assert.ok(impact.extend>.99,'tip reaches full extension at actual damage event');
+ assert.ok(impact.draw<.01,'elbow has opened by the time of impact');
+ assert.ok(recovery.extend<impact.extend,'arm retracts after hit');
+ assert.deepEqual(daggerThrustPose(1),{draw:0,extend:0});
+ const source=readFileSync(fileURLToPath(new URL('../game.js',import.meta.url)),'utf8');
+ assert.match(source,/const daggerStab=weaponKind==='dagger'\?daggerThrustPose\(attack\):null/);
+ assert.match(source,/if\(attack>=0&&daggerStab\)/);
+ assert.match(source,/arm\.shoulder\.rotation\.x\+=\.24\*daggerStab\.draw-1\.16\*daggerStab\.extend/);
+ assert.match(source,/arm\.elbow\.rotation\.x\+=-\.72\*daggerStab\.draw\+\.11\*daggerStab\.extend/);
+ assert.match(source,/attackElapsed>=\.34&&!attackLanded/);
+ assert.match(source,/if\(attackElapsed>=\.8\)/);
 });

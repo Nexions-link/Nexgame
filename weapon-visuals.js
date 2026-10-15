@@ -19,6 +19,27 @@ const POSES=Object.freeze({
   elbowWindup:.2,wristWindup:0,wristSwing:.40,shoulderSlash:0
  })
 });
+
+/**
+ * A narrow straight stab with three deliberate phases:
+ * pull weapon toward the ribs, extend toward target, retract.
+ * The strike reaches full extension at t = 0.425, matching the existing
+ * melee impact at 0.34 s of the unchanged 0.8 s attack animation.
+ * This function is purely visual; no attack cooldown or damage changes.
+ */
+const eased=(a,b,t)=>{
+ const x=Math.max(0,Math.min(1,(t-a)/(b-a)));
+ return x*x*(3-2*x);
+};
+export function daggerThrustPose(progress){
+ if(!Number.isFinite(progress)||progress<0)return {draw:0,extend:0};
+ const t=Math.max(0,Math.min(1,progress));
+ return {
+  draw:eased(.01,.17,t)*(1-eased(.20,.32,t)),
+  extend:eased(.18,.39,t)*(1-eased(.47,.77,t))
+ };
+}
+
 export const weaponSwingProfile=kind=>POSES[kind]||POSES.none;
 export function visibleWeaponKind(hand){
  if(!hand?.getObjectByName)return 'none';

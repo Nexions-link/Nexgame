@@ -1,17 +1,17 @@
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.56';
-import {WEAPON_KINDS,weaponSwingProfile,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.56';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.56';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.56';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.56';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.56';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.56';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.56';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.56';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.57';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.57';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.57';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.57';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.57';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.57';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.57';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.57';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.57';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.56';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.56';
-import {projectPartyMember} from './party-map.js?v=0.3.5.56';
+import {createWorldPresence} from './online.js?v=0.3.5.57';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.57';
+import {projectPartyMember} from './party-map.js?v=0.3.5.57';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -651,7 +651,7 @@ void attachSwordAsset(hero);
 /* Dagger pose tuning is visual only. Never change equipment, damage or saves. */
 let daggerTuning={...DAGGER_TUNER_DEFAULTS};
 try{daggerTuning=normalizeDaggerTuning(JSON.parse(localStorage.getItem(DAGGER_TUNER_STORAGE_KEY)))}catch{}
-let daggerPreview=false;
+let daggerPreview=false,daggerPreviewAttackElapsed=-1;
 function applyDaggerWristTuning(){
  hero.arms[1].hand.rotation.set(rightWristBaseX+radians(daggerTuning.handX),
   radians(daggerTuning.handY),radians(daggerTuning.handZ),'XYZ');
@@ -696,6 +696,7 @@ for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmo
 }
 function openDaggerTuner(){
  if(modalKind)closeDialog();
+ daggerPreviewAttackElapsed=-1;
  if(!axeTunerPanel.hidden)closeAxeTuner();
  if(!swordTunerPanel.hidden)closeSwordTuner();
  daggerPreview=true;daggerTunerPanel.hidden=false;daggerTunerPanel.classList.remove('axe-tuner-collapsed');
@@ -703,11 +704,18 @@ function openDaggerTuner(){
  $('daggerTunerStatus').textContent='Кинжал показан для примерки. Экипировка не меняется.';
 }
 function closeDaggerTuner(){
- daggerPreview=false;daggerTunerPanel.hidden=true;syncEquipmentVisuals();
+ daggerPreview=false;daggerPreviewAttackElapsed=-1;
+ daggerTunerPanel.hidden=true;syncEquipmentVisuals();
 }
 $('daggerTunerClose').addEventListener('click',closeDaggerTuner);
 $('daggerTunerCollapse').addEventListener('click',()=>daggerTunerPanel.classList.toggle('axe-tuner-collapsed'));
 $('daggerTunerSide').addEventListener('click',()=>daggerTunerPanel.classList.toggle('axe-tuner-left'));
+$('daggerTunerTryAttack').addEventListener('click',()=>{
+ if(!daggerPreview)return;
+ // Demonstration runs the same real animation on the local actor, without hit checks.
+ daggerPreviewAttackElapsed=0;
+ $('daggerTunerStatus').textContent='Колющий удар: короткий замах, укол и возврат. Урон не наносится.';
+});
 $('daggerTunerReset').addEventListener('click',()=>{
  daggerTuning={...DAGGER_TUNER_DEFAULTS};applyDaggerTransform();
  if(daggerPreview)applyDaggerWristTuning();refreshDaggerTuner();
@@ -920,9 +928,15 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  actor.neck.rotation.set(-.018*breath-.025*beat*w,-actor.chest.rotation.y*.65,stride*.015*w);
  // Choose the animation from the weapon actually visible on this actor.
  // Keep previously approved wrist and GLB attachment angles unchanged.
- const swingProfile=weaponSwingProfile(actor.weapon?visibleWeaponKind(actor.arms[1].hand):'none');
+ const weaponKind=actor.weapon?visibleWeaponKind(actor.arms[1].hand):'none';
+ const swingProfile=weaponSwingProfile(weaponKind);
+ const daggerStab=weaponKind==='dagger'?daggerThrustPose(attack):null;
  let swing=0,windup=0;
- if(attack>=0){
+ if(attack>=0&&daggerStab){
+  // Unlike sweeping blades, the dagger barely twists the torso.
+  actor.chest.rotation.y+=.06*daggerStab.draw-.07*daggerStab.extend;
+  actor.chest.rotation.x+=.10*daggerStab.extend;
+ }else if(attack>=0){
   const a=clamp(attack,0,1);
   windup=smooth(0,.32,a)*(1-smooth(.38,.65,a));
   swing=smooth(.32,.58,a)*(1-smooth(.64,1,a));
@@ -932,11 +946,20 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  const crouch=stomp>=0?.14*Math.sin(Math.min(stomp/.55,1)*Math.PI):0;
  const bend=clamp(gather,0,1);
  actor.body.position.y-=crouch+.47*bend;
+ if(daggerStab)actor.body.position.z+=.16*daggerStab.extend;
  actor.chest.rotation.x+=.20*bend;actor.neck.rotation.x+=.1*bend;
  for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?swingProfile.shoulderWindup*windup-swingProfile.shoulderSwing*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0))+(i?swingProfile.shoulderSlash*swing:0);arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?swingProfile.elbowWindup*windup:0)-.45*bend;
+  if(i===1&&daggerStab){
+   // Pull the forearm in close, then thrust straight forward at the impact.
+   // The elbow opens on extension; no lateral slashing arc is introduced.
+   arm.shoulder.rotation.x+=.24*daggerStab.draw-1.16*daggerStab.extend;
+   arm.shoulder.rotation.z-=.07*daggerStab.extend;
+   arm.elbow.rotation.x+=-.72*daggerStab.draw+.11*daggerStab.extend;
+  }
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
   arm.hand.rotation.x=i?(-Math.PI/2-swingProfile.wristWindup*windup+swingProfile.wristSwing*swing):Math.PI;
+  if(i===1&&daggerStab)arm.hand.rotation.x+=.12*daggerStab.draw-.08*daggerStab.extend;
   if(i===1&&actor.weapon){
    const daggerVisible=arm.hand.getObjectByName('gear-dagger')?.visible;
    const swordVisible=arm.hand.getObjectByName('gear-sword')?.visible;
@@ -3446,7 +3469,8 @@ function movement(dt){
  if(travelled>.00005)hero.phase=(hero.phase+travelled/2.67)%1;
  hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),
-  attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,0);
+  daggerPreview&&daggerPreviewAttackElapsed>=0?daggerPreviewAttackElapsed/.8:attackElapsed>=0?attackElapsed/.8:-1,
+   stompElapsed>=0?stompElapsed/.75:-1,0);
 }
 function revive(){cancelGather();lastCombatAt=clock;
  respawnGraceUntil=performance.now()+6000;respawnPending=!!worldConnection?.connected?.();state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;
@@ -3547,6 +3571,11 @@ function animateCamera(dt){
 }
 function update(dt){
  clock+=dt;saveClock+=dt;hudClock+=dt;
+ // Tuner preview demonstrates the real dagger attack but never calls combat.
+ if(daggerPreview&&daggerPreviewAttackElapsed>=0){
+  daggerPreviewAttackElapsed+=dt;
+  if(daggerPreviewAttackElapsed>=.8)daggerPreviewAttackElapsed=-1;
+ }
  tickAbilityRuntime(abilityRuntime,dt);
  attackCooldown=Math.max(0,attackCooldown-dt);
  stompCooldown=abilityCooldown(abilityRuntime,'thunderStomp');

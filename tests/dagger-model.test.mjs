@@ -28,7 +28,7 @@ test('real dagger item selects dagger visual instead of axe or sword',()=>{
  assert.equal(equippedWeaponKind({weapon:{id:'letterOpener'}},ITEM_CATALOG),'dagger');
 });
 test('dagger has independent, constrained 9-parameter tuning',()=>{
- assert.equal(DAGGER_TUNER_STORAGE_KEY,'nexgame-dagger-tuner-v1');
+ assert.equal(DAGGER_TUNER_STORAGE_KEY,'nexgame-dagger-tuner-v2');
  assert.equal(DAGGER_TUNER_GROUPS.flatMap(x=>x.fields).length,9);
  assert.deepEqual(normalizeDaggerTuning(null),DAGGER_TUNER_DEFAULTS);
  const selected=normalizeDaggerTuning({daggerY:-197,handX:999,posZ:.125,unknown:99});
@@ -53,7 +53,7 @@ test('dagger GLB replacement, equipment, remote heroes and preview are wired tog
  assert.match(game,/daggerPreview=true/);
  assert.match(game,/daggerPreview=false/);
  assert.match(game,/choice\('🗡 Тюнер кинжала · примерка',openDaggerTuner\)/);
- for(const id of ['daggerTuner','daggerTunerControls','daggerTunerSide','daggerTunerCollapse','daggerTunerClose','daggerTunerReset','daggerTunerCopy','daggerTunerExport'])
+ for(const id of ['daggerTuner','daggerTunerControls','daggerTunerSide','daggerTunerCollapse','daggerTunerClose','daggerTunerTryAttack','daggerTunerReset','daggerTunerCopy','daggerTunerExport'])
   assert.ok(app.includes('id="'+id+'"'),id);
  const sword=read('sword-tuner.js'),axe=read('axe-tuner.js');
  assert.match(sword,/swordX:-8,swordY:-169,swordZ:-101/);
@@ -66,4 +66,27 @@ test('atlas, launcher and real build tag remain internally consistent',()=>{
  assert.ok(version);
  assert.ok(app.includes('game.js?v='+version));
  assert.ok(index.includes('NexGame · Alpha '+version));
+});
+
+test('dagger uses the exact confirmed sword position on all nine axes',async()=>{
+ const {SWORD_TUNER_DEFAULTS}=await import('../sword-tuner.js');
+ for(const axis of ['X','Y','Z']){
+  assert.equal(DAGGER_TUNER_DEFAULTS['hand'+axis],SWORD_TUNER_DEFAULTS['hand'+axis]);
+  assert.equal(DAGGER_TUNER_DEFAULTS['dagger'+axis],SWORD_TUNER_DEFAULTS['sword'+axis]);
+  assert.equal(DAGGER_TUNER_DEFAULTS['pos'+axis],SWORD_TUNER_DEFAULTS['pos'+axis]);
+ }
+ assert.deepEqual(normalizeDaggerTuning(null),DAGGER_TUNER_DEFAULTS);
+ assert.deepEqual(JSON.parse(serializeDaggerTuning(null)),DAGGER_TUNER_DEFAULTS);
+ assert.match(read('dagger-tuner.js'),/nexgame-dagger-tuner-v2/);
+ const game=read('game.js');
+ assert.match(game,/DAGGER_TUNER_DEFAULTS\.daggerX\*Math\.PI\/180/);
+ assert.match(game,/applyDaggerTransform\(\);\s*syncEquipmentVisuals\(\)/);
+});
+
+test('dagger preview attack does not change equipment or apply damage',()=>{
+ const game=read('game.js');
+ assert.match(game,/daggerPreviewAttackElapsed=0/);
+ assert.match(game,/if\(daggerPreview&&daggerPreviewAttackElapsed>=0\)/);
+ assert.match(game,/daggerPreview&&daggerPreviewAttackElapsed>=0\?daggerPreviewAttackElapsed\/\.8/);
+ assert.match(game,/if\(daggerStab\)actor\.body\.position\.z\+=\.16\*daggerStab\.extend/);
 });
