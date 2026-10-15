@@ -439,6 +439,20 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  return{root,body,chest,neck,head,arms,legs,tail,braids,shadow,phase:0,scale,walk:0};
 }
 const hero=makeTauren({weapon:true});
+async function loadHeroAxeAsset(){
+ const grip=hero.arms[1].hand,old=grip.getObjectByName('gear-axe');
+ if(!old)return;
+ try{
+  const {GLTFLoader}=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js');
+  const asset=await new GLTFLoader().loadAsync('./assets/weapons/tauren-axe-v0.1.glb?v=1');
+  const axe=asset.scene;
+  axe.position.copy(old.position);axe.rotation.copy(old.rotation);axe.scale.copy(old.scale);
+  grip.add(axe);axe.visible=old.visible;old.visible=false;
+  old.name='gear-axe-fallback';axe.name='gear-axe';
+ }catch(error){console.warn('Axe GLB unavailable; keeping procedural fallback',error)}
+}
+void loadHeroAxeAsset();
+
 const mentor=makeTauren({fur:0x725438,cloth:M.teal,scale:.95});mentor.root.position.set(-1.5,heightAt(-1.5,-5),-5);mentor.root.rotation.y=.2;
 const trader=makeTauren({fur:0x978064,cloth:M.hideDark,scale:.89});trader.root.position.set(8,heightAt(8,1),1);trader.root.rotation.y=-.7;
 const armorer=makeTauren({fur:0x665043,cloth:M.woodLight,scale:.94});armorer.root.position.set(6,heightAt(6,11),11);armorer.root.rotation.y=-1.2;
