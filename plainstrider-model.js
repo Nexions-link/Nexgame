@@ -1,3 +1,4 @@
+import {hitReaction} from './combat-feedback.js';
 // Original Dolgonog v0.1 asset adapter shared by the game and regression tests.
 // Deliberately no reference to the old experimental models.
 export const PLAINSTRIDER_GLB='./bestiary/models/dolgonog-v0.1.glb?v=0.3.5.43';
@@ -81,6 +82,12 @@ export function advancePlainstriderVisual(THREE,enemy,dt,moved=0,dead=false){
  const cd=enemy.attackCd||0,prior=visual.lastAttackCd;
  if(!dead&&cd>.7&&cd>prior+.32)visual.attackRemaining=.8;
  visual.lastAttackCd=cd;
+ // Brief visible recoil of the actual GLB, independently of Walk/Peck clips.
+ // This moves only the asset container, never the authoritative world entity.
+ const recoil=dead?0:hitReaction(enemy.hit);
+ visual.container.rotation.x=-.24*recoil;
+ visual.container.rotation.z=.10*recoil;
+ visual.container.position.z=-.19*recoil;
  const isAttacking=visual.attackRemaining>0;
  const desired=dead?'corpse':isAttacking?'Peck':visual.walkGrace>0?'Walk':'Idle';
  transitionPlainstriderAnimation(THREE,visual,desired);
@@ -96,4 +103,7 @@ export function resetPlainstriderVisual(enemy){
  visual.walkGrace=0;
  visual.attackRemaining=0;
  visual.lastAttackCd=0;
+ visual.container.rotation.x=0;
+ visual.container.rotation.z=0;
+ visual.container.position.z=0;
 }

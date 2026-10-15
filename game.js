@@ -1,18 +1,19 @@
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.5.61';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.61';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.61';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.61';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.61';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.61';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.61';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.61';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.61';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.61';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.0';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.0';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.0';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.0';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.0';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.0';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.0';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.0';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.0';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.0';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.0';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.61';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.61';
-import {projectPartyMember} from './party-map.js?v=0.3.5.61';
+import {createWorldPresence} from './online.js?v=0.3.6.0';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.0';
+import {projectPartyMember} from './party-map.js?v=0.3.6.0';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -815,6 +816,14 @@ giant.nameTag=spriteText('Грозоклюв · Исполин','#f9bd91',27);
 giant.nameTag.scale.set(4.7,.84,1);scene.add(giant.nameTag);
 giant.nameTag.position.set(BOSS_X,heightAt(BOSS_X,BOSS_Z)+4.65,BOSS_Z);
 enemies.push(giant);
+// Every confirmed hit (including other players' hits) uses this same
+// lightweight presentation layer. The world server remains authoritative.
+const combatFeedback=createCombatFeedback({THREE,document,camera,layer:$('combatFeedback')});
+function showCombatHit(enemy,damage,abilityId='autoAttack'){
+ if(!enemy)return;
+ enemy.hit=HIT_REACTION_SECONDS;
+ combatFeedback.hit(enemy,damage,abilityId);
+}
 // A distinct stationary training target, not a bird with boosted HP.
 // Build it from cheap procedural geometry so it renders on mobile Safari.
 function makeTrainingDummy(){
@@ -1699,6 +1708,7 @@ function graphicsSettings(){
 function resetWorld(){
  cancelGather();
  for(const node of gatherNodes){node.pending=false;node.readyAt=0;node.root.visible=false}
+ combatFeedback.clear();
  state={...initial,inventory:[...initial.inventory],bags:[...initial.bags],equipment:startingEquipment(),buyback:[],actionBar:normalizeHotbar(null)};
  hotbarPending=null;renderHotbar();
  abilityRuntime.gcd=0;abilityRuntime.cooldowns=Object.create(null);swingAbilityId='autoAttack';
@@ -2208,10 +2218,10 @@ function damageEnemy(e,amount,source='autoAttack'){
   // A target dummy accepts all ability damage and awards warrior rage, but
   // cannot aggro, die, leave loot, award XP/gold, or advance kill objectives.
   applyTrainingHit(e,amount,clock,source);
-  e.aggro=false;e.hit=.22;
+  e.aggro=false;showCombatHit(e,amount,source);
   updateHUD();return;
  }
- e.hp-=amount;e.aggro=true;e.hit=.22;
+ e.hp-=amount;e.aggro=true;showCombatHit(e,amount,source);
  if(e.hp<=0){
   e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
   e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
@@ -3093,8 +3103,9 @@ function animateSharedMob(e,dt,target){
  e.legs[0].rotation.x=stride*.48*power;
  e.legs[1].rotation.x=-stride*.48*power;
  e.body.position.y=1.23+Math.abs(stride)*.025*power;
- e.body.rotation.x=e.attackCd>1.15?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;
- e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
+ const recoil=hitReaction(e.hit);
+ e.body.rotation.x=(e.attackCd>1.15?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0)-.25*recoil;
+ e.body.rotation.z=(e.stunned>0?Math.sin(clock*8)*.08:0)+.13*recoil;
  advancePlainstriderVisual(THREE,e,dt,moved);
  e.shadow.position.set(p.x,p.y+.055,p.z);
  if(e.boss&&e.nameTag){
@@ -3162,7 +3173,8 @@ function applySharedCombat(event,selfId){
   const enemy=enemies[hit.id];
   if(!enemy||enemy.trainingDummy||enemy.serverLife!==hit.life)continue;
   if(Number.isFinite(hit.hp))enemy.hp=Math.max(0,hit.hp);
-  enemy.hit=.22;
+  // Exactly one number per authoritative hit. Every connected player sees it.
+  showCombatHit(enemy,hit.amount,event.abilityId);
  }
  updateHUD();
 }
@@ -3540,7 +3552,9 @@ function updateEnemy(e,dt){
    if(state.hp<=0)revive();
   }
  if(e.boss&&e.nameTag){e.nameTag.visible=true;e.nameTag.position.set(p.x,heightAt(p.x,p.z)+4.65,p.z)}
-  const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;e.body.rotation.x=e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0;e.body.rotation.z=e.stunned>0?Math.sin(clock*8)*.08:0;
+  const moved=Math.hypot(p.x-oldX,p.z-oldZ);e.phase+=moved*4;p.y=heightAt(p.x,p.z);const stride=Math.sin(e.phase),power=Math.min(1,moved/(dt||1));e.legs[0].rotation.x=stride*.48*power;e.legs[1].rotation.x=-stride*.48*power;e.body.position.y=1.23+Math.abs(stride)*.025*power;const recoil=hitReaction(e.hit);
+ e.body.rotation.x=(e.attackCd>1.2?Math.sin((1.5-e.attackCd)/.3*Math.PI)*.2:0)-.25*recoil;
+ e.body.rotation.z=(e.stunned>0?Math.sin(clock*8)*.08:0)+.13*recoil;
  advancePlainstriderVisual(THREE,e,dt,moved);
  e.shadow.position.set(p.x,p.y+.055,p.z);
 }
@@ -3639,7 +3653,7 @@ function sampleFps(milliseconds){
  fpsElapsed+=milliseconds;fpsFrames++;
  if(fpsElapsed>=1000){fpsCounter.textContent='FPS '+Math.round(fpsFrames*1000/fpsElapsed);fpsElapsed=fpsFrames=0}
 }
-let last=performance.now();function frame(t){const milliseconds=Math.max(0,t-last),dt=Math.min(milliseconds/1000,.05);last=t;if(!document.hidden){if(!modalKind)update(dt);else updateOnlineSceneWhileMenuOpen(dt);animateCamera(dt);renderCharacterPreview(t,dt);renderer.render(scene,camera);sampleFps(milliseconds)}requestAnimationFrame(frame)}
+let last=performance.now();function frame(t){const milliseconds=Math.max(0,t-last),dt=Math.min(milliseconds/1000,.05);last=t;if(!document.hidden){if(!modalKind)update(dt);else updateOnlineSceneWhileMenuOpen(dt);animateCamera(dt);combatFeedback.update(dt);renderCharacterPreview(t,dt);renderer.render(scene,camera);sampleFps(milliseconds)}requestAnimationFrame(frame)}
 update(0);updateHUD();drawMap();animateCamera(1);renderer.render(scene,camera);requestAnimationFrame(frame);$('loader').remove();
 if(state.quest===0)msg('Мулгор. Поговори с наставником у большого тотема.',4400);
 }catch(error){const text=$('loadText');if(text)text.textContent='Ошибка запуска: '+String(error.message||error);throw error}
