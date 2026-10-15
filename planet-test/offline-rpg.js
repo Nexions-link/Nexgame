@@ -321,8 +321,18 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!action)return msg('Пустая ячейка');
   const def=getAbilityDefinition(action.abilityId),d=target?distance(target):Infinity;
   if(action.id==='autoAttack'){
-   if(!target||!['mob','dummy'].includes(target.kind)||target.dead)return msg('Сначала выбери противника');
-   autoplay=!autoplay;swing=0;msg(autoplay?'Автоатака включена':'Автоатака выключена');draw();return;
+   if(autoplay){autoplay=false;msg('Автоатака выключена');draw();return;}
+   // Match main NexGame: pressing autoattack can acquire a living hostile
+   // even if the user hasn't clicked the target-cycle button yet.
+   if(!target||target.hp<=0||target.dead||!target.root.visible){
+    const found=cycleHostileTarget(mobs,dummy,null,distance);
+    if(!found)return msg('В радиусе 40 м нет противников');
+    target=found;
+   }
+   if(distance(target)>20){msg('Цель слишком далеко — подойди на 20 м');draw();return;}
+   autoplay=true;swing=0;
+   msg(distance(target)>3.45?'Автоатака: сближение с целью':'Автоатака включена');
+   draw();return;
   }
   const ctx={runtime,classId:'warrior',level:state.level,resource:state.resource,
    hasTarget:!!target&&['mob','dummy'].includes(target.kind)&&!target.dead,range:d,facing:true,
@@ -589,6 +599,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   return true;
  }
+ function getApproachTarget(){
+  if(!autoplay||modal.hidden===false||camp.casting||state.hp<=0)return null;
+  if(!target||target.hp<=0||target.dead||!target.root.visible)return null;
+  const d=distance(target);
+  return d>3.25&&d<=20?target:null;
+ }
+ function stopAutoApproach(){
+  if(autoplay){autoplay=false;msg('Путь к цели перекрыт');draw();}
+ }
  function update(dt){
   clock+=dt;
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
@@ -642,5 +661,5 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return false;
  }
  persist();draw();void updateEquipmentVisuals();msg('Офлайн RPG: выбери долгонога или поговори с наставником',5);
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,draw,get state(){return state}};
 }
