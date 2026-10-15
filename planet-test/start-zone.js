@@ -1,3 +1,5 @@
+import {createLandscapeMap} from '../landscape.js?v=0.3.7.0';
+
 // Spherical NexGame starting zone prototype.
 // Layout, terrain, village and character geometry derived from the actual main-game
 // start zone, copied into this isolated module. No main game imports or networking.
@@ -59,8 +61,14 @@ export function initStartZoneMath(THREELibrary){THREE=THREELibrary;}
 export function createStartZone(three,scene,getRadius,heightAt){
  initStartZoneMath(three);
  const UP=new THREE.Vector3(0,1,0);
+ let textureSeed=531;
+ const rand=()=>((textureSeed=(Math.imul(textureSeed,1664525)+1013904223)>>>0)/4294967296);
+ function texture(draw,size=128){const c=document.createElement('canvas');c.width=c.height=size;draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
+ const hideTexture=texture((c,s)=>{c.fillStyle='#dbc39a';c.fillRect(0,0,s,s);for(let i=0;i<900;i++){c.fillStyle=rand()>.5?'#fff0ca18':'#53392313';c.fillRect(rand()*s,rand()*s,rand()*12,1)}c.strokeStyle='#6d3d2b';c.lineWidth=9;c.beginPath();for(let x=0;x<=s;x+=16){c.lineTo(x,40+(x%32?13:-13))}c.stroke();c.fillStyle='#ac5938';c.fillRect(0,54,s,12);c.fillStyle='#346c66';c.fillRect(0,74,s,6);c.fillStyle='#795034';c.fillRect(0,s-7,s,7)});hide.wrapS=THREE.RepeatWrapping;hide.repeat.set(3,1);
+ hideTexture.wrapS=THREE.RepeatWrapping;
+ hideTexture.repeat.set(3,1);
  const m=(c,extra={})=>new THREE.MeshStandardMaterial({color:c,roughness:1,flatShading:true,side:THREE.DoubleSide,...extra});
- const wood=m('#694528'),wood2=m('#987046'),hide=m('#cbb080'),hideDark=m('#9d7d50'),red=m('#9d5236'),teal=m('#3c7a70'),bone=m('#ded0a5'),leaf=m('#6f8d4c'),leaf2=m('#93a75a'),rock=m('#8c785e');
+ const wood=m('#694528'),wood2=m('#987046'),hide=m('#e0c899',{map:hideTexture}),hideDark=m('#e0c899',{map:hideTexture}),red=m('#9d5236'),teal=m('#3c7a70'),bone=m('#ded0a5'),leaf=m('#6f8d4c'),leaf2=m('#93a75a'),rock=m('#8c785e');
  // Only offset thin fabric decorations, not the house's wall materials.
  const detailRed=m('#9d5236',{polygonOffset:true,polygonOffsetFactor:-1.5,polygonOffsetUnits:-1.5});
  const waterMat=new THREE.MeshPhongMaterial({color:'#619fab',transparent:true,opacity:.87,shininess:45,depthWrite:false,side:THREE.DoubleSide});
@@ -181,11 +189,17 @@ export function createStartZone(three,scene,getRadius,heightAt){
    }
   }
  }
+ // The same procedural meadow and path map as the main NexGame.
+ const routeSegments=ROUTES.flatMap(route=>route.slice(0,-1).map((a,i)=>({ax:a[0],az:a[1],bx:route[i+1][0],bz:route[i+1][1],width:3.5})));
+ const paintedMap=createLandscapeMap(THREE,routeSegments,1024);
+ const tileUVs=[];
+ for(let i=0;i<points.length;i+=2)tileUVs.push((points[i]+95)/190,1-(points[i+1]+95)/190);
  const verts=new Float32Array(points.length/2*3);
  terrainGeo.setIndex(indices);
  terrainGeo.setAttribute('position',new THREE.BufferAttribute(verts,3));
  terrainGeo.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));
- const patch=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,side:THREE.DoubleSide}));
+ terrainGeo.setAttribute('uv',new THREE.Float32BufferAttribute(tileUVs,2));
+ const patch=new THREE.Mesh(terrainGeo,new THREE.MeshStandardMaterial({map:paintedMap,roughness:1,side:THREE.DoubleSide}));
  patch.frustumCulled=false;scene.add(patch);
  // Water and shore geometries remain real-world metre sizes when the radius changes.
  function radialGeometry(radiusInner,radiusOuter,steps,segments,offsetMode){
