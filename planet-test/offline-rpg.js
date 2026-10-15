@@ -133,8 +133,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function npc(kind,x,z,name){
   const root=new THREE.Group();root.name='planet-'+kind;group.add(root);
   // Full procedurally modelled Tauren identical to the playable hero.
-  const npcActor=makeTauren();
-  npcActor.root.scale.setScalar(kind==='mentor'?.97:.94);
+  // Match the original NexGame NPC materials and scale.
+  const looks={
+   mentor:{fur:0x725438,clothColor:0x427b70,scale:.95},
+   vendor:{fur:0x665043,clothColor:0x987046,scale:.94},
+   herbalist:{fur:0x978064,clothColor:0x9d7d50,scale:.89}
+  };
+  const appearance=looks[kind]||looks.mentor;
+  const npcActor=makeTauren(appearance);
+  npcActor.root.scale.setScalar(appearance.scale);
   root.add(npcActor.root);
   const tag=makeLabel(name,'#d9e2a1',25);tag.position.y=4.45;root.add(tag);
   const e={kind,name,x,z,yaw:.2,root,radius:1.5};entities.push(e);setModelAt(e);return e;
