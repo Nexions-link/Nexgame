@@ -103,11 +103,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function makeLabel(name){
   const canvasLabel=document.createElement('canvas');canvasLabel.width=512;canvasLabel.height=84;
-  const c=canvasLabel.getContext('2d');c.fillStyle='rgba(14,30,26,.70)';c.fillRect(0,13,512,60);
-  c.fillStyle='#ffebbc';c.font='bold 29px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText(name.slice(0,27),256,44);
+  const c=canvasLabel.getContext('2d');
+  c.font='600 31px system-ui';c.textAlign='center';c.textBaseline='middle';
+  c.lineJoin='round';c.lineWidth=3;c.strokeStyle='rgba(17,19,12,.78)';
+  c.strokeText(name.slice(0,27),256,43);
+  c.fillStyle='#ffebbc';c.fillText(name.slice(0,27),256,43);
   const texture=new THREE.CanvasTexture(canvasLabel);
   const mat=new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true});
-  const sprite=new THREE.Sprite(mat);sprite.position.y=4.5;sprite.scale.set(6,1.05,1);
+  const sprite=new THREE.Sprite(mat);sprite.position.y=4.15;sprite.scale.set(6.3,1.05,1);
   return sprite;
  }
  function npc(kind,x,z,name){
