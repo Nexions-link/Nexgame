@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
-import {createOfflineRpg} from './offline-rpg.js?v=11';
+import {createOfflineRpg} from './offline-rpg.js?v=12';
 import {animateSphericalTauren} from './tauren-animation.js?v=1';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=11';
 initStartZoneMath(THREE);
