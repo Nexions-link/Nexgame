@@ -87,14 +87,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const group=new THREE.Group();scene.add(group);
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[];
- const hud=$('rpgHud'),actions=$('rpgActions'),hotbar=$('rpgHotbar'),modal=$('rpgModal'),toast=$('rpgToast');
- if(!hud||!actions||!hotbar||!modal||!toast)throw Error('Отсутствует интерфейс RPG');
- const nameEl=$('rpgName'),bars=$('rpgBars'),objective=$('rpgObjective');
+ const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
+ const nameEl=$('playerName'),objective=$('qtext');
+ const originalControls=$('labSettingsSources');
+ if(!hotbar||!modal||!toast||!nameEl||!$('playerFrame')||!$('minimap'))throw Error('Не загружен оригинальный интерфейс NexGame');
  const bind=(el,ev,fn)=>el.addEventListener(ev,fn);
  const stats=()=>deriveStats(state.level,state.equipment);
  if(state.hp==null)state.hp=stats().maxHp;
  function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch{}}
- function msg(text,seconds=3){toast.textContent=text;toast.hidden=false;messageUntil=clock+seconds;}
+ function msg(text,seconds=3){toast.textContent=text;toast.hidden=false;toast.classList.add('show');messageUntil=clock+seconds;}
  function setModelAt(entity){
   const normal=toNormal(entity.x,entity.z,getRadius());
   entity.root.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.09);
@@ -307,19 +308,47 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function draw(refreshInteractive=true){
   const s=stats();state.hp=clamp(state.hp,0,s.maxHp);
-  nameEl.textContent='Воин · '+state.level+' ур. · '+pretty(state.gold)+' 🪙';
-  bars.innerHTML='<div class="rpgHp"><span style="width:'+clamp(state.hp/s.maxHp*100,0,100)+'%"></span><b>'+Math.ceil(state.hp)+' / '+s.maxHp+'</b></div>'
-   +'<div class="rpgRage"><span style="width:'+state.resource+'%"></span><b>Ярость '+Math.floor(state.resource)+'/100</b></div>';
-  objective.textContent=target?target.name+' · '+pretty(distance(target))+' м'+
-    (target.kind==='mob'?' · '+Math.ceil(target.hp)+' HP'+(target.corpse?' · добыча':''):''):
-    (state.quest==='active'?'Задание: долгоноги '+state.kills+'/3':state.quest==='ready'?'Вернись к наставнику':'Найди наставника у костра');
+  nameEl.textContent='Странник';$('levelBadge').textContent=state.level;
+  $('className').textContent='Таурен · Воин';
+  $('hpFill').style.width=clamp(state.hp/s.maxHp*100,0,100)+'%';
+  $('hpText').textContent=Math.ceil(state.hp)+' / '+s.maxHp;
+  $('rageFill').style.width=state.resource+'%';
+  $('rageText').textContent='Ярость '+Math.floor(state.resource)+' / 100';
+  $('resourceBar').setAttribute('aria-valuenow',Math.floor(state.resource));
+  $('combatState').textContent=autoplay?'Автоатака':'Готов к бою';
+  $('xpFill').style.width=Math.min(100,state.xp/(state.level*100)*100)+'%';
+  $('xpText').textContent='Опыт '+state.xp+' / '+(state.level*100);
+  const hostile=target&&['mob','dummy'].includes(target.kind);
+  $('targetFrame').hidden=!hostile;$('targetPlaceholder').hidden=!!hostile;
+  if(hostile){
+    $('targetName').textContent=target.name;
+    $('targetFill').style.width=clamp(target.hp/target.maxHp*100,0,100)+'%';
+    $('targetHp').textContent=Math.ceil(target.hp)+' / '+target.maxHp;
+    $('targetDistance').textContent='Дистанция: '+pretty(distance(target))+' м';
+    $('targetStatus').textContent=target.corpse?'Доступна добыча':autoplay?'Автоатака':'Нажми 1 для автоатаки';
+    $('dummyStats').hidden=target.kind!=='dummy';
+  }
+  const questText=state.quest==='active'?'Победи долгоногов: '+state.kills+' / 3':
+    state.quest==='ready'?'Вернись к наставнику':state.quest==='completed'?'Задание выполнено':
+    'Поговори с наставником в лагере';
+  objective.textContent=questText;
+  $('qtitle').textContent='Испытание охотника';$('mainQuestTracker').hidden=state.quest==='completed';
+  $('quest-progress').textContent=state.quest==='active'?'Прогресс: '+state.kills+' / 3':'Одиночное задание';
+  const canInteract=!!target&&distance(target)<5.5;
+  $('interact').hidden=!canInteract;
+  if(canInteract)$('interact').textContent=target.corpse?'Забрать добычу':target.kind==='mentor'?'Поговорить':target.kind==='vendor'?'Торговец':'Взаимодействие';
   if(refreshInteractive){
   hotbar.replaceChildren();
   state.hotbar.forEach((entry,i)=>{
    const button=document.createElement('button');button.type='button';button.dataset.slot=String(i);
-   button.className='rpgSlot';button.title=entry?.id||'Назначить умение';
-   button.textContent=(entry?ICON[entry.id]||'⚔️':'＋');
-   const n=document.createElement('span');n.textContent=String(i+1);button.append(n);
+   button.className='ability';button.title=entry?.id||'Назначить умение';
+   const key=document.createElement('kbd');key.textContent=String(i+1);
+   const icon=document.createElement('span');icon.className='planetAbilityIcon';icon.textContent=entry?ICON[entry.id]||'⚔️':'＋';
+   const caption=document.createElement('span');caption.className='planetAbilityName';
+   const entryDef=entry?actionDefinition(entry,'warrior',state.level):null;
+   caption.textContent=entryDef?.name||'Пусто';
+   button.append(key,icon,caption);
+   button.classList.toggle('is-empty',!entry);
    if(entry?.id==='autoAttack'&&autoplay)button.classList.add('is-active');
    const ability=entry?getAbilityDefinition(entry.id==='healingPotion'?'healingPotion':entry.id):null;
    if(ability?.cooldown&&runtime.cooldowns[ability.id]>0)button.classList.add('is-cooldown');
@@ -337,9 +366,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
  }
  function renderModal(){
-  const kind=modal.dataset.kind,title=modal.querySelector('h2'),body=modal.querySelector('.rpgModalBody');
+  const kind=modal.dataset.kind,title=$('mtitle'),body=$('mbody');
+  $('panel').classList.toggle('character-modal',kind==='character');
+  $('panel').classList.toggle('inventory-modal',kind==='bag');
+  $('msub').textContent='NEXGAME · ОФЛАЙН · КРУГЛЫЙ МИР';
   title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
-   merchant:'Торговец',spells:'Книга способностей',loot:'Добыча'})[kind]||'NexGame';
+   merchant:'Торговец',spells:'Книга способностей',loot:'Добыча',menu:'Меню'})[kind]||'NexGame';
   body.replaceChildren();
   const line=(label,caption,actions=[])=>{
    const row=document.createElement('div');row.className='rpgRow';
@@ -348,7 +380,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    row.append(name);for(const [caption,fn] of actions){const b=document.createElement('button');b.type='button';b.textContent=caption;b.addEventListener('click',fn);row.append(b);}
    body.append(row);
   };
-  if(kind==='bag'){
+  if(kind==='menu'){
+   line('Сферический мир','Меняй радиус планеты, вращай её свайпами и проверяй оригинальную NexGame.');
+   for(const item of [...originalControls.children])body.append(item);
+   line('Сетевая игра','Тестовая сборка работает локально, без сервера Render.');
+  }else if(kind==='bag'){
    line('Сумка: '+state.inventory.length+'/12','Нажми «Надеть», чтобы экипировать снаряжение');
    for(const item of state.inventory){
     const def=ITEM_CATALOG[item.id],slot=def?.slot;
@@ -391,19 +427,27 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     chooseSlot=-1;persist();draw();}]]);
   }
  }
- const actionButtons=[
-  ['target','🎯','Ближайшая цель',targetNearest],
-  ['interact','✋','Взаимодействие',interact],
-  ['bag','🎒','Рюкзак',()=>openWindow('bag')],
-  ['character','👤','Персонаж',()=>openWindow('character')],
-  ['quests','📜','Задания',()=>openWindow('quests')],
-  ['spells','✨','Умения',()=>{chooseSlot=-1;openWindow('spells')}]
+ const actions=[
+  ['targetNext',targetNearest],['interact',interact],
+  ['bag',()=>openWindow('bag')],['character',()=>openWindow('character')],
+  ['journal',()=>openWindow('quests')],['questJournalOpen',()=>openWindow('quests')],
+  ['spellbookButton',()=>{chooseSlot=-1;openWindow('spells')}],
+  ['pause',()=>openWindow('menu')],
+  ['partyOpen',()=>msg('Группы будут доступны после подключения онлайн-мира')],
+  ['targetClear',()=>{targetEntity(null);autoplay=false;draw()}],
+  ['dummyReset',()=>{dummy.trainingStats=createTrainingStats();draw();}]
  ];
- for(const [id,icon,desc,fn] of actionButtons){
-  const btn=document.createElement('button');btn.type='button';btn.textContent=icon;btn.title=desc;
-  btn.setAttribute('aria-label',desc);btn.dataset.action=id;btn.addEventListener('click',fn);actions.append(btn);
- }
- bind(modal.querySelector('.rpgClose'),'click',()=>{chooseSlot=-1;closeWindow()});
+ for(const [id,fn] of actions){const node=$(id);if(node)bind(node,'click',fn);}
+ bind($('modalClose'),'click',()=>{chooseSlot=-1;closeWindow();});
+ document.addEventListener('keydown',e=>{
+  const key=e.key.toLowerCase();
+  if(key==='escape'&&!modal.hidden){closeWindow();e.preventDefault();}
+  if(!modal.hidden)return;
+  const shortcut={i:'bag',c:'character',j:'quests',b:'spells'};
+  if(shortcut[key]&&!e.repeat){openWindow(shortcut[key]);e.preventDefault();}
+  if(key==='tab'){targetNearest();e.preventDefault();}
+  if(key==='e'){interact();e.preventDefault();}
+ });
  // Tap actors by their actual Three.js shapes; ordinary terrain taps clear selection.
  const picker=new THREE.Raycaster(),startPointer=new Map();
  canvas.addEventListener('pointerdown',e=>{startPointer.set(e.pointerId,{x:e.clientX,y:e.clientY});});
@@ -436,7 +480,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function update(dt){
   clock+=dt;
-  if(!toast.hidden&&clock>messageUntil)toast.hidden=true;
+  if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
   const local=player();
   swing-=dt;
