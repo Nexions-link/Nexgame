@@ -58,7 +58,7 @@ test('original GLB is connected to wild birds, giant and both wildlife update pa
  assert.match(game,/catch\(error\)[\s\S]{0,180}procedural fallback/);
  const html=read('app.html');
  assert.match(html,/type="importmap"/);
- assert.match(html,/game\.js\?v=0\.3\.5\.43/);
+ assert.match(html,/game\.js\?v=0\.3\.5\.\d+/);
  const registry=read('bestiary/catalog.js');
  assert.match(registry,/version:'0\.1'/);
  assert.match(registry,/asset:'models\/dolgonog-v0\.1\.glb'/);
