@@ -96,7 +96,11 @@ export function snapshotMulgoreMobs(mobs,now=Date.now()){
 export function sanitizeEquipment(equipment,level){
  if(!equipment||typeof equipment!=='object'||Array.isArray(equipment))return {};
  const clean={};
- for(const [slot,id] of Object.entries(equipment)){
+ for(const [slot,entry] of Object.entries(equipment)){
+  // Incoming client packets contain item IDs; server-stored loadouts already
+  // contain normalized {id,qty} objects. Validate BOTH forms against catalog.
+  const id=typeof entry==='string'?entry:
+   entry&&typeof entry==='object'&&!Array.isArray(entry)?entry.id:null;
   if(typeof id!=='string')continue;
   const item=ITEM_CATALOG[id];
   if(item?.slot===slot&&(item.requiredLevel||1)<=level)clean[slot]={id,qty:1};
