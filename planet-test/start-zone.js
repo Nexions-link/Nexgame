@@ -246,7 +246,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
 
 // Original Tauren procedural mesh as it exists in NexGame's game.js,
 // with networking, equipment and inventory intentionally not copied.
-export function createTauren(THREE,scene){
+export function createTauren(THREE,scene,{fur=0x836144,clothColor=null}={}){
  const TAU=Math.PI*2;
  let seed=531;function rand(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
  const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:1,metalness:0,...extra});
@@ -359,6 +359,6 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
   return {root,body,chest,neck,tail,braids,arms,legs,head};
 }
 
-  const actor=makeTauren({weapon:false});
+  const actor=makeTauren({weapon:false,fur,cloth:clothColor===null?M.red:material(clothColor)});
   return {root:actor.root,body:actor.body,chest:actor.chest,neck:actor.neck,tail:actor.tail,braids:actor.braids,arms:actor.arms,legs:actor.legs,head:actor.head};
 }
