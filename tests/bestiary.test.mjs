@@ -112,13 +112,13 @@ test('hand pose returns to previous left and right wrist angles while axe remain
  assert.match(game,/const grip=hero\.arms\[1\]\.hand/);
 });
 
-// The wild boar is only registered as a static Atlas asset; it has no game spawn/AI.
-test('C002 boar model is a valid static GLB in the Atlas only',()=>{
+// Wild boar stays in the Atlas only: animated model, no game spawn/AI.
+test('C002 boar model has Idle Walk Attack clips in the Atlas only',()=>{
  const catalog=read('bestiary/atlas-catalog.js');
  assert.match(catalog,/id:'wild-boar',category:'creatures',number:'C002'/);
  assert.match(catalog,/models\/wild-boar-v0\.1\.glb/);
  const bin=readFileSync(resolve(root,'bestiary/models/wild-boar-v0.1.glb'));
- assert.equal(bin.length,469128);
+ assert.equal(bin.length,473468);
  assert.equal(bin.toString('ascii',0,4),'glTF');
  assert.equal(bin.readUInt32LE(4),2);
  assert.equal(bin.readUInt32LE(8),bin.length);
@@ -126,6 +126,12 @@ test('C002 boar model is a valid static GLB in the Atlas only',()=>{
  assert.equal(bin.toString('ascii',16,20),'JSON');
  const parsed=JSON.parse(bin.toString('utf8',20,20+jsonLength));
  assert.equal(parsed.meshes.length,21);
- assert.equal(parsed.animations?.length??0,0);
+ assert.deepEqual(parsed.animations?.map(a=>a.name),['Idle','Walk','Attack']);
+ for(const clip of parsed.animations) {
+  assert.ok(clip.channels.length>=2);
+  assert.equal(clip.channels.length,clip.samplers.length);
+  assert.ok(clip.channels.every(ch=>ch.target.node<parsed.nodes.length));
+ }
+ assert.match(catalog,/animations:\['Idle','Walk','Attack'\]/);
  assert.doesNotMatch(read('game.js'),/wild-boar-v0\.1\.glb/);
 });
