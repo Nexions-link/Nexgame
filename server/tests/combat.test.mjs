@@ -94,3 +94,48 @@ test('equipment is whitelisted and rare loot stays inside the item catalog',()=>
  assert.equal(loot[0].id,'giantFeather');
  assert.ok(loot.every(item=>item&&Number.isInteger(item.qty)&&item.qty>0));
 });
+
+
+test('server weapon cadence provides exact retry timing and autoattacks ignore global cooldown',()=>{
+ const mobs=createMulgoreMobs(),a=warrior('cadence');
+ a.equipment={weapon:{id:'wornAxe',qty:1}};
+ const started=200000;
+ const first=applyMulgoreAbility(mobs,a,'autoAttack',0,started,fixedRoll);
+ assert.equal(first.ok,true);
+ assert.equal(first.event.cooldownMs,2000);
+ assert.equal(first.event.gcdMs,0);
+ const early=applyMulgoreAbility(mobs,a,'autoAttack',0,started+1950,fixedRoll);
+ assert.equal(early.ok,false);
+ assert.equal(early.reason,'Способность восстанавливается');
+ assert.equal(early.retryAfterMs,50);
+ assert.equal(early.cooldownMs,50);
+ assert.equal(early.gcdMs,0);
+ const ready=applyMulgoreAbility(mobs,a,'autoAttack',0,started+2000,fixedRoll);
+ assert.equal(ready.ok,true);
+});
+test('server and client share weapon speed after a live equipment swap',()=>{
+ const mobs=createMulgoreMobs(),a=warrior('switch',-9,-23,3);
+ a.equipment={weapon:{id:'letterOpener',qty:1}};
+ const result=applyMulgoreAbility(mobs,a,'autoAttack',0,300000,fixedRoll);
+ assert.equal(result.ok,true);
+ assert.equal(result.event.cooldownMs,1700);
+ assert.equal(applyMulgoreAbility(mobs,a,'autoAttack',0,301699,fixedRoll).retryAfterMs,1);
+ a.equipment={weapon:{id:'wornAxe',qty:1}};
+ const next=applyMulgoreAbility(mobs,a,'autoAttack',0,301700,fixedRoll);
+ assert.equal(next.ok,true);
+ assert.equal(next.event.cooldownMs,2000);
+});
+test('global GCD is 1.5 seconds for specials but never blocks regular autoattack',()=>{
+ const mobs=createMulgoreMobs(),a=warrior('gcd',-9,-23,6);
+ const t=400000;
+ const special=applyMulgoreAbility(mobs,a,'heavyStrike',0,t,fixedRoll);
+ assert.equal(special.ok,true);
+ assert.equal(special.event.cooldownMs,3000);
+ assert.equal(special.event.gcdMs,1500);
+ const stomp=applyMulgoreAbility(mobs,a,'thunderStomp',null,t+100,fixedRoll);
+ assert.equal(stomp.ok,false);
+ assert.equal(stomp.gcdMs,1400);
+ assert.equal(stomp.retryAfterMs,1400);
+ assert.equal(applyMulgoreAbility(mobs,a,'autoAttack',0,t+101,fixedRoll).ok,true);
+ assert.equal(applyMulgoreAbility(mobs,a,'thunderStomp',null,t+1500,fixedRoll).ok,true);
+});
