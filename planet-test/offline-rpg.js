@@ -19,7 +19,10 @@ import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
 import {createMentorWorld} from './mentor-world.js?v=1';
 import {createSphericalTargetRing} from './spherical-target-ring.js?v=1';
-import {animateSphericalTauren} from './tauren-animation.js?v=1';
+import {animateSphericalTauren} from './tauren-animation.js?v=2';
+import {incomingShieldHit,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackProgress} from './sphere-combat.js?v=1';
+import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '../item-quality.js?v=0.3.7.1';
+import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -60,6 +63,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const state=restore(),runtime=createAbilityRuntime();
  const rightHand=hero.arms[1]?.hand,leftHand=hero.arms[0]?.hand;
  const modelSlots={weapon:null,shield:null};
+ hero.root.userData.equipmentGrip={};
+ hero.root.userData.weaponKind='none';
  const modelLoader=import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js')
   .then(({GLTFLoader})=>new GLTFLoader()).catch(()=>null);
  let visualRequest=0;
@@ -69,7 +74,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const weaponDef=ITEM_CATALOG[state.equipment.weapon?.id];
   const shieldDef=ITEM_CATALOG[state.equipment.shield?.id];
   const weaponKind=weaponDef?.weaponKind||null;
-  const shieldKind=shieldDef?.rarity==='uncommon'?'kite':shieldDef?'round':null;
+  const shieldKind=shieldDef?.rarity==='uncommon'||shieldDef?.rarity==='rare'?'kite':shieldDef?'round':null;
+  hero.root.userData.weaponKind=weaponKind||'none';
+  hero.root.userData.equipmentGrip={};
   for(const [slot,model] of Object.entries(modelSlots)){
    if(model){model.removeFromParent();modelSlots[slot]=null;}
   }
@@ -89,17 +96,23 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    try{
     const gltf=await loader.loadAsync(url);
     if(request!==visualRequest)return;
-    const mesh=gltf.scene;mesh.name='planet-rpg-'+kind;
+    const mesh=gltf.scene;mesh.name='gear-'+(slot==='shield'?'shield':kind);
     mesh.position.set(tuning.posX,tuning.posY,tuning.posZ);
     const key=slot==='shield'?'shield':kind;
     mesh.rotation.set(radians(tuning[key+'X']),radians(tuning[key+'Y']),radians(tuning[key+'Z']),'YXZ');
     if(slot==='weapon')hand.rotation.set(radians(tuning.handX),radians(tuning.handY),radians(tuning.handZ),'XYZ');
     hand.add(mesh);modelSlots[slot]=mesh;
+    const grip=hand.rotation;
+    hero.root.userData.equipmentGrip[slot]={x:grip.x,y:grip.y,z:grip.z,order:grip.order};
+    if(slot==='weapon')applyWeaponQuality(THREE,hero.root,kind,weaponDef?.rarity);
+    if(slot==='shield')styleShieldGlb(THREE,mesh,shieldDef?.rarity);
    }catch(err){console.warn('Planet equipment model unavailable',url,err);}
   }
  }
 
- let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,attackPulse=0,stompPulse=0;
+ let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,
+  attackRemaining=0,stompPulse=0,blockRemaining=0;
+ const pendingHits=[];
  let journalTab='current';
  const group=new THREE.Group();scene.add(group);
  // The mesh is bent vertex-by-vertex onto the actual spherical terrain:
@@ -378,11 +391,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   draw();
  }
  function hitEnemy(enemy,bonus=0,skill='autoAttack'){
-  if(!enemy||!['mob','dummy'].includes(enemy.kind)||enemy.dead)return msg('Нет подходящей цели');
+  if(!enemy||!['mob','dummy'].includes(enemy.kind)||enemy.dead||!enemy.root.visible)return msg('Нет подходящей цели');
   if(distance(enemy)>3.45)return msg('Цель слишком далеко');
-  attackPulse=.55;
+  // Use the same .8 s model swing as production and apply damage at
+  // 340 ms (0.425 animation progress). A player changing weapons keeps
+  // the combat timeline, just as it does in the original game.
   const s=stats(),damage=s.damageMin+Math.random()*(s.damageMax-s.damageMin)+bonus;
-  harm(enemy,damage,skill);
+  pendingHits.push({enemy,damage,skill,remaining:MELEE_IMPACT_SECONDS});
+  attackRemaining=MELEE_ANIMATION_SECONDS;
  }
  function useAbility(slot){
   const entry=state.hotbar[slot],action=actionDefinition(entry,'warrior',state.level);
@@ -706,8 +722,16 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function update(dt){
   clock+=dt;
-  attackPulse=Math.max(0,attackPulse-dt);
+  attackRemaining=Math.max(0,attackRemaining-dt);
   stompPulse=Math.max(0,stompPulse-dt);
+  blockRemaining=Math.max(0,blockRemaining-dt);
+  for(let i=pendingHits.length-1;i>=0;i--){
+   const hit=pendingHits[i];hit.remaining-=dt;
+   if(hit.remaining>0)continue;
+   pendingHits.splice(i,1);
+   if(hit.enemy.root.visible&&hit.enemy.hp>0&&!hit.enemy.dead&&distance(hit.enemy)<=3.65)
+    harm(hit.enemy,hit.damage,hit.skill);
+  }
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
   camp.update(dt);
@@ -790,10 +814,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      if(mob.attackWindup<=0&&sphereFacingError(mob.yaw,desiredYaw)>.32)
       mob.attackWindup=.09;
      else if(mob.attackWindup<=0){
-      const armor=stats().armor;
-      state.hp=Math.max(0,state.hp-Math.max(1,Math.round((mob.boss?14:9)*(1-armor/(armor+485)))));
-      mob.attackCd=mob.boss?1.8:2.1;state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
-      if(state.hp<=0){state.hp=stats().maxHp;state.resource=0;autoplay=false;mob.aggro=false;
+      const result=incomingShieldHit({
+       THREE,heroNormal:playerNormal(),heroRoot:hero.root,
+       enemyNormal:toNormal(mob.x,mob.z,getRadius()),stats:stats(),
+       raw:mob.boss?14:9,attackerLevel:mob.boss?5:1
+      });
+      state.hp=Math.max(0,state.hp-result.damage);
+      if(result.blocked){
+       blockRemaining=result.blockSeconds;
+       msg('Блок щитом · отражено '+result.absorbed+' урона',1.1);
+      }
+      mob.attackCd=mob.boss?1.8:2.1;
+      state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
+      if(state.hp<=0){state.hp=stats().maxHp;state.resource=0;autoplay=false;blockRemaining=0;pendingHits.length=0;mob.aggro=false;
        msg('Герой возродился у костра');resetPosition?.();}
       persist();
      }
@@ -810,7 +843,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  let resetPosition=null;
  function onRespawn(fn){resetPosition=fn;}
  function getAnimationState(){
-  return {gather:camp.casting,attack:attackPulse/.55,stomp:stompPulse/.55};
+  return {gather:camp.casting,attack:attackProgress(attackRemaining),
+   stomp:stompPulse/.55,blockRemaining,weaponKind:hero.root.userData.weaponKind||'none'};
  }
  function getQuestMapState(){
   return {
