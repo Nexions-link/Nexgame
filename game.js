@@ -1,13 +1,13 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.48';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.48';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.48';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.48';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.48';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.49';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.49';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.49';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.49';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.49';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.48';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.48';
-import {projectPartyMember} from './party-map.js?v=0.3.5.48';
+import {createWorldPresence} from './online.js?v=0.3.5.49';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.49';
+import {projectPartyMember} from './party-map.js?v=0.3.5.49';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -412,7 +412,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
  const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
  if(weapon){
   // Place the grip inside the closed right palm rather than floating above it.
-   const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(0,-Math.PI/2,-.08,'YXZ');
+   const axe=group(arms[1].hand,0,-.23,.135);axe.name='gear-axe';axe.rotation.set(0,Math.PI/2,-.08,'YXZ');
   rod(axe,M.wood,[0,-.72,0],[0,.95,0],.068,.060);
   for(const y of [-.5,-.36,-.22,.76])mesh(axe,G.cylinder,T.hide,0,y,0,.077,.09,.077);
   // Move the complete axe head to the opposite end of the haft (local -Y).
@@ -446,7 +446,7 @@ async function loadHeroAxeAsset(){
   const {GLTFLoader}=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js');
   const asset=await new GLTFLoader().loadAsync('./assets/weapons/tauren-axe-v0.1.glb?v=1');
   const axe=asset.scene;
-  axe.position.copy(old.position);axe.rotation.copy(old.rotation);axe.rotation.x+=Math.PI;axe.scale.copy(old.scale);
+  axe.position.copy(old.position);axe.rotation.copy(old.rotation);axe.rotation.x+=Math.PI;axe.rotation.y+=Math.PI;axe.scale.copy(old.scale);
   grip.add(axe);axe.visible=old.visible;old.visible=false;
   old.name='gear-axe-fallback';axe.name='gear-axe';
  }catch(error){console.warn('Axe GLB unavailable; keeping procedural fallback',error)}
