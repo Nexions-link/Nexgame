@@ -224,6 +224,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const alertTag=makeLabel('!','#ffc978',78);
   alertTag.position.y=4.95;alertTag.scale.set(1.55,1.4,1);alertTag.visible=false;
   root.add(alertTag);entity.alertTag=alertTag;
+  const lootMarker=makeLabel('◆','#ffffff',68);
+  lootMarker.position.y=1.58;lootMarker.scale.set(1.3,1.06,1);
+  lootMarker.material.opacity=.95;lootMarker.visible=false;
+  root.add(lootMarker);entity.lootMarker=lootMarker;
   mobs.push(entity);entities.push(entity);setModelAt(entity);return entity;
  }
  SPAWNS.forEach(([x,z],i)=>createBird(x,z,i));
@@ -318,12 +322,22 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.hp=Math.min(stats().maxHp,state.hp+Math.max(0,stats().maxHp-maxBefore));
   persist();draw();void updateEquipmentVisuals();msg('Надето: '+def.name);
  }
+ function updateLootMarker(mob){
+  if(!mob?.lootMarker)return;
+  const available=mob.corpse&&mob.root.visible&&mob.loot?.length>0;
+  mob.lootMarker.visible=!!available;
+  if(!available)return;
+  const rarity=highestLootRarity(mob.loot,ITEM_CATALOG);
+  mob.lootMarker.material.color.setHex(QUALITY_VISUALS[rarity].marker);
+  mob.lootMarker.userData.rarity=rarity;
+ }
  function lootMob(mob){
   if(!mob?.corpse||!mob.loot)return;
   const remaining=[];
   for(const item of mob.loot){if(addItem(item.id,item.qty)){msg('Получено: '+(ITEM_CATALOG[item.id]?.name||item.id));}
    else remaining.push(item);}
   mob.loot=remaining;
+  updateLootMarker(mob);
   if(!remaining.length){mob.corpse=false;mob.root.visible=false;mob.respawn=12;target=null;updateSelection();}
   draw();
  }
@@ -382,7 +396,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    setModelAt(enemy);birdAnimation(enemy,1/60,0);
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
+   if(enemy.boss)enemy.loot.push({id:'giantFeather',qty:1});
    const gear=rollEquipmentLoot(!!enemy.boss);if(gear)enemy.loot.push(gear);
+   updateLootMarker(enemy);
    state.xp+=enemy.boss?70:22;state.gold+=enemy.boss?12:4;
    levelCheck();mentorChain.killed(enemy);
    if(!enemy.boss)msg('Долгоног повержен · доступна добыча');
@@ -531,6 +547,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       const item=state.inventory[i],def=item&&ITEM_CATALOG[item.id];
       const cell=document.createElement('button');cell.type='button';
       cell.className='inventory-slot'+(item?' occupied':' empty');
+      if(def){cell.classList.add('rarity-'+itemRarity(def.rarity));
+       cell.style.setProperty('--item-quality-color',QUALITY_VISUALS[itemRarity(def.rarity)].color);}
       cell.setAttribute('aria-label',item?(def?.name||'Лечебный настой'):'Пустая ячейка '+(i+1));
       if(item){
         const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=def?.icon||'🧪';
@@ -539,6 +557,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
         cell.addEventListener('click',()=>{
           detail.replaceChildren();
           const name=document.createElement('strong');name.textContent=def?.name||'Лечебный настой';
+     if(def)name.style.color=QUALITY_VISUALS[itemRarity(def.rarity)].color;
           const description=document.createElement('p');description.textContent=def?.description||'Восстанавливает здоровье';
           detail.append(name,description);
           const commands=[...(def?.slot?[['Надеть',()=>equip(item.id)]]:[]),
@@ -749,6 +768,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const mob of mobs){
    mob.hit=Math.max(0,(mob.hit||0)-dt);
    mob.alertRemaining=Math.max(0,(mob.alertRemaining||0)-dt);
+   if(mob.lootMarker?.visible){
+    const tier=mob.lootMarker.userData.rarity;
+    const t=tier==='rare'?.12:tier==='uncommon'?.065:.02;
+    const pulse=Math.sin(clock*(tier==='rare'?4:2.7)+mob.index);
+    mob.lootMarker.scale.setScalar(1+.12*pulse*t);
+    mob.lootMarker.position.y=1.58+.12*Math.sin(clock*3.6);
+    mob.lootMarker.material.opacity=.86+.13*Math.pow(Math.sin(clock*2.6),2);
+   }
    if(mob.contactShadow)mob.contactShadow.visible=mob.root.visible&&!mob.corpse;
    if(mob.alertTag){
     mob.alertTag.visible=mob.alertRemaining>0&&mob.root.visible&&!mob.corpse;
@@ -758,13 +785,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     mob.respawn-=dt;
     if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
      mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.attackWindup=0;mob.hit=0;mob.corpseAge=0;mob.alertRemaining=0;
+     updateLootMarker(mob);
      resetPlainstriderVisual(mob);setModelAt(mob);}
     continue;
    }
    if(mob.corpse){
     mob.corpseAge=(mob.corpseAge||0)+dt;
     if(mob.corpseAge>32){
-     mob.corpse=false;mob.root.visible=false;mob.respawn=12;mob.loot=[];
+     mob.corpse=false;mob.root.visible=false;mob.respawn=12;mob.loot=[];updateLootMarker(mob);
      if(target===mob){target=null;autoplay=false;}
     }
     continue;
