@@ -47,15 +47,52 @@ test('out-of-range old selection does not block the nearest valid target',()=>{
  assert.equal(nextTargetByProximity([far,near],far,player,alive),near);
  assert.equal(nextTargetByProximity([far],null,player,alive),null);
 });
-test('all hostile acquisition paths use the same 40 m boundary',()=>{
+test('automatic acquisition and cycling retain the same 40 m boundary',()=>{
  const game=source('game.js');
  assert.match(game,/const MELEE_RANGE=3\.45,TARGET_RANGE=TARGET_ACQUISITION_RADIUS/);
  assert.match(game,/return targetsByProximity\(enemies,targetPosition\(\),isAliveTarget\)\[0\]\|\|null/);
  assert.match(game,/nextTargetByProximity\(enemies,selected,targetPosition\(\),isAliveTarget,step\)/);
- assert.match(game,/if\(isAliveTarget\(e\)&&!validTargetInRange\(e\)\)return false/);
- assert.match(game,/if\(selected&&!validTargetInRange\(selected\)\)clearTarget\(\)/);
- assert.match(game,/if\(!e\)return false; \/\/ Beyond 40 metres/);
+ assert.doesNotMatch(game,/if\(isAliveTarget\(e\)&&!validTargetInRange\(e\)\)return false/);
+ assert.match(game,/if\(selected&&!isAliveTarget\(selected\)\)clearTarget\(\)/);
+ assert.match(game,/if\(!e\)return false; \/\/ Auto-acquisition searches only within 40 m/);
  assert.match(game,/const living=validTargetInRange\(selected\)/);
- assert.match(game,/selection\.visible=validTargetInRange\(selected\)/);
+ assert.match(game,/selection\.visible=isAliveTarget\(selected\)/);
+ assert.match(game,/const valid=isAliveTarget\(selected\)/);
  assert.match(source('app.html'),/радиусе 40 метров/);
+});
+
+test('manual tap accepts a visible enemy beyond 40m and preserves it',()=>{
+ const game=source('game.js');
+ const first=game.indexOf('function setTarget(e){');
+ const last=game.indexOf('function cycleTarget(',first);
+ assert.ok(first>=0&&last>first);
+ const code=game.slice(first,last);
+ const far=enemy(91,125,0),near=enemy(92,5,0);
+ const context={
+  selected:near,selectedPlayerId:'old-player',approach:{target:near},updates:0,
+  isAliveTarget:e=>alive(e),clearTarget(){this.selected=null},
+  renderAllySelection(){},hideCombatWarning(){},
+  updateHUD(){this.updates++}
+ };
+ const choose=new Function('context',`with(context){${code};return setTarget}`)(context);
+ assert.equal(choose(far),true);
+ assert.equal(context.selected,far,'far manually tapped enemy remains selected');
+ assert.equal(context.approach,null,'outdated approach stops after a manual switch');
+ assert.equal(context.updates,1);
+ assert.match(game,/if\(selected&&!isAliveTarget\(selected\)\)clearTarget\(\)/);
+ assert.match(game,/selection\.visible=isAliveTarget\(selected\)/);
+ assert.match(game,/const valid=isAliveTarget\(selected\)/);
+});
+test('cycling after a far manual target chooses the closest target within 40m',()=>{
+ const far=enemy(1,95,0),closest=enemy(2,4,0),middle=enemy(3,11,0);
+ assert.equal(nextTargetByProximity([far,middle,closest],far,player,alive),closest);
+ assert.equal(nextTargetByProximity([far,middle,closest],closest,player,alive),middle);
+ assert.equal(nextTargetByProximity([far],far,player,alive),null);
+});
+test('attack attempts at a manually selected distant mob do not clear or silently retarget',()=>{
+ const game=source('game.js');
+ assert.match(game,/if\(isAliveTarget\(selected\)\)\{\s*\/\/ A distant manually tapped unit stays selected/);
+ assert.match(game,/if\(!validTargetInRange\(selected\)\)return false/);
+ assert.match(game,/if\(def\.requiresTarget&&selected&&!validTargetInRange\(selected\)\)\{\s*\/\/ A cast outside acquisition\/combat range does not erase a manual target/);
+ assert.match(game,/autoAttack=false;approach=null;updateHUD\(\);return false/);
 });

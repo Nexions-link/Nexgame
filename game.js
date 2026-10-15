@@ -1,18 +1,18 @@
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.5.59';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.59';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.59';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.59';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.59';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.59';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.59';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.59';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.59';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.59';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.5.60';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.60';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.60';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.60';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.60';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.60';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.60';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.60';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.60';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.60';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.59';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.59';
-import {projectPartyMember} from './party-map.js?v=0.3.5.59';
+import {createWorldPresence} from './online.js?v=0.3.5.60';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.60';
+import {projectPartyMember} from './party-map.js?v=0.3.5.60';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -2079,7 +2079,8 @@ function castAbility(id,options={}){
  if(gatherCast||(modalKind&&!(id==='healingPotion'&&fromBag)))return false;
  if(id==='autoAttack')return attack();
  if(def.requiresTarget&&selected&&!validTargetInRange(selected)){
-  clearTarget();return false;
+  // A cast outside acquisition/combat range does not erase a manual target.
+  return false;
  }
  // A weapon swing or stomp cannot play two mutually incompatible animations.
  if((id==='heavyStrike'||id==='thunderStomp')&&(attackElapsed>=0||stompElapsed>=0)){
@@ -2141,8 +2142,8 @@ function clearTarget(){
  hideCombatWarning();updateHUD();
 }
 function setTarget(e){
- // Tapping an out-of-range creature never changes the current target.
- if(isAliveTarget(e)&&!validTargetInRange(e))return false;
+ // Direct taps may select ANY visible living enemy, regardless of distance.
+ // Only the target-cycle button and automatic acquisition use the 40 m radius.
  if(!isAliveTarget(e)){clearTarget();return false}
  selectedPlayerId=null;
  renderAllySelection();
@@ -2158,7 +2159,9 @@ function cycleTarget(step=1){
 }
 function tryAutoSwing(){
  if(!autoAttack||modalKind||gatherCast||stompElapsed>=0||attackElapsed>=0||attackCooldown>0)return false;
- if(!validTargetInRange(selected)){clearTarget();return false}
+ if(!validTargetInRange(selected)){
+  autoAttack=false;approach=null;updateHUD();return false;
+ }
  const fail=abilityFailure(getAbilityDefinition('autoAttack'),abilityContext(getAbilityDefinition('autoAttack')));
  if(fail){combatWarning(fail);return false}
  attackElapsed=0;attackCooldown=playerStats().speed;attackLanded=false;swingTarget=selected;swingAbilityId='autoAttack';
@@ -2167,10 +2170,12 @@ function tryAutoSwing(){
 function attack(){
  if(modalKind||gatherCast)return false;
  if(autoAttack){autoAttack=false;approach=null;hideCombatWarning();updateHUD();return true}
- if(!validTargetInRange(selected)){
-  if(selected)clearTarget();
+ if(isAliveTarget(selected)){
+  // A distant manually tapped unit stays selected; do not secretly retarget.
+  if(!validTargetInRange(selected))return false;
+ }else{
   const e=nearestEnemy();
-  if(!e)return false; // Beyond 40 metres there is no target and no action.
+  if(!e)return false; // Auto-acquisition searches only within 40 m.
   setTarget(e);
  }
  if(targetDistance(selected)>20){combatWarning('Цель слишком далеко',true);return false}
@@ -3318,7 +3323,7 @@ $('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.
  const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!!gatherCast||!target;
  if(target)$('interact').innerHTML=target.kind==='gather'?(target.node.pending?'Забрать <kbd>E</kbd>':'Собрать <kbd>E</kbd>'):
  target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':target.kind==='sharedChest'?'Открыть сундук <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
- const valid=validTargetInRange(selected);
+ const valid=isAliveTarget(selected);
  $('targetFrame').hidden=!valid;
  $('targetPlaceholder').hidden=valid||!!remotePlayers.get(selectedPlayerId);$('zoneTitle').hidden=Boolean(valid);
  const isDummy=valid&&selected.trainingDummy===true;
@@ -3608,11 +3613,11 @@ function update(dt){
  }
  animateRemotePlayers(dt);updateWildlife(dt);
  // Moving away or a mob leaving the 40-metre circle releases the target.
- if(selected&&!validTargetInRange(selected))clearTarget();
+ if(selected&&!isAliveTarget(selected))clearTarget();
  if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
  lakeVisual.update(clock);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);herbalistMarker.position.set(8,heightAt(8,1)+5.65+Math.sin(clock*2.1)*.1,1);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
- selection.visible=validTargetInRange(selected);
+ selection.visible=isAliveTarget(selected);
  if(selection.visible){
   selection.position.set(selected.root.position.x,heightAt(selected.root.position.x,selected.root.position.z)+.06,selected.root.position.z);
   selection.material.color.setHex(meleeFailure(selected)?0xd97456:0xe9db84);
