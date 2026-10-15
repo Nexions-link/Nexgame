@@ -6,7 +6,7 @@ import {isDolgonogRig,applyOriginalDolgonogEdits} from './original-edits.js';
 const $=id=>document.getElementById(id);
 const entry=CREATURES[0];
 let model=null,source='procedural',imported=null,mixer=null,playing='idle',clock=0;
-let selectedVersion='0.2';
+let selectedVersion='0.2-ref';
 const draftKey=()=>DRAFT_KEY+'-v'+selectedVersion;
 let currentLoad=0;
 let params={...DEFAULT_DOLGONOG},dirty=false,rendered=false;
@@ -134,7 +134,7 @@ function installProcedural(){
  model=createDolgonog(THREE,params);scene.add(model.root);
  showSource();
 }
-async function installGlb(buffer,{origin='official',filename='dolgonog-v0.1.glb'}={}){
+async function installGlb(buffer,{origin='official',filename='dolgonog-v0.1.glb',token}={}){
  const {GLTFLoader}=await import('three/addons/loaders/GLTFLoader.js');
  const parsed=await new GLTFLoader().parseAsync(buffer,'');
  if(!parsed.scene)throw Error('В файле GLB отсутствует 3D-сцена');
@@ -148,6 +148,7 @@ async function installGlb(buffer,{origin='official',filename='dolgonog-v0.1.glb'
  parsed.scene.position.set(-centre.x,-box.min.y,-centre.z);
  wrapper.scale.setScalar(scale);
  const editable=isDolgonogRig(parsed.scene);
+ if(token!==undefined&&token!==currentLoad)return null;
  removeModel();
  source='glb';imported={scene:parsed.scene,animations:parsed.animations,origin,filename,editable};
  model={root:wrapper};scene.add(wrapper);
@@ -160,14 +161,15 @@ async function loadOfficialGlb(){
  const run=++currentLoad;
  try{
   const loadingVersion=selectedVersion;
-  const url='./models/dolgonog-v'+loadingVersion+'.glb?v=0.2.0';
+  const url='./models/dolgonog-v'+loadingVersion+'.glb?v=0.2.1';
   const response=await fetch(url,{cache:'no-cache'});
   if(!response.ok)throw Error('HTTP '+response.status);
   const buffer=await response.arrayBuffer();
   if(run!==currentLoad)return;
   if(buffer.byteLength<20||new DataView(buffer).getUint32(0,true)!==0x46546c67)
    throw Error('Неверный заголовок GLB');
-  const result=await installGlb(buffer,{origin:'official'});
+  const result=await installGlb(buffer,{origin:'official',token:run});
+  if(!result)return;
   notify('Долгоног v'+selectedVersion+' загружен: '+humanBytes(buffer.byteLength)+
    ', '+result.triangles.toLocaleString('ru-RU')+' треугольников и '+
    result.animations+' анимации. Черновик можно редактировать.');

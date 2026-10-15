@@ -1,15 +1,15 @@
 // A single, extensible source of truth for the NexGame bestiary.
-export const BESTIARY_VERSION='0.2.0';
+export const BESTIARY_VERSION='0.2.1';
 export const CREATURES=Object.freeze([
  Object.freeze({
   id:'dolgonog',number:'001',name:'Долгоног',subtitle:'Равнинная птица',
-  habitat:'Тёплые равнины',category:'Фауна Мулгора',version:'0.2',
+  habitat:'Тёплые равнины',category:'Фауна Мулгора',version:'0.2-ref',
   description:'Высокая равнинная птица с сильными ногами, охристым оперением, тёмными крыльями и терракотовым хохолком.',
   animations:Object.freeze(['idle','walk','attack']),
   // Original GLB supplied by the user (SHA-256: 4aa3ba4e948fbc8234583ea04c6d0409fd272655594d9dca4f456b10632a56da).
   source:'original-glb',
-  asset:'models/dolgonog-v0.2.glb',
-  versions:Object.freeze({'0.1':'models/dolgonog-v0.1.glb','0.2':'models/dolgonog-v0.2.glb'}),
+  asset:'models/dolgonog-v0.2-ref.glb',
+  versions:Object.freeze({'0.1':'models/dolgonog-v0.1.glb','0.2':'models/dolgonog-v0.2.glb','0.2-ref':'models/dolgonog-v0.2-ref.glb'}),
   tags:Object.freeze(['Существо','Наземное','Анимированное'])
  })
 ]);
