@@ -34,8 +34,8 @@ test('Game equips real sword GLB and permits non-destructive mobile preview',()=
  assert.match(game,/swordPreview=false/);
  assert.match(game,/choice\('⚔ Тюнер меча · примерка',openSwordTuner\)/);
  for(const id of ['swordTuner','swordTunerControls','swordTunerReset','swordTunerCopy','swordTunerExport'])assert.ok(html.includes('id="'+id+'"'),id);
- const atlasVersion=read('bestiary/atlas-catalog.js').match(/ATLAS_VERSION='([^']+)'/)?.[1];
- assert.ok(atlasVersion&&read('bestiary/atlas.html').includes('atlas.js?v='+atlasVersion));
+ assert.match(read('bestiary/atlas.html'),/atlas\.js\?refresh=/);
+ assert.match(read('bestiary/atlas.js'),/atlas-catalog\.js\?refresh=/);
 });
 
 test('final sword grip uses all 9 confirmed user values independently of axe',()=>{
