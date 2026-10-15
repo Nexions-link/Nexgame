@@ -12,6 +12,7 @@ import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=2';
 import {createCampActions} from './camp-actions.js?v=4';
+import {createCombatFeedback,HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=2';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
@@ -97,6 +98,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[];
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
+ const feedbackLayer=$('combatFeedback');
+ if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
+ const combatFeedback=createCombatFeedback({THREE,document,camera,layer:feedbackLayer});
  const nameEl=$('playerName'),objective=$('qtext');
  const originalControls=$('labSettingsSources');
  const settingsControls=[...originalControls.children];
@@ -291,9 +295,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function harm(enemy,damage,skill='autoAttack'){
   if(!enemy||!enemy.root.visible)return;
-  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);msg('Манекен: '+Math.round(damage)+' урона',1.2);draw();return;}
+  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);msg('Манекен: '+Math.round(damage)+' урона',1.2);draw();return;}
   if(enemy.kind!=='mob'||enemy.dead)return;
-  enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=.35;
+  enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=HIT_REACTION_SECONDS;
+  combatFeedback.hit(enemy,damage,skill);
   state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
   if(enemy.hp===0){
    enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;autoplay=false;
@@ -657,6 +662,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    birdAnimation(mob,dt,Math.hypot(mob.x-beforeX,mob.z-beforeZ));
   }
   updateTrainingTarget(dummy,clock);
+  combatFeedback.update(dt);
   if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
  }
  let resetPosition=null;
