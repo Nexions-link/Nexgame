@@ -54,7 +54,7 @@ test('two players receive identical mob states on the same world tick', {timeout
  let a,b;
  try{
   const health=await ready(port);
-  assert.equal(health.protocol,6);
+  assert.equal(health.protocol,7);
   assert.equal(health.mobs,9);
   a=await connect(port);b=await connect(port);
   await new Promise(resolve=>setTimeout(resolve,650));
@@ -151,7 +151,7 @@ test('world messages reach all, party chat stays private, and spoofed names are 
  });
  let a,b,c;
  try{
-  const health=await ready(port);assert.equal(health.protocol,6);
+  const health=await ready(port);assert.equal(health.protocol,7);
   a=await connect(port);b=await connect(port);c=await connect(port);
   await new Promise(resolve=>setTimeout(resolve,85));
   const aid=a.getWelcome().id,bid=b.getWelcome().id;
@@ -184,4 +184,36 @@ test('world messages reach all, party chat stays private, and spoofed names are 
  }finally{
   a?.ws.close();b?.ws.close();c?.ws.close();child.kill('SIGTERM');
  }
+});
+
+test('respawn synchronizes a death teleport and stops shared mobs from striking the old location',
+ {timeout:12000},async()=>{
+ const port=await freePort(),child=spawn(process.execPath,['index.js'],{
+  cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(port)},stdio:'ignore'
+ });
+ let actor;
+ try{
+  const health=await ready(port);assert.equal(health.protocol,7);
+  actor=await connect(port);
+  const respawns=[];
+  actor.ws.on('message',raw=>{const m=JSON.parse(String(raw));if(m.type==='respawnAccepted')respawns.push(m)});
+  actor.ws.send(JSON.stringify({type:'join',name:'Защитник',x:-9,z:-23,yaw:0,level:1,hp:120,maxHp:120}));
+  await new Promise(resolve=>setTimeout(resolve,80));
+  actor.ws.send(JSON.stringify({type:'attack',abilityId:'autoAttack',mobId:0}));
+  await new Promise(resolve=>setTimeout(resolve,250));
+  assert.ok(actor.enemyAttacks.some(m=>m.mobId===0),'monster attacks before respawn');
+  const previousAttacks=actor.enemyAttacks.length;
+  actor.ws.send(JSON.stringify({type:'respawn'}));
+  await new Promise(resolve=>setTimeout(resolve,250));
+  assert.equal(respawns.length,1,'authoritative teleport acknowledged');
+  assert.deepEqual([respawns[0].x,respawns[0].z],[0,10]);
+  const last=[...actor.snapshots.values()].at(-1);
+  const self=last.players.find(p=>p.id===actor.getWelcome().id);
+  assert.deepEqual([self.x,self.z],[0,10]);
+  assert.equal(last.mobs[0].aggroId,null,'creature abandons stale target');
+  assert.equal(actor.enemyAttacks.length,previousAttacks,'no further attacks at corpse position');
+  actor.ws.send(JSON.stringify({type:'respawn'}));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  assert.equal(respawns.length,1,'cannot spam respawn teleports');
+ }finally{actor?.ws.close();child.kill('SIGTERM')}
 });

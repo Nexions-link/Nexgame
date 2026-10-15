@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
- MULGORE_MOB_SPAWNS,MOB_SPEED,createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs
+ MULGORE_MOB_SPAWNS,MOB_SPEED,createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,releaseMulgoreAggroForPlayer
 } from '../world-mobs.js';
 
 test('one consistent wildlife roster with stable IDs and boss coordinates',()=>{
@@ -40,4 +40,35 @@ test('invalid or absent simulation delta does not teleport mobs',()=>{
  tickMulgoreMobs(mobs,NaN);
  tickMulgoreMobs(mobs,0);
  assert.deepEqual(snapshotMulgoreMobs(mobs),before);
+});
+
+test('death releases every mob attacking the dead player without resetting loot/HP',()=>{
+ const mobs=createMulgoreMobs();
+ for(const i of [0,1,8]){
+  mobs[i].aggroId='fallen';
+  mobs[i].attackAt=123456;
+  mobs[i].hp=27;
+  mobs[i].contributors.set('fallen',10);
+ }
+ mobs[2].aggroId='other';
+ assert.equal(releaseMulgoreAggroForPlayer(mobs,'fallen'),3);
+ for(const i of [0,1,8]){
+  assert.equal(mobs[i].aggroId,null);
+  assert.equal(mobs[i].attackAt,0);
+  assert.equal(mobs[i].hp,27);
+  assert.equal(mobs[i].contributors.get('fallen'),10);
+ }
+ assert.equal(mobs[2].aggroId,'other');
+});
+test('server immediately abandons attackers when player is dead or under respawn protection',()=>{
+ const mobs=createMulgoreMobs(),now=100000;
+ const player={id:'fallen',x:-9,z:-23,hp:0,respawnShieldUntil:0};
+ mobs[0].aggroId='fallen';
+ tickMulgoreMobs(mobs,.1,[player],now);
+ assert.equal(mobs[0].aggroId,null);
+ assert.equal(mobs[0].attackAt,0);
+ assert.equal(mobs[0].hp,mobs[0].maxHp);
+ mobs[0].aggroId='fallen';player.hp=100;player.respawnShieldUntil=now+3000;
+ assert.deepEqual(tickMulgoreMobs(mobs,.1,[player],now+100),[]);
+ assert.equal(mobs[0].aggroId,null);
 });

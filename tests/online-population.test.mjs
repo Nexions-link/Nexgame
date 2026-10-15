@@ -87,3 +87,18 @@ test('solo mode keeps world connection disabled and displays no population',()=>
   else globalThis.WebSocket=previous;
  }
 });
+
+test('transport can send a dedicated respawn event without spoofed coordinates',()=>{
+ const prev=globalThis.WebSocket;globalThis.WebSocket=FakeSocket;
+ let c;
+ try{
+  c=createWorldPresence({url:'wss://example.test/world',getPosition:()=>({x:0,z:10,yaw:0,moving:false})});
+  const ws=FakeSocket.instances.at(-1);
+  assert.equal(c.sendRespawn(),false);
+  ws.open();
+  assert.equal(c.sendRespawn(),true);
+  assert.deepEqual(ws.sent.at(-1),{type:'respawn'});
+  ws.close();
+  assert.equal(c.sendRespawn(),false);
+ }finally{c?.close();if(prev===undefined)delete globalThis.WebSocket;else globalThis.WebSocket=prev}
+});

@@ -1326,3 +1326,6 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
  #panel .chest-grid .inventory-slot{height:48px}
  #panel .chest-grid .slot-icon{font-size:22px}
 }
+
+/* Mobile Safari: camera zoom must be controlled by the game, not smart zoom. */
+#scene,#scene canvas{touch-action:none!important;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}

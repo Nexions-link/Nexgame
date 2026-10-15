@@ -1,0 +1,32 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const game=readFileSync(new URL('../game.js',import.meta.url),'utf8');
+const html=readFileSync(new URL('../app.html',import.meta.url),'utf8');
+const css=readFileSync(new URL('../style.css',import.meta.url),'utf8');
+const online=readFileSync(new URL('../online.js',import.meta.url),'utf8');
+test('iPhone smart zoom is blocked without changing two-finger game camera zoom',()=>{
+ assert.match(game,/document\.addEventListener\('touchend',event=>/);
+ assert.match(game,/lastTouchTap/);
+ assert.match(game,/changedTouches\.length!==1/);
+ assert.match(game,/event\.preventDefault\(\);lastTouchTap=null/);
+ assert.match(game,/\['gesturestart','gesturechange','gestureend'\]/);
+ assert.match(game,/document\.addEventListener\('dblclick'/);
+ assert.match(game,/function updatePinchZoom\(\)/);
+ assert.match(game,/pinch\.startDistance\*pinch\.startSpan\/span/);
+ assert.match(css,/#scene,#scene canvas\{touch-action:none!important/);
+ assert.match(html,/maximum-scale=1,user-scalable=no/);
+});
+test('respawn is explicit and guards against damage from the previous location',()=>{
+ assert.match(game,/respawnGraceUntil=performance\.now\(\)\+3000/);
+ assert.match(game,/worldConnection\?\.sendRespawn\?\.\(\)/);
+ assert.match(game,/performance\.now\(\)<respawnGraceUntil/);
+ assert.match(game,/Math\.hypot\(state\.x-enemy\.root\.position\.x/);
+ assert.match(online,/send\(\{type:'respawn'\}\)/);
+ const server=readFileSync(new URL('../server/index.js',import.meta.url),'utf8');
+ const mobs=readFileSync(new URL('../server/world-mobs.js',import.meta.url),'utf8');
+ assert.match(server,/const RESPAWN_POINT=Object\.freeze\(\{x:0,z:10\}\)/);
+ assert.match(server,/releaseMulgoreAggroForPlayer\(mobs,id\)/);
+ assert.match(server,/respawnShieldUntil=now\+RESPAWN_GRACE_MS/);
+ assert.match(mobs,/target\.respawnShieldUntil>now/);
+});

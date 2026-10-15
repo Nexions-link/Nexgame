@@ -29,6 +29,19 @@ export function resetMulgoreMob(mob,{respawn=false}={}){
  mob.deadUntil=0;mob.stunnedUntil=0;mob.attackAt=0;mob.lastCombatAt=0;
  if(respawn){mob.life++;mob.x=mob.spawnX;mob.z=mob.spawnZ;mob.roamTime=0;}
 }
+// Clear hostile target immediately on death/respawn without changing loot
+// or other players' damage contributions.
+export function releaseMulgoreAggroForPlayer(mobs,playerId){
+ if(typeof playerId!=='string'||!playerId)return 0;
+ let released=0;
+ for(const mob of mobs){
+  if(mob.aggroId!==playerId)continue;
+  mob.aggroId=null;
+  mob.attackAt=0;
+  released++;
+ }
+ return released;
+}
 export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
  if(!valid(dt,0.000001,Infinity))return [];
  dt=Math.min(dt,MOB_TICK_LIMIT);
@@ -43,7 +56,8 @@ export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
   const target=mob.aggroId?people.get(mob.aggroId):null;
   const home=Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ);
   const distance=target?Math.hypot(target.x-mob.x,target.z-mob.z):Infinity;
-  if(mob.aggroId&&(!target||home>LEASH_RANGE||distance>DESPAWN_RANGE||
+  if(mob.aggroId&&(!target||target.hp<=0||target.respawnShieldUntil>now||
+    home>LEASH_RANGE||distance>DESPAWN_RANGE||
     now-mob.lastCombatAt>FIGHT_TIMEOUT_MS)){
    resetMulgoreMob(mob);
   }

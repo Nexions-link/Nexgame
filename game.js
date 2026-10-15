@@ -1,19 +1,43 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.43';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.43';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.43';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.43';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.43';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.44';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.44';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.44';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.44';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.44';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.43';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.43';
-import {projectPartyMember} from './party-map.js?v=0.3.5.43';
+import {createWorldPresence} from './online.js?v=0.3.5.44';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.44';
+import {projectPartyMember} from './party-map.js?v=0.3.5.44';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
 import {HOTBAR_SLOT_COUNT,DEFAULT_HOTBAR,USABLE_ITEMS,actionEntry,actionDefinition,availableHotbarActions,normalizeHotbar,assignHotbarSlot} from './hotbar.js?v=0.3.5.3';
 // NexGame 3D · Alpha 0.3.5.3 — a small, procedural Mulgore-inspired starting zone.
 const $=id=>document.getElementById(id);
+// Prevent iOS Safari smart-zoom on double-tap. It can persist even after a
+// refresh and looks like a stuck camera zoom. Do not prevent the two-finger
+// pointer gesture: the game still uses it for its own camera distance.
+let lastTouchTap=null;
+const editableTapTarget=element=>element?.closest?.('input,textarea,select,[contenteditable="true"]');
+document.addEventListener('touchend',event=>{
+ if(editableTapTarget(event.target))return;
+ if(event.touches.length||event.changedTouches.length!==1){
+  lastTouchTap=null;return;
+ }
+ const finger=event.changedTouches[0],now=performance.now();
+ const close=lastTouchTap&&now-lastTouchTap.time<330&&
+  Math.hypot(finger.clientX-lastTouchTap.x,finger.clientY-lastTouchTap.y)<36;
+ lastTouchTap={time:now,x:finger.clientX,y:finger.clientY};
+ if(close){event.preventDefault();lastTouchTap=null}
+},{passive:false,capture:true});
+document.addEventListener('dblclick',event=>{
+ if(!editableTapTarget(event.target))event.preventDefault();
+},{capture:true});
+for(const gesture of ['gesturestart','gesturechange','gestureend']){
+ document.addEventListener(gesture,event=>{
+  if(!editableTapTarget(event.target))event.preventDefault();
+ },{passive:false,capture:true});
+}
 let THREE;
 try{THREE=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js')}
 catch(error){$('loadText').textContent='Не удалось загрузить 3D-движок. Проверь соединение и обнови страницу.';throw error}
@@ -2737,8 +2761,14 @@ function applySharedCombat(event,selfId){
 function applyMobAttack(event,selfId){
  const enemy=enemies[event?.mobId];
  if(!enemy||enemy.trainingDummy||enemy.serverLife!==event.life)return;
+ if(event.targetId!==selfId){
+  enemy.attackCd=enemy.boss?1.8:1.5;return;
+ }
+ // Ignore combat packets generated at the corpse's old coordinates before
+ // the world server has acknowledged the instantaneous respawn teleport.
+ if(performance.now()<respawnGraceUntil||
+    Math.hypot(state.x-enemy.root.position.x,state.z-enemy.root.position.z)>(enemy.boss?4.4:3.4))return;
  enemy.attackCd=enemy.boss?1.8:1.5;
- if(event.targetId!==selfId)return;
  const amount=enemy.boss?14:9;
  lastCombatAt=clock;
  const suffered=incomingDamage(enemy,amount);
@@ -3035,7 +3065,11 @@ function movement(dt){
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),
   attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,0);
 }
-function revive(){cancelGather();lastCombatAt=clock;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
+let respawnGraceUntil=0;
+function revive(){cancelGather();lastCombatAt=clock;
+ respawnGraceUntil=performance.now()+3000;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;
+ worldConnection?.sendRespawn?.();
+ clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
  if(e.trainingDummy){
   // Independent of wildlife AI; never wander, stun, chase, retaliate or die.

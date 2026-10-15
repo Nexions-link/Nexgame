@@ -8,15 +8,19 @@ import {createPartyManager} from './groups.js';
 import {createChatManager} from './chat.js';
 import {createSharedChest} from './chest.js';
 import {resolve} from 'node:path';
-import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,applyMulgoreAbility,sanitizeEquipment,rollMulgoreLoot} from './world-mobs.js';
+import {createMulgoreMobs,tickMulgoreMobs,snapshotMulgoreMobs,applyMulgoreAbility,sanitizeEquipment,rollMulgoreLoot,releaseMulgoreAggroForPlayer} from './world-mobs.js';
 
 const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
-const WORLD_PROTOCOL=6; // Adds server-authoritative shared chest transactions.
-const WORLD_BUILD='0.3.5.36';
+const WORLD_PROTOCOL=7; // Adds safe explicit respawn, avoiding anti-teleport movement rejection.
+const WORLD_BUILD='0.3.5.44';
 const MAX_MESSAGE_BYTES=8192; // inventory snapshot for a 108-slot character backpack
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
+const RESPAWN_POINT=Object.freeze({x:0,z:10});
+const RESPAWN_COOLDOWN_MS=2500;
+const RESPAWN_GRACE_MS=3000;
+const RECENT_MOB_ATTACK_MS=5000;
 const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const players=new Map();
 const clients=new Map();
@@ -54,7 +58,9 @@ function disconnect(ws){
 wss.on('connection',ws=>{
  if(clients.size>=MAX_PLAYERS){ws.close(1013,'World is full');return}
  const id=randomUUID(),now=Date.now();
- const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,updatedAt:now,equipment:{},hp:120,maxHp:120};
+ const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,
+  updatedAt:now,equipment:{},hp:120,maxHp:120,
+  lastMobAttackAt:0,lastRespawnAt:0,respawnShieldUntil:0};
  let joined=false;
  clients.set(ws,id);players.set(id,player);
  send(ws,{type:'welcome',id,world:'mulgore',tickMs:TICK_MS,protocol:WORLD_PROTOCOL,build:WORLD_BUILD,
@@ -97,7 +103,23 @@ wss.on('connection',ws=>{
   if(data.type==='chestOpen'){chest.open(id,data.inventory);return}
   if(data.type==='chestMove'){chest.move(id,data);return}
   if(data.type==='chestClose'){chest.close(id);return}
+  if(data.type==='respawn'){
+   // Client's death teleport is NOT a normal move: its distance from the
+   // corpse exceeds the anti-teleport limit. Accept only shortly after a
+   // server-confirmed monster strike, with a respawn cooldown.
+   const now=Date.now();
+   if(now-player.lastRespawnAt<RESPAWN_COOLDOWN_MS||
+      now-player.lastMobAttackAt>RECENT_MOB_ATTACK_MS) return;
+   player.x=RESPAWN_POINT.x;player.z=RESPAWN_POINT.z;
+   player.yaw=Math.PI;player.moving=false;
+   player.hp=player.maxHp;player.updatedAt=now;
+   player.lastRespawnAt=now;player.respawnShieldUntil=now+RESPAWN_GRACE_MS;
+   releaseMulgoreAggroForPlayer(mobs,id);
+   send(ws,{type:'respawnAccepted',x:player.x,z:player.z});
+   return;
+  }
   if(data.type==='attack'){
+   if(player.respawnShieldUntil>Date.now())return;
    const result=applyMulgoreAbility(mobs,player,data.abilityId,data.mobId);
    if(!result.ok){send(ws,{type:'combatRejected',abilityId:data.abilityId,reason:result.reason});return}
    broadcast(result.event);
@@ -132,8 +154,15 @@ let lastMobTick=performance.now(),worldTick=0;
 const interval=setInterval(()=>{
  worldTick++;
  const now=performance.now();
- const mobEvents=tickMulgoreMobs(mobs,(now-lastMobTick)/1000,[...players.values()],Date.now());lastMobTick=now;
- for(const event of mobEvents)broadcast(event);
+ const worldNow=Date.now();
+ const mobEvents=tickMulgoreMobs(mobs,(now-lastMobTick)/1000,[...players.values()],worldNow);lastMobTick=now;
+ for(const event of mobEvents){
+  if(event.type==='mobAttack'){
+   const target=players.get(event.targetId);
+   if(target)target.lastMobAttackAt=worldNow;
+  }
+  broadcast(event);
+ }
  const snapshot=[...players.values()].map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,moving:p.moving,hp:p.hp,maxHp:p.maxHp}));
  const mobSnapshot=snapshotMulgoreMobs(mobs);
  for(const client of clients.keys())send(client,{type:'snapshot',protocol:WORLD_PROTOCOL,tick:worldTick,players:snapshot,mobs:mobSnapshot});

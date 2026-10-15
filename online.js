@@ -46,9 +46,13 @@ export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWel
   };
   ws.onerror=()=>{if(ws.readyState<2)ws.close()};
  };
- if(!url){status('solo');return {close(){},sendAttack(){return false},rename(){return false},invite(){return false},respondInvite(){return false},leaveParty(){return false},sendChat(){return false},openChest(){return false},moveChest(){return false},closeChest(){return false},connected:()=>false}}
+ if(!url){status('solo');return {close(){},sendAttack(){return false},sendRespawn(){return false},rename(){return false},invite(){return false},respondInvite(){return false},leaveParty(){return false},sendChat(){return false},openChest(){return false},moveChest(){return false},closeChest(){return false},connected:()=>false}}
  connect();
  return {close(){closed=true;clearTimeout(retry);clearInterval(interval);socket?.close();},
+  sendRespawn(){
+   if(socket?.readyState!==WebSocket.OPEN)return false;
+   send({type:'respawn'});return true;
+  },
   sendAttack(abilityId,mobId=null){
    if(socket?.readyState!==WebSocket.OPEN)return false;
    send({type:'attack',abilityId,mobId});return true;

@@ -7,6 +7,7 @@ on:
     branches: [main]
     paths:
       - 'app.html'
+      - 'tests/touch-respawn.test.mjs'
       - 'plainstrider-model.js'
       - 'tests/plainstrider-model.test.mjs'
       - 'bestiary/**'
@@ -66,6 +67,7 @@ jobs:
       - name: Syntax check client and server
         run: |
           node --check game.js
+          node --check tests/touch-respawn.test.mjs
           node --check plainstrider-model.js
           node --check tests/plainstrider-model.test.mjs
           node --check bestiary/main.js
@@ -94,5 +96,5 @@ jobs:
         run: npm install --prefix server --no-audit --no-fund
       - name: Test private chat, party map, PvE and real WebSocket sessions
         run: |
-          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs tests/bestiary.test.mjs tests/plainstrider-model.test.mjs
+          node --test tests/party-map.test.mjs tests/hud-layout.test.mjs tests/bootstrap.test.mjs tests/online-population.test.mjs tests/buildings.test.mjs tests/meadow.test.mjs tests/lake.test.mjs tests/movement-controls.test.mjs tests/bestiary.test.mjs tests/plainstrider-model.test.mjs tests/touch-respawn.test.mjs
           npm test --prefix server
