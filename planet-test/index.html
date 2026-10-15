@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#132c2e">
-<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>NexGame · Прототип круглого мира</title>
 <style>
 :root{color-scheme:dark;--cream:#f8ecc9;--ink:#152b2c;--glass:rgba(16,38,43,.78);--stroke:rgba(234,221,184,.3);--gold:#e1bf7a}
@@ -17,15 +19,15 @@ button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visibl
 #hud{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:calc(env(safe-area-inset-left,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);display:flex;justify-content:space-between;gap:10px;pointer-events:none}
 #identity{padding:11px 13px;max-width:245px;pointer-events:auto}#identity .eyebrow{font-size:9px;letter-spacing:2.2px;color:var(--gold);font-weight:800}h1{font-family:Georgia,serif;font-size:21px;font-weight:normal;letter-spacing:.4px;margin:2px 0 2px}#identity small{font-size:11px;line-height:1.25;color:#e8dcc0}
 #statistics{padding:10px 12px;min-width:128px;text-align:right;pointer-events:auto}#statistics .caption{color:#d0d9c5;font-size:10px;letter-spacing:.5px}#statistics strong{display:block;font-size:23px;font-variant-numeric:tabular-nums;color:#ffe8ae;line-height:1.25}#statistics .sub{font-size:10px;color:#cad8cc}
-#zoneTag{position:absolute;top:calc(env(safe-area-inset-top,0px) + 110px);left:50%;transform:translateX(-50%);pointer-events:none;text-align:center;white-space:nowrap;text-shadow:0 2px 9px #163033}
+#zoneTag{position:absolute;top:calc(env(safe-area-inset-top,0px) + 204px);left:50%;transform:translateX(-50%);pointer-events:none;text-align:center;white-space:nowrap;text-shadow:0 2px 9px #163033}
 #zoneTag b{display:block;font:normal 21px Georgia,serif;letter-spacing:1.2px}#zoneTag small{font-size:10px;letter-spacing:2.4px;color:#f1e9cb}
 #tools{position:absolute;right:calc(env(safe-area-inset-right,0px) + 12px);bottom:calc(env(safe-area-inset-bottom,0px) + 22px);display:flex;flex-direction:column;align-items:stretch;gap:8px;width:145px}
 .tool{min-height:42px;border-radius:11px;border:1px solid rgba(255,233,173,.4);background:rgba(16,41,44,.83);color:#ffefd0;font-size:12px;font-weight:700;box-shadow:0 4px 12px rgba(0,0,0,.16)}
 .tool[aria-pressed="true"]{background:rgba(214,178,112,.96);color:#202a23;border-color:#ffe1a0}
-#radiusPicker{padding:9px 9px 10px;text-align:center}
+#radiusPicker{position:absolute;z-index:6;top:calc(env(safe-area-inset-top,0px) + 93px);left:50%;transform:translateX(-50%);width:min(360px,calc(100vw - 24px));padding:10px 12px 11px;text-align:center;pointer-events:auto;box-shadow:0 8px 28px #061a1a9c}
 #radiusPicker .caption{font-size:11px;letter-spacing:.3px;color:#f1dfad;font-weight:700}
 #radiusChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:8px}
-.radius-choice{border:1px solid rgba(255,233,173,.42);border-radius:7px;padding:8px 0;color:#f9edcb;background:rgba(25,56,56,.8);font-size:11px;font-weight:750;min-width:0}
+.radius-choice{border:1px solid rgba(255,233,173,.42);border-radius:9px;min-height:43px;padding:8px 0;color:#f9edcb;background:rgba(25,56,56,.8);font-size:14px;font-weight:800;min-width:0}
 .radius-choice[aria-pressed="true"]{background:#dfbe7b;border-color:#ffedbd;color:#25352e}
 #worldMetrics{font-size:10px;line-height:1.25;color:#d8dfd2;margin-top:8px;font-variant-numeric:tabular-nums}
 #stickBase{position:absolute;left:calc(env(safe-area-inset-left,0px) + 21px);bottom:calc(env(safe-area-inset-bottom,0px) + 30px);height:114px;width:114px;border:2px solid rgba(255,246,211,.62);border-radius:50%;background:rgba(14,47,52,.3);backdrop-filter:blur(6px);touch-action:none;display:grid;place-items:center}
@@ -34,14 +36,14 @@ button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visibl
 #footer{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);transform:translateX(-50%);font-size:10px;color:#fff6d4;text-shadow:0 1px 5px #0d3136;pointer-events:none;white-space:nowrap}
 #instruction{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:15px 19px;max-width:min(335px,87vw);text-align:center;font-size:13px;line-height:1.6;pointer-events:none;transition:opacity .65s ease;z-index:4}#instruction[hidden]{display:none}
 #instruction b{font-family:Georgia,serif;font-size:19px;font-weight:normal}
-#compass{position:absolute;left:calc(env(safe-area-inset-left,0px) + 16px);top:calc(env(safe-area-inset-top,0px) + 111px);width:95px;height:95px;pointer-events:none;opacity:.85}
+#compass{position:absolute;left:calc(env(safe-area-inset-left,0px) + 16px);top:calc(env(safe-area-inset-top,0px) + 257px);width:95px;height:95px;pointer-events:none;opacity:.85}
 #compass canvas{width:100%;height:100%}
 #loading{position:absolute;inset:0;background:linear-gradient(145deg,#234444,#618a81);display:grid;place-items:center;font:normal 21px Georgia,serif;z-index:10;transition:opacity .35s}
 #loading.is-done{opacity:0;pointer-events:none}
 #failure{display:none;position:absolute;left:15px;right:15px;top:40%;z-index:12;padding:20px;text-align:center;line-height:1.5}
 #failure:not(:empty){display:block}
-@media(max-height:600px){#zoneTag{top:92px}#stickBase{width:94px;height:94px;bottom:12px}#tools{bottom:12px}.tool{min-height:35px}#footer{display:none}}
-@media(max-width:420px){#identity{max-width:198px}h1{font-size:19px}#statistics{min-width:108px;padding:10px}#statistics strong{font-size:20px}#zoneTag{top:calc(env(safe-area-inset-top,0px) + 112px)}#compass{width:75px;height:75px;top:calc(env(safe-area-inset-top,0px) + 150px)}#footer{font-size:9px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px)}}
+@media(max-height:600px){#radiusPicker{top:calc(env(safe-area-inset-top,0px) + 69px);left:auto;right:calc(env(safe-area-inset-right,0px) + 10px);transform:none;width:min(275px,47vw);padding:6px 8px}#radiusPicker .caption{font-size:10px}#radiusChoices{margin-top:3px}.radius-choice{min-height:32px;padding:3px 0}#worldMetrics{margin-top:3px;font-size:9px}#zoneTag{top:92px}#stickBase{width:94px;height:94px;bottom:12px}#tools{bottom:12px}.tool{min-height:35px}#footer{display:none}}
+@media(max-width:420px){#identity{max-width:198px}h1{font-size:19px}#statistics{min-width:108px;padding:10px}#statistics strong{font-size:20px}#zoneTag{top:calc(env(safe-area-inset-top,0px) + 205px)}#compass{width:75px;height:75px;top:calc(env(safe-area-inset-top,0px) + 255px)}#footer{font-size:9px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px)}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"}}</script>
 </head>
@@ -56,9 +58,8 @@ button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visibl
 <div id="compass"><canvas id="miniglobe" width="220" height="220" aria-label="Глобус с текущим положением"></canvas></div>
 <div id="instruction" class="panel"><b>Новая планета</b><div>Джойстик — двигаться · свайп — камера<br>Удерживай вперёд, чтобы обойти экватор за ~2:15</div></div>
 <div id="stickBase" role="application" aria-label="Виртуальный джойстик"><div id="stickThumb"></div></div>
-<nav id="tools" aria-label="Управление обзором">
-  <section id="radiusPicker" class="panel" aria-label="Размер планеты">
-    <div class="caption">РАДИУС ПЛАНЕТЫ</div>
+<section id="radiusPicker" class="panel" aria-label="Размер планеты">
+    <div class="caption">🌍 ИЗМЕНИТЬ РАЗМЕР ПЛАНЕТЫ</div>
     <div id="radiusChoices">
       <button class="radius-choice" data-radius="87" type="button" aria-pressed="true">87 м</button>
       <button class="radius-choice" data-radius="174" type="button" aria-pressed="false">174 м</button>
@@ -66,6 +67,7 @@ button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visibl
     </div>
     <div id="worldMetrics" aria-live="polite">547 м по экватору · 2:15 бегом</div>
   </section>
+<nav id="tools" aria-label="Управление обзором">
   <button id="orbitButton" type="button" class="tool" aria-pressed="false">🌍 Вся планета</button>
   <button id="zoomButton" type="button" class="tool">🔭 Камера: близко</button>
   <button id="resetButton" type="button" class="tool">↺ В начало</button>
@@ -73,6 +75,6 @@ button{font:inherit;touch-action:manipulation;cursor:pointer}button:focus-visibl
 <div id="footer">Радиус 87 м · окружность 547 м · без переходов</div>
 <div id="loading">Создаём маленькую планету…</div>
 <div id="failure" class="panel" role="alert"></div>
-<script type="module" src="./planet.js?v=2"></script>
+<script type="module" src="./planet.js?v=3"></script>
 </body>
 </html>
