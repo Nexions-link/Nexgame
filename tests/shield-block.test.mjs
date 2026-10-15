@@ -19,7 +19,7 @@ test('block rises quickly, braces for impact and fully recovers to the tuned gri
  assert.ok(braced>.99,'shield clearly covers the torso');
  assert.ok(recovery<braced,'shield comes back down');
  assert.equal(shieldBlockPose(0).wristX,0);
- assert.equal(shieldBlockPose(SHIELD_BLOCK_SECONDS).shoulderX,0);
+ assert.ok(Math.abs(shieldBlockPose(SHIELD_BLOCK_SECONDS).shoulderX)<1e-9);
 });
 
 test('blocking puts the left shoulder and forearm in front without moving right hand',()=>{
