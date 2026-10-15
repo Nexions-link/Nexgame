@@ -1,20 +1,21 @@
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.1';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.1';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.1';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.1';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.1';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.1';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.1';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.1';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.1';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.1';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.1';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.1';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality} from './item-quality.js?v=0.3.6.2';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.2';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.2';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.2';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.2';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.2';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.2';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.2';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.2';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.2';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.2';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.2';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.2';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.1';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.1';
-import {projectPartyMember} from './party-map.js?v=0.3.6.1';
+import {createWorldPresence} from './online.js?v=0.3.6.2';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.2';
+import {projectPartyMember} from './party-map.js?v=0.3.6.2';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -642,6 +643,10 @@ async function attachSwordAsset(actor){
   old.name='gear-sword-fallback';old.visible=false;
   sword.name='gear-sword';sword.userData.nexgameGlbWeapon=true;
   sword.visible=visible;hand.add(sword);
+  if(actor!==hero&&actor!==characterView?.actor){
+   const match=[...remotePlayers.values()].find(remote=>remote.actor===actor);
+   if(match&&match.weaponId)applyWeaponQuality(THREE,actor.root,'sword',ITEM_CATALOG[match.weaponId]?.rarity);
+  }
   if(actor===hero){
    applySwordTransform();
    syncEquipmentVisuals();
@@ -753,6 +758,10 @@ async function attachDaggerAsset(actor){
   old.name='gear-dagger-fallback';old.visible=false;
   dagger.name='gear-dagger';dagger.userData.nexgameGlbWeapon=true;
   dagger.visible=visible;hand.add(dagger);
+  if(actor!==hero&&actor!==characterView?.actor){
+   const match=[...remotePlayers.values()].find(remote=>remote.actor===actor);
+   if(match&&match.weaponId)applyWeaponQuality(THREE,actor.root,'dagger',ITEM_CATALOG[match.weaponId]?.rarity);
+  }
   if(actor===hero){
    applyDaggerTransform();
    syncEquipmentVisuals();
@@ -927,9 +936,29 @@ const corpseLootTexture=texture((c,size)=>{
 const corpseLootMaterial=new THREE.SpriteMaterial({map:corpseLootTexture,transparent:true,depthWrite:false,depthTest:true});
 for(const e of enemies){
  e.corpseAge=0;e.loot=[];
- e.lootMarker=new THREE.Sprite(corpseLootMaterial);
+ // Unique material per corpse; shared texture/geometry remains lightweight.
+ e.lootMarker=new THREE.Sprite(corpseLootMaterial.clone());
+ e.lootMarker.userData.rarity='common';
  e.lootMarker.scale.set(.95,.95,1);
  e.lootMarker.visible=false;scene.add(e.lootMarker);
+}
+function refreshLootMarkerQuality(e){
+ if(!e?.lootMarker)return;
+ const rarity=highestLootRarity(e.loot,ITEM_CATALOG);
+ e.lootMarker.userData.rarity=rarity;
+ e.lootMarker.material.color.setHex(QUALITY_VISUALS[rarity].marker);
+ e.lootMarker.material.opacity=1;
+ e.lootMarker.scale.set(.95,.95,1);
+}
+function animateLootMarkerQuality(e){
+ const sprite=e.lootMarker;
+ if(!sprite?.visible)return;
+ const rarity=sprite.userData.rarity;
+ const intensity=rarity==='rare'?.085:rarity==='uncommon'?.035:0;
+ if(!intensity)return;
+ const pulse=Math.sin(clock*(rarity==='rare'?4:2.7)+e.index)*intensity;
+ sprite.scale.set(.95+pulse,.95+pulse,1);
+ sprite.material.opacity=.91+.09*Math.sin(clock*3+e.index)**2;
 }
 const selection=mesh(scene,new THREE.RingGeometry(.8,.88,40),new THREE.MeshBasicMaterial({color:0xf6d580,transparent:true,opacity:.75,side:THREE.DoubleSide,depthWrite:false}),0,.07,0,1,1,1,false);selection.rotation.x=-Math.PI/2;selection.visible=false;
 const stompRing=mesh(scene,new THREE.RingGeometry(.85,1,48),new THREE.MeshBasicMaterial({color:0xe9c66b,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}),0,.08,0,1,1,1,false);stompRing.rotation.x=-Math.PI/2;
@@ -1047,6 +1076,10 @@ function syncEquipmentVisuals(){
  for(const root of [hero.root,characterView?.actor.root].filter(Boolean)){
   const visualKind=root===hero.root&&daggerPreview?'dagger':root===hero.root&&swordPreview?'sword':kind;
   setWeaponVisuals(root,visualKind,!!shield);
+  if(visualKind!=='none'){
+   const weaponDef=ITEM_CATALOG[state.equipment.weapon?.id];
+   applyWeaponQuality(THREE,root,visualKind,weaponDef?.weaponKind===visualKind?weaponDef.rarity:'common');
+  }
   const shieldModel=root.getObjectByName('gear-shield');
   if(shieldModel)shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
  }
@@ -1104,7 +1137,7 @@ function itemStatText(def){
 function showItemDetails(container,id,compare=false){
  const def=ITEM_CATALOG[id];container.replaceChildren();
  const card=document.createElement('div');card.className='item-tooltip';
- const name=document.createElement('strong');name.className='item-name';name.dataset.rarity=def.rarity;name.textContent=def.icon+' '+def.name;card.appendChild(name);
+ const name=document.createElement('strong');name.className='item-name';name.dataset.rarity=itemRarity(def.rarity);name.textContent=def.icon+' '+def.name;card.appendChild(name);
  for(const text of [def.quality+(def.slot?' · '+EQUIPMENT_SLOTS.find(s=>s.id===def.slot).name:''),itemStatText(def),def.description,'Продажа: '+coins(def.sell||0)]){
   if(!text)continue;const row=document.createElement('div');row.textContent=text;card.appendChild(row);
  }
@@ -1160,7 +1193,8 @@ function renderMerchant(tab='buy',filter='all'){
  const rows=tab==='buy'?MERCHANT_STOCK.filter(id=>filter==='all'||(filter==='armor'?!['weapon','shield'].includes(ITEM_CATALOG[id].slot):ITEM_CATALOG[id].slot===filter)).map(id=>({id,qty:1})):tab==='sell'?state.inventory.map((item,index)=>item&&ITEM_CATALOG[item.id]?.sell?{...item,index,original:item}:null).filter(Boolean):state.buyback.map((item,index)=>({...item,index,original:item}));
  for(const item of rows){
   const def=ITEM_CATALOG[item.id],row=document.createElement('div');row.className='merchant-item';
-  const info=document.createElement('div'),name=document.createElement('strong');name.className='item-name';name.dataset.rarity=def.rarity;name.textContent=def.icon+' '+def.name+(item.qty>1?' ×'+item.qty:'');info.appendChild(name);
+  row.dataset.rarity=itemRarity(def.rarity);
+  const info=document.createElement('div'),name=document.createElement('strong');name.className='item-name';name.dataset.rarity=itemRarity(def.rarity);name.textContent=def.icon+' '+def.name+(item.qty>1?' ×'+item.qty:'');info.appendChild(name);
   const stats=document.createElement('small');stats.textContent=itemStatText(def)||(def.description);info.appendChild(stats);
   if(def.requiredLevel>1){const level=document.createElement('small');level.className=state.level<def.requiredLevel?'item-requirement':'';level.textContent='Уровень '+def.requiredLevel;info.appendChild(level)}
   row.appendChild(info);
@@ -1203,7 +1237,7 @@ function character(){
  const left=document.createElement('div'),right=document.createElement('div');left.className=right.className='equipment-column';
  const detail=document.createElement('div');detail.className='equipment-detail';detail.setAttribute('role','status');detail.setAttribute('aria-live','polite');detail.textContent='Выбери вещь, чтобы посмотреть её свойства или снять. Новые вещи надеваются из рюкзака.';
  for(const [index,slot] of EQUIPMENT_SLOTS.entries()){
-  const item=state.equipment[slot.id],def=item?ITEM_CATALOG[item.id]:null,button=document.createElement('button');button.type='button';button.className='equipment-slot'+(item?' equipped':'');button.dataset.slot=slot.id;if(def)button.dataset.rarity=def.rarity;
+  const item=state.equipment[slot.id],def=item?ITEM_CATALOG[item.id]:null,button=document.createElement('button');button.type='button';button.className='equipment-slot'+(item?' equipped':'');button.dataset.slot=slot.id;if(def)button.dataset.rarity=itemRarity(def.rarity);
   button.setAttribute('aria-label',slot.name+': '+(def?def.name:'пусто'));button.setAttribute('aria-pressed','false');
   if(def){
    const icon=document.createElement('span');icon.className='equipment-item-icon';icon.textContent=def.icon;icon.dataset.item=item.id;icon.setAttribute('aria-hidden','true');button.appendChild(icon);
@@ -1975,7 +2009,7 @@ function renderInventory(){
  for(let i=0;i<capacity;i++){
   const item=state.inventory[i],cell=document.createElement('button');
   cell.type='button';cell.className='inventory-slot'+(item?' occupied':' empty');
-  if(item)cell.dataset.rarity=ITEM_CATALOG[item.id].rarity;
+  if(item)cell.dataset.rarity=itemRarity(ITEM_CATALOG[item.id].rarity);
   cell.setAttribute('aria-label',item?ITEM_CATALOG[item.id].name+', '+item.qty+' шт.':'Пустая ячейка '+(i+1));
   if(item){
    const icon=document.createElement('span');icon.className='slot-icon';icon.textContent=ITEM_CATALOG[item.id].icon;
@@ -2031,7 +2065,7 @@ function renderInventory(){
  body.appendChild(note);
 }
 function finishLoot(e){
- e.loot=[];e.lootMarker.visible=false;
+ e.loot=[];e.lootMarker.visible=false;refreshLootMarkerQuality(e);
  closeDialog();msg('Тело обыскано');
 }
 function renderCorpseLoot(e){
@@ -2044,12 +2078,19 @@ function renderCorpseLoot(e){
  for(let i=0;i<e.loot.length;i++){
   const row=e.loot[i],def=ITEM_CATALOG[row.id],button=document.createElement('button');
   button.className='loot-item';button.type='button';button.dataset.rarity=def.rarity;
-  button.textContent=def.icon+'  '+def.name+(row.qty>1?' ×'+row.qty:'')+(def.slot?' — '+itemStatText(def)+(def.requiredLevel>1?' · Ур. '+def.requiredLevel:''):'');
+  const title=document.createElement('span');title.className='loot-item-name';title.textContent=def.icon+'  '+def.name+(row.qty>1?' ×'+row.qty:'');
+  button.appendChild(title);
+  if(def.slot){
+   const stats=document.createElement('small');stats.className='loot-item-stats';
+   stats.textContent=itemStatText(def)+(def.requiredLevel>1?' · Ур. '+def.requiredLevel:'');
+   button.appendChild(stats);
+  }
   button.setAttribute('aria-label','Взять '+def.name+', '+row.qty+' шт.');
   button.addEventListener('click',()=>{
    if(e.loot[i]!==row)return;
    if(!storeItem(row)){msg('В рюкзаке недостаточно места');return}
    e.loot.splice(i,1);
+   refreshLootMarkerQuality(e);
    if(e.loot.length)renderCorpseLoot(e);else finishLoot(e);
    msg('Получено: '+def.name+(row.qty>1?' ×'+row.qty:''));
   });
@@ -2060,6 +2101,7 @@ function renderCorpseLoot(e){
   let grabbed=0;
   for(let i=e.loot.length-1;i>=0;i--)if(storeItem(e.loot[i])){e.loot.splice(i,1);grabbed++}
   if(!grabbed){msg('В рюкзаке недостаточно места');return}
+  refreshLootMarkerQuality(e);
   if(e.loot.length)renderCorpseLoot(e);else finishLoot(e);
   msg('Собрано предметов: '+grabbed);
  });
@@ -2236,6 +2278,7 @@ function damageEnemy(e,amount,source='autoAttack'){
   e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
   e.root.visible=true;e.shadow.visible=true;
   e.lootMarker.visible=e.loot.length>0;
+  refreshLootMarkerQuality(e);
   e.lootMarker.position.set(e.root.position.x,heightAt(e.root.position.x,e.root.position.z)+1.35,e.root.position.z);
   state.gold+=e.boss?12:4;experience(e.boss?70:22);
   if(e.boss&&state.quest===10){
@@ -2978,12 +3021,17 @@ function updateRemoteSnapshot(list){
   remote.name=name;remote.level=level;
   remote.hp=Number.isFinite(p.hp)?p.hp:remote.hp;
   remote.maxHp=Number.isFinite(p.maxHp)?p.maxHp:remote.maxHp;
+  remote.weaponId=typeof p.equipment?.weapon==='string'?p.equipment.weapon:null;
   // New servers send the sanitized weapon item ID and shield flag.
   // Old servers omit equipment: retain the original default axe in that case.
   const hasEquipment=!!p.equipment&&typeof p.equipment==='object';
   const remoteKind=hasEquipment?equippedWeaponKind(
    {weapon:p.equipment.weapon?{id:p.equipment.weapon}:null},ITEM_CATALOG):'axe';
   setWeaponVisuals(remote.actor.root,remoteKind,hasEquipment&&p.equipment.shield===true);
+  if(remoteKind!=='none'){
+   const weaponDef=ITEM_CATALOG[p.equipment?.weapon];
+   applyWeaponQuality(THREE,remote.actor.root,remoteKind,weaponDef?.rarity);
+  }
   remote.x=p.x;remote.z=p.z;remote.yaw=p.yaw;remote.moving=!!p.moving;
  }
  for(const id of remotePlayers.keys())if(!visible.has(id))removeRemotePlayer(id);
@@ -3025,6 +3073,7 @@ function showWorldNetworkStatus(){
 }
 function resetSharedMobAppearance(e){
  e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
+ refreshLootMarkerQuality(e);
  e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
  e.root.visible=e.shadow.visible=true;
  e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
@@ -3143,6 +3192,7 @@ function updateWildlife(dt){
   mobNetworkStatus='потеря данных';showWorldNetworkStatus();
  }
  for(const enemy of enemies){
+  animateLootMarkerQuality(enemy);
   const row=sharedMobsConnected&&!enemy.trainingDummy?
    sharedMobTargets.get(enemy.index):null;
   if(row&&worldCombatReady){
@@ -3156,6 +3206,7 @@ function updateOnlineSceneWhileMenuOpen(dt){
  animateRemotePlayers(dt);
  if(!sharedMobsConnected)return;
  for(const enemy of enemies){
+  animateLootMarkerQuality(enemy);
   if(enemy.trainingDummy)continue;
   const row=sharedMobTargets.get(enemy.index);
   if(!row)continue;
@@ -3221,6 +3272,7 @@ function applySharedKillCredit(event){
   item&&ITEM_CATALOG[item.id]&&Number.isInteger(item.qty)&&item.qty>0&&
   item.qty<=itemStackLimit(item.id)).map(item=>({id:item.id,qty:item.qty})):[];
  enemy.lootMarker.visible=enemy.loot.length>0;
+ refreshLootMarkerQuality(enemy);
  enemy.lootMarker.position.set(enemy.root.position.x,heightAt(enemy.root.position.x,enemy.root.position.z)+1.1,enemy.root.position.z);
  if(enemy.hp<=0){enemy.dead=CORPSE_DURATION;enemy.corpseAge=0}
  state.gold+=enemy.boss?12:4;
