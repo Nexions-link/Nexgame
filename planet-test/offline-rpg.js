@@ -18,6 +18,7 @@ import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
 import {createMentorWorld} from './mentor-world.js?v=1';
+import {animateSphericalTauren} from './tauren-animation.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -109,7 +110,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  selection.rotation.x=-Math.PI/2;
  selectionRoot.add(selection);selectionRoot.visible=false;
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
- const mobs=[],entities=[];
+ const mobs=[],entities=[],citizens=[];
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
  const feedbackLayer=$('combatFeedback');
  if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
@@ -160,7 +161,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   npcActor.root.scale.setScalar(appearance.scale);
   root.add(npcActor.root);
   const tag=makeLabel(name,'#d9e2a1',25);tag.position.y=4.45;root.add(tag);
-  const e={kind,name,x,z,yaw:.2,root,radius:1.5};entities.push(e);setModelAt(e);return e;
+  const e={kind,name,x,z,yaw:.2,root,radius:1.5,actor:npcActor};entities.push(e);citizens.push(e);setModelAt(e);return e;
  }
  const mentor=npc('mentor',-1.5,-5,'Наставник Каменный Рог');
  for(const glyph of ['!','?','·']){
@@ -209,7 +210,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
   const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
    spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
-   respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false,contactShadow};
+   respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false,contactShadow,roamTime:i*1.73};
   const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);
   const alertTag=makeLabel('!','#ffc978',78);
   alertTag.position.y=4.95;alertTag.scale.set(1.55,1.4,1);alertTag.visible=false;
@@ -725,6 +726,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
   camp.update(dt);
+  // The original inhabitants have subtle idle breathing instead of frozen T-poses.
+  for(let i=0;i<citizens.length;i++){
+   animateSphericalTauren(citizens[i].actor,{dt,time:clock+i*1.47,walk:0,phase:0});
+  }
   mentorWorld.update(state,clock);
   if(state.quest===7&&distance(mentorWorld.scout)<5.5)mentorChain.discoveredScout();
   const local=player();
@@ -756,7 +761,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     continue;
    }
    if(mob.dead>0){mob.dead=Math.max(0,mob.dead-dt);continue;}
-   mob.attackCd=Math.max(0,mob.attackCd-dt);mob.stun=Math.max(0,mob.stun-dt);
+   mob.attackCd=Math.max(0,mob.attackCd-dt);mob.stun=Math.max(0,mob.stun-dt);mob.roamTime+=dt;
    const spawnNormal=toNormal(mob.spawnX,mob.spawnZ,getRadius());
    const playerSpawnDistance=getRadius()*Math.acos(clamp(playerNormal().dot(spawnNormal),-1,1));
    const dist=distance(mob);
@@ -767,16 +772,24 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    let dx=0,dz=0;
    if(mob.returning){dx=mob.spawnX-mob.x;dz=mob.spawnZ-mob.z;if(Math.hypot(dx,dz)<.25){mob.returning=false;mob.hp=mob.maxHp;}}
    else if(mob.aggro){dx=local.x-mob.x;dz=local.z-mob.z;}
+   else{
+    // Original calm wildlife slowly wanders within a couple of metres.
+    const tx=mob.spawnX+Math.sin(mob.roamTime*.18+mob.index)*2.2;
+    const tz=mob.spawnZ+Math.cos(mob.roamTime*.14+mob.index)*2.2;
+    dx=tx-mob.x;dz=tz-mob.z;
+   }
    const len=Math.hypot(dx,dz),moving=len>.06&&mob.stun<=0;
    const beforeX=mob.x,beforeZ=mob.z;
    if(moving&&(!mob.aggro||len>(mob.boss?3:2.35))&&mob.attackWindup<=0){
     const amount=Math.min(len,dt*(mob.aggro?(mob.boss?1.75:2.05):1.45));
-    mob.x+=dx/len*amount;mob.z+=dz/len*amount;
+    const nx=mob.x+dx/len*amount,nz=mob.z+dz/len*amount;
+    if(canMoveTo(nx,nz)){mob.x=nx;mob.z=nz;}
    }
    // Three.js bird GLB faces local +Z, and local up is radial to the sphere.
    // Map-plane atan2(dx,dz) points in the wrong direction on the curved world.
    const aim=mob.aggro&&state.hp>0?playerNormal():
-    mob.returning?toNormal(mob.spawnX,mob.spawnZ,getRadius()):null;
+    mob.returning?toNormal(mob.spawnX,mob.spawnZ,getRadius()):
+    len>.05?toNormal(mob.x+dx/len,mob.z+dz/len,getRadius()):null;
    const normal=toNormal(mob.x,mob.z,getRadius());
    const desiredYaw=aim?sphereFacingYaw(THREE,normal,aim):null;
    // Face the moving player on EVERY frame, including stationary melee/Peck.
