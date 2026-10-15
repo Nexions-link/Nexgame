@@ -92,7 +92,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
  }
 
- let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null;
+ let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,attackPulse=0,stompPulse=0;
  const group=new THREE.Group();scene.add(group);
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[];
@@ -311,6 +311,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function hitEnemy(enemy,bonus=0,skill='autoAttack'){
   if(!enemy||!['mob','dummy'].includes(enemy.kind)||enemy.dead)return msg('Нет подходящей цели');
   if(distance(enemy)>3.45)return msg('Цель слишком далеко');
+  attackPulse=.55;
   const s=stats(),damage=s.damageMin+Math.random()*(s.damageMax-s.damageMin)+bonus;
   harm(enemy,damage,skill);
  }
@@ -341,6 +342,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(action.id==='healingPotion'){takeItem('healingPotion');state.hp=Math.min(stats().maxHp,state.hp+55);msg('Здоровье восстановлено');}
   else if(action.id==='heavyStrike')hitEnemy(target,def.damageBonus||8,action.id);
   else if(action.id==='thunderStomp'){
+   stompPulse=.55;
    let hits=0;for(const mob of mobs)if(!mob.dead&&distance(mob)<4.5){mob.stun=2.5;harm(mob,6,action.id);hits++;}
    msg('Громовая поступь: '+hits+' целей');
   }
@@ -608,6 +610,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function update(dt){
   clock+=dt;
+  attackPulse=Math.max(0,attackPulse-dt);
+  stompPulse=Math.max(0,stompPulse-dt);
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
   camp.update(dt);
@@ -617,10 +621,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    hitEnemy(target);swing=stats().speed;
   }
   for(const mob of mobs){
+   mob.hit=Math.max(0,(mob.hit||0)-dt);
    if(!mob.root.visible){
     mob.respawn-=dt;
     if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
-     mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;setModelAt(mob);}
+     mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.hit=0;
+     resetPlainstriderVisual(mob);setModelAt(mob);}
     continue;
    }
    if(mob.corpse)continue;
@@ -634,6 +640,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(mob.returning){dx=mob.spawnX-mob.x;dz=mob.spawnZ-mob.z;if(Math.hypot(dx,dz)<.25){mob.returning=false;mob.hp=mob.maxHp;}}
    else if(mob.aggro){dx=local.x-mob.x;dz=local.z-mob.z;}
    const len=Math.hypot(dx,dz),moving=len>.06&&mob.stun<=0;
+   const beforeX=mob.x,beforeZ=mob.z;
    if(moving&&(!mob.aggro||len>2.35)){
     const amount=Math.min(len,dt*(mob.aggro?2.05:1.45));
     mob.x+=dx/len*amount;mob.z+=dz/len*amount;mob.yaw=Math.atan2(dx/len,dz/len);
@@ -647,17 +654,20 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     persist();
    }
    setModelAt(mob);
-   birdAnimation(mob,dt,moving,mob.aggro&&mob.attackCd>1.38);
+   birdAnimation(mob,dt,Math.hypot(mob.x-beforeX,mob.z-beforeZ));
   }
   updateTrainingTarget(dummy,clock);
   if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
  }
  let resetPosition=null;
  function onRespawn(fn){resetPosition=fn;}
+ function getAnimationState(){
+  return {gather:camp.casting,attack:attackPulse/.55,stomp:stompPulse/.55};
+ }
  function handleSlotKey(key){
   const n=Number(key);if(Number.isInteger(n)&&n>=1&&n<=8){useAbility(n-1);return true;}
   return false;
  }
  persist();draw();void updateEquipmentVisuals();msg('Офлайн RPG: выбери долгонога или поговори с наставником',5);
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,getAnimationState,draw,get state(){return state}};
 }
