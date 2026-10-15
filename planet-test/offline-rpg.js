@@ -16,6 +16,8 @@ import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
 import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=2';
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
+import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
+import {createMentorWorld} from './mentor-world.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -26,7 +28,7 @@ const pretty=num=>Number(num).toLocaleString('ru-RU',{maximumFractionDigits:1});
 const LABEL={weapon:'Оружие',shield:'Щит',head:'Голова',chest:'Грудь',legs:'Ноги',hands:'Руки',waist:'Пояс',wrists:'Запястья',feet:'Ступни'};
 const EQUIP_SLOTS=['weapon','shield','head','chest','legs','hands','waist','wrists','feet'];
 const ICON={autoAttack:'⚔️',thunderStomp:'💥',heavyStrike:'🪓',healingPotion:'🧪'};
-const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:'available',gatherStage:0,gatherAvailable:false,chestInventory:[],hotbar:DEFAULT_HOTBAR});
+const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:0,gatherStage:0,gatherAvailable:false,chestInventory:[],hotbar:DEFAULT_HOTBAR});
 function restore(){
  try {
   const raw=JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -38,7 +40,7 @@ function restore(){
   safe.resource=clamp(Number(raw.resource)||0,0,100);
   safe.hp=raw.hp==null?null:Math.max(1,Number(raw.hp)||1);
   safe.kills=clamp(Math.floor(Number(raw.kills)||0),0,3);
-  safe.quest=['available','active','ready','completed'].includes(raw.quest)?raw.quest:'available';
+  safe.quest=migrateMentorQuest(raw.quest);
   safe.gatherStage=clamp(Math.floor(Number(raw.gatherStage)||0),0,4);
   safe.gatherAvailable=!!raw.gatherAvailable&&safe.gatherStage>=2&&safe.gatherStage<=3;
   safe.chestInventory=Array.isArray(raw.chestInventory)?
@@ -159,7 +161,13 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const tag=makeLabel(name,'#d9e2a1',25);tag.position.y=4.45;root.add(tag);
   const e={kind,name,x,z,yaw:.2,root,radius:1.5};entities.push(e);setModelAt(e);return e;
  }
- npc('mentor',-1.5,-5,'Наставник Каменный Рог');
+ const mentor=npc('mentor',-1.5,-5,'Наставник Каменный Рог');
+ for(const glyph of ['!','?','·']){
+  const marker=makeLabel(glyph,glyph==='·'?'#b4b395':'#ffe180',72);
+  marker.position.y=5.45;marker.scale.set(2.5,1.6,1);
+  marker.userData.questMarker=true;marker.userData.glyph=glyph;
+  mentor.root.add(marker);
+ }
  npc('vendor',6,11,'Борун Крепкая Ладонь');
  const herbalist=npc('herbalist',8,1,'Травница Тихая Заря');
  const herbMarker=makeLabel('!','#ffe180',72),herbTurnin=makeLabel('?','#ffe180',72);
@@ -180,11 +188,23 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
   const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
    spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
-   respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0};
+   respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false};
   const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);
+  const alertTag=makeLabel('!','#ffc978',78);
+  alertTag.position.y=4.95;alertTag.scale.set(1.55,1.4,1);alertTag.visible=false;
+  root.add(alertTag);entity.alertTag=alertTag;
   mobs.push(entity);entities.push(entity);setModelAt(entity);return entity;
  }
  SPAWNS.forEach(([x,z],i)=>createBird(x,z,i));
+ // The original Narache elite uses the same GLB at 1.8× scale.
+ const giant=createBird(BOSS_POSITION.x,BOSS_POSITION.z,mobs.length);
+ giant.name='Грозоклюв — огромный долгоног';giant.boss=true;
+ giant.hp=giant.maxHp=108;giant.root.scale.setScalar(1.8);
+ const oldTag=giant.root.children.find(child=>child.isSprite&&child!==giant.alertTag);
+ if(oldTag)oldTag.visible=false;
+ const bossTag=makeLabel('Грозоклюв · Исполин','#f9bd91',27);
+ bossTag.position.y=3.4;bossTag.scale.set(4.7,.84,1);
+ giant.root.add(bossTag);giant.alertTag.position.y=4.0;
  const dummyRoot=new THREE.Group();group.add(dummyRoot);
  const straw=new THREE.MeshStandardMaterial({color:'#bb9665',roughness:1});
  const dummyBody=new THREE.Mesh(new THREE.CylinderGeometry(.56,.63,2.2,12),straw);
@@ -197,6 +217,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  // Preserve original locations in metres and project every mesh onto the sphere.
  const gathering=createGatherWorld({THREE,parent:group,place:e=>{entities.push(e);setModelAt(e);}});
  const gatherNodes=gathering.nodes;
+ const mentorWorld=createMentorWorld({THREE,parent:group,
+  place:e=>{entities.push(e);setModelAt(e);},getRadius,toNormal,heightAt});
  // Use the exact approved longstrider model and clips when the shared GLB loads.
  // Procedural fallback remains available if the CDN or asset fails.
  void (async()=>{
