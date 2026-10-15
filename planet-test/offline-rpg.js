@@ -128,6 +128,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   entity.root.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.09);
   anchorQuat.setFromUnitVectors(up,normal);
   entity.root.quaternion.copy(anchorQuat).multiply(spinQuat.setFromAxisAngle(up,entity.yaw||0));
+  if(entity.kind==='mob'&&entity.corpse)entity.root.rotateX(1.15);
  }
  // Identical native NexGame spriteText typography and palette, no backdrop.
  function makeLabel(name,color='#f9df91',size=32){
@@ -337,7 +338,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
   if(enemy.hp===0){
    enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;enemy.attackWindup=0;autoplay=false;
-   enemy.root.rotateX(1.15);birdAnimation(enemy,1/60,0);
+   setModelAt(enemy);birdAnimation(enemy,1/60,0);
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
    const gear=rollEquipmentLoot(false);if(gear)enemy.loot.push(gear);
@@ -671,8 +672,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(mob.corpse)continue;
    if(mob.dead>0){mob.dead=Math.max(0,mob.dead-dt);continue;}
    mob.attackCd=Math.max(0,mob.attackCd-dt);mob.stun=Math.max(0,mob.stun-dt);
-   const playerSpawnDistance=Math.hypot(local.x-mob.spawnX,local.z-mob.spawnZ);
-   const dist=Math.hypot(local.x-mob.x,local.z-mob.z);
+   const spawnNormal=toNormal(mob.spawnX,mob.spawnZ,getRadius());
+   const playerSpawnDistance=getRadius()*Math.acos(clamp(playerNormal().dot(spawnNormal),-1,1));
+   const dist=distance(mob);
    if(mob.aggro&&playerSpawnDistance>23){mob.aggro=false;mob.returning=true;mob.hp=mob.maxHp;mob.attackWindup=0;}
    if(!mob.aggro&&!mob.returning&&dist<7&&playerSpawnDistance<23&&state.hp>0)mob.aggro=true;
    let dx=0,dz=0;
@@ -692,7 +694,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const desiredYaw=aim?sphereFacingYaw(THREE,normal,aim):null;
    // Face the moving player on EVERY frame, including stationary melee/Peck.
    mob.yaw=turnSphereYaw(mob.yaw,desiredYaw,dt,mob.attackWindup>0?16:12);
-   const close=Math.hypot(local.x-mob.x,local.z-mob.z)<2.6;
+   const close=distance(mob)<2.6;
    if(mob.stun>0||!mob.aggro||state.hp<=0||!close){
     mob.attackWindup=0;
    }else if(mob.attackCd<=0){
