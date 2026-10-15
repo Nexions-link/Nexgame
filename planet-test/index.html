@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>NexGame · Planet Test PT 0.3.0</title>
+<title>NexGame · Planet Test PT 0.3.1</title>
 <!-- Alpha 0.3.7.0: finalized sword grip and preserved independently calibrated axe grip. -->
 <link rel="stylesheet" href="../style.css?v=0.3.7.0">
 <!-- Critical sizing for icon toolbar: must work even when Safari serves an older style.css. -->
@@ -193,9 +193,9 @@
 </nav>
 
 
-<aside id="planetBuildWidget" data-build="0.3.0" aria-label="Версия тестовой планеты">
+<aside id="planetBuildWidget" data-build="0.3.1" aria-label="Версия тестовой планеты">
   <button id="planetVersionBadge" type="button" aria-expanded="false" aria-controls="planetBuildPanel" title="Версия и изменения тестового мира">
-    <span>PT 0.3.0</span>
+    <span>PT 0.3.1</span>
     <span id="planetBuildNew" hidden></span>
   </button>
   <section id="planetBuildPanel" aria-label="Версии и история обновлений" hidden>
@@ -203,7 +203,7 @@
       <strong>Версия Planet Test</strong>
       <button id="planetBuildClose" type="button" aria-label="Закрыть информацию о версии">×</button>
     </div>
-    <div id="planetBuildLoaded">Запущена: PT 0.3.0</div>
+    <div id="planetBuildLoaded">Запущена: PT 0.3.1</div>
     <div id="planetBuildPublished">Проверяем публикацию…</div>
     <p id="planetBuildStatusLine">Сверяем локальную сборку с опубликованной версией.</p>
     <h3>Что изменилось в последнем выпуске</h3>
@@ -287,7 +287,7 @@
 <script src="./build-status.js?v=1" defer></script>
 <script type="module">
   // If a dependency fails to load, show a useful error instead of an endless sky.
-  import('./planet.js?v=22').catch(error=>{
+  import('./planet.js?v=23').catch(error=>{
     const loading=document.getElementById('loading');
     const failure=document.getElementById('failure');
     if(loading)loading.classList.add('is-done');
