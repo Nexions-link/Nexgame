@@ -74,3 +74,19 @@ test('active gameplay connects the catalog to equipment, loot and visuals',()=>{
  assert.ok(game.includes('const shield=group(arms[0].hand'));
  assert.ok(game.includes('const grip=hero.arms[1].hand'));
 });
+
+test('GLB axe blade faces forward while its lower tip points down at idle',async()=>{
+ const {Euler,Vector3}=await import('three');
+ const source=readFileSync(fileURLToPath(new URL('../game.js',import.meta.url)),'utf8');
+ assert.ok(source.includes("axe.rotation.set(Math.PI/2,0,-Math.PI/2,'YXZ')"));
+ assert.ok(source.includes('axe.rotation.copy(old.rotation);axe.scale.copy(old.scale);'));
+ // The GLB has its cutting edge on local +X and lower point on -Y.
+ // The right hand is pitched -90deg around X at rest.
+ const hand=new Euler(-Math.PI/2,0,0,'XYZ');
+ const axe=new Euler(Math.PI/2,0,-Math.PI/2,'YXZ');
+ const transform=vector=>vector.clone().applyEuler(axe).applyEuler(hand);
+ const blade=transform(new Vector3(1,0,0));
+ const lowerTip=transform(new Vector3(0,-1,0));
+ assert.ok(blade.z>0.999,'blade must face +Z, the character front');
+ assert.ok(lowerTip.y<-.999,'blade lower tip must point down');
+});
