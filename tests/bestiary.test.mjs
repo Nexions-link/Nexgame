@@ -42,13 +42,14 @@ test('published atlas unifies creature and weapon collections, preserving legacy
  assert.match(atlas,/id="categories"/);
  assert.match(atlas,/id="entries"/);
  assert.match(atlas,/id="search"/);
- assert.match(atlas,/atlas\.js\?v=0\.2\.1/);
+ assert.match(atlas,/atlas\.js\?v=0\.2\.2/);
  assert.match(style,/@media\(max-width:900px\)/);
  assert.match(viewer,/GLTFLoader/);
  assert.match(viewer,/OrbitControls/);
  assert.match(viewer,/setAnimation/);
  assert.match(catalog,/dolgonog-v0\.1\.glb/);
  assert.match(catalog,/tauren-axe-v0\.1\.glb/);
+ assert.match(catalog,/plains-sword-v0\.1\.glb/);
  for(const category of ['creatures','weapons','armor','items','world'])assert.ok(catalog.includes("id:'"+category+"'"));
 });
 test('dolgonog model API has independent preview and animation hooks',()=>{
@@ -98,7 +99,7 @@ test('axe GLB is righted in both atlas viewer and equipped character',()=>{
  const game=read('game.js'),viewer=read('bestiary/atlas.js'),page=read('bestiary/atlas.html');
  assert.match(game,/axe\.rotation\.copy\(old\.rotation\);axe\.scale\.copy\(old\.scale\)/);
  assert.match(viewer,/if\(entry\.id==='tauren-axe'\)current\.rotation\.x\+=Math\.PI/);
- assert.match(page,/atlas\.js\?v=0\.2\.1/);
+ assert.match(page,/atlas\.js\?v=0\.2\.2/);
 });
 
 test('hand pose returns to previous left and right wrist angles while axe remains attached',()=>{

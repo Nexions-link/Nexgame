@@ -1,14 +1,15 @@
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.52';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.52';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.52';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.52';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.52';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.52';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.53';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.53';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.53';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.53';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.53';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.53';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.53';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.52';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.52';
-import {projectPartyMember} from './party-map.js?v=0.3.5.52';
+import {createWorldPresence} from './online.js?v=0.3.5.53';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.53';
+import {projectPartyMember} from './party-map.js?v=0.3.5.53';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -433,6 +434,11 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1}={}){
   ell(axeHead,M.gold,0,.69,0,.12,.15,.11);
   for(const kind of ['sword','dagger']){
    const g=group(arms[1].hand,0,-.23,.135);g.name='gear-'+kind;
+   if(kind==='sword'){
+    g.position.set(SWORD_TUNER_DEFAULTS.posX,SWORD_TUNER_DEFAULTS.posY,SWORD_TUNER_DEFAULTS.posZ);
+    g.rotation.set(SWORD_TUNER_DEFAULTS.swordX*Math.PI/180,
+     SWORD_TUNER_DEFAULTS.swordY*Math.PI/180,SWORD_TUNER_DEFAULTS.swordZ*Math.PI/180,'YXZ');
+   }
    rod(g,M.wood,[0,-.23,0],[0,.21,0],.067);box(g,M.metal,0,.25,0,.43,.07,.12);
    const length=kind==='sword'?1.12:.62;box(g,M.metal,0,.29+length/2,0,.16,length,.065);
    const tip=mesh(g,G.cone,M.metal,0,.29+length+.09,0,.115,.22,.055);tip.rotation.y=Math.PI/4;g.visible=false;
@@ -500,6 +506,7 @@ for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmo
 }
 function openAxeTuner(){
  if(modalKind)closeDialog();
+ if(!swordTunerPanel.hidden)closeSwordTuner();
  axeTunerPanel.hidden=false;axeTunerPanel.classList.remove('axe-tuner-collapsed');
  refreshAxeTuner();
 }
@@ -537,6 +544,96 @@ async function loadHeroAxeAsset(){
  }catch(error){console.warn('Axe GLB unavailable; keeping procedural fallback',error)}
 }
 void loadHeroAxeAsset();
+
+let swordTuning={...SWORD_TUNER_DEFAULTS};
+try{swordTuning=normalizeSwordTuning(JSON.parse(localStorage.getItem(SWORD_TUNER_STORAGE_KEY)))}catch{}
+let swordPreview=false;
+function applySwordWristTuning(){
+ hero.arms[1].hand.rotation.set(rightWristBaseX+radians(swordTuning.handX),
+  radians(swordTuning.handY),radians(swordTuning.handZ),'XYZ');
+}
+function applySwordTransform(){
+ const model=hero.arms[1].hand.getObjectByName('gear-sword');if(!model)return;
+ model.position.set(swordTuning.posX,swordTuning.posY,swordTuning.posZ);
+ model.rotation.set(radians(swordTuning.swordX),radians(swordTuning.swordY),
+  radians(swordTuning.swordZ),'YXZ');
+}
+applySwordTransform();
+const swordTunerPanel=$('swordTuner'),swordTunerFields=new Map();
+function refreshSwordTuner(){
+ for(const [key,entry] of swordTunerFields){
+  entry.input.value=String(swordTuning[key]);
+  entry.value.textContent=Number(swordTuning[key]).toFixed(key.startsWith('pos')?3:0)+SWORD_TUNER_FIELDS[key].unit;
+ }
+}
+for(const section of SWORD_TUNER_GROUPS){
+ const panel=document.createElement('section');panel.className='axe-tuner-section';
+ const title=document.createElement('h3');title.textContent=section.title;panel.appendChild(title);
+ for(const key of section.fields){
+  const def=SWORD_TUNER_FIELDS[key],label=document.createElement('label');label.className='axe-tuner-field';
+  const caption=document.createElement('span');caption.textContent=def.label;
+  const value=document.createElement('output'),input=document.createElement('input');
+  input.type='range';input.min=String(def.min);input.max=String(def.max);input.step=String(def.step);
+  input.setAttribute('aria-label',section.title+' · '+def.label);
+  input.addEventListener('input',()=>{
+   swordTuning=normalizeSwordTuning({...swordTuning,[key]:Number(input.value)});
+   applySwordTransform();if(swordPreview)applySwordWristTuning();refreshSwordTuner();
+   try{localStorage.setItem(SWORD_TUNER_STORAGE_KEY,serializeSwordTuning(swordTuning))}catch{}
+  });
+  label.append(caption,input,value);panel.appendChild(label);swordTunerFields.set(key,{input,value});
+ }
+ $('swordTunerControls').appendChild(panel);
+}
+refreshSwordTuner();
+for(const type of ['pointerdown','pointermove','pointerup','touchstart','touchmove','touchend','keydown']){
+ swordTunerPanel.addEventListener(type,event=>event.stopPropagation());
+}
+function openSwordTuner(){
+ if(modalKind)closeDialog();
+ if(!axeTunerPanel.hidden)closeAxeTuner();
+ swordPreview=true;swordTunerPanel.hidden=false;swordTunerPanel.classList.remove('axe-tuner-collapsed');
+ syncEquipmentVisuals();applySwordTransform();applySwordWristTuning();refreshSwordTuner();
+ $('swordTunerStatus').textContent='Меч примеряется без смены экипировки.';
+}
+function closeSwordTuner(){swordPreview=false;swordTunerPanel.hidden=true;syncEquipmentVisuals();}
+$('swordTunerClose').addEventListener('click',closeSwordTuner);
+$('swordTunerCollapse').addEventListener('click',()=>swordTunerPanel.classList.toggle('axe-tuner-collapsed'));
+$('swordTunerSide').addEventListener('click',()=>swordTunerPanel.classList.toggle('axe-tuner-left'));
+$('swordTunerReset').addEventListener('click',()=>{
+ swordTuning={...SWORD_TUNER_DEFAULTS};applySwordTransform();if(swordPreview)applySwordWristTuning();
+ refreshSwordTuner();try{localStorage.removeItem(SWORD_TUNER_STORAGE_KEY)}catch{}
+ $('swordTunerExport').hidden=true;$('swordTunerStatus').textContent='Сброшено';
+});
+$('swordTunerCopy').addEventListener('click',async()=>{
+ const data=serializeSwordTuning(swordTuning);
+ try{
+  if(!navigator.clipboard?.writeText)throw Error('unavailable');
+  await navigator.clipboard.writeText(data);
+  $('swordTunerStatus').textContent='JSON скопирован — пришли его в чат';
+ }catch{
+  const field=$('swordTunerExport');field.hidden=false;field.value=data;field.focus();field.select();
+  $('swordTunerStatus').textContent='Скопируй выделенный JSON';
+ }
+});
+// GLB downloaded once; shared geometry is cloned for other characters.
+let swordAssetPromise=null;
+async function attachSwordAsset(actor){
+ const hand=actor.arms[1].hand,old=hand.getObjectByName('gear-sword');if(!old)return;
+ try{
+  if(!swordAssetPromise)swordAssetPromise=import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js')
+   .then(({GLTFLoader})=>new GLTFLoader().loadAsync('./assets/weapons/plains-sword-v0.1.glb?v=1'));
+  const asset=await swordAssetPromise;if(!old.parent||!actor.root.parent)return;
+  const sword=asset.scene.clone(true),visible=old.visible;
+  sword.position.copy(old.position);sword.rotation.copy(old.rotation);sword.scale.copy(old.scale);
+  old.name='gear-sword-fallback';old.visible=false;sword.name='gear-sword';sword.visible=visible;hand.add(sword);
+  if(actor===hero){
+   applySwordTransform();
+   if(characterView?.actor)void attachSwordAsset(characterView.actor);
+  }
+ }catch(error){swordAssetPromise=null;console.warn('Sword GLB unavailable; fallback remains',error)}
+}
+void attachSwordAsset(hero);
+
 
 const mentor=makeTauren({fur:0x725438,cloth:M.teal,scale:.95});mentor.root.position.set(-1.5,heightAt(-1.5,-5),-5);mentor.root.rotation.y=.2;
 const trader=makeTauren({fur:0x978064,cloth:M.hideDark,scale:.89});trader.root.position.set(8,heightAt(8,1),1);trader.root.rotation.y=-.7;
@@ -710,15 +807,19 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
   arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):Math.PI;
-  if(i===1&&actor.weapon&&arm.hand.getObjectByName('gear-axe')?.visible){
-   if(actor===hero){
-    rightWristBaseX=arm.hand.rotation.x;applyAxeWristTuning();
-   }else{
-    // Shared default pose for online characters and equipment preview.
-    arm.hand.rotation.set(
+  if(i===1&&actor.weapon){
+   const swordVisible=arm.hand.getObjectByName('gear-sword')?.visible;
+   const axeVisible=arm.hand.getObjectByName('gear-axe')?.visible;
+   if(swordVisible){
+    if(actor===hero){rightWristBaseX=arm.hand.rotation.x;applySwordWristTuning();}
+    else arm.hand.rotation.set(
+     arm.hand.rotation.x+SWORD_TUNER_DEFAULTS.handX*Math.PI/180,
+     SWORD_TUNER_DEFAULTS.handY*Math.PI/180,SWORD_TUNER_DEFAULTS.handZ*Math.PI/180,'XYZ');
+   }else if(axeVisible){
+    if(actor===hero){rightWristBaseX=arm.hand.rotation.x;applyAxeWristTuning();}
+    else arm.hand.rotation.set(
      arm.hand.rotation.x+AXE_TUNER_DEFAULTS.handX*Math.PI/180,
-     AXE_TUNER_DEFAULTS.handY*Math.PI/180,
-     AXE_TUNER_DEFAULTS.handZ*Math.PI/180,'XYZ');
+     AXE_TUNER_DEFAULTS.handY*Math.PI/180,AXE_TUNER_DEFAULTS.handZ*Math.PI/180,'XYZ');
    }
   }
  }
@@ -772,7 +873,10 @@ function playerStats(equipment=state.equipment){return deriveStats(state.level,e
 function syncEquipmentVisuals(){
  const weapon=ITEM_CATALOG[state.equipment.weapon?.id],shield=ITEM_CATALOG[state.equipment.shield?.id];
  for(const root of [hero.root,characterView?.actor.root].filter(Boolean)){
-  for(const kind of ['axe','sword','dagger']){const model=root.getObjectByName('gear-'+kind);if(model)model.visible=weapon?.weaponKind===kind}
+  for(const kind of ['axe','sword','dagger']){
+   const model=root.getObjectByName('gear-'+kind);
+   if(model)model.visible=root===hero.root&&swordPreview?kind==='sword':weapon?.weaponKind===kind;
+  }
   const model=root.getObjectByName('gear-shield');if(model){model.visible=!!shield;model.scale.setScalar(shield?.sourceId===2210 ? .8 : 1)}
  }
  if(characterView)characterView.nextFrame=0;
@@ -1407,6 +1511,7 @@ function pause(){
  choice('⚙ Настройки камеры',cameraSettings);
  choice('Графика и FPS',graphicsSettings);
  choice('🛠 Тюнер кисти и топора',openAxeTuner);
+ choice('⚔ Тюнер меча · примерка',openSwordTuner);
  choice('Начать заново',()=>{
   openDialog('Начать новый путь?','СБРОС ПРОГРЕССА',['Будут сброшены задания, уровень, собранная добыча, инвентарь и предметы этой версии Мулгора. Настройки камеры и графики сохранятся.']);
   choice('Сбросить прогресс',resetWorld,'danger');choice('Вернуться',pause,'alt');
@@ -2659,6 +2764,7 @@ function updateRemoteSnapshot(list){
   let remote=remotePlayers.get(p.id);
   if(!remote){
    const actor=makeTauren({fur:0x977c61,cloth:M.teal,scale:.94,weapon:true});
+   void attachSwordAsset(actor);
    actor.root.position.set(p.x,heightAt(p.x,p.z),p.z);actor.root.rotation.y=p.yaw;
    const nameTag=spriteText(String(p.name||'Странник').slice(0,24)+' · '+(p.level||1),'#c3f1ff',26);
    scene.add(nameTag);

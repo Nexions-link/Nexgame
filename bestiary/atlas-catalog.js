@@ -1,5 +1,5 @@
 // Unified expandable NexGame asset registry. Add new entries here.
-export const ATLAS_VERSION='0.2.0';
+export const ATLAS_VERSION='0.2.2';
 export const ATLAS_CATEGORIES=Object.freeze([
  {id:'creatures',name:'Существа',icon:'◈'},
  {id:'weapons',name:'Оружие',icon:'⚒'},
@@ -9,7 +9,8 @@ export const ATLAS_CATEGORIES=Object.freeze([
 ]);
 export const ATLAS_ENTRIES=Object.freeze([
  {id:'dolgonog',category:'creatures',number:'C001',name:'Долгоног',subtitle:'Равнинная птица',version:'0.1',asset:'./models/dolgonog-v0.1.glb',description:'Высокая равнинная птица с сильными ногами, охристым оперением и терракотовым хохолком.',facts:[['Обитание','Равнины Мулгора'],['Тип','Существо'],['Анимации','Idle · Walk · Peck']],animations:['Idle','Walk','Peck']},
- {id:'tauren-axe',category:'weapons',number:'W001',name:'Топор странника',subtitle:'Одноручный топор',version:'0.1',asset:'../assets/weapons/tauren-axe-v0.1.glb',description:'Простой боевой топор с деревянной рукоятью, кожаной обмоткой и металлическим лезвием. Первая самостоятельная модель оружия.',facts:[['Тип','Одноручный топор'],['Формат','GLB'],['Использование','Экипировка персонажа']],animations:[]}
+ {id:'tauren-axe',category:'weapons',number:'W001',name:'Топор странника',subtitle:'Одноручный топор',version:'0.1',asset:'../assets/weapons/tauren-axe-v0.1.glb',description:'Простой боевой топор с деревянной рукоятью, кожаной обмоткой и металлическим лезвием. Первая самостоятельная модель оружия.',facts:[['Тип','Одноручный топор'],['Формат','GLB'],['Использование','Экипировка персонажа']],animations:[]},
+ {id:'plains-sword',category:'weapons',number:'W002',name:'Клинок равнин',subtitle:'Одноручный меч',version:'0.1',asset:'../assets/weapons/plains-sword-v0.1.glb',description:'Оригинальный одноручный стальной клинок с бронзовой гардой, кожаным хватом и гранёным навершием.',facts:[['Тип','Одноручный меч'],['Формат','GLB'],['Использование','Снаряжение и примерка']],animations:[]}
 ]);
 export function filterAtlasEntries(category='all',query=''){
  const q=query.trim().toLocaleLowerCase('ru');
