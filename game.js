@@ -1,13 +1,13 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.44';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.44';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.44';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.44';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.44';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.45';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.45';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.45';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.45';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.45';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.44';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.44';
-import {projectPartyMember} from './party-map.js?v=0.3.5.44';
+import {createWorldPresence} from './online.js?v=0.3.5.45';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.45';
+import {projectPartyMember} from './party-map.js?v=0.3.5.45';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -19,6 +19,14 @@ const $=id=>document.getElementById(id);
 // pointer gesture: the game still uses it for its own camera distance.
 let lastTouchTap=null;
 const editableTapTarget=element=>element?.closest?.('input,textarea,select,[contenteditable="true"]');
+document.addEventListener('touchstart',event=>{
+ if(editableTapTarget(event.target)||event.touches.length!==1)return;
+ const t=event.touches[0],now=performance.now();
+ if(lastTouchTap&&now-lastTouchTap.time<350&&
+    Math.hypot(t.clientX-lastTouchTap.x,t.clientY-lastTouchTap.y)<42){
+  event.preventDefault();lastTouchTap=null;
+ }
+},{passive:false,capture:true});
 document.addEventListener('touchend',event=>{
  if(editableTapTarget(event.target))return;
  if(event.touches.length||event.changedTouches.length!==1){
@@ -2766,7 +2774,7 @@ function applyMobAttack(event,selfId){
  }
  // Ignore combat packets generated at the corpse's old coordinates before
  // the world server has acknowledged the instantaneous respawn teleport.
- if(performance.now()<respawnGraceUntil||
+ if(respawnPending||performance.now()<respawnGraceUntil||
     Math.hypot(state.x-enemy.root.position.x,state.z-enemy.root.position.z)>(enemy.boss?4.4:3.4))return;
  enemy.attackCd=enemy.boss?1.8:1.5;
  const amount=enemy.boss?14:9;
@@ -2803,12 +2811,15 @@ function applySharedKillCredit(event){
 function showSharedCombatError(event){
  if(event?.reason)combatWarning(String(event.reason).slice(0,80),true);
 }
+// Declared before connection callbacks: onStatus may fire synchronously.
+let respawnGraceUntil=0,respawnPending=false;
 const worldConnection=createWorldPresence({
  url:WORLD_WS_URL,
  onStatus:status=>{
   worldNetworkStatus=status;
   if(status!=='online')onlinePopulation=null;
   if(status==='online')mobNetworkStatus='ожидание';
+  if(status==='offline'||status==='solo')respawnPending=false;
   if(status==='offline'||status==='solo')worldChatReady=false;
   showWorldNetworkStatus();
   // Connecting is emitted synchronously before worldConnection is initialized.
@@ -2831,6 +2842,16 @@ const worldConnection=createWorldPresence({
  },
  onCombat:applySharedCombat,
  onMobAttack:applyMobAttack,
+ onRespawnAccepted:packet=>{
+  respawnPending=false;
+  respawnGraceUntil=performance.now()+3000;
+  // The server accepts the teleport and releases aggro; do not let stale
+  // snapshots move the hero back to the corpse.
+  if(Number.isFinite(packet.x)&&Number.isFinite(packet.z)){
+   state.x=packet.x;state.z=packet.z;
+   hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);
+  }
+ },
  onKillCredit:applySharedKillCredit,
  onCombatRejected:showSharedCombatError,
  onPartyState:applyPartyState,
@@ -3065,9 +3086,8 @@ function movement(dt){
  animateTauren(hero,clock,dt,clamp(travelled/(dt*4.05||1),0,1),
   attackElapsed>=0?attackElapsed/.8:-1,stompElapsed>=0?stompElapsed/.75:-1,0);
 }
-let respawnGraceUntil=0;
 function revive(){cancelGather();lastCombatAt=clock;
- respawnGraceUntil=performance.now()+3000;state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;
+ respawnGraceUntil=performance.now()+6000;respawnPending=!!worldConnection?.connected?.();state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;swingAbilityId='autoAttack';for(const e of enemies)e.aggro=false;
  worldConnection?.sendRespawn?.();
  clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){

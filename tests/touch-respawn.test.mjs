@@ -18,7 +18,7 @@ test('iPhone smart zoom is blocked without changing two-finger game camera zoom'
  assert.match(html,/maximum-scale=1,user-scalable=no/);
 });
 test('respawn is explicit and guards against damage from the previous location',()=>{
- assert.match(game,/respawnGraceUntil=performance\.now\(\)\+3000/);
+ assert.match(game,/respawnGraceUntil=performance\.now\(\)\+6000/);
  assert.match(game,/worldConnection\?\.sendRespawn\?\.\(\)/);
  assert.match(game,/performance\.now\(\)<respawnGraceUntil/);
  assert.match(game,/Math\.hypot\(state\.x-enemy\.root\.position\.x/);

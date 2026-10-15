@@ -14,7 +14,7 @@ const PORT=Number(process.env.PORT||3000);
 const MAX_PLAYERS=100;
 const TICK_MS=100; // 10 world snapshots per second.
 const WORLD_PROTOCOL=7; // Adds safe explicit respawn, avoiding anti-teleport movement rejection.
-const WORLD_BUILD='0.3.5.44';
+const WORLD_BUILD='0.3.5.45';
 const MAX_MESSAGE_BYTES=8192; // inventory snapshot for a 108-slot character backpack
 const MAX_SPEED=7; // anti-teleport cap for 4.05 world units/sec client movement.
 const RESPAWN_POINT=Object.freeze({x:0,z:10});
@@ -113,8 +113,11 @@ wss.on('connection',ws=>{
    player.x=RESPAWN_POINT.x;player.z=RESPAWN_POINT.z;
    player.yaw=Math.PI;player.moving=false;
    player.hp=player.maxHp;player.updatedAt=now;
+   player.lastMobAttackAt=0;
    player.lastRespawnAt=now;player.respawnShieldUntil=now+RESPAWN_GRACE_MS;
    releaseMulgoreAggroForPlayer(mobs,id);
+   // Tell all clients that mobs have abandoned the old position immediately.
+   broadcast({type:'mobSnapshot',mobs:snapshotMulgoreMobs(mobs,now)});
    send(ws,{type:'respawnAccepted',x:player.x,z:player.z});
    return;
   }

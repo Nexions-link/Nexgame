@@ -1329,3 +1329,7 @@ button:disabled{opacity:.48;cursor:default;filter:none!important}
 
 /* Mobile Safari: camera zoom must be controlled by the game, not smart zoom. */
 #scene,#scene canvas{touch-action:none!important;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+/* iOS Safari: forbid native double-tap smart zoom on the game surface. */
+html,body,#scene,#scene canvas,#hudTop,#actionsBar{touch-action:none!important;-webkit-touch-callout:none}
+input,textarea,select,[contenteditable="true"]{touch-action:auto!important}

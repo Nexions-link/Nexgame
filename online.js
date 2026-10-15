@@ -1,6 +1,6 @@
 // Shared-world presence transport. Networking is opt-in until the server is deployed.
 // Rendering and gameplay are not coupled to socket lifecycle.
-export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWelcome,onCombat,onMobAttack,onKillCredit,onCombatRejected,onPartyState,onPartyInvite,onPartyNotice,onNameChanged,onChat,onChatRejected,onPopulation,onChestState,onChestResult,getPosition}){
+export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWelcome,onCombat,onMobAttack,onRespawnAccepted,onKillCredit,onCombatRejected,onPartyState,onPartyInvite,onPartyNotice,onNameChanged,onChat,onChatRejected,onPopulation,onChestState,onChestResult,getPosition}){
  let socket=null,closed=false,retry=null,interval=null,selfId=null;
  const send=json=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify(json))};
  const status=value=>onStatus?.(value);
@@ -29,6 +29,8 @@ export function createWorldPresence({url,onStatus,onPlayers,onMobs,onLeave,onWel
    }
    else if(m.type==='combat')onCombat?.(m,selfId);
    else if(m.type==='mobAttack')onMobAttack?.(m,selfId);
+   else if(m.type==='respawnAccepted')onRespawnAccepted?.(m);
+   else if(m.type==='mobSnapshot')onMobs?.(Array.isArray(m.mobs)?m.mobs:[]);
    else if(m.type==='killCredit')onKillCredit?.(m,selfId);
    else if(m.type==='combatRejected')onCombatRejected?.(m);
    else if(m.type==='partyState')onPartyState?.(m);
