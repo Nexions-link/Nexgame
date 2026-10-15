@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>NexGame · Planet Test PT 0.1.0</title>
+<title>NexGame · Planet Test PT 0.1.1</title>
 <!-- Alpha 0.3.7.0: finalized sword grip and preserved independently calibrated axe grip. -->
 <link rel="stylesheet" href="../style.css?v=0.3.7.0">
 <!-- Critical sizing for icon toolbar: must work even when Safari serves an older style.css. -->
@@ -42,8 +42,9 @@
 #viewport{position:fixed;inset:0;z-index:0;touch-action:none;outline:none}
 #viewport canvas{display:block;width:100%;height:100%;touch-action:none}
 #labLegacy,#labSettingsSources{display:none!important}
-#planetOrbitQuick{position:fixed;top:calc(env(safe-area-inset-top,0px) + 115px);right:calc(env(safe-area-inset-right,0px) + 12px);z-index:13;display:grid;place-items:center;width:31px;height:31px;border:2px ridge #b99c65;border-radius:50%;background:#352d20;color:#f6e4a9;font-size:17px;line-height:1;touch-action:manipulation}
-#planetOrbitQuick[aria-pressed="true"]{background:#b29357;color:#231e16}
+/* In Planet Test the existing mini-map opens/closes the full globe. */
+#hudTop #minimapFrame{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#hudTop #minimapFrame:focus-visible{outline:3px solid #ffe39a;outline-offset:3px}
 #loading{position:fixed;z-index:70;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at center,#4a503d,#171c17);font:normal 23px Georgia,serif;color:#efd6a0;transition:opacity .25s}
 #loading.is-done{opacity:0;pointer-events:none}
 #failure{position:fixed;z-index:80;left:14px;right:14px;top:38%;display:none;padding:16px;background:#28271def;border:2px solid #a58a54;text-align:center;color:#f9e2ae;font:16px/1.55 system-ui,sans-serif}
@@ -83,8 +84,8 @@
 #toast[hidden]{display:none}
 #toast.show{opacity:1}
 #chatDock,#partyHud,#partyInvitation{display:none!important}
-#mbody .rpgRow button:focus-visible,#planetOrbitQuick:focus-visible{outline:2px solid #e7b467}
-@media(max-width:760px){#planetOrbitQuick{width:28px;height:28px;font-size:16px;top:calc(env(safe-area-inset-top,0px) + 93px);right:calc(env(safe-area-inset-right,0px) + 5px)}#actionsBar .ability .planetAbilityIcon{font-size:22px;line-height:39px}}
+#mbody .rpgRow button:focus-visible{outline:2px solid #e7b467}
+@media(max-width:760px){#actionsBar .ability .planetAbilityIcon{font-size:22px;line-height:39px}}
 
 /* Independent test-only build indicator; leaves the original NexGame HUD intact. */
 #planetBuildWidget{position:fixed;z-index:19;top:calc(env(safe-area-inset-top,0px) + 154px);right:calc(env(safe-area-inset-right,0px) + 8px);width:max-content;max-width:calc(100vw - 16px);font:12px/1.35 system-ui,sans-serif;-webkit-user-select:none;user-select:none}
@@ -146,7 +147,7 @@
  <span class="target-placeholder-heading">ЦЕЛЬ</span>
  <span class="target-placeholder-hint">Не выбрана</span>
 </div>
-<div id="minimapFrame"><canvas id="minimap" width="240" height="240" aria-label="Карта ближайшей местности"></canvas><span class="north">С</span><span id="mapLabel">Лагерь Нараче</span></div>
+<div id="minimapFrame" role="button" tabindex="0" aria-pressed="false" aria-label="Открыть всю планету — нажать миникарту" title="Вся планета"><canvas id="minimap" width="240" height="240" aria-label="Карта ближайшей местности"></canvas><span class="north">С</span><span id="mapLabel">Лагерь Нараче</span></div>
 </div>
 <div id="zoneTitle"><span id="area">Лагерь Нараче</span><small>М У Л Г О Р</small></div>
 <aside id="quest">
@@ -172,9 +173,9 @@
 </nav>
 
 
-<aside id="planetBuildWidget" data-build="0.1.0" aria-label="Версия тестовой планеты">
+<aside id="planetBuildWidget" data-build="0.1.1" aria-label="Версия тестовой планеты">
   <button id="planetVersionBadge" type="button" aria-expanded="false" aria-controls="planetBuildPanel" title="Версия и изменения тестового мира">
-    <span>PT 0.1.0</span>
+    <span>PT 0.1.1</span>
     <span id="planetBuildNew" hidden></span>
   </button>
   <section id="planetBuildPanel" aria-label="Версии и история обновлений" hidden>
@@ -182,7 +183,7 @@
       <strong>Версия Planet Test</strong>
       <button id="planetBuildClose" type="button" aria-label="Закрыть информацию о версии">×</button>
     </div>
-    <div id="planetBuildLoaded">Запущена: PT 0.1.0</div>
+    <div id="planetBuildLoaded">Запущена: PT 0.1.1</div>
     <div id="planetBuildPublished">Проверяем публикацию…</div>
     <p id="planetBuildStatusLine">Сверяем локальную сборку с опубликованной версией.</p>
     <h3>Что изменилось в последнем выпуске</h3>
@@ -194,7 +195,6 @@
   </section>
   <div id="planetBuildLive" role="status" aria-live="polite"></div>
 </aside>
-<button id="planetOrbitQuick" type="button" aria-label="Вся планета" aria-pressed="false" title="Вся планета">🌍</button>
 <div id="stick" aria-label="Джойстик: вверх и вниз — движение вперёд и назад, влево и вправо — непрерывный поворот"><div id="nub"></div></div>
 <button id="interact" hidden>Поговорить <kbd>E</kbd></button>
 <div id="gatherCast" role="progressbar" aria-label="Сбор ресурса" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
@@ -267,7 +267,7 @@
 <script src="./build-status.js?v=1" defer></script>
 <script type="module">
   // If a dependency fails to load, show a useful error instead of an endless sky.
-  import('./planet.js?v=18').catch(error=>{
+  import('./planet.js?v=19').catch(error=>{
     const loading=document.getElementById('loading');
     const failure=document.getElementById('failure');
     if(loading)loading.classList.add('is-done');
