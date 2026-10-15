@@ -41,8 +41,9 @@ test('release identifiers and first-party module version stay consistent',()=>{
 });
 
 function mockRuntime({offline=false}={}){
- const collected={fetched:[],modules:[],styles:[],heads:[],bodies:[],stored:{},errors:[]};
+ const collected={fetched:[],modules:[],importMaps:[],order:[],styles:[],heads:[],bodies:[],stored:{},errors:[]};
  const appModule={getAttribute(name){return name==='src'?'./game.js?v='+release:''},remove(){}};
+ const importMap={textContent:'{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"}}',remove(){}};
  const cssLink={
   src:'./style.css?v='+release,
   getAttribute(name){return name==='href'?this.src:null},
@@ -52,9 +53,10 @@ function mockRuntime({offline=false}={}){
   documentElement:{lang:'ru'},
   head:{childNodes:[cssLink]},
   body:{childNodes:[{tag:'HUD'}]},
-  querySelector(selector){return selector==='script[type="module"][src]'?appModule:null},
+  querySelector(selector){return selector==='script[type="module"][src]'?appModule:
+    selector==='script[type="importmap"]'?importMap:null},
   querySelectorAll(selector){
-   if(selector==='script')return [appModule];
+   if(selector==='script')return [importMap,appModule];
    if(selector==='link[rel="stylesheet"][href]')return [cssLink];
    return [];
   },
@@ -66,8 +68,14 @@ function mockRuntime({offline=false}={}){
  const document={
   hidden:false,
   documentElement:{lang:'ru'},
-  head:{replaceChildren(...xs){collected.heads.push(xs)}},
-  body:{replaceChildren(...xs){collected.bodies.push(xs)},appendChild(script){collected.modules.push(script)}},
+  head:{
+   replaceChildren(...xs){collected.heads.push(xs)},
+   appendChild(element){collected.importMaps.push(element);collected.order.push('map')}
+  },
+  body:{
+   replaceChildren(...xs){collected.bodies.push(xs)},
+   appendChild(script){collected.modules.push(script);collected.order.push('module')}
+  },
   createElement(tag){assert.equal(tag,'script');return {}},
   getElementById(id){return id==='launchStatus'?launchStatus:id==='launchRetry'?retry:null},
   addEventListener(){}
@@ -104,6 +112,10 @@ test('fresh launch loads app shell before one versioned module and refreshes CSS
  assert.match(collected.fetched[0].url,/\/Nexgame\/app\.html\?_fresh=\d+/);
  assert.equal(collected.fetched[0].options.cache,'no-store');
  assert.equal(collected.modules.length,1);
+ assert.equal(collected.importMaps.length,1,'three.js import map is preserved');
+ assert.equal(collected.importMaps[0].type,'importmap');
+ assert.match(collected.importMaps[0].textContent,/"three":/);
+ assert.deepEqual(collected.order,['map','module'],'import map must precede the module');
  assert.match(collected.modules[0].src,/\/Nexgame\/game\.js\?v=\d+\.\d+\.\d+\.\d+&_fresh=\d+/);
  assert.match(cssLink.src,/\/Nexgame\/style\.css\?v=\d+\.\d+\.\d+\.\d+&_fresh=\d+/);
  assert.equal(collected.heads.length,1);
@@ -117,6 +129,8 @@ test('offline launcher can recover a cached app shell',async()=>{
  vm.runInNewContext(script,context);
  await new Promise(resolve=>setImmediate(resolve));
  assert.equal(collected.modules.length,1);
+ assert.equal(collected.importMaps.length,1,'offline bootstrap keeps GLTFLoader import map');
+ assert.deepEqual(collected.order,['map','module']);
  assert.equal(collected.modules[0].src,'https://example.com/Nexgame/game.js?v='+release);
  assert.equal(cssLink.src,'./style.css?v='+release);
  assert.equal(collected.bodies.length,1);

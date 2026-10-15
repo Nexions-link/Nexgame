@@ -5,7 +5,8 @@ import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
  PLAINSTRIDER_GLB,PLAINSTRIDER_VISUAL_SCALE,PLAINSTRIDER_REQUIRED_CLIPS,
- validatePlainstriderGltf,plainstriderMotion
+ validatePlainstriderGltf,plainstriderMotion,advancePlainstriderVisual,
+ PLAINSTRIDER_WALK_GRACE,PLAINSTRIDER_BLEND_TIME
 } from '../plainstrider-model.js';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>readFileSync(resolve(root,p),'utf8');
@@ -57,11 +58,73 @@ test('original GLB is connected to wild birds, giant and both wildlife update pa
  assert.match(game,/catch\(error\)[\s\S]{0,180}procedural fallback/);
  const html=read('app.html');
  assert.match(html,/type="importmap"/);
- assert.match(html,/game\.js\?v=0\.3\.5\.42/);
+ assert.match(html,/game\.js\?v=0\.3\.5\.43/);
  const registry=read('bestiary/catalog.js');
  assert.match(registry,/version:'0\.1'/);
  assert.match(registry,/asset:'models\/dolgonog-v0\.1\.glb'/);
  assert.doesNotMatch(registry,/versions:Object/);
  assert.doesNotMatch(read('bestiary/index.html'),/data-version=|version-picker/);
  assert.doesNotMatch(read('bestiary/main.js'),/selectedVersion|data-version/);
+});
+
+function mockAnimatedBird(){
+ const events=[];
+ const actions=Object.fromEntries(['Idle','Walk','Peck'].map(name=>[
+  name,{
+   name,
+   reset(){events.push(['reset',name]);return this},
+   setEffectiveTimeScale(){return this},
+   setEffectiveWeight(){return this},
+   setLoop(mode,repeat){events.push(['loop',name,mode,repeat]);return this},
+   play(){events.push(['play',name]);return this},
+   fadeIn(sec){events.push(['fade',name,sec]);return this},
+   crossFadeFrom(previous,sec){events.push(['crossfade',name,previous.name,sec]);return this}
+  }
+ ]));
+ const visual={
+  mixer:{update(sec){events.push(['tick',sec])},stopAllAction(){events.push(['stop'])}},
+  actions,mode:null,walkGrace:0,attackRemaining:0,lastAttackCd:0
+ };
+ const enemy={birdVisual:visual,attackCd:0,boss:false};
+ const THREE={LoopOnce:'once',LoopRepeat:'repeat'};
+ return {enemy,visual,actions,events,THREE};
+}
+test('network motion micro-pauses no longer repeatedly reset animated GLB legs',()=>{
+ const {enemy,visual,events,THREE}=mockAnimatedBird();
+ advancePlainstriderVisual(THREE,enemy,.016,.04);
+ assert.equal(visual.mode,'Walk');
+ assert.equal(visual.walkGrace,PLAINSTRIDER_WALK_GRACE);
+ for(let i=0;i<12;i++)advancePlainstriderVisual(THREE,enemy,.016,0);
+ assert.equal(visual.mode,'Walk','held walk survives 12 frames with no position delta');
+ assert.equal(events.filter(x=>x[0]==='reset'&&x[1]==='Walk').length,1);
+ for(let i=0;i<18;i++)advancePlainstriderVisual(THREE,enemy,.016,0);
+ assert.equal(visual.mode,'Idle','returns to idle after a sustained stop');
+ assert.ok(events.some(x=>x[0]==='crossfade'&&x[1]==='Idle'&&x[2]==='Walk'&&x[3]===PLAINSTRIDER_BLEND_TIME));
+});
+test('peck plays a full animation even when the combat cooldown drops',()=>{
+ const {enemy,visual,events,THREE}=mockAnimatedBird();
+ enemy.attackCd=1.5;
+ advancePlainstriderVisual(THREE,enemy,.016,0);
+ assert.equal(visual.mode,'Peck');
+ assert.ok(events.some(x=>x[0]==='loop'&&x[1]==='Peck'&&x[2]==='once'));
+ for(let i=0;i<42;i++){
+  enemy.attackCd=Math.max(0,enemy.attackCd-.016);
+  advancePlainstriderVisual(THREE,enemy,.016,0);
+ }
+ assert.equal(visual.mode,'Peck','full .8s peck lasts after cooldown threshold passes');
+ for(let i=0;i<12;i++){
+  enemy.attackCd=Math.max(0,enemy.attackCd-.016);
+  advancePlainstriderVisual(THREE,enemy,.016,0);
+ }
+ assert.equal(visual.mode,'Idle');
+ assert.equal(events.filter(x=>x[0]==='reset'&&x[1]==='Peck').length,1);
+});
+test('GLB loading and fallback status is inspectable from game HUD',()=>{
+ const game=read('game.js');
+ assert.match(game,/dolgonogRenderStatus='GLB'/);
+ assert.match(game,/dolgonogRenderStatus='резерв'/);
+ assert.match(game,/долгоноги: '\+dolgonogRenderStatus/);
+ const loader=read('index.html');
+ assert.match(loader,/const importMapText=parsed\.querySelector/);
+ assert.match(loader,/document\.head\.appendChild\(map\)/);
 });

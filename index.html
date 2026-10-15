@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#352d1d">
-<meta name="nexgame-release" content="NexGame · Alpha 0.3.5.31">
+<meta name="nexgame-release" content="NexGame · Alpha 0.3.5.43">
 <title>NexGame · запуск последней версии</title>
 <style>
 html,body{margin:0;min-height:100%;background:#211f19;color:#f3dca6;font:15px system-ui,sans-serif}
@@ -64,6 +64,10 @@ html,body{margin:0;min-height:100%;background:#211f19;color:#f3dca6;font:15px sy
    throw new Error('Отсутствуют необходимые файлы игрового интерфейса');
   }
   const entry=appScript.getAttribute('src');
+  // The app's WebGL/GLTFLoader modules use the bare import specifier "three".
+  // Preserve its import map BEFORE stripping scripts from the downloaded
+  // document. Otherwise the canonical launcher silently forces old models.
+  const importMapText=parsed.querySelector('script[type="importmap"]')?.textContent;
   const stamp=String(Date.now());
   parsed.querySelectorAll('script').forEach(script=>script.remove());
   if(fromNetwork){
@@ -78,6 +82,12 @@ html,body{margin:0;min-height:100%;background:#211f19;color:#f3dca6;font:15px sy
   document.documentElement.lang=parsed.documentElement.lang||'ru';
   document.head.replaceChildren(...Array.from(parsed.head.childNodes));
   document.body.replaceChildren(...Array.from(parsed.body.childNodes));
+  if(importMapText){
+   const map=document.createElement('script');
+   map.type='importmap';
+   map.textContent=importMapText;
+   document.head.appendChild(map);
+  }
   runningBuild=build;
   // Old versions sometimes auto-added release=...; keep the normal URL.
   const clean=new URL(location.href);

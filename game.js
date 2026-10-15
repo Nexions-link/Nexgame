@@ -1,13 +1,13 @@
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.42';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.42';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.42';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.42';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.42';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.43';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.43';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.43';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.43';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.43';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.42';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.42';
-import {projectPartyMember} from './party-map.js?v=0.3.5.42';
+import {createWorldPresence} from './online.js?v=0.3.5.43';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.43';
+import {projectPartyMember} from './party-map.js?v=0.3.5.43';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -534,7 +534,11 @@ async function loadOriginalDolgonogs(){
    attachPlainstriderGltf(THREE,enemy,gltf);
    advancePlainstriderVisual(THREE,enemy,0,0,enemy.dead>0);
   }
+  dolgonogRenderStatus='GLB';
+  showWorldNetworkStatus();
  }catch(error){
+  dolgonogRenderStatus='резерв';
+  showWorldNetworkStatus();
   console.warn('Original Dolgonog GLB unavailable; keeping procedural fallback:',error);
  }
 }
@@ -2557,15 +2561,16 @@ function animateRemotePlayers(dt){
 const SHARED_MOB_COUNT=enemies.filter(enemy=>!enemy.trainingDummy).length;
 let sharedMobTargets=new Map(),sharedMobsConnected=false,worldCombatReady=false;
 let lastSharedMobPacketAt=0,onlineSelfId=null;
-let worldNetworkStatus='solo',mobNetworkStatus='ожидание',onlinePopulation=null;
+let worldNetworkStatus='solo',mobNetworkStatus='ожидание',onlinePopulation=null,dolgonogRenderStatus='загрузка';
 const creditedMobLives=new Set();
 function showWorldNetworkStatus(){
  const el=$('onlineStatus');if(!el)return;
  const label=worldNetworkStatus==='online'?'Мир: онлайн':worldNetworkStatus==='connecting'?
   'Мир: подключение':worldNetworkStatus==='solo'?'Мир: одиночный':'Мир: нет связи';
- el.textContent=worldNetworkStatus==='online'?
+ const world=worldNetworkStatus==='online'?
   label+' · игроков: '+(Number.isInteger(onlinePopulation)?onlinePopulation:'—')+
   ' · мобы: '+mobNetworkStatus:label;
+ el.textContent=world+' · долгоноги: '+dolgonogRenderStatus;
 }
 function resetSharedMobAppearance(e){
  e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
