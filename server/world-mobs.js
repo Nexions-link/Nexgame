@@ -10,7 +10,7 @@ export const MOB_SPEED=.42;
 export const MOB_TICK_LIMIT=.25;
 export const MOB_CORPSE_MS=65000;
 const MELEE_RANGE=3.95,STOMP_RANGE=4.9;
-export const MOB_AGGRO_LEASH_RANGE=50; // World units: measured from the player's first aggro position.
+export const MOB_AGGRO_LEASH_RANGE=23; // World units: measured from this mob's fixed spawn position.
 const normalSpeed=2.1,bossSpeed=1.75;
 const valid=(n,min,max)=>Number.isFinite(n)&&n>=min&&n<=max;
 
@@ -20,12 +20,12 @@ export function createMulgoreMobs(){
   boss:index===MULGORE_MOB_SPAWNS.length-1,
   hp:index===MULGORE_MOB_SPAWNS.length-1?108:54,
   maxHp:index===MULGORE_MOB_SPAWNS.length-1?108:54,
-  life:1,deadUntil:0,aggroId:null,aggroStartX:null,aggroStartZ:null,contributors:new Map(),
+  life:1,deadUntil:0,aggroId:null,contributors:new Map(),
   stunnedUntil:0,attackAt:0,lastCombatAt:0
  }));
 }
 export function resetMulgoreMob(mob,{respawn=false}={}){
- mob.hp=mob.maxHp;mob.aggroId=null;mob.aggroStartX=null;mob.aggroStartZ=null;mob.contributors.clear();
+ mob.hp=mob.maxHp;mob.aggroId=null;mob.contributors.clear();
  mob.deadUntil=0;mob.stunnedUntil=0;mob.attackAt=0;mob.lastCombatAt=0;
  if(respawn){mob.life++;mob.x=mob.spawnX;mob.z=mob.spawnZ;mob.roamTime=0;}
 }
@@ -37,7 +37,6 @@ export function releaseMulgoreAggroForPlayer(mobs,playerId){
  for(const mob of mobs){
   if(mob.aggroId!==playerId)continue;
   mob.aggroId=null;
-  mob.aggroStartX=null;mob.aggroStartZ=null;
   mob.attackAt=0;
   released++;
  }
@@ -55,15 +54,12 @@ export function tickMulgoreMobs(mobs,dt,players=[],now=Date.now()){
   }
   mob.roamTime+=dt;
   const target=mob.aggroId?people.get(mob.aggroId):null;
-  // Aggro persists without more player hits. Measure the escape distance from
-  // the first aggro location, NOT the spawn, mob position, or last hit.
-  if(target&&(mob.aggroStartX===null||mob.aggroStartZ===null)){
-   mob.aggroStartX=target.x;mob.aggroStartZ=target.z;
-  }
-  const awayFromAggro=target?Math.hypot(
-   target.x-mob.aggroStartX,target.z-mob.aggroStartZ):Infinity;
+  // No inactivity timeout: stop only when the target leaves 23 m from spawn
+  // (or on disconnect, death or respawn).
+  const awayFromSpawn=target?Math.hypot(
+   target.x-mob.spawnX,target.z-mob.spawnZ):Infinity;
   if(mob.aggroId&&(!target||target.hp<=0||target.respawnShieldUntil>now||
-    awayFromAggro>MOB_AGGRO_LEASH_RANGE)){
+    awayFromSpawn>MOB_AGGRO_LEASH_RANGE)){
    resetMulgoreMob(mob);
   }
   const opponent=mob.aggroId?people.get(mob.aggroId):null;
@@ -156,10 +152,6 @@ export function applyMulgoreAbility(mobs,player,abilityId,mobId,now=Date.now(),r
   if(mob.deadUntil)continue;
   mob.hp=Math.max(0,mob.hp-damage);
   mob.contributors.set(player.id,(mob.contributors.get(player.id)||0)+damage);
-  // Repeated hits (including another player's hit) must not move the leash origin.
-  if(!mob.aggroId){
-   mob.aggroStartX=player.x;mob.aggroStartZ=player.z;
-  }
   mob.aggroId=player.id;mob.lastCombatAt=now;
   if(area)mob.stunnedUntil=now+2500;
   if(mob.hp===0){

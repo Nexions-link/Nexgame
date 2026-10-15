@@ -1,24 +1,24 @@
-import {SHIELD_BLOCK_SECONDS,shieldBlockPose} from './shield-block.js?v=0.3.6.8';
-import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.8';
-import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.8';
-import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.8';
-import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.8';
-import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.8';
-import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.8';
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.8';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.8';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.8';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.8';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.8';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.8';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.8';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.8';
-import {createMeadowDecorations} from './meadow.js?v=0.3.6.8';
+import {SHIELD_BLOCK_SECONDS,shieldBlockPose} from './shield-block.js?v=0.3.6.9';
+import {SHIELD_TUNER_VARIANTS,SHIELD_TUNER_DEFAULTS,SHIELD_TUNER_GROUPS,SHIELD_TUNER_FIELDS,shieldTunerStorageKey,normalizeShieldTuning,serializeShieldTuning} from './shield-tuner.js?v=0.3.6.9';
+import {SHIELD_MODELS,shieldModelForRarity,styleShieldGlb} from './shield-assets.js?v=0.3.6.9';
+import {itemRarity,highestLootRarity,QUALITY_VISUALS,applyWeaponQuality,applyShieldQuality} from './item-quality.js?v=0.3.6.9';
+import {createAutoSwingClock,reconcileAbilityCooldown} from './combat-timing.js?v=0.3.6.9';
+import {createCombatFeedback,HIT_REACTION_SECONDS,hitReaction} from './combat-feedback.js?v=0.3.6.9';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.6.9';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.6.9';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.6.9';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.6.9';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.6.9';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.6.9';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.6.9';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.6.9';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.6.9';
+import {createMeadowDecorations} from './meadow.js?v=0.3.6.9';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.6.8';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.6.8';
-import {projectPartyMember} from './party-map.js?v=0.3.6.8';
+import {createWorldPresence} from './online.js?v=0.3.6.9';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.6.9';
+import {projectPartyMember} from './party-map.js?v=0.3.6.9';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -971,7 +971,7 @@ function updateHerbalistMarker(){
 }
 const relic=group(scene,35,heightAt(35,-14)+1.7,-11.8);const featherMat=material(0x79c8ba,{emissive:0x2c5b45,emissiveIntensity:.5});ell(relic,featherMat,0,.15,0,.18,.48,.08);rod(relic,M.bone,[0,-.4,0],[0,.53,0],.025);const relicShadow=contactShadow(1);
 // Lightweight wildlife: animated joint groups, no skinned meshes or animation files.
-function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,aggroStartX:null,aggroStartZ:null,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
+function makePlainstrider(x,z,index){const root=group(scene,x,heightAt(x,z),z),body=group(root,0,1.23,0),brown=material(index%2?0x826649:0x917044),plume=material(0xa77944),legs=[];ell(body,brown,0,.1,0,.58,.49,.8);ell(body,plume,0,.18,-.4,.53,.35,.47);rod(body,brown,[0,.25,.5],[0,.92,.82],.18,.13);ell(body,brown,0,.97,.85,.25,.29,.27);ell(body,M.gold,0,.89,1.12,.15,.1,.28);for(const s of [-1,1]){ell(body,M.black,s*.19,1.02,.99,.045,.045,.03);const wing=ell(body,plume,s*.46,.12,-.05,.14,.35,.6);wing.rotation.x=.2;const leg=group(root,s*.24,1.1,.06);rod(leg,M.hideDark,[0,0,0],[0,-.93,0],.055);box(leg,M.wood,0,-1,.14,.18,.12,.38);legs.push(leg)}for(let i=0;i<3;i++){const f=ell(body,plume,(i-1)*.16,.98,.63,.055,.42,.11);f.rotation.x=-.2}fuse(root);return{root,body,legs,shadow:contactShadow(1.7),spawnX:x,spawnZ:z,hp:54,maxHp:54,dead:0,corpseAge:0,loot:[],hit:0,aggro:false,stunned:0,attackCd:0,phase:index,roamTime:rand()*8,index}}
 const enemies=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]].map(([x,z],i)=>makePlainstrider(x,z,i));
 for(const enemy of enemies){enemy.name='Равнинный долгоног';enemy.baseScale=1;enemy.boss=false}
 const giant=makePlainstrider(BOSS_X,BOSS_Z,enemies.length);
@@ -1935,7 +1935,7 @@ function resetWorld(){
  abilityRuntime.gcd=0;abilityRuntime.cooldowns=Object.create(null);autoSwingClock.reset();swingAbilityId='autoAttack';
  for(const e of enemies){
   e.hp=e.maxHp;e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
-  e.hit=0;e.aggro=false;e.aggroStartX=e.aggroStartZ=null;e.stunned=0;e.attackCd=0;
+  e.hit=0;e.aggro=false;e.stunned=0;e.attackCd=0;
   e.root.visible=true;e.shadow.visible=true;
   e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
   e.root.position.set(e.spawnX,heightAt(e.spawnX,e.spawnZ),e.spawnZ);
@@ -2456,10 +2456,9 @@ function damageEnemy(e,amount,source='autoAttack'){
   e.aggro=false;showCombatHit(e,amount,source);
   updateHUD();return;
  }
- if(!e.aggro){e.aggroStartX=state.x;e.aggroStartZ=state.z}
  e.hp-=amount;e.aggro=true;showCombatHit(e,amount,source);
  if(e.hp<=0){
-  e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;e.aggroStartX=e.aggroStartZ=null;
+  e.hp=0;e.dead=CORPSE_DURATION;e.corpseAge=0;e.aggro=false;
   e.loot=e.boss?[{id:'giantFeather',qty:1},...rollCorpseLoot(e)]:rollCorpseLoot(e);
   e.root.visible=true;e.shadow.visible=true;
   e.lootMarker.visible=e.loot.length>0;
@@ -3269,7 +3268,7 @@ function showWorldNetworkStatus(){
 function resetSharedMobAppearance(e){
  e.dead=0;e.corpseAge=0;e.loot=[];e.lootMarker.visible=false;
  refreshLootMarkerQuality(e);
- e.aggro=false;e.aggroStartX=e.aggroStartZ=null;e.stunned=0;e.attackCd=0;e.hit=0;
+ e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
  e.root.visible=e.shadow.visible=true;
  e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
  e.legs[0].rotation.x=e.legs[1].rotation.x=0;
@@ -3293,7 +3292,6 @@ function syncSharedMobState(e,row){
  e.hp=row.hp;e.maxHp=row.maxHp;
  e.serverAggroId=row.aggroId;
  e.aggro=!!row.aggroId&&row.aggroId===onlineSelfId;
- if(!e.aggro)e.aggroStartX=e.aggroStartZ=null;
  if(row.stunned)e.stunned=Math.max(e.stunned,.18);
 }
 function updateSharedMobTargets(snapshot){
@@ -3309,8 +3307,8 @@ function updateSharedMobTargets(snapshot){
   const mob=enemies[row.id];
   if(!mob||mob.trainingDummy||!Number.isFinite(row.x)||
      !Number.isFinite(row.z)||!Number.isFinite(row.yaw))continue;
-  // After a 50 m aggro chase a mob can be far outside its old 25 m snapshot limit.
-   if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>70)continue;
+  // Keep a buffer around the 23 m spawn-centered chase limit.
+   if(Math.hypot(row.x-mob.spawnX,row.z-mob.spawnZ)>27)continue;
   next.set(row.id,{x:row.x,z:row.z,yaw:row.yaw,
    phase:Number.isFinite(row.phase)?row.phase:null,
    hp:row.hp,maxHp:row.maxHp,life:row.life,dead:row.dead,
@@ -3775,7 +3773,7 @@ function movement(dt){
    stompElapsed>=0?stompElapsed/.75:-1,0);
 }
 function revive(){hero.blockRemaining=0;cancelGather();lastCombatAt=clock;
- respawnGraceUntil=performance.now()+6000;respawnPending=!!worldConnection?.connected?.();state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;autoSwingClock.reset();swingAbilityId='autoAttack';for(const e of enemies){e.aggro=false;e.aggroStartX=e.aggroStartZ=null;}
+ respawnGraceUntil=performance.now()+6000;respawnPending=!!worldConnection?.connected?.();state.hp=playerStats().maxHp;state.resource=normalizeResource(0,state.classId);state.x=initial.x;state.z=initial.z;selected=null;autoAttack=false;approach=null;swingTarget=null;hideCombatWarning();attackElapsed=stompElapsed=-1;attackCooldown=0;autoSwingClock.reset();swingAbilityId='autoAttack';for(const e of enemies){e.aggro=false;}
  worldConnection?.sendRespawn?.();
  clearInput();hero.root.position.set(state.x,heightAt(state.x,state.z),state.z);save();msg('Духи вернули тебя к костру. Твой путь продолжается.',3600)}
 function updateEnemy(e,dt){
@@ -3803,7 +3801,7 @@ function updateEnemy(e,dt){
   if(e.dead<=0){
    e.dead=0;e.corpseAge=0;e.hp=e.maxHp;e.loot=[];
    e.lootMarker.visible=false;e.root.visible=e.shadow.visible=true;if(e.boss&&e.nameTag)e.nameTag.visible=true;
-   e.aggro=false;e.aggroStartX=e.aggroStartZ=null;e.stunned=0;e.attackCd=0;e.hit=0;
+   e.aggro=false;e.stunned=0;e.attackCd=0;e.hit=0;
    e.root.rotation.z=0;e.root.scale.setScalar(e.baseScale||1);
    e.legs[0].rotation.x=e.legs[1].rotation.x=0;
    resetPlainstriderVisual(e);
@@ -3813,12 +3811,9 @@ function updateEnemy(e,dt){
   return;
  }
  e.hit=Math.max(0,e.hit-dt);e.stunned=Math.max(0,e.stunned-dt);e.attackCd=Math.max(0,e.attackCd-dt);e.roamTime+=dt;const p=e.root.position,dist=Math.hypot(state.x-p.x,state.z-p.z);
- // The solo fallback keeps aggro until the hero moves 50 m from first aggro.
- if(e.aggro&&(e.aggroStartX===null||e.aggroStartZ===null)){
-  e.aggroStartX=state.x;e.aggroStartZ=state.z;
- }
- if(e.aggro&&Math.hypot(state.x-e.aggroStartX,state.z-e.aggroStartZ)>50){
-  e.aggro=false;e.aggroStartX=e.aggroStartZ=null;e.hp=e.maxHp;
+ // The solo fallback matches the server: no timeout, leash from spawn.
+ if(e.aggro&&Math.hypot(state.x-e.spawnX,state.z-e.spawnZ)>23){
+  e.aggro=false;e.hp=e.maxHp;
  }
  let tx=e.spawnX+Math.sin(e.roamTime*.18+e.index)*2.2,tz=e.spawnZ+Math.cos(e.roamTime*.14+e.index)*2.2,speed=.42;
  if(e.aggro){tx=state.x;tz=state.z;speed=e.boss?1.75:2.1}

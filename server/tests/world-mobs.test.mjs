@@ -86,54 +86,62 @@ test('aggro keeps striking a motionless player after 16 seconds without new dama
   assert.equal(mob.hp,damagedHp,'no regeneration while aggro is active');
  }
  assert.ok(strikes>=10,'standing still must not stop repeated mob attacks');
- assert.deepEqual([mob.aggroStartX,mob.aggroStartZ],[-9,-21]);
 });
 
-test('50 m leash is strictly measured from first aggro, not spawn, mob or last hit',()=>{
+test('mob disengages after 23 m measured from original spawn, not the first hit',()=>{
  const mobs=createMulgoreMobs(),mob=mobs[0],now=200000;
  const player={id:'runner',x:-9,z:-21,hp:100,respawnShieldUntil:0,level:1,yaw:Math.PI,equipment:{}};
- assert.equal(MOB_AGGRO_LEASH_RANGE,50);
+ assert.equal(MOB_AGGRO_LEASH_RANGE,23);
  assert.equal(applyMulgoreAbility(mobs,player,'autoAttack',0,now,()=>.5).ok,true);
- const lowHp=mob.hp;
- player.z=-21+49.9; // Farther than the old 19/23 m limit; still inside 50 m.
+ const damagedHp=mob.hp;
+ player.z=-1; // 22 m from mob spawn (-9,-23).
  tickMulgoreMobs(mobs,.1,[player],now+100000);
- assert.equal(mob.aggroId,player.id);
- assert.equal(mob.hp,lowHp);
- assert.deepEqual([mob.aggroStartX,mob.aggroStartZ],[-9,-21]);
- player.z=-21+50.01;
+ assert.equal(mob.aggroId,player.id,'time without retaliation must not clear aggro');
+ assert.equal(mob.hp,damagedHp);
+ player.z=0; // Exactly 23 m: aggro remains.
  tickMulgoreMobs(mobs,.1,[player],now+100100);
+ assert.equal(mob.aggroId,player.id);
+ player.z=.01; // Over 23 m: health restores and it disengages.
+ tickMulgoreMobs(mobs,.1,[player],now+100200);
  assert.equal(mob.aggroId,null);
  assert.equal(mob.hp,mob.maxHp);
- assert.equal(mob.aggroStartX,null);
- assert.equal(mob.aggroStartZ,null);
- // After disengaging, the mob heads home rather than pursuing the old target.
- const oldDistance=Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ);
- for(let i=0;i<40;i++)tickMulgoreMobs(mobs,.1,[],now+100200+i*100);
- assert.ok(Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<Math.max(6,oldDistance));
 });
 
-test('additional hits and a new attacker cannot move an existing leash origin',()=>{
+test('near-boundary aggro does not shift the fixed spawn-based limit',()=>{
  const mobs=createMulgoreMobs(),mob=mobs[0],now=300000;
- const a={id:'first',x:-9,z:-23,hp:100,level:1,yaw:0,equipment:{}};
- const b={id:'second',x:-9,z:-21,hp:100,level:1,yaw:Math.PI,equipment:{}};
+ mob.z=-3; // Simulate a mob already running far from spawn.
+ const player={id:'near-edge',x:-9,z:-3,hp:100,level:1,yaw:0,equipment:{}};
+ assert.equal(applyMulgoreAbility(mobs,player,'autoAttack',0,now,()=>.5).ok,true);
+ player.z=-.5; // Only 2.5 m from hit position, 22.5 m from spawn.
+ tickMulgoreMobs(mobs,.1,[player],now+100);
+ assert.equal(mob.aggroId,player.id);
+ player.z=.1; // Just 3.1 m from hit position but 23.1 m from spawn.
+ tickMulgoreMobs(mobs,.1,[player],now+200);
+ assert.equal(mob.aggroId,null);
+});
+
+test('another attacker cannot extend the leash or restore combat timeout',()=>{
+ const mobs=createMulgoreMobs(),mob=mobs[0],now=400000;
+ const a={id:'a',x:-9,z:-23,hp:100,level:1,yaw:0,equipment:{}};
+ const b={id:'b',x:-9,z:-21,hp:100,level:1,yaw:Math.PI,equipment:{}};
  assert.equal(applyMulgoreAbility(mobs,a,'autoAttack',0,now,()=>.5).ok,true);
  assert.equal(applyMulgoreAbility(mobs,b,'autoAttack',0,now+1000,()=>.5).ok,true);
  assert.equal(mob.aggroId,b.id);
- assert.deepEqual([mob.aggroStartX,mob.aggroStartZ],[-9,-23]);
- b.z=-23+49;
+ b.z=-.2; // 22.8 m from spawn.
  tickMulgoreMobs(mobs,.1,[a,b],now+30000);
  assert.equal(mob.aggroId,b.id);
- b.z=-23+50.1;
+ b.z=.1; // 23.1 m from spawn.
  tickMulgoreMobs(mobs,.1,[a,b],now+30100);
  assert.equal(mob.aggroId,null);
 });
 
-test('dropping aggro for a respawned player clears the old leash origin',()=>{
- const mobs=createMulgoreMobs(),mob=mobs[0],now=400000;
+test('respawn aggro release preserves damaged HP and contributors',()=>{
+ const mobs=createMulgoreMobs(),mob=mobs[0],now=500000;
  const player={id:'respawn',x:-9,z:-22,hp:100,level:1,yaw:Math.PI,equipment:{}};
- applyMulgoreAbility(mobs,player,'autoAttack',0,now,()=>.5);
+ assert.equal(applyMulgoreAbility(mobs,player,'autoAttack',0,now,()=>.5).ok,true);
+ const damagedHp=mob.hp;
  assert.equal(releaseMulgoreAggroForPlayer(mobs,player.id),1);
  assert.equal(mob.aggroId,null);
- assert.equal(mob.aggroStartX,null);
- assert.equal(mob.aggroStartZ,null);
+ assert.equal(mob.hp,damagedHp);
+ assert.equal(mob.contributors.has(player.id),true);
 });
