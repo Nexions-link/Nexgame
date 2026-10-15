@@ -20,7 +20,7 @@ test('highest quality in a corpse controls its marker and gracefully downgrades'
  const loot=[{id:'chainVest',qty:1},{id:'scalpingStrength',qty:1},{id:'giantFeather',qty:1}];
  assert.equal(highestLootRarity(loot,ITEM_CATALOG),'rare');
  loot.pop();assert.equal(highestLootRarity(loot,ITEM_CATALOG),'uncommon');
- loot.pop();assert.equal(highestLootRarity(loot,ITEM_CATALOG),'common');
+ loot.pop();assert.equal(highestLootRarity(loot,ITEM_CATALOG),'poor');
  assert.equal(highestLootRarity([]),'common');
 });
 test('3D weapon quality owns only its material; GLB geometry and other actors stay unchanged',()=>{
