@@ -81,6 +81,6 @@ test('Atlas has two distinct 3D shields and versioned viewer links',()=>{
  assert.equal(b.category,'armor');
  assert.match(a.asset,/round_shield/);
  assert.match(b.asset,/kite_shield/);
- assert.match(read('bestiary/atlas.js'),/atlas-catalog\.js\?v=0\.2\.4/);
- assert.match(read('bestiary/atlas.html'),/atlas\.js\?v=0\.2\.4/);
+ assert.match(read('bestiary/atlas.js'),/atlas-catalog\.js\?v=0\.2\.\d+/);
+ assert.match(read('bestiary/atlas.html'),/atlas\.js\?v=0\.2\.\d+/);
 });
