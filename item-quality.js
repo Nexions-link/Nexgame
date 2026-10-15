@@ -77,6 +77,7 @@ export function applyWeaponQuality(THREE,root,kind,rarity){
 // geometries, grips and combat statistics are NEVER modified.
 const shieldApplied=new WeakMap();
 const shieldMeshMaterials=new WeakMap();
+const shieldOwnedDecorations=new WeakSet();
 const pristineMaterials=new WeakMap();
 const SHIELD_FACE={
  poor:0x596166, common:0xc4a273,uncommon:0x236743,rare:0x265f9c
@@ -173,9 +174,9 @@ export function applyShieldQuality(THREE,actorRoot,rarity){
   for(const mesh of insignia.children){
    const core=mesh.name==='shield-insignia-core';
    // Clone shared material if this group came from a character preview clone.
-   if(!mesh.userData.ownedShieldMaterial){
+   if(!shieldOwnedDecorations.has(mesh)){
     mesh.material=mesh.material.clone();
-    mesh.userData.ownedShieldMaterial=true;
+    shieldOwnedDecorations.add(mesh);
    }
    mesh.material.color.setHex(tier==='rare'?(core?0xaedcfd:0x337cc8):(core?0xe3dba0:0x319563));
    mesh.material.emissive.setHex(tier==='rare'?0x2763ac:0x1b6a38);
