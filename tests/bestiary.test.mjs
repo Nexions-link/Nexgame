@@ -93,3 +93,11 @@ test('3D viewer uses the original GLB and allows editing its real mesh',()=>{
  assert.match(edit,/attribute\.setXYZ/);
  assert.doesNotMatch(edit,/attribute\.array\[/);
 });
+
+test('axe GLB is righted in both atlas viewer and equipped character',()=>{
+ const game=read('game.js'),viewer=read('bestiary/atlas.js'),page=read('bestiary/atlas.html');
+ assert.match(game,/axe\.rotation\.copy\(old\.rotation\);axe\.rotation\.x\+=Math\.PI/);
+ assert.match(viewer,/if\(entry\.id==='tauren-axe'\)current\.rotation\.x\+=Math\.PI/);
+ assert.match(page,/atlas\.js\?v=0\.2\.1/);
+ assert.match(read('app.html'),/game\.js\?v=0\.3\.5\.46/);
+});

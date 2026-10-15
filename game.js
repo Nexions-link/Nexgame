@@ -446,7 +446,7 @@ async function loadHeroAxeAsset(){
   const {GLTFLoader}=await import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js');
   const asset=await new GLTFLoader().loadAsync('./assets/weapons/tauren-axe-v0.1.glb?v=1');
   const axe=asset.scene;
-  axe.position.copy(old.position);axe.rotation.copy(old.rotation);axe.scale.copy(old.scale);
+  axe.position.copy(old.position);axe.rotation.copy(old.rotation);axe.rotation.x+=Math.PI;axe.scale.copy(old.scale);
   grip.add(axe);axe.visible=old.visible;old.visible=false;
   old.name='gear-axe-fallback';axe.name='gear-axe';
  }catch(error){console.warn('Axe GLB unavailable; keeping procedural fallback',error)}

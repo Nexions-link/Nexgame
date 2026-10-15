@@ -51,7 +51,10 @@ async function selectEntry(id){
  try{
   const gltf=await loader.loadAsync(entry.asset+'?atlas=0.2.0');if(request!==loadId)return;
   if(current){scene.remove(current);current.traverse(o=>{if(o.isMesh){/* shared GLB loader cache may reuse textures; avoid disposal */}})}
-  current=gltf.scene;scene.add(current);
+  current=gltf.scene;
+  // The exported axe's local up direction is inverted; align it for display.
+  if(entry.id==='tauren-axe')current.rotation.x+=Math.PI;
+  scene.add(current);
   const bounds=new THREE.Box3().setFromObject(current);bounds.getCenter(center);const size=bounds.getSize(new THREE.Vector3());radius=Math.max(size.length()*.68,.9);
   controls.minDistance=radius*.6;controls.maxDistance=radius*5;resetView();
   mixer=gltf.animations.length?new THREE.AnimationMixer(current):null;actions={};currentAction=null;
