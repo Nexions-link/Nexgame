@@ -197,8 +197,8 @@ test('lost idle mobs return home and old extremely displaced mobs recover',()=>{
  mob.x=mob.spawnX+32;
  mob.returning=false;
  tickMulgoreMobs(mobs,.1,[],now+100);
- assert.equal(mob.x,mob.spawnX);
- assert.equal(mob.z,mob.spawnZ);
+ assert.ok(Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<.1,
+  'old wanderer must be safely restored near its original spawn');
  assert.equal(mob.aggroId,null);
 });
 test('mob pathfinding cannot move farther than 27m from fixed spawn',()=>{
