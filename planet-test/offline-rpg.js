@@ -201,7 +201,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(state.level<(def.requiredLevel||1))return msg('Требуется '+def.requiredLevel+' уровень');
   if(!itemCount(id))return;
   const previous=state.equipment[def.slot]?.id;
-  if(previous&&state.inventory.length>=12&&itemCount(id)===1)return msg('Освободи место в сумке');
+  // Removing the new piece from inventory frees room for the old piece.
   if(!takeItem(id))return;
   if(previous)addItem(previous);
   const maxBefore=stats().maxHp;
@@ -302,7 +302,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   persist();draw();
  }
- function draw(){
+ function draw(refreshInteractive=true){
   const s=stats();state.hp=clamp(state.hp,0,s.maxHp);
   nameEl.textContent='Воин · '+state.level+' ур. · '+pretty(state.gold)+' 🪙';
   bars.innerHTML='<div class="rpgHp"><span style="width:'+clamp(state.hp/s.maxHp*100,0,100)+'%"></span><b>'+Math.ceil(state.hp)+' / '+s.maxHp+'</b></div>'
@@ -310,6 +310,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   objective.textContent=target?target.name+' · '+pretty(distance(target))+' м'+
     (target.kind==='mob'?' · '+Math.ceil(target.hp)+' HP'+(target.corpse?' · добыча':''):''):
     (state.quest==='active'?'Задание: долгоноги '+state.kills+'/3':state.quest==='ready'?'Вернись к наставнику':'Найди наставника у костра');
+  if(refreshInteractive){
   hotbar.replaceChildren();
   state.hotbar.forEach((entry,i)=>{
    const button=document.createElement('button');button.type='button';button.dataset.slot=String(i);
@@ -323,6 +324,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    hotbar.append(button);
   });
   if(!modal.hidden)renderModal();
+  }
+  // Don't destroy pressed buttons during each 200ms HUD refresh.
+  for(const [i,entry] of state.hotbar.entries()){
+   const button=hotbar.children[i];if(!button)continue;
+   const def=entry?getAbilityDefinition(entry.id):null;
+   button.classList.toggle('is-cooldown',!!def&&def.cooldown>0&&(runtime.cooldowns[def.id]||0)>0);
+   button.classList.toggle('is-active',entry?.id==='autoAttack'&&autoplay);
+  }
  }
  function renderModal(){
   const kind=modal.dataset.kind,title=modal.querySelector('h2'),body=modal.querySelector('.rpgModalBody');
@@ -465,7 +474,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    birdAnimation(mob,dt,moving,mob.aggro&&mob.attackCd>1.38);
   }
   updateTrainingTarget(dummy,clock);
-  if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw();
+  if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
  }
  let resetPosition=null;
  function onRespawn(fn){resetPosition=fn;}
