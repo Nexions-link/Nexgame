@@ -139,7 +139,7 @@ test('server exposes shield item id without sharing whole equipment or inventory
  const server=read('server/index.js'),game=read('game.js');
  assert.match(server,/shieldId:p\.equipment\?\.shield\?\.id\|\|null/);
  assert.match(server,/shield:!!p\.equipment\?\.shield/);
- assert.match(game,/applyShieldQuality\(THREE,root,shield\.rarity\)/);
+ assert.match(game,/applyShieldQuality\(THREE,root,rarity\)/);
  assert.match(game,/applyShieldQuality\(THREE,remote\.actor\.root,rarity\)/);
  assert.match(game,/void attachShieldAsset\(remote\.actor\.root,rarity\)/);
  assert.match(game,/disk\.name='shield-face'/);

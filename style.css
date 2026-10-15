@@ -1401,3 +1401,34 @@ input,textarea,select,[contenteditable="true"]{touch-action:auto!important}
 .loot-item[data-rarity="uncommon"]::after{content:"✧";position:absolute;right:7px;top:3px;color:#99eaa6;opacity:.6;pointer-events:none}
 @keyframes nex-rarity-twinkle{0%,100%{opacity:.45}50%{opacity:.9}}
 @media(prefers-reduced-motion:reduce){.loot-item[data-rarity="rare"]::after{animation:none}}
+
+/* Alpha 0.3.6.5: compact movable tuner with accessible 3-axis accordion */
+.axe-tuner{width:min(216px,calc(100vw - 20px));max-height:min(44dvh,380px);
+ top:calc(env(safe-area-inset-top) + 110px);background:rgba(26,29,25,.88);
+ border-radius:10px;box-shadow:0 4px 16px #0009;font-size:11px}
+.axe-tuner-header{padding:4px 6px;min-height:30px}
+.axe-tuner-header strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.axe-tuner-header-buttons{gap:3px;flex-shrink:0}
+.axe-tuner button{min-height:28px;font-size:11px;padding:2px 4px}
+.axe-tuner-header-buttons button{min-width:27px;font-size:15px}
+.axe-tuner-body{padding:5px 6px}
+.axe-tuner-body>p{display:none}
+.axe-tuner-section{margin:0 0 5px;padding:4px 5px}
+.axe-tuner-section h3{font-size:11px;line-height:1.2;margin:0;padding:4px 0;cursor:pointer}
+.axe-tuner-section h3::after{content:'▸';float:right}
+.axe-tuner-section.is-open h3::after{content:'▾'}
+.axe-tuner-section:not(.is-open) .axe-tuner-field{display:none}
+.axe-tuner-field{grid-template-columns:12px minmax(0,1fr) 42px;gap:4px;margin:4px 0}
+.axe-tuner-field input{height:24px}
+.axe-tuner-field output{font-size:10px}
+.axe-tuner-actions{gap:4px;margin-top:4px}
+.axe-tuner-actions button{padding:5px 3px}
+.axe-tuner [id$="TunerStatus"]{min-height:13px;margin-top:3px;font-size:10px}
+.axe-tuner textarea{width:100%;height:70px;box-sizing:border-box;font-size:10px}
+.shield-tuner-switch{display:flex;gap:4px;margin-bottom:6px}
+.shield-tuner-switch button{flex:1}
+.shield-tuner-switch button[aria-pressed="true"]{color:#ffe3a9;background:#68613f}
+@media(max-width:500px){
+ .axe-tuner{width:min(202px,calc(100vw - 20px));max-height:42dvh;
+ top:calc(env(safe-area-inset-top) + 105px)}
+}
