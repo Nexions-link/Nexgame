@@ -538,21 +538,34 @@ try {
     // The spherical tangent basis maps flat X -> East and flat Z -> -North.
     const input=screenMoveVector(horizontal, -forward, state.cameraHeading-Math.PI/2);
     let power=state.orbit?0:input.strength;
+    // Preserve manual camera-relative controls, but when idle allow the same
+    // short-range auto-approach to a combat target as in the original NexGame.
+    const approach=power<.11&&!state.orbit?rpg.getApproachTarget():null;
+    if(approach)power=1;
     if (power > 0) {
       tangentBasis(state.normal);
-      travel.copy(tangentEast).multiplyScalar(input.x)
-        .addScaledVector(tangentNorth,-input.z).normalize();
+      if(approach){
+        const desired=localToNormalAt(approach.x,approach.z,R);
+        travel.copy(desired).addScaledVector(state.normal,-desired.dot(state.normal)).normalize();
+      }else{
+        travel.copy(tangentEast).multiplyScalar(input.x)
+          .addScaledVector(tangentNorth,-input.z).normalize();
+      }
       const newHeading = Math.atan2(travel.dot(tangentNorth),travel.dot(tangentEast));
       const turn = angleDelta(newHeading,state.heading);
       state.heading += turn * Math.min(1, dt * 11);
       prevHeading = newHeading;
       axis.crossVectors(state.normal,travel).normalize();
-      const step = WALK_SPEED * dt * power;
+      const currentLocal=approach?normalToLocal(state.normal,R):null;
+      const remaining=approach?Math.hypot(approach.x-currentLocal.x,approach.z-currentLocal.z):Infinity;
+      const step = Math.max(0,Math.min(WALK_SPEED*dt*power,remaining-3.2));
       const nextNormal = state.normal.clone().applyAxisAngle(axis, step/R).normalize();
       const nextLocal = normalToLocal(nextNormal,R);
-      // Keep deep lake water non-walkable, as in the main game's current build.
+      // The automatic approach must obey the very same walkable surfaces
+      // and house collisions as the joystick.
       if((nextLocal.d<82 && lakeRadius(nextLocal.x,nextLocal.z)<.87)||
          (nextLocal.d<82 && !rpg.canMoveTo(nextLocal.x,nextLocal.z))) {
+        if(approach)rpg.stopAutoApproach();
         power=0;
       } else {
         const oldLon = Math.atan2(state.normal.x,state.normal.z);
@@ -561,7 +574,6 @@ try {
         state.lonUnwrapped += angleDelta(newLon,oldLon);
         state.meters += step;
       }
-      // Animated stride stops when the shoreline blocks movement.
       state.legCycle += dt * power * 9.1;
     } else {
       state.legCycle += dt * 1.1;
