@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js';
+import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=5';
 initStartZoneMath(THREE);
 
 // Isolated planet experiment: no imports, saves, WebSockets or assets from the main RPG.
@@ -78,7 +78,13 @@ try {
   const skyDay = new THREE.Color('#97c6d1');
   const skyNight = new THREE.Color('#101c32');
   scene.background = skyDay;
-  const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .1, 3800);
+  // Improved near/far clipping for mobile depth buffer precision.
+  const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .48, 1300);
+  function updateCameraClipping() {
+    camera.near = state.orbit ? 1.5 : .48;
+    camera.far = state.orbit ? Math.max(1700, R * 7) : Math.max(1050, R * 3.8);
+    camera.updateProjectionMatrix();
+  }
   const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'default'});
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.45));
   renderer.setSize(innerWidth, innerHeight);
@@ -342,6 +348,7 @@ try {
     stars.visible = state.orbit;
     atmosphere.visible = state.orbit;
     scene.background = state.orbit ? skyNight : skyDay;
+    updateCameraClipping();
     cameraSnap = true;
   });
   const zoomButton = $('zoomButton');
@@ -372,6 +379,7 @@ try {
     const length = TAU * R;
     const totalSeconds = Math.round(length / WALK_SPEED);
     const duration = Math.floor(totalSeconds / 60) + ':' + String(totalSeconds % 60).padStart(2,'0');
+    updateCameraClipping();
     for (const button of radiusButtons)
       button.setAttribute('aria-pressed', String(Number(button.dataset.radius) === R));
     worldMetrics.textContent = Math.round(length) + ' м по экватору · ' + duration + ' бегом';
