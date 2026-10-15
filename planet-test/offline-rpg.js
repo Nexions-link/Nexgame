@@ -137,7 +137,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const herbalist=npc('herbalist',8,1,'Травница Тихая Заря');
  const herbMarker=makeLabel('!'),herbTurnin=makeLabel('?');
  for(const [glyph,sprite] of [['!',herbMarker],['?',herbTurnin]]){
-  sprite.position.y=1.25;sprite.scale.set(1.6,1.7,1);
+  sprite.position.y=5.45;sprite.scale.set(1.6,1.7,1);
   sprite.userData.questMarker=true;sprite.userData.glyph=glyph;
   herbalist.root.add(sprite);
  }
@@ -151,8 +151,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const beak=new THREE.Mesh(new THREE.ConeGeometry(.18,.5,7),new THREE.MeshStandardMaterial({color:'#d5b16f'}));
   beak.rotation.x=Math.PI/2;beak.position.set(0,2.17,1.1);root.add(beak);
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
-  const entity={kind:'mob',index:i,name:'Долгоног',root,x,z,yaw:.1,
-   spawnX:x,spawnZ:z,hp:73,maxHp:73,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
+  const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
+   spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
    respawn:0,returning:false,walk:0,visual:null};
   root.add(makeLabel(entity.name));
   mobs.push(entity);entities.push(entity);setModelAt(entity);return entity;
