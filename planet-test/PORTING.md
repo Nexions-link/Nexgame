@@ -33,3 +33,9 @@ The **prototype** is currently a separate Three.js scene. It is NOT the complete
 Implemented in lightweight prototype: closed spherical mesh, radius selector (261 m default), radial player positioning, camp/lake layout and Tauren model snapshot, painted landscape texture, hide/canvas material, basic lake shore boundary, procedural foliage, and main game iOS gesture guards plus shared movement math.
 
 Not yet ported: main game HUD, quests, inventory/gear, combat, skillbook/hotbar, NPC interactions, server-authoritative mob system, real building collision and indoor transitions. Never describe these features as migrated unless tested on the actual spherical build.
+
+## Offline gameplay integration — stage 1 (2026-10-15)
+
+A first playable offline RPG layer has been integrated into the separate spherical test. It imports the unchanged production rules from `../items.js`, `../skills.js`, `../hotbar.js` and `../training.js`; uses the actual Tauren generator and Dolgonog GLB/animation clips and the existing weapon/shield GLBs. Player progress is namespaced under `nexgame-planet-test-offline-rpg-v1` and does not affect main saves. Prototype gameplay includes two NPCs (mentor and merchant), a three-kill Dolgonog quest, target selection, local wildlife chase/attack within the 23 m spawn leash, corpse looting and respawning, 12-slot bag, character gear and attributes, purchase, healing potions, 8-slot editable hotbar, a training dummy, and basic house/tent collision.
+
+**Still not ported:** the full production quest chains, interactive gathering and cast bar, all NPC dialogue, chest and party features, advanced animation/visual effects, advanced hit detection and camera collision, and the main game's exact full HUD. The present code is test-only and neither reads nor writes the live character save. Browser rendering has not yet been verified on the user's iPhone; static code checks and GitHub Pages builds alone are not proof of full functional parity.
