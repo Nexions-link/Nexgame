@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
+import {readPlanetView,writePlanetView} from './world-save.js?v=1';
 import {createOfflineRpg} from './offline-rpg.js?v=12';
 import {animateSphericalTauren} from './tauren-animation.js?v=1';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=11';
@@ -47,7 +48,8 @@ planetViewport.addEventListener('contextmenu',event=>event.preventDefault());
 // Isolated planet experiment: no imports, saves, WebSockets or assets from the main RPG.
 const BASE_RADIUS = START_RADIUS;
 const AVAILABLE_RADII = [87, 174, 261];
-let R = BASE_RADIUS;
+const previousWorld=readPlanetView(localStorage,AVAILABLE_RADII);
+let R = previousWorld?.radius??BASE_RADIUS;
 const WALK_SPEED = 4.05;
 const TAU = Math.PI * 2;
 const NAMES = ['Степь Рассвета', 'Шепчущий лес', 'Янтарные пустоши', 'Каменные высоты'];
@@ -275,7 +277,17 @@ try {
   relocateInstances();
   const hero=createTauren(THREE,scene);
   const actor=hero.root;
-  const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, orbitElevation: .34, orbitDistance: 3.22, legCycle: 0};
+  const state = {
+    normal:previousWorld?new THREE.Vector3(...previousWorld.normal):unitAt(0,0),
+    lonUnwrapped:previousWorld?.lonUnwrapped??0,meters:previousWorld?.meters??0,
+    heading:previousWorld?.heading??0,cameraHeading:previousWorld?.cameraHeading??0,
+    cameraPitch:previousWorld?.cameraPitch??.36,zoom:previousWorld?.zoom??13,
+    orbit:false,orbitAngle:previousWorld?.orbitAngle??.45,
+    orbitElevation:previousWorld?.orbitElevation??.34,
+    orbitDistance:previousWorld?.orbitDistance??3.22,legCycle:0
+  };
+  const saveWorld=()=>writePlanetView(localStorage,state,R);
+  let saveClock=0;
   const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:options=>createTauren(THREE,scene,options),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
    toLocal:normalToLocal,heightAt,camera,canvas});
@@ -310,7 +322,7 @@ try {
     state.normal.copy(unitAt(0, 0));
     state.lonUnwrapped = 0; state.meters = 0; state.heading = 0; state.cameraHeading = 0;
     state.cameraPitch = .36; state.legCycle = 0;
-    updateActor(); updateHUD(true);
+    updateActor(); updateHUD(true);saveWorld();
   }
   function updateHUD(force = false) {
     const completed = Math.floor(Math.abs(state.lonUnwrapped) / TAU);
@@ -398,13 +410,14 @@ try {
       updateZoomLabel();
     }
   });
-  function untrack(e) { touches.delete(e.pointerId); lastPinch = 0; }
+  function untrack(e) { touches.delete(e.pointerId); lastPinch = 0; saveWorld(); }
   canvas.addEventListener('pointerup', untrack);
   canvas.addEventListener('pointercancel', untrack);
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
     if (state.orbit) state.orbitDistance = clamp(state.orbitDistance + e.deltaY * .002, 1.6, 5.5);
     else {state.zoom = clamp(state.zoom + e.deltaY * .015, 6, 32); updateZoomLabel();}
+    saveWorld();
   }, {passive:false});
   const orbitButton = $('orbitButton');
   const minimapToggle = $('minimapFrame');
@@ -422,6 +435,7 @@ try {
     minimapToggle.title = state.orbit ? 'Вернуться к персонажу' : 'Вся планета';
     updateCameraClipping();
     cameraSnap = true;
+    saveWorld();
   });
   minimapToggle.addEventListener('click', () => orbitButton.click());
   minimapToggle.addEventListener('keydown', event => {
@@ -430,10 +444,20 @@ try {
     orbitButton.click();
   });
   const zoomButton = $('zoomButton');
-  function updateZoomLabel() {zoomButton.textContent = '🔭 Камера: ' + (state.zoom > 19 ? 'далеко' : 'близко');}
+  const cameraDistanceInput=$('cameraDistance'),cameraDistanceValue=$('cameraDistanceValue');
+  function updateZoomLabel(){
+    zoomButton.textContent='🔭 Камера: '+(state.zoom>19?'далеко':'близко');
+    if(cameraDistanceInput)cameraDistanceInput.value=String(state.zoom);
+    if(cameraDistanceValue)cameraDistanceValue.textContent=state.zoom.toFixed(1).replace('.',',')+' м';
+  }
+  cameraDistanceInput?.addEventListener('input',e=>{
+    state.zoom=clamp(Number(e.target.value)||13,6,32);
+    updateZoomLabel();saveWorld();
+  });
+  updateZoomLabel();
   zoomButton.addEventListener('click', () => {
     state.zoom = state.zoom > 19 ? 13 : 27;
-    updateZoomLabel();
+    updateZoomLabel();saveWorld();
   });
   $('resetButton').addEventListener('click', () => {doReset(); cameraSnap = true;});
 
@@ -454,6 +478,7 @@ try {
       stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
       doReset();
       cameraSnap = true;
+      saveWorld();
     }
     const length = TAU * R;
     const totalSeconds = Math.round(length / WALK_SPEED);
@@ -468,7 +493,9 @@ try {
   for (const button of radiusButtons)
     button.addEventListener('click', () => setRadius(Number(button.dataset.radius)));
   rpg.onRespawn(()=>{doReset();cameraSnap=true;});
-  setRadius(BASE_RADIUS);
+  setRadius(R);
+  if(previousWorld?.orbit)orbitButton.click();
+  saveWorld();
   stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
 
   // Original NexGame mini-map frame/canvas, now mapped to tangent metres on the sphere.
@@ -610,6 +637,8 @@ try {
     else camera.position.lerp(cameraGoal,1-Math.exp(-dt * (state.orbit&&touches.size===1?24:8.5)));
     camera.lookAt(focus);
     renderer.render(scene,camera);
+    saveClock+=dt;
+    if(saveClock>=.8){saveClock=0;saveWorld();}
     if (uiClock > .12) {uiClock = 0;updateHUD();}
   }
   function resize() {
@@ -618,7 +647,11 @@ try {
     camera.aspect = w/h;camera.updateProjectionMatrix();
   }
   addEventListener('resize',resize);
-  document.addEventListener('visibilitychange',()=>{clock.getDelta();});
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)saveWorld();
+    clock.getDelta();
+  });
+  window.addEventListener('pagehide',saveWorld);
   updateActor();
   updateHUD(true);
   animate();
