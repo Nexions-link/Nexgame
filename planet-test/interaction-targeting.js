@@ -25,7 +25,8 @@ export function cycleHostileTarget(mobs,dummy,current,dist,step=1){
  const nearby=mobs.concat(dummy?[dummy]:[]).map((entity,index)=>({entity,index,d:dist(entity)}))
   .filter(({entity,d})=>entity?.root?.visible&&entity.hp>0&&!entity.dead&&!entity.corpse&&
     Number.isFinite(d)&&d<=TARGET_ACQUISITION_RADIUS)
-  .sort((a,b)=>a.d-b.d||a.index-b.index).map(item=>item.entity);
+  .sort((a,b)=>Number(a.entity.kind==='dummy')-Number(b.entity.kind==='dummy')||a.d-b.d||a.index-b.index)
+  .map(item=>item.entity);
  if(!nearby.length)return null;
  const currentIndex=nearby.indexOf(current);
  if(currentIndex===-1)return nearby[0];
