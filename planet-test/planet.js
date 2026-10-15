@@ -1,7 +1,9 @@
 import * as THREE from 'three';
+import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,createStartZone,createTauren,initStartZoneMath} from './start-zone.js';
+initStartZoneMath(THREE);
 
 // Isolated planet experiment: no imports, saves, WebSockets or assets from the main RPG.
-const BASE_RADIUS = 87.0;
+const BASE_RADIUS = START_RADIUS;
 const AVAILABLE_RADII = [87, 174, 261];
 let R = BASE_RADIUS;
 const WALK_SPEED = 4.05;
@@ -36,7 +38,7 @@ function biomeWeights(lon) {
   const sum = w.reduce((a, b) => a + b, 0);
   return w.map(x => x / sum);
 }
-function heightAt(n) {
+function baseHeightAt(n) {
   const lon = Math.atan2(n.x, n.z);
   const b = biomeWeights(lon);
   const undulations = Math.sin(n.x * 21 + n.z * 7) * Math.cos(n.y * 27 - n.z * 18) * .58
@@ -47,6 +49,17 @@ function heightAt(n) {
   const ice = smooth(.78, .94, Math.abs(n.y)) * 2.5;
   return undulations + mountain + dunes + ice;
 }
+function heightAt(n) {
+  const local=normalToLocal(n,R),blend=1-smooth(68,85,local.d);
+  if(blend<=0)return baseHeightAt(n);
+  return baseHeightAt(n)*(1-blend)+startHeightAt(local.x,local.z)*blend;
+}
+// The dense starting-zone tile covers the fine shoreline and paths;
+// recess the coarse background sphere under it to prevent z-fighting.
+function backgroundHeightAt(n) {
+  const local=normalToLocal(n,R);
+  return heightAt(n)-(1-smooth(70,85,local.d))*3.4;
+}
 function colorAt(n, h) {
   const weights = biomeWeights(Math.atan2(n.x, n.z));
   const color = new THREE.Color(0x000000);
@@ -55,6 +68,8 @@ function colorAt(n, h) {
   color.offsetHSL(0, 0, grain - Math.max(0, h) * .002);
   const polar = smooth(.78, .98, Math.abs(n.y));
   if (polar > 0) color.lerp(new THREE.Color('#e5e5d6'), polar);
+  const local=normalToLocal(n,R),mix=1-smooth(69,85,local.d);
+  if(mix>0){const rgb=startColorAt(local.x,local.z);color.lerp(new THREE.Color(rgb[0],rgb[1],rgb[2]),mix);}
   return color;
 }
 
@@ -89,8 +104,8 @@ try {
   for (let i = 0; i < pos.count; i++) {
     n0.fromBufferAttribute(pos, i).normalize();
     groundDirections.set([n0.x, n0.y, n0.z], i * 3);
-    const h = heightAt(n0);
-    pos.setXYZ(i, n0.x * (R + h), n0.y * (R + h), n0.z * (R + h));
+    const h = heightAt(n0), backgroundElevation=backgroundHeightAt(n0);
+    pos.setXYZ(i, n0.x * (R + backgroundElevation), n0.y * (R + backgroundElevation), n0.z * (R + backgroundElevation));
     const c = colorAt(n0, h);
     colorData[i * 3] = c.r; colorData[i * 3 + 1] = c.g; colorData[i * 3 + 2] = c.b;
   }
@@ -104,7 +119,7 @@ try {
     for (let i = 0; i < pos.count; i++) {
       const j = i * 3;
       n0.set(groundDirections[j], groundDirections[j+1], groundDirections[j+2]);
-      const elevation = heightAt(n0), distance = R + elevation;
+      const elevation = backgroundHeightAt(n0), distance = R + elevation;
       pos.setXYZ(i, n0.x * distance, n0.y * distance, n0.z * distance);
     }
     pos.needsUpdate = true;
@@ -185,7 +200,9 @@ try {
         matrix.position.copy(normal).multiplyScalar(R+heightAt(normal)+centerY*p.scale);
         q.setFromUnitVectors(yAxis,normal);
         matrix.quaternion.copy(q).multiply(spin.setFromAxisAngle(yAxis,p.spin));
-        matrix.scale.set(dimensions[0]*p.scale,dimensions[1]*p.scale,dimensions[2]*p.scale);
+        const local=normalToLocal(normal,R);
+        if(local.d<84)matrix.scale.setScalar(.00001);
+        else matrix.scale.set(dimensions[0]*p.scale,dimensions[1]*p.scale,dimensions[2]*p.scale);
         matrix.updateMatrix();
         mesh.setMatrixAt(i,matrix.matrix);
       }
@@ -199,84 +216,12 @@ try {
   instances(cactusData, new THREE.CylinderGeometry(.33, .45, 2.5, 7), new THREE.MeshStandardMaterial({color: '#427761', roughness: 1}), 1.25, [1, 1, 1]);
   instances(flowerData, new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({color: '#ffffff', roughness: 1, flatShading: true}), .18, [.34, .32, .34], p => p.tint > .6 ? '#e7ca76' : '#acc485');
 
-  const material = c => new THREE.MeshStandardMaterial({color: c, roughness: 1, flatShading: true});
-  const matWood = material('#705039'), matCanvas = material('#c99761'), matRoof = material('#97644b');
-  const matFire = new THREE.MeshBasicMaterial({color: '#ffb357'});
-  function addShape(parent, geo, mat, x, y, z) {
-    const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z); parent.add(mesh); return mesh;
-  }
-  const localAnchors = [];
-  function setLocalAnchor(group, lon, lat) {
-    // Buildings retain their real-world dimensions AND their distances from
-    // each other instead of spreading apart when the globe is enlarged.
-    const n = unitAt(lon * BASE_RADIUS / R, lat * BASE_RADIUS / R);
-    group.position.copy(n).multiplyScalar(R + heightAt(n));
-    group.quaternion.setFromUnitVectors(yAxis, n);
-    localAnchors.push({group,lon,lat});
-    scene.add(group);
-    return group;
-  }
-  function relocateAnchors() {
-    const oldAlignment = new THREE.Quaternion(), localRotation = new THREE.Quaternion();
-    for (const {group,lon,lat} of localAnchors) {
-      // Preserve hut rotation around its own up axis.
-      oldAlignment.setFromUnitVectors(yAxis,group.position.clone().normalize());
-      localRotation.copy(oldAlignment).invert().multiply(group.quaternion);
-      const n=unitAt(lon*BASE_RADIUS/R,lat*BASE_RADIUS/R);
-      group.position.copy(n).multiplyScalar(R+heightAt(n));
-      group.quaternion.setFromUnitVectors(yAxis,n).multiply(localRotation);
-    }
-  }
-  // A tiny camp inspired by the role of our existing starting village;
-  // its geometry is entirely separate from the real game.
-  for (const [lon, lat, size] of [[-.045, .021, 1], [.047, .028, 1.15], [-.02, -.05, .88]]) {
-    const hut = setLocalAnchor(new THREE.Group(), lon, lat);
-    hut.rotateY(random() * TAU);
-    addShape(hut, new THREE.CylinderGeometry(2.0 * size, 2.25 * size, 1.5 * size, 9), matWood, 0, .75 * size, 0);
-    addShape(hut, new THREE.ConeGeometry(2.75 * size, 3.55 * size, 9), matCanvas, 0, 2.75 * size, 0);
-    addShape(hut, new THREE.BoxGeometry(.9 * size, 1.3 * size, .22), matRoof, 0, .73 * size, 2.08 * size);
-  }
-  const fire = setLocalAnchor(new THREE.Group(), .004, -.006);
-  addShape(fire, new THREE.CylinderGeometry(.92, 1.14, .22, 9), material('#4b4135'), 0, .12, 0);
-  const flame = addShape(fire, new THREE.ConeGeometry(.5, 1.6, 7), matFire, 0, .87, 0);
-  const fireLight = new THREE.PointLight('#ffa552', 1.35, 18);
-  fireLight.position.set(0, 1.7, 0); fire.add(fireLight);
-  const standard = setLocalAnchor(new THREE.Group(), -.002, -.025);
-  addShape(standard, new THREE.CylinderGeometry(.12, .17, 5.3, 7), matWood, 0, 2.65, 0);
-  const banner = addShape(standard, new THREE.PlaneGeometry(2.1, 2.45), material('#b06c48'), 1.1, 3.9, 0);
-  banner.material.side = THREE.DoubleSide;
-  const torches = [[.045, -.031], [-.047, -.018], [.002, .045]];
-  for (const [lon, lat] of torches) {
-    const t = setLocalAnchor(new THREE.Group(), lon, lat);
-    addShape(t, new THREE.CylinderGeometry(.10, .17, 3.4, 6), matWood, 0, 1.7, 0);
-    addShape(t, new THREE.ConeGeometry(.32, .9, 6), matFire, 0, 3.75, 0);
-  }
-
-  // Small original playable adventurer with radial gravity.
-  const actor = new THREE.Group();
-  const torso = addShape(actor, new THREE.CylinderGeometry(.58, .72, 1.45, 9), material('#85654c'), 0, 1.40, 0);
-  const cloak = addShape(actor, new THREE.ConeGeometry(.8, 1.65, 7), material('#3f6b67'), 0, .97, .34);
-  cloak.rotation.x = -.13;
-  addShape(actor, new THREE.SphereGeometry(.48, 12, 9), material('#a98969'), 0, 2.47, -.10);
-  const muzzle = addShape(actor, new THREE.SphereGeometry(.31, 10, 8), material('#bc9977'), 0, 2.31, -.48);
-  muzzle.scale.set(1.1, .63, 1);
-  const hornMat = material('#e1d3ad');
-  for (const s of [-1, 1]) {
-    const horn = addShape(actor, new THREE.ConeGeometry(.18, .82, 7), hornMat, s * .48, 2.83, -.08);
-    horn.rotation.z = s * .78;
-    addShape(actor, new THREE.SphereGeometry(.09, 6, 6), material('#281f1c'), s * .18, 2.50, -.50);
-  }
-  const limbs = [];
-  for (const s of [-1, 1]) {
-    const legPivot = new THREE.Group(); legPivot.position.set(s * .32, .89, 0); actor.add(legPivot);
-    addShape(legPivot, new THREE.CylinderGeometry(.2, .19, .89, 7), material('#4a3931'), 0, -.45, 0);
-    const hoof = addShape(legPivot, new THREE.BoxGeometry(.48, .29, .67), material('#282725'), 0, -.89, -.14);
-    limbs.push(legPivot);
-    const armPivot = new THREE.Group(); armPivot.position.set(s * .72, 1.98, 0); actor.add(armPivot);
-    addShape(armPivot, new THREE.CylinderGeometry(.18, .23, .91, 7), material('#967450'), 0, -.45, 0);
-    limbs.push(armPivot);
-  }
-  scene.add(actor);
+  // Detailed native camp, lake and authentic procedural Tauren are isolated in start-zone.js.
+  const startZone=createStartZone(THREE,scene,()=>R,heightAt);
+  relocateInstances();
+  const hero=createTauren(THREE,scene);
+  const actor=hero.root;
+  const limbs=[hero.legs[0].hip,hero.arms[0].shoulder,hero.legs[1].hip,hero.arms[1].shoulder];
   const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, legCycle: 0};
   let prevHeading = 0;
   const cameraGoal = new THREE.Vector3();
@@ -316,11 +261,10 @@ try {
     const percent = Math.floor((Math.abs(state.lonUnwrapped) / TAU - completed) * 100);
     progressEl.textContent = (completed > 0 && percent === 0 ? 100 : percent) + '%';
     distanceEl.textContent = Math.round(state.meters) + ' м · оборотов: ' + completed;
-    const b = sectorIndex(Math.atan2(state.normal.x, state.normal.z));
-    if (force || zoneName.textContent !== NAMES[b]) {
-      zoneName.textContent = NAMES[b];
-      zoneLabel.textContent = LABELS[b];
-    }
+    const b=sectorIndex(Math.atan2(state.normal.x,state.normal.z));
+    const local=normalToLocal(state.normal,R),inStartingZone=local.d<74;
+    const currentName=inStartingZone?'Стартовая зона NexGame':NAMES[b];
+    if(force||zoneName.textContent!==currentName){zoneName.textContent=currentName;zoneLabel.textContent=inStartingZone?'ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД':LABELS[b];}
     drawGlobe();
   }
 
@@ -419,7 +363,7 @@ try {
       R = nextRadius;
       reshapeGround();
       relocateInstances();
-      relocateAnchors();
+      startZone.rebuild();
       atmosphere.scale.setScalar((R + 12) / (BASE_RADIUS + 12));
       stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
       doReset();
@@ -501,12 +445,11 @@ try {
       state.legCycle += dt * 1.1;
     }
     updateActor();
-    limbs[0].rotation.x = Math.sin(state.legCycle) * power * .48;
-    limbs[2].rotation.x = -Math.sin(state.legCycle) * power * .48;
-    limbs[1].rotation.x = -Math.sin(state.legCycle) * power * .30;
-    limbs[3].rotation.x = Math.sin(state.legCycle) * power * .30;
-    flame.scale.y = 1 + .10*Math.sin(elapsed*9);
-    banner.rotation.y = Math.sin(elapsed*.9)*.13;
+    limbs[0].rotation.x = Math.sin(state.legCycle) * power * .34;
+    limbs[2].rotation.x = -Math.sin(state.legCycle) * power * .34;
+    limbs[1].rotation.x = -Math.sin(state.legCycle) * power * .19;
+    limbs[3].rotation.x = Math.sin(state.legCycle) * power * .19;
+    startZone.animate(elapsed);
 
     if (state.orbit) {
       state.orbitAngle += dt * .10;
