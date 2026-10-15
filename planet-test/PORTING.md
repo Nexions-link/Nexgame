@@ -51,3 +51,11 @@ Still missing: the full five-quest monster chain and boss, shared/server-authori
 Single animation authority: `planet-test/tauren-animation.js` operates on the copied Tauren rig's body/chest/neck/shoulder/elbow/hip/knee/foot/tail/braids nodes. It follows main-game harvesting body offset of 0.47 m, arm reach and two-link leg IK. The obsolete overwriting limb assignments in `planet.js` and `camp-actions.js` were removed. Existing GLB plainstriders now use the exact core animation blending from `../plainstrider-model.js`. NPC names use native Georgia bold stroked sprites (512x96 sRGB), and colour variants from the main NPC roster. Damage values use `sphere-combat-feedback.js`: the original CSS and timing, with radial up instead of a world-Y displacement.
 
 Tests: static JavaScript syntax, DOM dependencies, and a pure animated rig pose test for kneel and recovery. Browser/Safari visual testing is pending user confirmation.
+
+## PT 0.5.0 — native Narache adventure systems (2026-10-15)
+
+Completed the full five-trial mentor quest port from main `game.js` using a state machine 0–12 in `mentor-chain.js`: hunt three normal birds; gather ancestor feather at (35, -11.8); scout waypoint at (12, 37); hunt 108HP elite giant Dolgonog at (39, 47). The crimson quest route is an instanced spherical tangent-space geometry in `mentor-world.js` (29 dashes / 1 draw call); the original minimap displays the same guide. Former PT 0.4.x `quest` string values migrate without wiping the isolated `nexgame-planet-test-offline-rpg-v1` save.
+
+Returned native mentor quest glyphs, mobile three-tab quest journal and assignable 8-slot hotbar; added GPU-light radial ground shadows and idle animations to villagers, ambient roaming/alert visuals to normal birds. End-to-end pure quest-flow and geometry-construction mock tests passed. Browser/iPhone runtime validation is still pending.
+
+Still not present: connected online world (multiplayer parties/shared chest), full production class selection and non-warrior abilities, equipment and mob persistence across browsers, complete open-planet zone content and physics/obstacle system across the antipode, and gameplay outside the original Narache quest/harvest chains.
