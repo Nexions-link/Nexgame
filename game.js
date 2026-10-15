@@ -1,17 +1,18 @@
-import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.58';
-import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.58';
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.58';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.58';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.58';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.58';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.58';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.58';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.58';
+import {TARGET_ACQUISITION_RADIUS,targetsByProximity,nextTargetByProximity,targetIsInRange} from './target-selection.js?v=0.3.5.59';
+import {DAGGER_TUNER_DEFAULTS,DAGGER_TUNER_STORAGE_KEY,DAGGER_TUNER_GROUPS,DAGGER_TUNER_FIELDS,normalizeDaggerTuning,serializeDaggerTuning} from './dagger-tuner.js?v=0.3.5.59';
+import {WEAPON_KINDS,weaponSwingProfile,daggerThrustPose,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.59';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.59';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.59';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.59';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.59';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.59';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.59';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.59';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.58';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.58';
-import {projectPartyMember} from './party-map.js?v=0.3.5.58';
+import {createWorldPresence} from './online.js?v=0.3.5.59';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.59';
+import {projectPartyMember} from './party-map.js?v=0.3.5.59';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -2057,7 +2058,7 @@ function showCorpseLoot(e){
 }
 // One shared class/ability gateway for melee skills, area effects and consumables.
 function abilityContext(def,options={}){
- const living=isAliveTarget(selected);
+ const living=validTargetInRange(selected);
  let facing=false;
  if(living){
   const dx=selected.root.position.x-state.x,dz=selected.root.position.z-state.z;
@@ -2077,6 +2078,9 @@ function castAbility(id,options={}){
  const fromBag=options.fromBag===true;
  if(gatherCast||(modalKind&&!(id==='healingPotion'&&fromBag)))return false;
  if(id==='autoAttack')return attack();
+ if(def.requiresTarget&&selected&&!validTargetInRange(selected)){
+  clearTarget();return false;
+ }
  // A weapon swing or stomp cannot play two mutually incompatible animations.
  if((id==='heavyStrike'||id==='thunderStomp')&&(attackElapsed>=0||stompElapsed>=0)){
   combatWarning('Дождитесь окончания удара',true);return false;
@@ -2110,14 +2114,14 @@ function heal(fromBag=false){return castAbility('healingPotion',{fromBag})}
 function strike(){return castAbility('heavyStrike')}
 
 // Melee combat: select first, validate distance and facing, then animate.
-const MELEE_RANGE=3.45,TARGET_RANGE=35;
- let approach=null;
+const MELEE_RANGE=3.45,TARGET_RANGE=TARGET_ACQUISITION_RADIUS;
+let approach=null;
 function isAliveTarget(e){return !!e&&e.dead<=0&&e.hp>0&&enemies.includes(e)}
 function targetDistance(e){return Math.hypot(state.x-e.root.position.x,state.z-e.root.position.z)}
-function nearestEnemy(range=TARGET_RANGE){
- let best=null,dist=range;
- for(const e of enemies)if(isAliveTarget(e)){const d=targetDistance(e);if(d<dist){dist=d;best=e}}
- return best;
+function targetPosition(){return {x:state.x,z:state.z}}
+function validTargetInRange(e){return isAliveTarget(e)&&targetIsInRange(e,targetPosition())}
+function nearestEnemy(){
+ return targetsByProximity(enemies,targetPosition(),isAliveTarget)[0]||null;
 }
 function meleeFailure(e){
  if(!isAliveTarget(e))return 'Нет цели';
@@ -2137,24 +2141,24 @@ function clearTarget(){
  hideCombatWarning();updateHUD();
 }
 function setTarget(e){
- if(!isAliveTarget(e)){clearTarget();return}
+ // Tapping an out-of-range creature never changes the current target.
+ if(isAliveTarget(e)&&!validTargetInRange(e))return false;
+ if(!isAliveTarget(e)){clearTarget();return false}
  selectedPlayerId=null;
  renderAllySelection();
  if(selected!==e)approach=null;
- selected=e;hideCombatWarning();updateHUD();
+ selected=e;hideCombatWarning();updateHUD();return true;
 }
 function cycleTarget(step=1){
  if(modalKind)return;
- const candidates=enemies.filter(e=>isAliveTarget(e)&&targetDistance(e)<=TARGET_RANGE)
-   .sort((a,b)=>targetDistance(a)-targetDistance(b)||a.index-b.index);
- if(!candidates.length){combatWarning('Нет доступных целей',true);return}
- const current=candidates.indexOf(selected);
- const next=current<0?candidates[0]:candidates[(current+step+candidates.length)%candidates.length];
+ const next=nextTargetByProximity(enemies,selected,targetPosition(),isAliveTarget,step);
+ // Nothing in 40 m: no selection, approach, warning or popup.
+ if(!next)return;
  setTarget(next);
 }
 function tryAutoSwing(){
  if(!autoAttack||modalKind||gatherCast||stompElapsed>=0||attackElapsed>=0||attackCooldown>0)return false;
- if(!isAliveTarget(selected)){autoAttack=false;selected=null;swingTarget=null;updateHUD();return false}
+ if(!validTargetInRange(selected)){clearTarget();return false}
  const fail=abilityFailure(getAbilityDefinition('autoAttack'),abilityContext(getAbilityDefinition('autoAttack')));
  if(fail){combatWarning(fail);return false}
  attackElapsed=0;attackCooldown=playerStats().speed;attackLanded=false;swingTarget=selected;swingAbilityId='autoAttack';
@@ -2163,9 +2167,10 @@ function tryAutoSwing(){
 function attack(){
  if(modalKind||gatherCast)return false;
  if(autoAttack){autoAttack=false;approach=null;hideCombatWarning();updateHUD();return true}
- if(!isAliveTarget(selected)){
-  const e=nearestEnemy(TARGET_RANGE);
-  if(!e){combatWarning('Нет цели',true);return false}
+ if(!validTargetInRange(selected)){
+  if(selected)clearTarget();
+  const e=nearestEnemy();
+  if(!e)return false; // Beyond 40 metres there is no target and no action.
   setTarget(e);
  }
  if(targetDistance(selected)>20){combatWarning('Цель слишком далеко',true);return false}
@@ -3313,7 +3318,7 @@ $('qtitle').textContent=questLines[state.quest][0];$('qtext').textContent=state.
  const target=nearTarget();$('interact').hidden=Boolean(modalKind)||!!gatherCast||!target;
  if(target)$('interact').innerHTML=target.kind==='gather'?(target.node.pending?'Забрать <kbd>E</kbd>':'Собрать <kbd>E</kbd>'):
  target.kind==='corpse'?'Обыскать <kbd>E</kbd>':target.kind==='relic'?'Взять перо <kbd>E</kbd>':target.kind==='sharedChest'?'Открыть сундук <kbd>E</kbd>':'Поговорить <kbd>E</kbd>';
- const valid=isAliveTarget(selected);
+ const valid=validTargetInRange(selected);
  $('targetFrame').hidden=!valid;
  $('targetPlaceholder').hidden=valid||!!remotePlayers.get(selectedPlayerId);$('zoneTitle').hidden=Boolean(valid);
  const isDummy=valid&&selected.trainingDummy===true;
@@ -3420,7 +3425,7 @@ for(const e of enemies){if(e.dead<=0){
 function updateApproach(dt){
   if(!approach)return 0;
   const task=approach;
-  if(!isAliveTarget(task.target)||selected!==task.target||modalKind||gatherCast||state.hp<=0){approach=null;return 0}
+  if(!validTargetInRange(task.target)||selected!==task.target||modalKind||gatherCast||state.hp<=0){approach=null;return 0}
   const def=getAbilityDefinition(task.abilityId),range=def?.range||MELEE_RANGE,d=targetDistance(task.target);
   if(d>21){approach=null;if(task.abilityId==='autoAttack')autoAttack=false;combatWarning('Цель слишком далеко',true);return 0}
   if(d<=range-.2){approach=null;if(task.abilityId==='autoAttack')tryAutoSwing();else castAbility(task.abilityId);return 0}
@@ -3601,10 +3606,13 @@ function update(dt){
  if(state.quest===7&&Math.hypot(state.x-SCOUT_X,state.z-SCOUT_Z)<5.2){
   state.quest=8;save();msg('Следы исполина найдены! Вернись к наставнику.');
  }
- animateRemotePlayers(dt);updateWildlife(dt);if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
+ animateRemotePlayers(dt);updateWildlife(dt);
+ // Moving away or a mob leaving the 40-metre circle releases the target.
+ if(selected&&!validTargetInRange(selected))clearTarget();
+ if(gatherCast)updateGatherCast(dt);updateHealthRegen(dt);if(autoAttack&&!gatherCast)tryAutoSwing();animateTauren(mentor,clock+.7,dt);animateTauren(trader,clock+2.4,dt);animateTauren(armorer,clock+1.4,dt);
  lakeVisual.update(clock);
  fire.scale.set(1+Math.sin(clock*7)*.035,1+Math.sin(clock*9)*.1,1);questMarker.position.set(-1.5,heightAt(-1.5,-5)+5.18+Math.sin(clock*2)*.09,-5);herbalistMarker.position.set(8,heightAt(8,1)+5.65+Math.sin(clock*2.1)*.1,1);relic.rotation.y=clock*.45;relic.position.y=heightAt(35,-11.8)+1.3+Math.sin(clock*2)*.1;relicShadow.position.set(35,heightAt(35,-11.8)+.06,-11.8);
- selection.visible=isAliveTarget(selected);
+ selection.visible=validTargetInRange(selected);
  if(selection.visible){
   selection.position.set(selected.root.position.x,heightAt(selected.root.position.x,selected.root.position.z)+.06,selected.root.position.z);
   selection.material.color.setHex(meleeFailure(selected)?0xd97456:0xe9db84);
