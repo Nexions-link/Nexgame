@@ -23,7 +23,7 @@ import {animateSphericalTauren} from './tauren-animation.js?v=2';
 import {incomingShieldHit,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackProgress} from './sphere-combat.js?v=1';
 import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '../item-quality.js?v=0.3.7.1';
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
-import {canWalkCamp} from './sphere-physics.js?v=1';
+import {canWalkCamp} from './sphere-physics.js?v=2';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
