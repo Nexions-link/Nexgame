@@ -42,7 +42,7 @@ test('published atlas unifies creature and weapon collections, preserving legacy
  assert.match(atlas,/id="categories"/);
  assert.match(atlas,/id="entries"/);
  assert.match(atlas,/id="search"/);
- assert.match(atlas,/atlas\.js\?v=0\.2\.0/);
+ assert.match(atlas,/atlas\.js\?v=0\.2\.1/);
  assert.match(style,/@media\(max-width:900px\)/);
  assert.match(viewer,/GLTFLoader/);
  assert.match(viewer,/OrbitControls/);
