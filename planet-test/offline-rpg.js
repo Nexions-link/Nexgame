@@ -1,5 +1,6 @@
 // Offline spherical NexGame systems. Use the unchanged production rules for items,
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
+import {HOTBAR_ART,HOTBAR_SHORT} from './native-hotbar-art.js?v=1';
 import {ITEM_CATALOG,MERCHANT_STOCK,rollEquipmentLoot,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.17';
 import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,activateAbility,changeResource,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
@@ -344,10 +345,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const button=document.createElement('button');button.type='button';button.dataset.slot=String(i);
    button.className='ability';button.title=entry?.id||'Назначить умение';
    const key=document.createElement('kbd');key.textContent=String(i+1);
-   const icon=document.createElement('span');icon.className='planetAbilityIcon';icon.textContent=entry?ICON[entry.id]||'⚔️':'＋';
+   const icon=document.createElement('span');icon.className='planetAbilityIcon';if(entry&&HOTBAR_ART[entry.id])icon.innerHTML=HOTBAR_ART[entry.id];else icon.textContent='＋';
    const caption=document.createElement('span');caption.className='planetAbilityName';
    const entryDef=entry?actionDefinition(entry,'warrior',state.level):null;
-   caption.textContent=entryDef?.name||'Пусто';
+   caption.textContent=entry?HOTBAR_SHORT[entry.id]||entryDef?.name||'Умение':'Пусто';
    button.append(key,icon,caption);
    button.classList.toggle('is-empty',!entry);
    if(entry?.id==='autoAttack'&&autoplay)button.classList.add('is-active');
@@ -466,7 +467,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const abilities=availableHotbarActions('warrior',state.level);
    for(const info of [...abilities.abilities,...abilities.items]){
      const btn=document.createElement('button');btn.type='button';btn.className='spellbook-entry';
-     const icon=document.createElement('span');icon.className='spellbook-entry-icon';icon.textContent=ICON[info.id]||'✨';
+     const icon=document.createElement('span');icon.className='spellbook-entry-icon';if(HOTBAR_ART[info.id])icon.innerHTML=HOTBAR_ART[info.id];else icon.textContent=ICON[info.id]||'✨';
      const block=document.createElement('span');block.className='spellbook-entry-content';
      const title=document.createElement('span');title.className='spellbook-entry-title';title.textContent=info.name;
      const detail=document.createElement('span');detail.className='spellbook-entry-desc';detail.textContent=info.description;
