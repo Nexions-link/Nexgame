@@ -1,0 +1,438 @@
+// Offline spherical NexGame systems. Use the unchanged production rules for items,
+// abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
+import {ITEM_CATALOG,MERCHANT_STOCK,rollEquipmentLoot,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.17';
+import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,activateAbility,changeResource,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT} from '../skills.js?v=0.3.5';
+import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
+import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
+import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf} from '../plainstrider-model.js?v=0.3.7.0';
+
+const UP_AXIS=[0,1,0], TAU=Math.PI*2;
+const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
+const SAVE_KEY='nexgame-planet-test-offline-rpg-v1';
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const pretty=num=>Number(num).toLocaleString('ru-RU',{maximumFractionDigits:1});
+const LABEL={weapon:'Оружие',shield:'Щит',head:'Голова',chest:'Грудь',legs:'Ноги',hands:'Руки',waist:'Пояс',wrists:'Запястья',feet:'Ступни'};
+const EQUIP_SLOTS=['weapon','shield','head','chest','legs','hands','waist','wrists','feet'];
+const ICON={autoAttack:'⚔️',thunderStomp:'💥',heavyStrike:'🪓',healingPotion:'🧪'};
+const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:'available',hotbar:DEFAULT_HOTBAR});
+function restore(){
+ try {
+  const raw=JSON.parse(localStorage.getItem(SAVE_KEY));
+  if(!raw||typeof raw!=='object')return initial();
+  const safe=initial();
+  safe.level=clamp(Math.floor(Number(raw.level)||1),1,30);
+  safe.xp=clamp(Math.floor(Number(raw.xp)||0),0,999999);
+  safe.gold=clamp(Math.floor(Number(raw.gold)||0),0,999999);
+  safe.resource=clamp(Number(raw.resource)||0,0,100);
+  safe.hp=raw.hp==null?null:Math.max(1,Number(raw.hp)||1);
+  safe.kills=clamp(Math.floor(Number(raw.kills)||0),0,3);
+  safe.quest=['available','active','ready','completed'].includes(raw.quest)?raw.quest:'available';
+  safe.inventory=Array.isArray(raw.inventory)?raw.inventory.slice(0,12).filter(x=>x&&
+   (ITEM_CATALOG[x.id]||x.id==='healingPotion')&&Number.isFinite(x.qty)&&x.qty>0).map(x=>({id:x.id,qty:Math.min(itemStackLimit(x.id),Math.floor(x.qty))})):safe.inventory;
+  safe.equipment={};
+  for(const slot of EQUIP_SLOTS){const id=raw.equipment?.[slot]?.id;if(ITEM_CATALOG[id]?.slot===slot)safe.equipment[slot]={id};}
+  safe.hotbar=normalizeHotbar(raw.hotbar,'warrior',safe.level);
+  return safe;
+ }catch{return initial();}
+}
+export function createOfflineRpg({THREE,scene,hero,playerNormal,getRadius,toNormal,toLocal,heightAt,camera,canvas}){
+ const state=restore(),runtime=createAbilityRuntime();
+ let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1;
+ const group=new THREE.Group();scene.add(group);
+ const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
+ const mobs=[],entities=[];
+ const hud=$('rpgHud'),actions=$('rpgActions'),hotbar=$('rpgHotbar'),modal=$('rpgModal'),toast=$('rpgToast');
+ if(!hud||!actions||!hotbar||!modal||!toast)throw Error('Отсутствует интерфейс RPG');
+ const nameEl=$('rpgName'),bars=$('rpgBars'),objective=$('rpgObjective');
+ const bind=(el,ev,fn)=>el.addEventListener(ev,fn);
+ const stats=()=>deriveStats(state.level,state.equipment);
+ if(state.hp==null)state.hp=stats().maxHp;
+ function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch{}}
+ function msg(text,seconds=3){toast.textContent=text;toast.hidden=false;messageUntil=clock+seconds;}
+ function setModelAt(entity){
+  const normal=toNormal(entity.x,entity.z,getRadius());
+  entity.root.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.09);
+  anchorQuat.setFromUnitVectors(up,normal);
+  entity.root.quaternion.copy(anchorQuat).multiply(spinQuat.setFromAxisAngle(up,entity.yaw||0));
+ }
+ function makeLabel(name){
+  const canvasLabel=document.createElement('canvas');canvasLabel.width=512;canvasLabel.height=84;
+  const c=canvasLabel.getContext('2d');c.fillStyle='rgba(14,30,26,.70)';c.fillRect(0,13,512,60);
+  c.fillStyle='#ffebbc';c.font='bold 29px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText(name.slice(0,27),256,44);
+  const texture=new THREE.CanvasTexture(canvasLabel);
+  const mat=new THREE.SpriteMaterial({map:texture,depthWrite:false,transparent:true});
+  const sprite=new THREE.Sprite(mat);sprite.position.y=4.5;sprite.scale.set(6,1.05,1);
+  return sprite;
+ }
+ function npc(kind,x,z,name){
+  const root=new THREE.Group();root.name='planet-'+kind;group.add(root);
+  // Physical original Tauren character silhouettes are used for the camp NPCs.
+  // Their meshes come from the same source generator as the main hero.
+  const skin=new THREE.MeshStandardMaterial({color:kind==='mentor'?0xa88a65:0x8b795d,roughness:1});
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.75,.62,1.75,10),skin);body.position.y=1.65;root.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.48,12,9),skin);head.position.y=2.75;root.add(head);
+  const horn=new THREE.MeshStandardMaterial({color:'#e6d9b7'});
+  for(const s of [-1,1]){const piece=new THREE.Mesh(new THREE.ConeGeometry(.16,.68,8),horn);piece.position.set(s*.49,3.02,0);piece.rotation.z=s*.8;root.add(piece);}
+  const clothing=new THREE.Mesh(new THREE.ConeGeometry(.86,1.35,8),new THREE.MeshStandardMaterial({color:kind==='mentor'?'#48736a':'#805338'}));clothing.position.y=1.05;root.add(clothing);
+  root.add(makeLabel(name));
+  const e={kind,name,x,z,yaw:.2,root,radius:1.5};entities.push(e);setModelAt(e);return e;
+ }
+ npc('mentor',-1.5,-5,'Наставник Каменный Рог');
+ npc('vendor',6,11,'Борун Крепкая Ладонь');
+ function createBird(x,z,i){
+  const root=new THREE.Group();group.add(root);
+  const mat=new THREE.MeshStandardMaterial({color:i%2?'#917044':'#826649',roughness:1});
+  const body=new THREE.Mesh(new THREE.SphereGeometry(1,12,9),mat);
+  body.scale.set(.58,.48,.8);body.position.y=1.25;root.add(body);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.13,.19,.9,7),mat);neck.position.set(0,1.83,.57);neck.rotation.x=.45;root.add(neck);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.28,9,7),mat);head.position.set(0,2.25,.74);root.add(head);
+  const beak=new THREE.Mesh(new THREE.ConeGeometry(.18,.5,7),new THREE.MeshStandardMaterial({color:'#d5b16f'}));
+  beak.rotation.x=Math.PI/2;beak.position.set(0,2.17,1.1);root.add(beak);
+  for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
+  const entity={kind:'mob',index:i,name:'Долгоног',root,x,z,yaw:.1,
+   spawnX:x,spawnZ:z,hp:73,maxHp:73,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
+   respawn:0,returning:false,walk:0,visual:null};
+  root.add(makeLabel(entity.name));
+  mobs.push(entity);entities.push(entity);setModelAt(entity);return entity;
+ }
+ SPAWNS.forEach(([x,z],i)=>createBird(x,z,i));
+ const dummyRoot=new THREE.Group();group.add(dummyRoot);
+ const straw=new THREE.MeshStandardMaterial({color:'#bb9665',roughness:1});
+ const dummyBody=new THREE.Mesh(new THREE.CylinderGeometry(.56,.63,2.2,12),straw);
+ dummyBody.position.y=1.45;dummyRoot.add(dummyBody);
+ for(const s of [-1,1]){const arm=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,1.65,8),straw);arm.rotation.z=Math.PI/2;arm.position.set(s*.7,2.2,0);dummyRoot.add(arm);}
+ dummyRoot.add(makeLabel(TRAINING_DUMMY.name));
+ const dummy={kind:'dummy',name:TRAINING_DUMMY.name,root:dummyRoot,x:TRAINING_DUMMY.x,z:TRAINING_DUMMY.z,
+  yaw:0,trainingDummy:true,maxHp:TRAINING_DUMMY.maxHp,hp:TRAINING_DUMMY.maxHp,trainingStats:createTrainingStats()};
+ entities.push(dummy);setModelAt(dummy);
+ // Use the exact approved longstrider model and clips when the shared GLB loads.
+ // Procedural fallback remains available if the CDN or asset fails.
+ void (async()=>{
+  try{
+   const [{GLTFLoader},gltf]=await Promise.all([
+    import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js'),
+    Promise.resolve(null)]);
+   const asset=await new GLTFLoader().loadAsync('../bestiary/models/dolgonog-v0.1.glb?v=0.3.5.43');
+   if(!validatePlainstriderGltf(asset))throw Error('Unexpected Dolgonog clips');
+   for(const mob of mobs){
+    const model=asset.scene.clone(true);model.scale.setScalar(.6);mob.root.add(model);
+    for(const child of [...mob.root.children])if(child.isMesh)child.visible=false;
+    const mixer=new THREE.AnimationMixer(model);
+    const anim=Object.fromEntries(PLAINSTRIDER_REQUIRED_CLIPS.map(k=>[k,mixer.clipAction(asset.animations.find(a=>a.name===k))]));
+    anim.Idle.play();mob.visual={mixer,anim,mode:'Idle'};
+   }
+  }catch(err){console.warn('Planet offline Dolgonog fallback:',err);}
+ })();
+ function birdAnimation(mob,dt,moving=false,peck=false){
+  if(!mob.visual)return;
+  const {mixer,anim}=mob.visual,desired=peck?'Peck':moving?'Walk':'Idle';
+  if(mob.visual.mode!==desired){
+   anim[mob.visual.mode]?.fadeOut(.18);
+   const act=anim[desired];act.reset();
+   if(desired==='Peck'){act.setLoop(THREE.LoopOnce,1);act.clampWhenFinished=true;}
+   else{act.setLoop(THREE.LoopRepeat,Infinity);act.clampWhenFinished=false;}
+   act.fadeIn(.18).play();mob.visual.mode=desired;
+  }
+  mixer.update(dt);
+ }
+ function player(){return toLocal(playerNormal(),getRadius());}
+ function distance(entity){const p=player();return Math.hypot(p.x-entity.x,p.z-entity.z);}
+ function addItem(id,qty=1){
+  if(!ITEM_CATALOG[id]&&id!=='healingPotion')return false;
+  const cap=itemStackLimit(id);
+  let left=qty;
+  for(const slot of state.inventory){if(slot.id===id&&slot.qty<cap){const n=Math.min(left,cap-slot.qty);slot.qty+=n;left-=n;}}
+  while(left>0&&state.inventory.length<12){const n=Math.min(left,cap);state.inventory.push({id,qty:n});left-=n;}
+  persist();return left===0;
+ }
+ function takeItem(id,qty=1){
+  let remaining=qty;
+  for(let i=state.inventory.length-1;i>=0&&remaining>0;i--){
+   const item=state.inventory[i];if(item.id!==id)continue;
+   const n=Math.min(remaining,item.qty);item.qty-=n;remaining-=n;
+   if(!item.qty)state.inventory.splice(i,1);
+  }
+  if(remaining===0)persist();return remaining===0;
+ }
+ const itemCount=id=>state.inventory.filter(x=>x.id===id).reduce((sum,x)=>sum+x.qty,0);
+ function equip(id){
+  const def=ITEM_CATALOG[id];if(!def?.slot||!LABEL[def.slot])return msg('Предмет нельзя экипировать');
+  if(state.level<(def.requiredLevel||1))return msg('Требуется '+def.requiredLevel+' уровень');
+  if(!itemCount(id))return;
+  const previous=state.equipment[def.slot]?.id;
+  if(previous&&state.inventory.length>=12&&itemCount(id)===1)return msg('Освободи место в сумке');
+  if(!takeItem(id))return;
+  if(previous)addItem(previous);
+  const maxBefore=stats().maxHp;
+  state.equipment[def.slot]={id};
+  state.hp=Math.min(stats().maxHp,state.hp+Math.max(0,stats().maxHp-maxBefore));
+  persist();draw();msg('Надето: '+def.name);
+ }
+ function lootMob(mob){
+  if(!mob?.corpse||!mob.loot)return;
+  const remaining=[];
+  for(const item of mob.loot){if(addItem(item.id,item.qty)){msg('Получено: '+(ITEM_CATALOG[item.id]?.name||item.id));}
+   else remaining.push(item);}
+  mob.loot=remaining;
+  if(!remaining.length){mob.corpse=false;mob.root.visible=false;mob.respawn=12;target=null;}
+  draw();
+ }
+ function targetEntity(entity){
+  if(entity?.kind==='mob'&&entity.dead&&!entity.corpse)return;
+  target=entity;
+  draw();
+ }
+ function targetNearest(){
+  const nearest=entities.filter(x=>x.root.visible&&!(x.kind==='mob'&&x.dead&&!x.corpse))
+   .map(x=>({entity:x,d:distance(x)})).filter(x=>x.d<18).sort((a,b)=>a.d-b.d)[0];
+  if(nearest){targetEntity(nearest.entity);msg('Цель: '+nearest.entity.name);}
+  else msg('Рядом никого нет');
+ }
+ function openWindow(kind){
+  modal.hidden=false;modal.dataset.kind=kind;renderModal();
+ }
+ function closeWindow(){modal.hidden=true;}
+ function interact(){
+  if(!target)return targetNearest();
+  if(distance(target)>4.5)return msg('Подойди ближе к цели');
+  if(target.kind==='mentor'){
+   if(state.quest==='available'){state.quest='active';persist();msg('Задание: победить 3 долгоногов');}
+   else if(state.quest==='ready'){
+    state.quest='completed';state.gold+=10;state.xp+=45;persist();levelCheck();msg('Задание выполнено! +10 монет, +45 опыта');
+   }else msg(state.quest==='active'?'Победи долгоногов: '+state.kills+'/3':'Спасибо за помощь!');
+   openWindow('quests');
+  }else if(target.kind==='vendor')openWindow('merchant');
+  else if(target.kind==='mob'&&target.corpse)lootMob(target);
+  else if(target.kind==='dummy')msg('Тренировочный манекен: бей для проверки урона');
+  else msg('Используй способности на панели');
+  draw();
+ }
+ function levelCheck(){
+  while(state.xp>=state.level*100){
+   state.xp-=state.level*100;state.level++;
+   const oldMax=stats().maxHp;state.hp=oldMax;msg('Новый уровень: '+state.level+'!');
+  }
+  state.hotbar=normalizeHotbar(state.hotbar,'warrior',state.level);persist();
+ }
+ function harm(enemy,damage,skill='autoAttack'){
+  if(!enemy||!enemy.root.visible)return;
+  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);msg('Манекен: '+Math.round(damage)+' урона',1.2);draw();return;}
+  if(enemy.kind!=='mob'||enemy.dead)return;
+  enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;
+  state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
+  if(enemy.hp===0){
+   enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;autoplay=false;
+   enemy.loot=[{id:'feather',qty:1}];
+   if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
+   const gear=rollEquipmentLoot(false);if(gear)enemy.loot.push(gear);
+   state.xp+=12;state.gold+=2;levelCheck();
+   if(state.quest==='active'){state.kills=Math.min(3,state.kills+1);if(state.kills===3)state.quest='ready';}
+   msg('Долгоног повержен · нажми «Взаимодействие» для добычи');
+   persist();
+  }
+  draw();
+ }
+ function hitEnemy(enemy,bonus=0,skill='autoAttack'){
+  if(!enemy||!['mob','dummy'].includes(enemy.kind)||enemy.dead)return msg('Нет подходящей цели');
+  if(distance(enemy)>3.45)return msg('Цель слишком далеко');
+  const s=stats(),damage=s.damageMin+Math.random()*(s.damageMax-s.damageMin)+bonus;
+  harm(enemy,damage,skill);
+ }
+ function useAbility(slot){
+  const entry=state.hotbar[slot],action=actionDefinition(entry,'warrior',state.level);
+  if(!action)return msg('Пустая ячейка');
+  const def=getAbilityDefinition(action.abilityId),d=target?distance(target):Infinity;
+  if(action.id==='autoAttack'){
+   if(!target||!['mob','dummy'].includes(target.kind)||target.dead)return msg('Сначала выбери противника');
+   autoplay=!autoplay;swing=0;msg(autoplay?'Автоатака включена':'Автоатака выключена');draw();return;
+  }
+  const ctx={runtime,classId:'warrior',level:state.level,resource:state.resource,
+   hasTarget:!!target&&['mob','dummy'].includes(target.kind)&&!target.dead,range:d,facing:true,
+   hasConsumable:itemCount('healingPotion')>0,needsHealing:state.hp<stats().maxHp};
+  const result=activateAbility(def,ctx);
+  if(!result.ok)return msg(result.error);
+  state.resource=result.resource;
+  if(action.id==='healingPotion'){takeItem('healingPotion');state.hp=Math.min(stats().maxHp,state.hp+55);msg('Здоровье восстановлено');}
+  else if(action.id==='heavyStrike')hitEnemy(target,def.damageBonus||8,action.id);
+  else if(action.id==='thunderStomp'){
+   let hits=0;for(const mob of mobs)if(!mob.dead&&distance(mob)<4.5){mob.stun=2.5;harm(mob,6,action.id);hits++;}
+   msg('Громовая поступь: '+hits+' целей');
+  }
+  persist();draw();
+ }
+ function draw(){
+  const s=stats();state.hp=clamp(state.hp,0,s.maxHp);
+  nameEl.textContent='Воин · '+state.level+' ур. · '+pretty(state.gold)+' 🪙';
+  bars.innerHTML='<div class="rpgHp"><span style="width:'+clamp(state.hp/s.maxHp*100,0,100)+'%"></span><b>'+Math.ceil(state.hp)+' / '+s.maxHp+'</b></div>'
+   +'<div class="rpgRage"><span style="width:'+state.resource+'%"></span><b>Ярость '+Math.floor(state.resource)+'/100</b></div>';
+  objective.textContent=target?target.name+' · '+pretty(distance(target))+' м'+
+    (target.kind==='mob'?' · '+Math.ceil(target.hp)+' HP'+(target.corpse?' · добыча':''):''):
+    (state.quest==='active'?'Задание: долгоноги '+state.kills+'/3':state.quest==='ready'?'Вернись к наставнику':'Найди наставника у костра');
+  hotbar.replaceChildren();
+  state.hotbar.forEach((entry,i)=>{
+   const button=document.createElement('button');button.type='button';button.dataset.slot=String(i);
+   button.className='rpgSlot';button.title=entry?.id||'Назначить умение';
+   button.textContent=(entry?ICON[entry.id]||'⚔️':'＋');
+   const n=document.createElement('span');n.textContent=String(i+1);button.append(n);
+   if(entry?.id==='autoAttack'&&autoplay)button.classList.add('is-active');
+   const ability=entry?getAbilityDefinition(entry.id==='healingPotion'?'healingPotion':entry.id):null;
+   if(ability?.cooldown&&runtime.cooldowns[ability.id]>0)button.classList.add('is-cooldown');
+   button.addEventListener('click',()=>{if(chooseSlot>=0){chooseSlot=i;openWindow('spells');}else useAbility(i)});
+   hotbar.append(button);
+  });
+  if(!modal.hidden)renderModal();
+ }
+ function renderModal(){
+  const kind=modal.dataset.kind,title=modal.querySelector('h2'),body=modal.querySelector('.rpgModalBody');
+  title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
+   merchant:'Торговец',spells:'Книга способностей',loot:'Добыча'})[kind]||'NexGame';
+  body.replaceChildren();
+  const line=(label,caption,actions=[])=>{
+   const row=document.createElement('div');row.className='rpgRow';
+   const name=document.createElement('div');name.innerHTML='<strong></strong><small></small>';
+   name.querySelector('strong').textContent=label;name.querySelector('small').textContent=caption;
+   row.append(name);for(const [caption,fn] of actions){const b=document.createElement('button');b.type='button';b.textContent=caption;b.addEventListener('click',fn);row.append(b);}
+   body.append(row);
+  };
+  if(kind==='bag'){
+   line('Сумка: '+state.inventory.length+'/12','Нажми «Надеть», чтобы экипировать снаряжение');
+   for(const item of state.inventory){
+    const def=ITEM_CATALOG[item.id],slot=def?.slot;
+    line((def?.icon||'🧪')+' '+(def?.name||'Лечебный настой')+' ×'+item.qty,def?.description||'Восстанавливает здоровье',
+     slot?[['Надеть',()=>equip(item.id)]]:[['Удалить',()=>{takeItem(item.id,1);draw();}]]);
+   }
+  }else if(kind==='character'){
+   const s=stats();line('Таурен · Воин · '+state.level+' уровень','Опыт: '+state.xp+'/'+state.level*100+' · Монеты: '+state.gold);
+   line('Характеристики','Сила '+s.strength+' · Выносливость '+s.stamina+' · Броня '+s.armor+' · Урон '+pretty(s.damageMin)+'–'+pretty(s.damageMax));
+   for(const slot of EQUIP_SLOTS){const id=state.equipment[slot]?.id;
+    line(LABEL[slot],id?(ITEM_CATALOG[id].name):'Не экипировано',
+     id?[['Снять',()=>{if(state.inventory.length>=12)return msg('Сумка заполнена');
+      addItem(id);delete state.equipment[slot];state.hp=Math.min(state.hp,stats().maxHp);persist();draw();}]]:[]);
+   }
+  }else if(kind==='quests'){
+   const summary=state.quest==='available'?'Доступно: поговори с Наставником Каменным Рогом':
+    state.quest==='active'?'Убито долгоногов: '+state.kills+'/3':
+    state.quest==='ready'?'Готово: вернись к Наставнику Каменному Рогу':'Выполнено!';
+   line('Испытание охотника','Победи 3 долгоногов. '+summary);
+   line('Награда','45 опыта и 10 монет');
+  }else if(kind==='merchant'){
+   line('Борун Крепкая Ладонь','Твои монеты: '+pretty(state.gold));
+   for(const id of MERCHANT_STOCK){const item=ITEM_CATALOG[id];if(!item?.buy)continue;
+    line((item.icon||'📦')+' '+item.name,item.buy+' монет · '+LABEL[item.slot],
+      [['Купить',()=>{if(state.gold<item.buy)return msg('Недостаточно монет');
+       if(!addItem(id))return msg('Сумка заполнена');
+       state.gold-=item.buy;persist();draw();msg('Куплено: '+item.name);}]]);}
+  }else if(kind==='spells'){
+   const actions=availableHotbarActions('warrior',state.level);
+   line('Выбор действия','Сначала нажми ячейку панели, затем выбери способность');
+   for(const info of [...actions.abilities,...actions.items])
+    line((ICON[info.id]||'✨')+' '+info.name,info.description,[['Назначить',()=>{
+     const slot=chooseSlot>=0?chooseSlot:state.hotbar.findIndex(x=>x===null);
+     if(slot<0)return msg('Сначала выбери ячейку на панели');
+     state.hotbar=assignHotbarSlot(state.hotbar,slot,{kind:info.kind,id:info.id},'warrior',state.level);
+     chooseSlot=-1;persist();draw();msg('Способность помещена в ячейку '+(slot+1));}]]);
+   line('Очистить ячейку','Выбери слот, затем очисти его',[['Очистить',()=>{
+    if(chooseSlot<0)return msg('Сначала выбери ячейку');
+    state.hotbar=assignHotbarSlot(state.hotbar,chooseSlot,null,'warrior',state.level);
+    chooseSlot=-1;persist();draw();}]]);
+  }
+ }
+ const actionButtons=[
+  ['target','🎯','Ближайшая цель',targetNearest],
+  ['interact','✋','Взаимодействие',interact],
+  ['bag','🎒','Рюкзак',()=>openWindow('bag')],
+  ['character','👤','Персонаж',()=>openWindow('character')],
+  ['quests','📜','Задания',()=>openWindow('quests')],
+  ['spells','✨','Умения',()=>{chooseSlot=-1;openWindow('spells')}]
+ ];
+ for(const [id,icon,desc,fn] of actionButtons){
+  const btn=document.createElement('button');btn.type='button';btn.textContent=icon;btn.title=desc;
+  btn.setAttribute('aria-label',desc);btn.dataset.action=id;btn.addEventListener('click',fn);actions.append(btn);
+ }
+ bind(modal.querySelector('.rpgClose'),'click',()=>{chooseSlot=-1;closeWindow()});
+ // Tap actors by their actual Three.js shapes; ordinary terrain taps clear selection.
+ const picker=new THREE.Raycaster(),startPointer=new Map();
+ canvas.addEventListener('pointerdown',e=>{startPointer.set(e.pointerId,{x:e.clientX,y:e.clientY});});
+ canvas.addEventListener('pointercancel',e=>startPointer.delete(e.pointerId));
+ canvas.addEventListener('pointerup',e=>{
+  const start=startPointer.get(e.pointerId);startPointer.delete(e.pointerId);
+  if(!start||Math.hypot(e.clientX-start.x,e.clientY-start.y)>14)return;
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.clientX-rect.left)/rect.width*2-1,y=-((e.clientY-rect.top)/rect.height*2-1);
+  picker.setFromCamera(new THREE.Vector2(x,y),camera);
+  const visible=entities.filter(o=>o.root.visible&&!(o.kind==='mob'&&o.dead&&!o.corpse));
+  const roots=visible.map(o=>o.root);
+  const intersects=picker.intersectObjects(roots,true);
+  const hit=intersects.find(v=>v.distance<100)?.object;
+  const selected=hit?visible.find(o=>{let p=hit;while(p){if(p===o.root)return true;p=p.parent;}return false;}):null;
+  targetEntity(selected||null);
+ });
+ function resetWorldTransforms(){for(const e of entities)setModelAt(e);draw();}
+ function canMoveTo(x,z){
+  const near=entities.filter(e=>e.kind==='mentor'||e.kind==='vendor').some(e=>Math.hypot(x-e.x,z-e.z)<.8);
+  if(near)return false;
+  for(const [tx,tz,r] of [[11,-7,3.6],[-15,12,3.3],[13,16,2.9],[-23,-15,2.6]])
+   if(Math.hypot(x-tx,z-tz)<r)return false;
+  // Exact main house orientation is PI/2. Allow the 6.8m doorway on the +Z side.
+  const lx=-(z+2),lz=x+27;
+  if(Math.abs(lx)<10.1&&Math.abs(lz)<10.9){
+   if((Math.abs(lx)>9.05||Math.abs(lz)>9.9)&&!(Math.abs(lx)<3.45&&lz>9.2))return false;
+  }
+  return true;
+ }
+ function update(dt){
+  clock+=dt;
+  if(!toast.hidden&&clock>messageUntil)toast.hidden=true;
+  tickAbilityRuntime(runtime,dt);
+  const local=player();
+  swing-=dt;
+  if(autoplay&&target&&['mob','dummy'].includes(target.kind)&&!target.dead&&distance(target)<3.45&&swing<=0){
+   hitEnemy(target);swing=stats().speed;
+  }
+  for(const mob of mobs){
+   if(mob.dead){
+    mob.dead=Math.max(0,mob.dead-dt);
+    if(mob.corpse){mob.root.rotation.z=0;continue;}
+    mob.respawn-=dt;
+    if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
+     mob.root.visible=true;mob.returning=false;mob.aggro=false;}
+    if(!mob.root.visible)continue;
+   }
+   if(!mob.root.visible)continue;
+   mob.attackCd=Math.max(0,mob.attackCd-dt);mob.stun=Math.max(0,mob.stun-dt);
+   const playerSpawnDistance=Math.hypot(local.x-mob.spawnX,local.z-mob.spawnZ);
+   const dist=Math.hypot(local.x-mob.x,local.z-mob.z);
+   if(mob.aggro&&playerSpawnDistance>23){mob.aggro=false;mob.returning=true;mob.hp=mob.maxHp;}
+   if(!mob.aggro&&!mob.returning&&dist<7&&playerSpawnDistance<23&&state.hp>0)mob.aggro=true;
+   let dx=0,dz=0;
+   if(mob.returning){dx=mob.spawnX-mob.x;dz=mob.spawnZ-mob.z;if(Math.hypot(dx,dz)<.25){mob.returning=false;mob.hp=mob.maxHp;}}
+   else if(mob.aggro){dx=local.x-mob.x;dz=local.z-mob.z;}
+   const len=Math.hypot(dx,dz),moving=len>.06&&mob.stun<=0;
+   if(moving&&(!mob.aggro||len>2.35)){
+    const amount=Math.min(len,dt*(mob.aggro?2.05:1.45));
+    mob.x+=dx/len*amount;mob.z+=dz/len*amount;mob.yaw=Math.atan2(dx/len,dz/len);
+   }
+   if(mob.aggro&&dist<2.6&&mob.attackCd<=0&&mob.stun<=0&&state.hp>0){
+    const armor=stats().armor;
+    state.hp=Math.max(0,state.hp-Math.max(1,Math.round((5+Math.random()*3)*(1-armor/(armor+485)))));
+    mob.attackCd=2.1;state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
+    if(state.hp<=0){state.hp=stats().maxHp;state.resource=0;autoplay=false;mob.aggro=false;
+     msg('Герой возродился у костра');resetPosition?.();}
+    persist();
+   }
+   setModelAt(mob);
+   birdAnimation(mob,dt,moving,mob.aggro&&mob.attackCd>1.38);
+  }
+  updateTrainingTarget(dummy,clock);
+  if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw();
+ }
+ let resetPosition=null;
+ function onRespawn(fn){resetPosition=fn;}
+ function handleSlotKey(key){
+  const n=Number(key);if(Number.isInteger(n)&&n>=1&&n<=8){useAbility(n-1);return true;}
+  return false;
+ }
+ persist();draw();msg('Офлайн RPG: выбери долгонога или поговори с наставником',5);
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,draw,get state(){return state}};
+}
