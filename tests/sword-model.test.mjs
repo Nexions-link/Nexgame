@@ -29,6 +29,7 @@ test('Game equips real sword GLB and permits non-destructive mobile preview',()=
  assert.match(game,/void attachSwordAsset\(hero\)/);
  assert.match(game,/void attachSwordAsset\(actor\)/);
  assert.match(game,/root===hero\.root&&swordPreview/);
+ assert.match(game,/setWeaponVisuals\(root,visualKind,!!shield\)/);
  assert.match(game,/swordPreview=true/);
  assert.match(game,/swordPreview=false/);
  assert.match(game,/choice\('⚔ Тюнер меча · примерка',openSwordTuner\)/);

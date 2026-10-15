@@ -166,7 +166,15 @@ const interval=setInterval(()=>{
   }
   broadcast(event);
  }
- const snapshot=[...players.values()].map(p=>({id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,moving:p.moving,hp:p.hp,maxHp:p.maxHp}));
+ // Replicate sanitized visual equipment only, never the complete inventory.
+ const snapshot=[...players.values()].map(p=>({
+  id:p.id,name:p.name,x:p.x,z:p.z,yaw:p.yaw,level:p.level,
+  moving:p.moving,hp:p.hp,maxHp:p.maxHp,
+  equipment:{
+   weapon:p.equipment?.weapon?.id||null,
+   shield:!!p.equipment?.shield
+  }
+ }));
  const mobSnapshot=snapshotMulgoreMobs(mobs);
  for(const client of clients.keys())send(client,{type:'snapshot',protocol:WORLD_PROTOCOL,tick:worldTick,players:snapshot,mobs:mobSnapshot});
 },TICK_MS);

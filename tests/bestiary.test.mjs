@@ -104,7 +104,7 @@ test('axe GLB is righted in both atlas viewer and equipped character',()=>{
 
 test('hand pose returns to previous left and right wrist angles while axe remains attached',()=>{
  const game=read('game.js');
- assert.match(game,/arm\.hand\.rotation\.x=i\?\(-Math\.PI\/2-\.38\*windup\+\.85\*swing\):Math\.PI/);
+ assert.match(game,/arm\.hand\.rotation\.x=i\?\(-Math\.PI\/2-swingProfile\.wristWindup\*windup\+swingProfile\.wristSwing\*swing\):Math\.PI/);
  assert.match(game,/const axe=group\(arms\[1\]\.hand/);
  assert.match(game,/const grip=hero\.arms\[1\]\.hand/);
 });

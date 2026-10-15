@@ -1,15 +1,16 @@
-import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.54';
-import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.54';
-import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.54';
-import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.54';
-import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.54';
-import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.54';
-import {createMeadowDecorations} from './meadow.js?v=0.3.5.54';
+import {WEAPON_KINDS,weaponSwingProfile,visibleWeaponKind,equippedWeaponKind,setWeaponVisuals} from './weapon-visuals.js?v=0.3.5.55';
+import {SWORD_TUNER_DEFAULTS,SWORD_TUNER_STORAGE_KEY,SWORD_TUNER_GROUPS,SWORD_TUNER_FIELDS,normalizeSwordTuning,serializeSwordTuning} from './sword-tuner.js?v=0.3.5.55';
+import {AXE_TUNER_DEFAULTS,AXE_TUNER_STORAGE_KEY,AXE_TUNER_GROUPS,AXE_TUNER_FIELDS,normalizeAxeTuning,serializeAxeTuning} from './axe-tuner.js?v=0.3.5.55';
+import {createLandscapeMap,createSkyMap} from './landscape.js?v=0.3.5.55';
+import {screenMoveVector,turnTowardsAngle,followCameraYaw} from './movement-controls.js?v=0.3.5.55';
+import {PLAINSTRIDER_GLB,validatePlainstriderGltf,attachPlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual} from './plainstrider-model.js?v=0.3.5.55';
+import {LAKE_BLUEPRINT,createLake,normalizedLakeRadius,lakeTerrainHeight,canWadeAt,lakeDryShorePoint,lakePointAt,createLakeVisuals} from './lake.js?v=0.3.5.55';
+import {createMeadowDecorations} from './meadow.js?v=0.3.5.55';
 import {createSharedChestPanel} from './chest-ui.js?v=0.3.5.36';
 import {localToWorld2D,circleHitsRect,isInsideRect,buildingWallColliders} from './building-physics.js?v=0.3.5.36';
-import {createWorldPresence} from './online.js?v=0.3.5.54';
-import {WORLD_WS_URL} from './online-config.js?v=0.3.5.54';
-import {projectPartyMember} from './party-map.js?v=0.3.5.54';
+import {createWorldPresence} from './online.js?v=0.3.5.55';
+import {WORLD_WS_URL} from './online-config.js?v=0.3.5.55';
+import {projectPartyMember} from './party-map.js?v=0.3.5.55';
 import {ITEM_CATALOG,MERCHANT_STOCK,GEAR_LOOT,LOOT_CHANCES,rollEquipmentLoot,itemStackLimit,deriveStats,armorReduction} from './items.js?v=0.3.5.17';
 import {CLASS_DEFINITIONS,getClassDefinition,getAbilityDefinition,getClassAbilities,normalizeClassId,normalizeResource,changeResource,createAbilityRuntime,tickAbilityRuntime,abilityCooldown,abilityFailure,activateAbility,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from './skills.js?v=0.3.5';
 import {TRAINING_DUMMY,createTrainingStats,resetTrainingTarget,applyTrainingHit,updateTrainingTarget,trainingDps} from './training.js?v=0.3.5.1';
@@ -540,7 +541,7 @@ async function loadHeroAxeAsset(){
   axe.position.copy(old.position);axe.rotation.copy(old.rotation);axe.scale.copy(old.scale);
   grip.add(axe);axe.visible=old.visible;old.visible=false;
   old.name='gear-axe-fallback';axe.name='gear-axe';
-  applyAxeTransform();
+  applyAxeTransform();syncEquipmentVisuals();
  }catch(error){console.warn('Axe GLB unavailable; keeping procedural fallback',error)}
 }
 void loadHeroAxeAsset();
@@ -618,18 +619,22 @@ $('swordTunerCopy').addEventListener('click',async()=>{
 // GLB downloaded once; shared geometry is cloned for other characters.
 let swordAssetPromise=null;
 async function attachSwordAsset(actor){
- const hand=actor.arms[1].hand,old=hand.getObjectByName('gear-sword');if(!old)return;
+ const hand=actor.arms[1].hand,old=hand.getObjectByName('gear-sword');
+ if(!old||old.userData?.nexgameGlbWeapon)return;
  try{
   if(!swordAssetPromise)swordAssetPromise=import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js')
    .then(({GLTFLoader})=>new GLTFLoader().loadAsync('./assets/weapons/plains-sword-v0.1.glb?v=1'));
   const asset=await swordAssetPromise;if(!old.parent||!actor.root.parent)return;
   const sword=asset.scene.clone(true),visible=old.visible;
   sword.position.copy(old.position);sword.rotation.copy(old.rotation);sword.scale.copy(old.scale);
-  old.name='gear-sword-fallback';old.visible=false;sword.name='gear-sword';sword.visible=visible;hand.add(sword);
+  old.name='gear-sword-fallback';old.visible=false;
+  sword.name='gear-sword';sword.userData.nexgameGlbWeapon=true;
+  sword.visible=visible;hand.add(sword);
   if(actor===hero){
    applySwordTransform();
+   syncEquipmentVisuals();
    if(characterView?.actor)void attachSwordAsset(characterView.actor);
-  }
+  }else if(characterView?.actor===actor)syncEquipmentVisuals();
  }catch(error){swordAssetPromise=null;console.warn('Sword GLB unavailable; fallback remains',error)}
 }
 void attachSwordAsset(hero);
@@ -797,16 +802,25 @@ function animateTauren(actor,time,dt,walk=0,attack=-1,stomp=-1,turn=0,gather=0){
  actor.walk=THREE.MathUtils.damp(actor.walk,walk,10,dt);const w=actor.walk,phase=actor.phase,breath=Math.sin(time*1.7),stride=Math.sin(phase*TAU),beat=Math.cos(phase*TAU*2);
  actor.body.position.set(stride*.035*w,1.4+.008*breath+.026*(1-beat)*w,0);actor.chest.rotation.set(.035*w,Math.sin(phase*TAU)*.065*w,-stride*.025*w);actor.chest.scale.y=1+breath*.005;
  actor.neck.rotation.set(-.018*breath-.025*beat*w,-actor.chest.rotation.y*.65,stride*.015*w);
+ // Choose the animation from the weapon actually visible on this actor.
+ // Keep previously approved wrist and GLB attachment angles unchanged.
+ const swingProfile=weaponSwingProfile(actor.weapon?visibleWeaponKind(actor.arms[1].hand):'none');
  let swing=0,windup=0;
- if(attack>=0){const a=clamp(attack,0,1);windup=smooth(0,.32,a)*(1-smooth(.38,.65,a));swing=smooth(.32,.58,a)*(1-smooth(.64,1,a));actor.chest.rotation.y+=-.32*windup+.42*swing;actor.chest.rotation.x+=.12*swing}
+ if(attack>=0){
+  const a=clamp(attack,0,1);
+  windup=smooth(0,.32,a)*(1-smooth(.38,.65,a));
+  swing=smooth(.32,.58,a)*(1-smooth(.64,1,a));
+  actor.chest.rotation.y+=-swingProfile.torsoWindup*windup+swingProfile.torsoSwing*swing;
+  actor.chest.rotation.x+=.12*swing;
+ }
  const crouch=stomp>=0?.14*Math.sin(Math.min(stomp/.55,1)*Math.PI):0;
  const bend=clamp(gather,0,1);
  actor.body.position.y-=crouch+.47*bend;
  actor.chest.rotation.x+=.20*bend;actor.neck.rotation.x+=.1*bend;
- for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?1.85*windup-.48*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0));arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?.6*windup:0)-.45*bend;
+ for(let i=0;i<2;i++){const arm=actor.arms[i],sign=i?1:-1;arm.shoulder.rotation.x=sign*stride*.31*w-(i?swingProfile.shoulderWindup*windup-swingProfile.shoulderSwing*swing:0);arm.shoulder.rotation.z=-sign*(.12+.025*breath+(stomp>=0?.17*Math.sin(stomp*Math.PI):0))+(i?swingProfile.shoulderSlash*swing:0);arm.shoulder.rotation.x-=bend*(i?.95:1.12);arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?swingProfile.elbowWindup*windup:0)-.45*bend;
   // Rotate the weapon wrist by 90 degrees. During an axe swing the wrist
   // follows a wood-chopping arc: raised on windup, edge down on impact.
-  arm.hand.rotation.x=i?(-Math.PI/2-.38*windup+.85*swing):Math.PI;
+  arm.hand.rotation.x=i?(-Math.PI/2-swingProfile.wristWindup*windup+swingProfile.wristSwing*swing):Math.PI;
   if(i===1&&actor.weapon){
    const swordVisible=arm.hand.getObjectByName('gear-sword')?.visible;
    const axeVisible=arm.hand.getObjectByName('gear-axe')?.visible;
@@ -871,13 +885,13 @@ function normalizeEquipment(input){
 
 function playerStats(equipment=state.equipment){return deriveStats(state.level,equipment)}
 function syncEquipmentVisuals(){
- const weapon=ITEM_CATALOG[state.equipment.weapon?.id],shield=ITEM_CATALOG[state.equipment.shield?.id];
+ const kind=equippedWeaponKind(state.equipment,ITEM_CATALOG),
+  shield=ITEM_CATALOG[state.equipment.shield?.id];
  for(const root of [hero.root,characterView?.actor.root].filter(Boolean)){
-  for(const kind of ['axe','sword','dagger']){
-   const model=root.getObjectByName('gear-'+kind);
-   if(model)model.visible=root===hero.root&&swordPreview?kind==='sword':weapon?.weaponKind===kind;
-  }
-  const model=root.getObjectByName('gear-shield');if(model){model.visible=!!shield;model.scale.setScalar(shield?.sourceId===2210 ? .8 : 1)}
+  const visualKind=root===hero.root&&swordPreview?'sword':kind;
+  setWeaponVisuals(root,visualKind,!!shield);
+  const shieldModel=root.getObjectByName('gear-shield');
+  if(shieldModel)shieldModel.scale.setScalar(shield?.sourceId===2210?.8:1);
  }
  if(characterView)characterView.nextFrame=0;
 }
@@ -2782,6 +2796,12 @@ function updateRemoteSnapshot(list){
   remote.name=name;remote.level=level;
   remote.hp=Number.isFinite(p.hp)?p.hp:remote.hp;
   remote.maxHp=Number.isFinite(p.maxHp)?p.maxHp:remote.maxHp;
+  // New servers send the sanitized weapon item ID and shield flag.
+  // Old servers omit equipment: retain the original default axe in that case.
+  const hasEquipment=!!p.equipment&&typeof p.equipment==='object';
+  const remoteKind=hasEquipment?equippedWeaponKind(
+   {weapon:p.equipment.weapon?{id:p.equipment.weapon}:null},ITEM_CATALOG):'axe';
+  setWeaponVisuals(remote.actor.root,remoteKind,hasEquipment&&p.equipment.shield===true);
   remote.x=p.x;remote.z=p.z;remote.yaw=p.yaw;remote.moving=!!p.moving;
  }
  for(const id of remotePlayers.keys())if(!visible.has(id))removeRemotePlayer(id);
