@@ -48,7 +48,7 @@ function heightAt(n) {
 function colorAt(n, h) {
   const weights = biomeWeights(Math.atan2(n.x, n.z));
   const color = new THREE.Color(0x000000);
-  for (let i = 0; i < 4; i++) color.addScaledVector(COLORS[i], weights[i]);
+  for (let i = 0; i < 4; i++) { color.r += COLORS[i].r * weights[i]; color.g += COLORS[i].g * weights[i]; color.b += COLORS[i].b * weights[i]; }
   const grain = Math.sin(n.x * 101 + n.z * 67) * Math.cos(n.y * 91 - n.x * 54) * .055;
   color.offsetHSL(0, 0, grain - Math.max(0, h) * .002);
   const polar = smooth(.78, .98, Math.abs(n.y));
@@ -178,7 +178,7 @@ try {
   // its geometry is entirely separate from the real game.
   for (const [lon, lat, size] of [[-.045, .021, 1], [.047, .028, 1.15], [-.02, -.05, .88]]) {
     const hut = setLocalAnchor(new THREE.Group(), lon, lat);
-    hut.rotation.y = random() * TAU;
+    hut.rotateY(random() * TAU);
     addShape(hut, new THREE.CylinderGeometry(2.0 * size, 2.25 * size, 1.5 * size, 9), matWood, 0, .75 * size, 0);
     addShape(hut, new THREE.ConeGeometry(2.75 * size, 3.55 * size, 9), matCanvas, 0, 2.75 * size, 0);
     addShape(hut, new THREE.BoxGeometry(.9 * size, 1.3 * size, .22), matRoof, 0, .73 * size, 2.08 * size);
@@ -395,8 +395,9 @@ try {
     let power = clamp(Math.hypot(horizontal,forward), 0, 1);
     if (power < .11 || state.orbit) power = 0;
     if (power > 0) {
-      horizontal /= Math.hypot(horizontal,forward);
-      forward /= Math.hypot(joystick.x + Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft')), -joystick.y + Number(keys.has('w') || keys.has('arrowup')) - Number(keys.has('s') || keys.has('arrowdown')));
+      const inputLength = Math.hypot(horizontal, forward);
+      horizontal /= inputLength;
+      forward /= inputLength;
       tangentBasis(state.normal);
       camForward.copy(tangentEast).multiplyScalar(Math.cos(state.cameraHeading)).addScaledVector(tangentNorth, Math.sin(state.cameraHeading));
       right.crossVectors(camForward,state.normal).normalize();
