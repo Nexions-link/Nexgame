@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {screenMoveVector} from '../movement-controls.js?v=0.3.7.0';
-import {createOfflineRpg} from './offline-rpg.js?v=1';
+import {createOfflineRpg} from './offline-rpg.js?v=2';
 import {START_RADIUS,normalToLocal,startHeightAt,startColorAt,lakeRadius,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=6';
 initStartZoneMath(THREE);
 
@@ -276,7 +276,7 @@ try {
   const actor=hero.root;
   const limbs=[hero.legs[0].hip,hero.arms[0].shoulder,hero.legs[1].hip,hero.arms[1].shoulder];
   const state = {normal: unitAt(0, 0), lonUnwrapped: 0, meters: 0, heading: 0, cameraHeading: 0, cameraPitch: .36, zoom: 13, orbit: false, orbitAngle: .45, legCycle: 0};
-  const rpg=createOfflineRpg({THREE,scene,hero,playerNormal:()=>state.normal,
+  const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:()=>createTauren(THREE,scene),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
    toLocal:normalToLocal,heightAt,camera,canvas});
   let prevHeading = 0;
