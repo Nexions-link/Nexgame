@@ -27,10 +27,10 @@ export function createGatherWorld({THREE,parent,place}){
     petal:material('#f7db9f',{emissive:'#58401d',emissiveIntensity:.18}),
     core:material('#f0ca67',{emissive:'#815422',emissiveIntensity:.22}),
     root:material('#ceb480'),rootLeaf:material('#a7c673',{emissive:'#33481f',emissiveIntensity:.13}),
-    // Moon mushrooms: matte plum-black caps, with a lighter underside edge
+    // Moon mushrooms: warm brown caps and a lighter ochre edge, visually distinct from wildflowers
     // against the green and gold wildflowers on the spherical terrain.
-    mushroomCap:material('#372b3e',{emissive:'#231925',emissiveIntensity:.09}),
-    mushroomRim:material('#786579'),bone:material('#e0d3b8'),
+    mushroomCap:material('#78502c',{emissive:'#38200c',emissiveIntensity:.12}),
+    mushroomRim:material('#b18a56'),bone:material('#e0d3b8'),
     spark:new THREE.MeshBasicMaterial({color:'#f7e4b0',toneMapped:false})
   };
   const nodes=[];
