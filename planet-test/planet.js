@@ -295,7 +295,10 @@ try {
     shadowActive=enabled;
     scene.fog=state.orbit||isPortalPreview?null:localFog;
     localFog.near=profile.fogNear;localFog.far=profile.fogFar;
-    startZone.setGraphics({...graphicsDensity(qualityName),waterColor:profile.waterColor,shadows:enabled});
+    const sceneryDensity=graphicsDensity(qualityName);
+    // The portal shows the latest village art without costly shadows or high DPR.
+    if(isPortalPreview)sceneryDensity.detail=.68;
+    startZone.setGraphics({...sceneryDensity,waterColor:profile.waterColor,shadows:enabled});
     if(qualityHelp)qualityHelp.textContent=
       qualityName==='economy'?'Разреженная растительность, простая вода и без теней.':
       qualityName==='high'?'Самая плотная растительность, чёткая картинка, тени 1024 px.':
