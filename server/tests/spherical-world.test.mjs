@@ -14,17 +14,18 @@ async function port(){
 async function start(){
  const p=await port();
  const child=spawn(process.execPath,['index.js'],{
-  cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(p)},stdio:'ignore'
+  cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(p)},stdio:['ignore','ignore','pipe']
  });
+ let stderr='';child.stderr?.on('data',chunk=>{stderr+=String(chunk)});
  for(let i=0;i<80;i++){
-  if(child.exitCode!==null)throw Error('server process exited');
+  if(child.exitCode!==null)throw Error('server process exited: '+stderr);
   try{
    const h=await fetch('http://127.0.0.1:'+p+'/health');
    if(h.ok)return {p,child};
   }catch{}
   await wait(75);
  }
- child.kill();throw Error('server failed to start');
+ child.kill();throw Error('server failed to start: '+stderr);
 }
 async function client(p,path='/ws/nexgameworld'){
  const socket=new WebSocket('ws://127.0.0.1:'+p+path);
