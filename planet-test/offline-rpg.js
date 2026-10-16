@@ -595,10 +595,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const kind=modal.dataset.kind,title=$('mtitle'),body=$('mbody');
   $('panel').classList.toggle('character-modal',kind==='character');
   $('panel').classList.toggle('inventory-modal',kind==='bag');
-  $('msub').textContent='NEXGAME · ОФЛАЙН · КРУГЛЫЙ МИР';
+  $('msub').textContent='NEXGAMEWORLD · ОФЛАЙН · КРУГЛЫЙ МИР';
   $('cameraControl').hidden=kind!=='menu';
   title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
-   merchant:'Торговец',spells:'Книга способностей',loot:'Обыск тела',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог'})[kind]||'NexGame';
+   merchant:'Торговец',spells:'Книга способностей',loot:'Обыск тела',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог'})[kind]||'NexGameWorld';
   body.replaceChildren();
   const line=(label,caption,actions=[])=>{
    const row=document.createElement('div');row.className='rpgRow';
@@ -651,7 +651,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    return;
   }
   if(kind==='menu'){
-   line('Сферический мир','Меняй радиус планеты, вращай её свайпами и проверяй оригинальную NexGame.');
+   line('Сферический мир','Меняй радиус планеты, вращай её свайпами и исследуй NexGameWorld.');
    for(const item of settingsControls)body.append(item);
    line('Сетевая игра','Тестовая сборка работает локально, без сервера Render.');
   }else if(kind==='bag'){
