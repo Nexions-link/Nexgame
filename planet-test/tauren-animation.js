@@ -14,6 +14,10 @@ export function animateSphericalTauren(actor,{
  user.walkBlend=clamp((user.walkBlend||0)+(speed-(user.walkBlend||0))*(1-Math.exp(-seconds*10)),0,1);
  const w=user.walkBlend,bend=smooth(user.gatherBlend),stride=Math.sin(phase),beat=Math.cos(phase*2);
  const breath=Math.sin(time*1.7),profile=weaponSwingProfile(weaponKind);
+ // Cosmetic impulse generated only by an actual successful shield block.
+ user.blockRecoil=Math.max(0,(user.blockRecoil||0)-seconds*2.8);
+ const recoil=Math.sin(user.blockRecoil*Math.PI)*user.blockRecoil;
+ const idle=1-w;
  // Native weapon-specific phases. Progress 0..1 runs for precisely 0.8 s;
  // physical damage is triggered separately at progress 0.425.
  const playing=attack>=0&&attack<=1;
@@ -21,11 +25,16 @@ export function animateSphericalTauren(actor,{
  const windup=playing&&!stabbing?ease(0,.32,attack)*(1-ease(.38,.65,attack)):0;
  const swing=playing&&!stabbing?ease(.32,.58,attack)*(1-ease(.64,1,attack)):0;
  const block=shieldBlockPose(blockRemaining);
- actor.body.position.set(stride*.035*w,1.4+.008*breath+.026*(1-beat)*w-.47*bend,0);
+ actor.body.position.set(stride*.041*w,1.4+.012*breath*idle+.030*(1-beat)*w-.47*bend-.025*recoil,0);
  actor.chest.rotation.set(.035*w+.20*bend+block.chestX,
   Math.sin(phase)*.065*w+block.chestY,-stride*.025*w);
  actor.chest.scale.y=1+breath*.005;
  actor.neck.rotation.set(-.018*breath+.10*bend,-actor.chest.rotation.y*.65,stride*.015*w);
+ // Head remains parented to the original neck joint, including both horns.
+ actor.head.rotation.set(.024*Math.sin(time*.85)*idle-.035*stride*w+.060*bend,
+  .034*Math.sin(time*.57)*idle+.016*Math.sin(phase)*w,
+  .012*Math.sin(time*.73)*idle);
+ actor.chest.rotation.z+=.018*Math.sin(time*1.1)*idle+.026*recoil;
  if(stabbing){
   actor.chest.rotation.y+=.06*stabbing.draw-.07*stabbing.extend;
   actor.chest.rotation.x+=.10*stabbing.extend;
@@ -35,6 +44,7 @@ export function animateSphericalTauren(actor,{
   actor.chest.rotation.x+=.12*swing;
   actor.body.position.z=0;
  }
+ actor.body.position.z-=.045*recoil;
  const stomping=stomp>=0,stompPower=clamp(stomp,0,1);
  if(stomping)actor.body.position.y-=.14*Math.sin(Math.min(stompPower/.55,1)*Math.PI);
  // Two-segment IK for each leg. Heel remains aligned to local radial-up ground.
@@ -62,9 +72,9 @@ export function animateSphericalTauren(actor,{
   arm.elbow.rotation.x-=.45*bend;
   if(stomping)arm.shoulder.rotation.z-=sign*.17*Math.sin(stompPower*Math.PI);
   if(i===0){
-   arm.shoulder.rotation.x+=block.shoulderX;
+   arm.shoulder.rotation.x+=block.shoulderX-.11*recoil;
    arm.shoulder.rotation.z+=block.shoulderZ;
-   arm.elbow.rotation.x+=block.elbowX;
+   arm.elbow.rotation.x+=block.elbowX-.045*recoil;
   }else if(stabbing){
    arm.shoulder.rotation.x+=.24*stabbing.draw-1.16*stabbing.extend;
    arm.shoulder.rotation.z-=.07*stabbing.extend;
@@ -80,9 +90,11 @@ export function animateSphericalTauren(actor,{
    arm.hand.rotation.set(grip.x+wrist,grip.y,grip.z,grip.order||'XYZ');
   }
  }
- if(actor.tail)actor.tail.rotation.x=.06+Math.sin(time*2)*.06+w*.08;
+ if(actor.tail){actor.tail.rotation.x=.06+Math.sin(time*1.35)*.075+w*.08;
+  actor.tail.rotation.y=.06*Math.sin(time*1.1)+.045*stride*w;}
  if(actor.braids)actor.braids.forEach((b,i)=>{
-  b.rotation.x=.035*Math.sin(time*2+i)+.07*stride*w;
+  b.rotation.x=.045*Math.sin(time*1.7+i*.8)+.08*stride*w+.025*bend;
+  b.rotation.z=(i?-.018:.018)*Math.sin(time*1.23+i);
  });
  return {crouch:bend,block:block.power,attack:playing?swing:0,dagger:stabbing?.extend||0};
 }
