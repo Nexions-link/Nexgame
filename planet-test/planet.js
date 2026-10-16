@@ -4,7 +4,7 @@ import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=1';
-import {createOfflineRpg} from './offline-rpg.js?v=24';
+import {createOfflineRpg} from './offline-rpg.js?v=25';
 import {animateSphericalTauren} from './tauren-animation.js?v=3';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=14';
 initStartZoneMath(THREE);
@@ -304,7 +304,7 @@ try {
     distanceEl.textContent = Math.round(state.meters) + ' м · оборотов: ' + completed;
     const b=sectorIndex(Math.atan2(state.normal.x,state.normal.z));
     const local=normalToLocal(state.normal,R),inStartingZone=local.d<74;
-    const currentName=inStartingZone?'Стартовая зона NexGame':NAMES[b];
+    const currentName=inStartingZone?'Стартовая зона NexGameWorld':NAMES[b];
     if(force||zoneName.textContent!==currentName){zoneName.textContent=currentName;zoneLabel.textContent=inStartingZone?'ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД':LABELS[b];$('area').textContent=inStartingZone?'Лагерь Нараче':currentName;}
     drawGlobe();
     drawNativeMinimap();
