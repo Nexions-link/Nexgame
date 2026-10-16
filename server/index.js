@@ -4,6 +4,7 @@
 import {createServer} from 'node:http';
 import {WebSocketServer,WebSocket} from 'ws';
 import {randomUUID} from 'node:crypto';
+import {createSphericalWorld} from './spherical-world.js';
 import {createPartyManager} from './groups.js';
 import {createChatManager} from './chat.js';
 import {createSharedChest} from './chest.js';
@@ -22,6 +23,7 @@ const RESPAWN_COOLDOWN_MS=2500;
 const RESPAWN_GRACE_MS=3000;
 const RECENT_MOB_ATTACK_MS=5000;
 const ALLOWED_ORIGINS=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
+const sphericalWorld=createSphericalWorld();
 const players=new Map();
 const clients=new Map();
 // One set of living wildlife coordinates for the entire Mulgore world.
@@ -40,7 +42,7 @@ const chest=createSharedChest({players,send:sendToPlayer,broadcast,filePath:reso
 const http=createServer((req,res)=>{
  if(req.url==='/health'){
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
-  res.end(encode({ok:true,world:'mulgore',players:players.size,mobs:mobs.length,protocol:WORLD_PROTOCOL,build:WORLD_BUILD}));
+  res.end(encode({ok:true,world:'mulgore',players:players.size,sphericalPlayers:sphericalWorld.population(),mobs:mobs.length,protocol:WORLD_PROTOCOL,build:WORLD_BUILD}));
   return;
  }
  res.writeHead(404);res.end('Not found');
@@ -55,8 +57,12 @@ function disconnect(ws){
  clients.delete(ws);players.delete(id);
  for(const client of clients.keys())send(client,{type:'leave',id});
 }
-wss.on('connection',ws=>{
- if(clients.size>=MAX_PLAYERS){ws.close(1013,'World is full');return}
+wss.on('connection',(ws,req)=>{
+ if(req.url?.split('?')[0]==='/ws/nexgameworld'){
+  sphericalWorld.attach(ws);
+  return;
+ }
+ if(clients.size>=MAX_PLAYERS{ws.close(1013,'World is full');return}
  const id=randomUUID(),now=Date.now();
  const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,
   updatedAt:now,equipment:{},hp:120,maxHp:120,
