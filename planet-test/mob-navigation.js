@@ -19,18 +19,6 @@ export function mobSegmentClear(ax,az,bx,bz,canWalk,spacing=.45){
  return true;
 }
 const priority=(a,b)=>a.f-b.f||a.h-b.h;
-function heapPush(heap,node){
- heap.push(node);
- for(let k=heap.length-1;k>0;){
-  const parent=(k-1)>>1;
-  if(priority(heap[parent],node)<=0)break;
-  heap[k]=heap[parent];k=parent;
- }
- let k=heap.length-1;
- // Recompute insertion position: the shift loop needs its final index.
- while(k>0&&heap[k]!==node){k=(k-1)>>1;}
- // Simple heap reheapification is performed by a separate function below.
-}
 function push(open,item){
  open.push(item);
  let n=open.length-1;
@@ -73,7 +61,8 @@ export function findMobRoute(fromX,fromZ,goalX,goalZ,canWalk,{
  let visited=0;
  while(open.length&&visited++<maxVisits){
   const current=pop(open);
-  if(current.closed)continue;
+  // Superseded queue entries must not replace the cheapest route to a cell.
+  if(current.closed||nodes.get(key(current.i,current.j))!==current)continue;
   current.closed=true;
   if(distance(current.x,current.z,goalX,goalZ)<=cell*1.5&&
     mobSegmentClear(current.x,current.z,goalX,goalZ,canWalk)){
