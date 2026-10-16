@@ -631,7 +631,7 @@ try {
       // The automatic approach must obey the very same walkable surfaces
       // and house collisions as the joystick.
       if((nextLocal.d<82 && !canWadeAtLocal(nextLocal.x,nextLocal.z))||
-         (nextLocal.d<82 && !rpg.canMoveTo(nextLocal.x,nextLocal.z))) {
+         !rpg.canMoveTo(nextLocal.x,nextLocal.z)) {
         if(approach)rpg.stopAutoApproach();
         power=0;
       } else {
@@ -690,6 +690,19 @@ try {
     }
     if (cameraSnap) {camera.position.copy(cameraGoal);cameraSnap=false;}
     else camera.position.lerp(cameraGoal,1-Math.exp(-dt * (state.orbit&&touches.size===1?24:8.5)));
+    if(!state.orbit){
+      // A lerp can sweep a safe target through a tent, building or cliff.
+      // Validate the *actual* camera, not merely its target.
+      const where=normalToLocal(state.normal,R);
+      const sweptHit=cameraObstruction(THREE,{
+       start:focus,desired:camera.position,getRadius:()=>R,
+       toLocal:normalToLocal,heightAt,heroLocal:where,clearance:.8
+      });
+      if(sweptHit)camera.position.copy(sweptHit);
+      const n=camera.position.clone().normalize();
+      const min=R+heightAt(n)+.8;
+      if(camera.position.length()<min)camera.position.copy(n.multiplyScalar(min));
+    }
     camera.lookAt(focus);
     renderer.render(scene,camera);
     saveClock+=dt;
