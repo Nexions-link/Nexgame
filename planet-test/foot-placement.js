@@ -17,10 +17,10 @@ export function sampleSphericalFooting({THREE,normal,quaternion,radius,heightAt,
  const centreHeight=heightAt(normal);
  if(!Number.isFinite(centreHeight))return null;
  const origin=normal.clone().multiplyScalar(radius+centreHeight);
- const right=new THREE.Vector3(1,0,0).applyQuaternion(quaternion)
-  .addScaledVector(normal,-new THREE.Vector3(1,0,0).applyQuaternion(quaternion).dot(normal)).normalize();
- const forward=new THREE.Vector3(0,0,1).applyQuaternion(quaternion)
-  .addScaledVector(normal,-new THREE.Vector3(0,0,1).applyQuaternion(quaternion).dot(normal)).normalize();
+ const right=new THREE.Vector3(1,0,0).applyQuaternion(quaternion);
+ const forward=new THREE.Vector3(0,0,1).applyQuaternion(quaternion);
+ right.addScaledVector(normal,-right.dot(normal)).normalize();
+ forward.addScaledVector(normal,-forward.dot(normal)).normalize();
  if(right.lengthSq()<.99||forward.lengthSq()<.99)return null;
  function altitude(x,z){
   const projected=origin.clone().addScaledVector(right,x).addScaledVector(forward,z).normalize();
