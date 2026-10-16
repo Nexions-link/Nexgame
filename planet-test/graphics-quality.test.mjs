@@ -36,7 +36,7 @@ test('pixel ratio adapts to mobile displays and homepage preview always stays li
 test('every graphics profile maps to all scenery density channels',()=>{
  for(const key of Object.keys(GRAPHICS_PRESETS)){
   const d=graphicsDensity(key);
-  for(const field of ['grass','flowers','shrubs','pebbles','reeds','shimmer']){
+  for(const field of ['grass','flowers','shrubs','pebbles','reeds','shimmer','detail']){
    assert.ok(Number.isFinite(d[field]),key+'/'+field);
    assert.ok(d[field]>=0&&d[field]<=1,key+'/'+field);
   }
