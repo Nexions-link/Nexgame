@@ -437,6 +437,7 @@ try {
     stars.visible = state.orbit;
     atmosphere.visible = state.orbit;
     scene.background = state.orbit ? skyNight : skyDay;
+    applyGraphicsQuality();
     // Mini-map is the single on-screen button for switching world views.
     minimapToggle.setAttribute('aria-pressed', String(state.orbit));
     minimapToggle.setAttribute('aria-label', state.orbit ?
@@ -492,6 +493,7 @@ try {
       reshapeGround();
       relocateInstances();
       startZone.rebuild();
+      applyGraphicsQuality();
       rpg.resetWorldTransforms();
       atmosphere.scale.setScalar((R + 12) / (BASE_RADIUS + 12));
       stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
@@ -626,10 +628,16 @@ try {
   let cameraSnap = true;
   const clock = new THREE.Clock();
   let elapsed = 0, uiClock = 0, introClock = 0;
+  let fpsSeconds=0,fpsFrames=0;
   function animate() {
     requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), .05);
+    const rawDt=clock.getDelta();
+    const dt = Math.min(rawDt, .05);
     elapsed += dt; uiClock += dt; introClock += dt;
+    if(fpsCounter&&!fpsCounter.hidden&&rawDt>0){
+      fpsFrames++;fpsSeconds+=rawDt;
+      if(fpsSeconds>=.7){fpsCounter.textContent='FPS '+Math.round(fpsFrames/fpsSeconds);fpsFrames=0;fpsSeconds=0;}
+    }else{fpsSeconds=0;fpsFrames=0;}
     if (introClock > 7) $('instruction').style.opacity = '0';
 
     let horizontal = joystick.x + Number(keys.has('d') || keys.has('arrowright')) - Number(keys.has('a') || keys.has('arrowleft'));
@@ -737,6 +745,14 @@ try {
       if(camera.position.length()<min)camera.position.copy(n.multiplyScalar(min));
     }
     camera.lookAt(focus);
+    if(shadowActive){
+      // Keep the 62-metre shadow frustum centred around the active character.
+      tangentBasis(state.normal);
+      sun.target.position.copy(actor.position);
+      sun.position.copy(actor.position).addScaledVector(state.normal,44)
+        .addScaledVector(tangentEast,27).addScaledVector(tangentNorth,20);
+      sun.target.updateMatrixWorld();
+    }
     renderer.render(scene,camera);
     saveClock+=dt;
     if(saveClock>=.8){saveClock=0;saveWorld();}
