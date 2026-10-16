@@ -885,8 +885,21 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       }
       mob.attackCd=mob.boss?1.8:2.1;
       state.resource=changeResource(state.resource,WARRIOR_RAGE_ON_HURT,'warrior');
-      if(state.hp<=0){state.hp=stats().maxHp;state.resource=0;autoplay=false;blockRemaining=0;pendingHits.length=0;mob.aggro=false;
-       msg('Герой возродился у костра');resetPosition?.();}
+      if(state.hp<=0){
+       // End the ENTIRE encounter before moving the hero back to the fire.
+       // Otherwise other aggro mobs keep swinging at the old position or
+       // instantly damage the freshly respawned hero during the same tick.
+       state.hp=stats().maxHp;state.resource=0;
+       autoplay=false;blockRemaining=0;attackRemaining=0;
+       pendingHits.length=0;target=null;swing=stats().speed;
+       lastCombatAt=clock;
+       for(const enemy of mobs){
+        enemy.aggro=false;enemy.returning=!enemy.corpse&&enemy.hp>0;
+        enemy.attackWindup=0;enemy.attackCd=1.5;enemy.alertRemaining=0;
+       }
+       msg('Герой возродился у костра');resetPosition?.();
+       updateSelection();
+      }
       persist();
      }
     }
