@@ -1,3 +1,4 @@
+import {hornPathPoints,hornRadius} from './tauren-horn-profile.js?v=1';
 // Additional original NexGameWorld adventurer detailing. A cosmetic layer only:
 // parent joints, grips, IK, hitboxes, equipment and animation are unchanged.
 export function createTaurenVisualDetails(THREE,actor){
@@ -28,22 +29,20 @@ export function createTaurenVisualDetails(THREE,actor){
  }
  // Rings follow the curved, tapering horn surface rather than pointing upward
  // like floating jewellery. All transforms are in the animated head's frame.
- const hornCurve=sign=>new THREE.CatmullRomCurve3(
-  [[.43,.40,-.08],[.78,.43,-.18],[1.04,.63,-.22],[1.15,.97,-.13],[1.05,1.27,.04]]
-   .map(([x,y,z])=>new THREE.Vector3(sign*x,y,z)));
+ const hornCurve=sign=>new THREE.CatmullRomCurve3(hornPathPoints(THREE,sign));
  const ridges=[];
  for(const t of [.12,.24,.37,.52]){
   for(const sign of [-1,1]){
    const curve=hornCurve(sign);
    const tangent=curve.getTangent(t).normalize();
    const position=curve.getPoint(t);
-   const radius=.205*Math.pow(1-t,.83)+.003;
+   const radius=hornRadius(t);
    ridges.push({position:position.toArray(),quaternion:new THREE.Quaternion().setFromUnitVectors(rootUp,tangent),
-    scale:[radius*.97,radius*.97,radius*.97],color:t<.3?0xb89c73:0xdccda6});
+    scale:[radius*.989,radius*.989,radius*.989],color:t<.3?0x82674e:0xa38a67});
   }
  }
  const hornRidges=batch(head,'horn-carved-ridges',
-  new THREE.TorusGeometry(1,.09,5,14),
+  new THREE.TorusGeometry(1,.024,5,18),
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,metalness:0}),ridges);
  // Two tiny reflected highlights on the eyes preserve facial readability.
  const glints=batch(head,'eye-highlights',new THREE.SphereGeometry(1,6,5),
