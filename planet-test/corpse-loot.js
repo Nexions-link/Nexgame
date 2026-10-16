@@ -1,6 +1,7 @@
-// PT 0.6.2 — safe, opt-in corpse looting identical to the main NexGame.
+// Planet-only corpse lifetime and safe, opt-in looting.
 // Nothing is moved to inventory just by opening or closing a corpse.
-export const CORPSE_DURATION_SECONDS=65;
+export const CORPSE_DURATION_SECONDS=30;
+export const NORMAL_MOB_RESPAWN_SECONDS=30;
 export function canStoreCorpseRow(inventory,row,stackLimit,slotCount=12){
  if(!Array.isArray(inventory)||!row||typeof row.id!=='string'||
   !Number.isInteger(row.qty)||row.qty<1)return false;

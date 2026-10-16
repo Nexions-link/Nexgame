@@ -29,7 +29,7 @@ import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
-import {CORPSE_DURATION_SECONDS,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=1';
+import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=2';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -353,7 +353,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   pendingLoot=mob;openWindow('loot');
  }
  function finishCorpseLoot(mob){
-  mob.loot=[];mob.corpse=false;mob.root.visible=false;mob.respawn=12;updateLootMarker(mob);
+  // Looting never removes the body or starts/restarts its respawn clock.
+  mob.loot=[];updateLootMarker(mob);
   if(target===mob){target=null;autoplay=false;updateSelection();}
   closeWindow();draw();
  }
@@ -928,10 +929,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(mob.corpse){
     const wasDying=mob.dying;mob.deathAnimation.update(dt);
     if(wasDying&&!mob.dying)updateLootMarker(mob);
-    // Never expire a corpse while its loot panel is open.
-    if(!mob.dying&&(modal.hidden||modal.dataset.kind!=='loot'||pendingLoot!==mob))mob.corpseAge=(mob.corpseAge||0)+dt;
-    if(mob.corpseAge>CORPSE_DURATION_SECONDS){
-     mob.corpse=false;mob.root.visible=false;mob.respawn=12;mob.loot=[];updateLootMarker(mob);
+    // A settled body has one fixed lifetime, even when empty or being looted.
+    if(!mob.dying)mob.corpseAge=(mob.corpseAge||0)+dt;
+    if(mob.corpseAge>=CORPSE_DURATION_SECONDS){
+     mob.corpse=false;mob.root.visible=false;
+     mob.respawn=mob.boss?12:NORMAL_MOB_RESPAWN_SECONDS;
+     mob.loot=[];updateLootMarker(mob);
      if(pendingLoot===mob)closeWindow();
      if(target===mob){target=null;autoplay=false;}
     }
