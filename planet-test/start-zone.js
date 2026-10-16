@@ -1,5 +1,6 @@
 import {createLandscapeMap} from '../landscape.js?v=0.3.7.0';
 import {createSphericalMeadow} from './sphere-meadow.js?v=2';
+import {createVillageVisuals} from './village-visuals.js?v=1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {VALLEY_MESAS,VALLEY_ROCKS} from './planet-landmarks.js?v=1';
 
@@ -82,6 +83,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
  const waterTint=new THREE.Color('#64b1b6');
  const shoreMat=new THREE.MeshStandardMaterial({color:'#b4a179',roughness:1,side:THREE.DoubleSide});
  const objects=[],meshGroups=[],longhouseRoofs=[],shadowCasters=[];
+ const villageVisuals=createVillageVisuals(THREE,{scene,getRadius,toNormal:localToNormal,heightAt});
  function box(p,mat,x,y,z,w,h,d){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);o.position.set(x,y,z);p.add(o);return o}
  function cyl(p,mat,x,y,z,a,b,h,seg=9){const o=new THREE.Mesh(new THREE.CylinderGeometry(a,b,h,seg),mat);o.position.set(x,y,z);p.add(o);return o}
  function ell(p,mat,x,y,z,a,b,c){const o=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);o.position.set(x,y,z);o.scale.set(a,b,c);p.add(o);return o}
@@ -121,6 +123,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
   for(const sign of [-1,1]){
    const plank=box(g,houseRoofMat,sign*(hw/2+.18),h+roofR/2,0,len,.27,d+1.05);
    plank.rotation.z=-sign*slope;longhouseRoofs.push(plank);shadowCasters.push(plank);
+    villageVisuals.addRoof(plank,len,d+1.05,sign===1?1:0);
   }
   // One ridge beam fills the narrow gap while remaining visibly above the roof.
   rod(g,wood,0,h+roofR+.05,-hd-.65,0,h+roofR+.05,hd+.65,.31);
@@ -165,6 +168,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
   const g=anchor(x,z,yaw);
   const rim=cyl(g,hideDark,0,.24,0,r,r,.49,14);
   const cone=new THREE.Mesh(new THREE.ConeGeometry(r,r*1.42,14),hide);cone.position.y=r*.71;g.add(cone);shadowCasters.push(cone);
+  villageVisuals.addTent(g,r);
   // Same red entrance fabric and timber structural poles as main NexGame.
   for(let i=0;i<9;i++){const a=i*TAU/9;rod(g,wood,Math.sin(a)*r,0,Math.cos(a)*r,0,r*1.58,0,.09)}
   box(g,red,0,r*.71,r*.71,r*.64,.18,.18);
@@ -221,6 +225,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
  // Trees use the exact tree layout of the current NexGame zone.
  function tree(x,z,scale){
   const g=anchor(x,z);g.scale.setScalar(scale);
+  villageVisuals.addTree(x,z,scale);
   rod(g,wood,0,0,0,.2,4.2,0,.33);for(const s of [-1,1])rod(g,wood,0,2,0,s*1.6,4.8,.2,.18);
   shadowCasters.push(ell(g,leaf,-1.4,4.8,0,2.4,.9,1.75));
   shadowCasters.push(ell(g,leaf2,1.4,5,.2,2.1,.95,1.6));
@@ -370,12 +375,13 @@ export function createStartZone(three,scene,getRadius,heightAt){
    const r=getRadius()+heightAt(n)+.12;attr.setXYZ(i/2,n.x*r,n.y*r,n.z*r);
   }
   attr.needsUpdate=true;terrainGeo.computeVertexNormals();terrainGeo.computeBoundingSphere();
-  updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();meadow.rebuild();rebuildStones();
+  updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();meadow.rebuild();rebuildStones();villageVisuals.rebuild();
  }
  rebuild();
  let roofFaded=false,shadowsEnabled=false,shimmerStrength=.30;
  function setGraphics(preset={}){
   meadow.applyDensity(preset);
+  villageVisuals.applyQuality(preset.detail);
   reeds.count=Math.floor(reedPoints.length*Math.max(0,Math.min(1,preset.reeds??1)));
   shimmerStrength=Math.max(0,Math.min(.45,preset.shimmer??.30));
   shimmer.material.opacity=shimmerStrength;
