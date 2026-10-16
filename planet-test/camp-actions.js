@@ -135,7 +135,8 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
  }
  function update(dt){
   const now=getClock();
-  gathering.update(now,available);
+  // Spherical distance controls visuals only; interaction range is unchanged.
+  gathering.update(now,available,distance);
   const stage=state.gatherStage,q=GATHER_QUESTS[stage],count=gatherCount();
   const ready=stage===0||(state.gatherAvailable&&stage<=3);
   const complete=q&&!state.gatherAvailable&&count>=q.count;
@@ -174,6 +175,7 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
   }
  }
  return {interact,render,update,cancel,available,
+  setVisualQuality(value){gathering.setVisualQuality(value);},
   get casting(){return !!cast},
   get gatherCount(){return gatherCount()},
   get chest(){return chest}};
