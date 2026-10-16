@@ -70,8 +70,8 @@ function restore(){
   return safe;
  }catch{return initial();}
 }
-export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRadius,toNormal,toLocal,heightAt,camera,canvas}){
- const state=restore(),runtime=createAbilityRuntime();
+export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRadius,toNormal,toLocal,heightAt,camera,canvas,preview=false}){
+ const state=preview?initial():restore(),runtime=createAbilityRuntime();
  const rightHand=hero.arms[1]?.hand,leftHand=hero.arms[0]?.hand;
  const modelSlots={weapon:null,shield:null};
  hero.root.userData.equipmentGrip={weapon:equipmentGrip('weapon'),shield:equipmentGrip('shield')};
@@ -146,7 +146,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const bind=(el,ev,fn)=>el.addEventListener(ev,fn);
  const stats=()=>deriveStats(state.level,state.equipment);
  if(state.hp==null)state.hp=stats().maxHp;
- function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch{}}
+ function persist(){if(preview)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch{}}
  function msg(text,seconds=2.35){
   toast.textContent=text;toast.hidden=false;toast.classList.add('show');
   messageUntil=clock+Math.min(4,Math.max(1,seconds));
