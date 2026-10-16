@@ -46,8 +46,8 @@ export function createVillageVisuals(THREE,{scene,getRadius,toNormal,heightAt}){
   const from=new THREE.Vector3(),to=new THREE.Vector3(),dir=new THREE.Vector3();
   for(let i=0;i<count;i++){
    const a=i*Math.PI*2/count;
-   from.set(Math.sin(a)*radius*.93,radius*.08,Math.cos(a)*radius*.93);
-   to.set(0,radius*1.4,0);
+   from.set(Math.sin(a)*radius*.957,radius*.08,Math.cos(a)*radius*.957);
+   to.set(0,radius*1.445,0);
    dir.subVectors(to,from);
    dummy.position.copy(from).add(to).multiplyScalar(.5);
    dummy.quaternion.setFromUnitVectors(up,dir.clone().normalize());
