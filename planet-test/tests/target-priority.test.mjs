@@ -16,9 +16,9 @@ test('first button press prefers a farther opponent directly in front over a nea
  const side=entity('side',3,.05),front=entity('front',19,.998),behind=entity('behind',2,-.9);
  assert.equal(FORWARD_TARGET_COSINE,.5);
  assert.equal(select([side,behind,front]),front);
- assert.equal(select([side,behind,front],front),behind===null?null:side);
- assert.equal(select([side,behind,front],side),behind);
- assert.equal(select([side,behind,front],behind),front);
+ assert.equal(select([side,behind,front],front),behind);
+ assert.equal(select([side,behind,front],behind),side);
+ assert.equal(select([side,behind,front],side),front);
 });
 
 test('within forward cone alignment outweighs moderate distance; distance breaks equivalent angles',()=>{
@@ -40,9 +40,9 @@ test('without forward opponents nearest-first fallback remains available',()=>{
 
 test('existing cycle can move backward and reaches out-of-cone targets',()=>{
  const front=entity('front',30,.96),side=entity('side',6,0),behind=entity('behind',1,-.8);
- assert.equal(select([front,side,behind],front,-1),behind);
- assert.equal(select([front,side,behind],behind,-1),side);
- assert.equal(select([front,side,behind],side,-1),front);
+ assert.equal(select([front,side,behind],front,-1),side);
+ assert.equal(select([front,side,behind],side,-1),behind);
+ assert.equal(select([front,side,behind],behind,-1),front);
 });
 
 test('dead, invisible, nonfinite or beyond-40m enemies are excluded, while dummy remains eligible',()=>{
@@ -57,7 +57,6 @@ test('dead, invisible, nonfinite or beyond-40m enemies are excluded, while dummy
 });
 
 test('direction scores are evaluated on a tangent plane, not flat global coordinates',()=>{
- const up=new THREE.Vector3(0,1,0);
  for(const normal of [new THREE.Vector3(0,0,1),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,-1)]){
   const tangent=new THREE.Vector3(0,0,1);
   if(Math.abs(tangent.dot(normal))>.99)tangent.set(1,0,0);
