@@ -2,138 +2,19 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#352d1d">
-<meta name="nexgame-release" content="NexGame · Alpha 0.3.7.1">
-<title>NexGame · запуск последней версии</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="refresh" content="0; url=https://nexions.ru/nexgameworld/">
+<meta name="theme-color" content="#101b1d">
+<title>NexGameWorld — сферический мир</title>
 <style>
-html,body{margin:0;min-height:100%;background:#211f19;color:#f3dca6;font:15px system-ui,sans-serif}
-#launch{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:22px;text-align:center;box-sizing:border-box}
-#launch h1{font:normal 36px Georgia,serif;letter-spacing:2px;margin:0;color:#e4c17c}
-#launch p{max-width:320px;line-height:1.5;color:#d8cfaf;margin:0}
-#launchRetry{margin-top:10px;min-height:44px;padding:9px 24px;border:1px solid #b69a5e;border-radius:7px;background:#44543a;color:#ffebc1;font:700 14px system-ui,sans-serif}
-#launchRetry[hidden]{display:none}
+html,body{margin:0;min-height:100%;background:#0d171b;color:#ead3a5;font:16px/1.6 system-ui,-apple-system,sans-serif}
+main{min-height:100dvh;display:grid;place-content:center;text-align:center;padding:25px}
+h1{font:normal clamp(28px,7vw,48px) Georgia,serif;margin:0 0 14px}
+p{max-width:440px;margin:0 auto 22px;color:#b8c0b4}
+a{display:inline-block;border:1px solid #a48a58;border-radius:5px;padding:12px 18px;color:#e4c18b;text-decoration:none}
 </style>
+<script>location.replace('https://nexions.ru/nexgameworld/');</script>
 </head>
-<body>
-<main id="launch" aria-live="polite">
-<h1>NexGame</h1>
-<p id="launchStatus">Загружаем последнюю опубликованную версию Мулгора…</p>
-<button id="launchRetry" type="button" hidden>Повторить</button>
-</main>
-<script>
-/* Stable GitHub Pages entrypoint: freshly fetch the complete app before loading
-   the scene, UI, CSS or JS. Canonical URL does not need a version parameter. */
-(()=>{
- 'use strict';
- const CACHE_KEY='nexgame-last-verified-app-html-v1';
- let runningBuild='',lastCheck=0,checking=false;
- const status=document.getElementById('launchStatus');
- const retry=document.getElementById('launchRetry');
- const releaseOf=html=>{
-  const match=html.match(/NexGame\s*[·]\s*Alpha\s*(\d+\.\d+\.\d+\.\d+)/);
-  return match?match[1]:null;
- };
- const compareBuild=(a,b)=>{
-  const x=a.split('.').map(Number),y=b.split('.').map(Number);
-  for(let i=0;i<4;i++){if(x[i]>y[i])return 1;if(x[i]<y[i])return -1}
-  return 0;
- };
- async function fetchLatest(){
-  const url=new URL('./app.html',location.href);
-  url.searchParams.set('_fresh',String(Date.now()));
-  const response=await fetch(url.href,{cache:'no-store'});
-  if(!response.ok)throw new Error('Новая сборка пока недоступна ('+response.status+')');
-  const text=await response.text();
-  if(!releaseOf(text))throw new Error('Получена некорректная версия игры');
-  return text;
- }
- function showError(error){
-  if(!document.getElementById('launchStatus'))return;
-  status.textContent='Не удалось загрузить игру. Проверь подключение и попробуй ещё раз.';
-  retry.hidden=false;
-  console.warn('NexGame loader:',error);
- }
- function install(html,fromNetwork){
-  const parsed=new DOMParser().parseFromString(html,'text/html');
-  const build=releaseOf(html);
-  const appScript=parsed.querySelector('script[type="module"][src]');
-  if(!build||!parsed.getElementById('scene')||
-     !parsed.getElementById('playerFrame')||
-     !parsed.getElementById('actionsBar')||!appScript){
-   throw new Error('Отсутствуют необходимые файлы игрового интерфейса');
-  }
-  const entry=appScript.getAttribute('src');
-  // The app's WebGL/GLTFLoader modules use the bare import specifier "three".
-  // Preserve its import map BEFORE stripping scripts from the downloaded
-  // document. Otherwise the canonical launcher silently forces old models.
-  const importMapText=parsed.querySelector('script[type="importmap"]')?.textContent;
-  const stamp=String(Date.now());
-  parsed.querySelectorAll('script').forEach(script=>script.remove());
-  if(fromNetwork){
-   parsed.querySelectorAll('link[rel="stylesheet"][href]').forEach(link=>{
-    const href=new URL(link.getAttribute('href'),location.href);
-    if(href.origin===location.origin){
-     href.searchParams.set('_fresh',stamp);
-     link.setAttribute('href',href.href);
-    }
-   });
-  }
-  document.documentElement.lang=parsed.documentElement.lang||'ru';
-  document.head.replaceChildren(...Array.from(parsed.head.childNodes));
-  document.body.replaceChildren(...Array.from(parsed.body.childNodes));
-  if(importMapText){
-   const map=document.createElement('script');
-   map.type='importmap';
-   map.textContent=importMapText;
-   document.head.appendChild(map);
-  }
-  runningBuild=build;
-  // Old versions sometimes auto-added release=...; keep the normal URL.
-  const clean=new URL(location.href);
-  clean.searchParams.delete('release');
-  clean.searchParams.delete('v');
-  if(clean.href!==location.href)history.replaceState(null,'',clean.pathname+clean.search+clean.hash);
-  const module=document.createElement('script');
-  module.type='module';
-  const source=new URL(entry,location.href);
-  if(fromNetwork&&source.origin===location.origin)source.searchParams.set('_fresh',stamp);
-  module.src=source.href;
-  document.body.appendChild(module);
- }
- async function start(){
-  let html,online=true;
-  try{
-   html=await fetchLatest();
-  }catch(error){
-   // Safari can still open the last known release when temporarily offline.
-   try{html=localStorage.getItem(CACHE_KEY)}catch{}
-   if(!html)throw error;
-   online=false;
-  }
-  if(online){
-   try{localStorage.setItem(CACHE_KEY,html)}catch{}
-  }
-  install(html,online);
- }
- async function checkOnReturn(){
-  if(!runningBuild||document.hidden||checking||Date.now()-lastCheck<20000)return;
-  lastCheck=Date.now();checking=true;
-  try{
-   const html=await fetchLatest(),build=releaseOf(html);
-   if(build&&compareBuild(build,runningBuild)>0){
-    // game.js saves current progress on pagehide before reloading.
-    location.reload();
-   }
-  }catch{/* Stay in the current game if offline. */}
-  finally{checking=false}
- }
- retry.addEventListener('click',()=>location.reload());
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkOnReturn()});
- window.addEventListener('pageshow',event=>{if(event.persisted)checkOnReturn()});
- start().catch(showError);
-})();
-</script>
-<noscript>Для запуска NexGame необходимо включить JavaScript.</noscript>
-</body>
+<body><main><h1>NexGameWorld</h1><p>Первый плоский прототип архивирован и больше не публикуется. Действующая версия игры — сферический мир.</p><a href="https://nexions.ru/nexgameworld/">Открыть сферическую игру</a></main></body>
 </html>

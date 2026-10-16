@@ -1,16 +1,14 @@
-name: NexGame Online CI
+name: NexGameWorld Spherical and Server CI
 
-# Update multi-file releases (game.js, app.html and index.html) in ONE commit.
-# Pushing each file separately exposes an incomplete release to Pages and CI.
 on:
   push:
     branches: [main]
     paths:
+      - 'planet-test/**'
       - '*.js'
       - '*.css'
       - 'index.html'
       - 'app.html'
-      - 'tests/**'
       - 'bestiary/**'
       - 'assets/**'
       - 'server/**'
@@ -18,44 +16,47 @@ on:
       - '.github/workflows/nexgame-online.yml'
   pull_request:
     paths:
+      - 'planet-test/**'
       - '*.js'
       - '*.css'
-      - 'index.html'
-      - 'app.html'
-      - 'tests/**'
       - 'bestiary/**'
       - 'assets/**'
       - 'server/**'
       - 'package.json'
-      - '.github/workflows/nexgame-online.yml'
   workflow_dispatch:
-
-concurrency:
-  group: nexgame-online-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: nexgame-active-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  shared-world:
+  spherical-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install client test dependencies
+        run: npm install --no-audit --no-fund
+      - name: Syntax check active spherical game
+        run: npm run check
+      - name: Run spherical gameplay and visual regressions
+        run: npm test
+
+  multiplayer-server:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install game and multiplayer dependencies
-        run: |
-          npm install --no-audit --no-fund
-          npm install --prefix server --no-audit --no-fund
-      - name: Check syntax of active game, atlas, client tests and multiplayer server
-        run: |
-          npm run check
-          npm run check --prefix server
-          find . -path './.git' -prune -o -path './node_modules' -prune -o -path './server/node_modules' -prune -o -path './versions' -prune -o -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -r -n1 node --check
-      - name: Run maintained game and online multiplayer regression tests
-        run: |
-          npm test
-          npm test --prefix server
+      - name: Install server dependencies
+        run: npm install --prefix server --no-audit --no-fund
+      - name: Server tests
+        run: npm test --prefix server
