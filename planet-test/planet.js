@@ -277,7 +277,7 @@ try {
   function storePreference(key,value){try{localStorage.setItem(key,value)}catch{}}
   const graphicsSelect=$('graphicsQuality'),qualityHelp=$('qualityHelp');
   const fpsToggle=$('showFps'),fpsCounter=$('fpsCounter');
-  if($('graphicsControl'))$('graphicsControl').hidden=false;
+  // Graphics settings belong exclusively to the menu; renderModal owns visibility.
   let qualityName=resolveGraphicsPreset(readPreference(graphicsStorageKey,'balanced'));
   if(isPortalPreview)qualityName='economy';
   let shadowActive=false;
