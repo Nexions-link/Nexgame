@@ -2,6 +2,7 @@
 // Quest locations and timings mirror game.js (main), but all objects remain
 // in this independent offline scene and do not write to the production save.
 import {lakeRadius} from './start-zone.js?v=14';
+import {RESOURCE_VISUAL_COLORS,resourceProximityCue} from './gather-visibility.js?v=1';
 
 export const GATHER_QUESTS=[
  null,
@@ -22,13 +23,13 @@ export const OFFLINE_CHEST={x:-33.2,z:-7.4,slots:18,range:4.7};
 export function createGatherWorld({THREE,parent,place}){
   const yAxis=new THREE.Vector3(0,1,0);
   const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:.92,...extra});
-  const mats={stem:material('#587f40'),leaf:material('#739b47'),
-    petal:material('#fff0b4',{emissive:'#483514',emissiveIntensity:.15}),
-    core:material('#e7bb62',{emissive:'#805624',emissiveIntensity:.15}),
-    root:material('#c0a16e'),rootLeaf:material('#99a85a'),
-    mushroom:material('#a099c1',{emissive:'#594680',emissiveIntensity:.2}),
-    spot:material('#e7dfed'),bone:material('#d6ccb1'),
-    spark: new THREE.MeshBasicMaterial({color:'#faeabd'})
+  const mats={stem:material('#6b914d'),leaf:material('#83a75e'),
+    petal:material('#f7db9f',{emissive:'#58401d',emissiveIntensity:.18}),
+    core:material('#f0ca67',{emissive:'#815422',emissiveIntensity:.22}),
+    root:material('#ceb480'),rootLeaf:material('#a7c673',{emissive:'#33481f',emissiveIntensity:.13}),
+    mushroom:material('#b7a7d1',{emissive:'#594780',emissiveIntensity:.30}),
+    spot:material('#f3e8ff'),bone:material('#dfd6ba'),
+    spark:new THREE.MeshBasicMaterial({color:'#f7e4b0',toneMapped:false})
   };
   const nodes=[];
   // The spherical lake has real depth. Nudge shore-side resources onto solid
@@ -48,35 +49,64 @@ export function createGatherWorld({THREE,parent,place}){
   const sph=new THREE.SphereGeometry(1,9,7);
   const cone=new THREE.ConeGeometry(1,1,8);
   const cyl=new THREE.CylinderGeometry(1,1,1,7);
+  // Just a few live quest resources exist at once. Reuse geometry between
+  // them; their individually adjustable rim opacity is the only unique material.
+  const rimGeometry=new THREE.TorusGeometry(1,.025,5,32);
+  const glintGeometry=new THREE.IcosahedronGeometry(1,0);
+  let visualQuality=.68;
+  const glintMaterials=new Map();
+  for(let stage=1;stage<=3;stage++){
+    glintMaterials.set(stage,new THREE.MeshBasicMaterial({
+      color:RESOURCE_VISUAL_COLORS[stage].glint,depthWrite:false,toneMapped:false
+    }));
+  }
   for(let stage=1;stage<=3;stage++){
     GATHER_QUESTS[stage].locations.forEach(([baseX,baseZ],index)=>{
       const [x,z]=onDryGround(baseX,baseZ);
       const group=new THREE.Group();group.name='gather-'+stage+'-'+index;parent.add(group);
       if(stage===1){
         obj(group,cyl,mats.stem,0,.20,0,.035,.4,.035);
-        obj(group,sph,mats.core,0,.43,0,.14,.12,.14);
-        for(let i=0;i<5;i++){
-          const angle=i*2*Math.PI/5;
-          obj(group,sph,mats.petal,Math.sin(angle)*.27,.44,Math.cos(angle)*.27,.16,.075,.13);
+        obj(group,sph,mats.core,0,.46,0,.165,.13,.165);
+        for(let i=0;i<6;i++){
+          const angle=i*2*Math.PI/6;
+          obj(group,sph,mats.petal,Math.sin(angle)*.29,.46,Math.cos(angle)*.29,.205,.085,.15);
         }
-        obj(group,sph,mats.leaf,-.19,.14,0,.23,.06,.11);
+        obj(group,sph,mats.leaf,-.21,.17,0,.27,.075,.14);
       } else if(stage===2){
-        obj(group,sph,mats.root,-.16,.15,-.1,.22,.19,.22);
-        obj(group,sph,mats.root,.12,.15,.08,.22,.18,.22);
+        obj(group,sph,mats.root,-.19,.17,-.11,.27,.21,.25);
+        obj(group,sph,mats.root,.15,.15,.09,.25,.20,.24);
         for(let i=-1;i<=1;i++){
-          const leaf=obj(group,sph,mats.rootLeaf,.16*i,.4,.07*i,.12,.26,.08);
-          leaf.rotation.z=i*.48;
+          const leaf=obj(group,sph,mats.rootLeaf,.18*i,.50,.06*i,.145,.34,.095);
+          leaf.rotation.z=i*.44;
         }
+        obj(group,sph,mats.core,0,.66,.03,.11,.075,.09);
       } else {
-        for(const [cx,cz,h,r] of [[-.15,-.1,.34,.3],[.27,.15,.23,.22]]){
+        for(const [cx,cz,h,r] of [[-.17,-.1,.38,.35],[.29,.15,.26,.27]]){
           obj(group,cyl,mats.bone,cx,h/2,cz,.07,h,.07);
           obj(group,cone,mats.mushroom,cx,h+.05,cz,r,.25,r);
           obj(group,sph,mats.spot,cx,h+.16,cz,r*.38,.045,r*.38);
         }
       }
-      const spark=obj(group,sph,mats.spark,0,.86,0,.09,.09,.09);
+      // Earth-hugging rim, not a floating quest beacon: it only lights up
+      // within 9 metres of a currently gatherable resource.
+      const rim=new THREE.Mesh(rimGeometry,new THREE.MeshBasicMaterial({
+        color:RESOURCE_VISUAL_COLORS[stage].rim,
+        transparent:true,opacity:0,depthWrite:false,depthTest:true,toneMapped:false
+      }));
+      rim.name='quest-resource-soft-rim';
+      rim.rotation.x=-Math.PI/2;rim.position.y=.11;
+      rim.scale.setScalar(stage===1?.47:stage===2?.50:.53);
+      rim.visible=false;rim.raycast=()=>{};group.add(rim);
+      const glints=[];
+      for(let i=0;i<2;i++){
+        const glint=new THREE.Mesh(glintGeometry,glintMaterials.get(stage));
+        glint.name='quest-resource-glint';glint.scale.setScalar(.045);
+        glint.visible=false;glint.raycast=()=>{};group.add(glint);glints.push(glint);
+      }
+      const spark=obj(group,sph,mats.spark,0,.98,0,.072,.072,.072);
+      spark.raycast=()=>{};
       const node={kind:'gather',name:({1:'Луговой цветок',2:'Солнечный корень',3:'Лунный гриб'})[stage],
-        id:stage+'-'+index,stage,index,x,z,yaw:0,root:group,spark,item:GATHER_QUESTS[stage].item,
+        id:stage+'-'+index,stage,index,x,z,yaw:0,root:group,spark,rim,glints,item:GATHER_QUESTS[stage].item,
         pending:false,readyAt:0};
       group.visible=false;nodes.push(node);place(node);
     });
@@ -91,13 +121,30 @@ export function createGatherWorld({THREE,parent,place}){
   obj(chest,new THREE.BoxGeometry(1,1,1),metal,0,.72,.62,.26,.3,.09);
   const chestEntity={kind:'chest',name:'Сундук · 18 ячеек',x:OFFLINE_CHEST.x,z:OFFLINE_CHEST.z,yaw:0,root:chest};
   place(chestEntity);
-  return {nodes,chest:chestEntity,update(clock,isAvailable){
-    for(const node of nodes){
-      node.root.visible=!!isAvailable(node,clock);
-      if(node.root.visible){
-        node.spark.position.y=.86+.1*Math.sin(clock*2.5+node.index);
-        node.root.rotateY(.0008);
+  return {nodes,chest:chestEntity,
+    setVisualQuality(value){visualQuality=Number.isFinite(value)?Math.max(0,Math.min(1,value)):.68;},
+    update(clock,isAvailable,getDistance){
+      for(const node of nodes){
+        node.root.visible=!!isAvailable(node,clock);
+        if(!node.root.visible)continue;
+        const distance=typeof getDistance==='function'?getDistance(node):Infinity;
+        const cue=resourceProximityCue(distance,visualQuality);
+        node.rim.material.opacity=cue.ringOpacity*(.9+.1*Math.sin(clock*2.1+node.index));
+        node.rim.visible=node.rim.material.opacity>.006;
+        node.spark.visible=cue.sparkVisible;
+        if(node.spark.visible){
+          node.spark.position.y=.98+.065*Math.sin(clock*2.35+node.index);
+          node.spark.scale.setScalar(.072*cue.sparkScale*(1+.06*Math.sin(clock*2.8+node.index)));
+        }
+        for(let i=0;i<node.glints.length;i++){
+          const glint=node.glints[i];
+          glint.visible=i<cue.glintCount;
+          if(!glint.visible)continue;
+          const phase=clock*1.0+node.index*1.43+i*Math.PI;
+          glint.position.set(.29*Math.cos(phase),.78+.08*Math.sin(clock*1.8+i),.29*Math.sin(phase));
+          glint.scale.setScalar(.038+.006*Math.sin(clock*2+i));
+        }
       }
     }
-  }};
+  };
 }
