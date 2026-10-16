@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {screenMoveVector,turnTowardsAngle} from '../movement-controls.js?v=0.3.7.0';
 import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
+import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {createOfflineRpg} from './offline-rpg.js?v=18';
 import {animateSphericalTauren} from './tauren-animation.js?v=2';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=14';
@@ -626,20 +627,19 @@ try {
       const currentLocal=approach?normalToLocal(state.normal,R):null;
       const remaining=approach?Math.hypot(approach.x-currentLocal.x,approach.z-currentLocal.z):Infinity;
       const step = Math.max(0,Math.min(WALK_SPEED*dt*power,remaining-3.2));
-      const nextNormal = state.normal.clone().applyAxisAngle(axis, step/R).normalize();
-      const nextLocal = normalToLocal(nextNormal,R);
-      // The automatic approach must obey the very same walkable surfaces
-      // and house collisions as the joystick.
-      if((nextLocal.d<82 && !canWadeAtLocal(nextLocal.x,nextLocal.z))||
-         !rpg.canMoveTo(nextLocal.x,nextLocal.z)) {
+      const move=sphericalSlideStep({
+        THREE,normal:state.normal,travel,step,radius:R,toLocal:normalToLocal,
+        canStep:(x,z,d)=>(d>=82||canWadeAtLocal(x,z))&&rpg.canMoveTo(x,z)
+      });
+      if(move.travelled<=0){
         if(approach)rpg.stopAutoApproach();
         power=0;
-      } else {
-        const oldLon = Math.atan2(state.normal.x,state.normal.z);
-        state.normal.copy(nextNormal);
-        const newLon = Math.atan2(state.normal.x,state.normal.z);
-        state.lonUnwrapped += angleDelta(newLon,oldLon);
-        state.meters += step;
+      }else{
+        const oldLon=Math.atan2(state.normal.x,state.normal.z);
+        state.normal.copy(move.normal);
+        const newLon=Math.atan2(state.normal.x,state.normal.z);
+        state.lonUnwrapped+=angleDelta(newLon,oldLon);
+        state.meters+=move.travelled;
       }
       state.legCycle += dt * power * 9.1;
     } else {
