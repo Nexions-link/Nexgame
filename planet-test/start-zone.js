@@ -2,6 +2,7 @@ import {createLandscapeMap} from '../landscape.js?v=0.3.7.0';
 import {createSphericalMeadow} from './sphere-meadow.js?v=2';
 import {createVillageVisuals} from './village-visuals.js?v=2';
 import {createTaurenVisualDetails} from './tauren-visual-details.js?v=2';
+import {hornPathPoints,hornRadius} from './tauren-horn-profile.js?v=1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {VALLEY_MESAS,VALLEY_ROCKS} from './planet-landmarks.js?v=1';
 
@@ -455,9 +456,9 @@ function taurenForm(parent,mat,rings,segments=14,power=1){
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(parent,g,mat);
 }
 function taurenHorn(parent,sign){
- const curve=new THREE.CatmullRomCurve3([[.43,.40,-.08],[.78,.43,-.18],[1.04,.63,-.22],[1.15,.97,-.13],[1.05,1.27,.04]].map(([x,y,z])=>new THREE.Vector3(x*sign,y,z)));
+ const curve=new THREE.CatmullRomCurve3(hornPathPoints(THREE,sign));
  const p=[],uv=[],ix=[],steps=15,sides=8,up=new THREE.Vector3(0,0,1);
- for(let i=0;i<=steps;i++){const t=i/steps,point=curve.getPoint(t),tangent=curve.getTangent(t),normal=new THREE.Vector3().crossVectors(tangent,up).normalize(),binormal=new THREE.Vector3().crossVectors(tangent,normal).normalize(),r=.205*(1-t)**.83+.003;
+ for(let i=0;i<=steps;i++){const t=i/steps,point=curve.getPoint(t),tangent=curve.getTangent(t),normal=new THREE.Vector3().crossVectors(tangent,up).normalize(),binormal=new THREE.Vector3().crossVectors(tangent,normal).normalize(),r=hornRadius(t);
   for(let j=0;j<=sides;j++){const a=j/sides*TAU,v=point.clone().addScaledVector(normal,Math.cos(a)*r).addScaledVector(binormal,Math.sin(a)*r);p.push(v.x,v.y,v.z);uv.push(j/sides,t)}
  }
  for(let i=0;i<steps;i++)for(let j=0;j<sides;j++){const a=i*(sides+1)+j,b=a+sides+1;ix.push(a,a+1,b,b,a+1,b+1)}
