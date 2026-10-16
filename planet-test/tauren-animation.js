@@ -7,7 +7,7 @@ const ease=(a,b,t)=>{const x=clamp((t-a)/(b-a),0,1);return x*x*(3-2*x)};
 const smooth=x=>x*x*(3-2*x);
 export function animateSphericalTauren(actor,{
  dt=1/60,time=0,walk=0,phase=0,gather=false,
- attack=-1,stomp=0,blockRemaining=0,weaponKind='none'
+ attack=-1,stomp=-1,blockRemaining=0,weaponKind='none'
 }={}){
  const speed=clamp(walk,0,1),seconds=clamp(dt,0,.1),user=actor.root.userData;
  user.gatherBlend=clamp((user.gatherBlend||0)+((gather?1:0)-(user.gatherBlend||0))*(1-Math.exp(-seconds*13)),0,1);
@@ -35,8 +35,8 @@ export function animateSphericalTauren(actor,{
   actor.chest.rotation.x+=.12*swing;
   actor.body.position.z=0;
  }
- const stompPower=clamp(stomp,0,1);
- actor.body.position.y-=.14*Math.sin((1-stompPower)*Math.PI);
+ const stomping=stomp>=0,stompPower=clamp(stomp,0,1);
+ if(stomping)actor.body.position.y-=.14*Math.sin(Math.min(stompPower/.55,1)*Math.PI);
  // Two-segment IK for each leg. Heel remains aligned to local radial-up ground.
  for(let i=0;i<2;i++){
   const leg=actor.legs[i],p=((phase/(Math.PI*2)+i*.5)%1+1)%1;
@@ -44,7 +44,7 @@ export function animateSphericalTauren(actor,{
   if(p<.58)z=.775-1.55*p/.58;
   else{const t=(p-.58)/.42;z=-.775+1.55*smooth(t);lift=Math.sin(t*Math.PI)*.22}
   z*=w;lift*=w*(1-bend);
-  if(stompPower>0&&i===1)lift+=.32*stompPower;
+  if(stomping&&i===1){lift+=.42*Math.sin(Math.min(stompPower/.48,1)*Math.PI);z+=.17*Math.sin(stompPower*Math.PI);}
   const y=.205+lift-actor.body.position.y,
    distance=clamp(Math.hypot(y,z),.15,1.397),
    knee=Math.acos(clamp((distance*distance-.72*.72-.68*.68)/(2*.72*.68),-1,1));
@@ -60,7 +60,7 @@ export function animateSphericalTauren(actor,{
   arm.elbow.rotation.x=-.14-Math.abs(stride)*.11*w-(i?profile.elbowWindup*windup:0);
   arm.shoulder.rotation.x-=bend*(i?.95:1.12);
   arm.elbow.rotation.x-=.45*bend;
-  if(stompPower>0)arm.shoulder.rotation.z+=sign*.17*Math.sin(stompPower*Math.PI);
+  if(stomping)arm.shoulder.rotation.z-=sign*.17*Math.sin(stompPower*Math.PI);
   if(i===0){
    arm.shoulder.rotation.x+=block.shoulderX;
    arm.shoulder.rotation.z+=block.shoulderZ;
@@ -72,7 +72,7 @@ export function animateSphericalTauren(actor,{
   }
   // Dynamically rotate the *wrist joint*, not the GLB model: unchanged approved
   // sword/axe/dagger/shield tuning angles remain in userData.equipmentGrip.
-  const grip=user.equipmentGrip?.[i===0?'shield':'weapon'];
+  const grip=user.equipmentGrip?.[i===0?'shield':'weapon']||{x:i?-Math.PI/2:Math.PI,y:0,z:0};
   if(arm.hand&&grip){
    const wrist=i===0?block.wristX:
      stabbing?.12*stabbing.draw-.08*stabbing.extend:
