@@ -56,7 +56,7 @@ function paintCreatureLoot(entry){
   hint.textContent='Для этого существа таблица добычи ещё не назначена. Модель пока находится только в атласе.';
   return;
  }
- hint.textContent='Предварительные шансы NexGameWorld за убийство. Материалы проверяются независимо; снаряжение разыгрывается одной группой.';
+ hint.textContent='Эти же шансы используются в игре NexGameWorld. Материалы разыгрываются независимо и могут выпадать вместе; снаряжение — не более одного предмета за убийство.';
  const all=getCreatureLootRows(entry.id);
  function renderRow(row){
   const item=ITEM_CATALOG[row.id],node=document.createElement('div');
