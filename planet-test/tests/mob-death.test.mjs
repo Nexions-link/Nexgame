@@ -78,7 +78,8 @@ test('corpse interaction waits for the animal to settle',()=>{
  assert.equal(nearbyInteractable([entity],()=>1,()=>true),null);
  entity.dying=false;assert.equal(nearbyInteractable([entity],()=>1,()=>true),entity);
 });
-test('real offline RPG advances fallback death each frame, then exposes loot',()=>{
+test('real offline RPG advances fallback death each frame, then exposes loot',t=>{
+ t.mock.method(Math,'random',()=>.5); // The shared drop table yields one feather.
  const h=harness({x:-9,z:-25});h.rpg.state.level=60;h.rpg.state.resource=100;
  h.rpg.targetNearest();h.rpg.handleSlotKey('4');h.rpg.update(.35);
  const visual=h.scene.getObjectsByProperty('name','dolgonog-fallback')[0];
