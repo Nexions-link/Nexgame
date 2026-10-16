@@ -7,7 +7,7 @@ import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from 
 import {createOfflineRpg} from './offline-rpg.js?v=31';
 import {animateSphericalTauren} from './tauren-animation.js?v=3';
 import {GRAPHICS_PRESETS,resolveGraphicsPreset,effectivePixelRatio,graphicsDensity} from './graphics-quality.js?v=2';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=17';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=18';
 initStartZoneMath(THREE);
 
 // Independent pointer streams for joystick, UI buttons and camera gestures.
@@ -257,7 +257,7 @@ try {
   // Detailed native camp, lake and authentic procedural Tauren are isolated in start-zone.js.
   const startZone=createStartZone(THREE,scene,()=>R,heightAt);
   relocateInstances();
-  const hero=createTauren(THREE,scene);
+  const hero=createTauren(THREE,scene,{player:true});
   const actor=hero.root;
   const state = {
     normal:previousWorld?new THREE.Vector3(...previousWorld.normal):unitAt(0,0),
@@ -299,6 +299,7 @@ try {
     // The portal shows the latest village art without costly shadows or high DPR.
     if(isPortalPreview)sceneryDensity.detail=.68;
     startZone.setGraphics({...sceneryDensity,waterColor:profile.waterColor,shadows:enabled});
+    hero.visualDetails?.setQuality(isPortalPreview?.68:profile.detail);
     if(qualityHelp)qualityHelp.textContent=
       qualityName==='economy'?'Разреженная растительность, простая вода и без теней.':
       qualityName==='high'?'Самая плотная растительность, чёткая картинка, тени 1024 px.':
