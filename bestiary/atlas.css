@@ -18,3 +18,70 @@
 .palette-actions button.palette-primary{background:#79603b;border-color:#d3ad73;color:white}
 .palette-message{font-size:12px;color:var(--gold);min-height:16px;margin:10px 0 3px}
 @media(max-width:900px){.palette-panel{padding:12px}.palette-grid{grid-template-columns:1fr}.palette-actions button{flex-grow:1}.palette-row{gap:7px}}
+
+
+/* Atlas mobile viewport: prevent text inflation, horizontal page expansion and
+   automatic iOS Safari focus zoom. Lists remain independently scrollable. */
+html{width:100%;max-width:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:clip}
+body{width:100%;max-width:100%;min-width:0;overflow-x:clip}
+.layout,.main,.sidebar,.workspace,.library,.detail,.viewer{min-width:0;max-width:100%}
+.layout{width:100%}
+.viewer canvas{max-width:100%}
+.search input{font-size:16px}
+@media(max-width:900px){
+ .layout{grid-template-columns:minmax(0,1fr)}
+ .workspace{grid-template-columns:minmax(0,1fr)}
+ .sidebar{min-width:0}
+ .top{flex-wrap:wrap;min-width:0}
+ .top>span{min-width:0}
+ .viewer-head,.viewer-bottom,.detail-top{flex-wrap:wrap}
+ .entries,#categories{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .palette-grid{min-width:0}
+ .palette-hex{font-size:16px}
+}
+@media(max-width:600px){
+ .sidebar{padding:14px 13px;gap:13px}
+ .brand{gap:10px}
+ .brand-icon{width:39px;height:39px;flex:0 0 39px;font-size:21px}
+ .brand strong{font-size:14px}
+ .brand small{font-size:9px;letter-spacing:.1em}
+ .side-label{display:none}
+ #categories{gap:7px;padding-bottom:2px}
+ .category{flex:0 0 auto;min-height:40px}
+ .top{padding:14px 13px 11px;gap:6px 12px;line-height:1.6;font-size:10px;letter-spacing:.06em}
+ .intro{padding:23px 14px 18px}
+ .intro h1{font-size:clamp(32px,8vw,44px);line-height:1.12;margin:10px 0 12px}
+ .intro>p:last-child{font-size:13px;line-height:1.6}
+ .workspace{padding:0 10px 28px;gap:12px}
+ .library,.detail{padding:13px 12px;border-radius:10px}
+ .library h2{font-size:21px}
+ .library-head span{font-size:11px}
+ .search{margin:13px 0;padding:9px 11px}
+ .search input{font-size:16px;min-height:26px}
+ .entries{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(158px,72%);gap:8px;scroll-snap-type:x proximity;padding-bottom:3px}
+ .entry{min-width:0;width:100%;scroll-snap-align:start;padding:11px;gap:10px}
+ .entry strong{font-size:13px;overflow-wrap:anywhere}
+ .entry small{font-size:11px}
+ .detail-top{align-items:start;gap:8px;line-height:1.5}
+ .detail h2{font-size:30px;line-height:1.15;margin:15px 0 6px;overflow-wrap:anywhere}
+ .subtitle{font-size:13px;line-height:1.5}
+ .viewer-head{font-size:10px;letter-spacing:0;padding:10px 11px}
+ .viewer canvas{height:clamp(245px,70vw,350px)}
+ .viewer-bottom{padding:10px 11px;font-size:11px;line-height:1.5}
+ .viewer-bottom button,.animation-panel button{min-height:42px}
+ .facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .fact{min-width:0;padding:10px}
+ .fact strong{overflow-wrap:anywhere}
+ .palette-header{flex-wrap:wrap}
+ .palette-group summary{overflow-wrap:anywhere}
+ .palette-row{min-width:0}
+ .palette-name{overflow-wrap:anywhere}
+ .palette-hex{width:91px;min-width:82px;font-size:16px}
+ footer{padding:17px 14px;font-size:10px;line-height:1.6;letter-spacing:.04em}
+}
+@media(max-width:360px){
+ .top .online{font-size:9px}
+ .entries{grid-auto-columns:minmax(145px,77%)}
+ .palette-row{padding:6px 5px;gap:5px}
+ .palette-hex{width:83px;min-width:77px}
+}
