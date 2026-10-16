@@ -4,7 +4,7 @@ import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=1';
-import {createOfflineRpg} from './offline-rpg.js?v=30';
+import {createOfflineRpg} from './offline-rpg.js?v=31';
 import {animateSphericalTauren} from './tauren-animation.js?v=3';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=14';
 initStartZoneMath(THREE);
@@ -18,9 +18,10 @@ planetViewport.addEventListener('selectstart',event=>event.preventDefault());
 planetViewport.addEventListener('contextmenu',event=>event.preventDefault());
 
 // Isolated planet experiment: no imports, saves, WebSockets or assets from the main RPG.
+const isPortalPreview = new URLSearchParams(location.search).get('portal-preview') === '1';
 const BASE_RADIUS = START_RADIUS;
 const AVAILABLE_RADII = [87, 174, 261];
-const previousWorld=readPlanetView(localStorage,AVAILABLE_RADII);
+const previousWorld=isPortalPreview?null:readPlanetView(localStorage,AVAILABLE_RADII);
 let R = previousWorld?.radius??BASE_RADIUS;
 const WALK_SPEED = 4.05;
 const TAU = Math.PI * 2;
@@ -108,7 +109,7 @@ try {
     camera.updateProjectionMatrix();
   }
   const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'default'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.45));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, isPortalPreview ? 1.0 : 1.45));
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -259,11 +260,11 @@ try {
     orbitElevation:previousWorld?.orbitElevation??.34,
     orbitDistance:previousWorld?.orbitDistance??3.22,legCycle:0
   };
-  const saveWorld=()=>writePlanetView(localStorage,state,R);
+  const saveWorld=()=>isPortalPreview?false:writePlanetView(localStorage,state,R);
   let saveClock=0;
   const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:options=>createTauren(THREE,scene,options),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
-   toLocal:normalToLocal,heightAt,camera,canvas});
+   toLocal:normalToLocal,heightAt,camera,canvas,preview:isPortalPreview});
   let prevHeading = 0;
   const cameraGoal = new THREE.Vector3();
   const focus = new THREE.Vector3();
@@ -461,6 +462,27 @@ try {
   // a larger saved radius is restored without a resize event.
   atmosphere.scale.setScalar((R+12)/(BASE_RADIUS+12));
   if(previousWorld?.orbit)orbitButton.click();
+  if(isPortalPreview){
+    state.orbitDistance=2.45;
+    orbitButton.click(); // Show the actual current planet in orbital view.
+    // The landing page overlays gesture capture and forwards deltas. Ignore
+    // messages from other origins. Nothing here touches the game's saves.
+    window.addEventListener('message',event=>{
+      if(event.source!==window.parent||event.origin!=='https://nexions.ru')return;
+      const input=event.data;
+      if(!input||input.type!=='nexgameworld-globe'||!state.orbit)return;
+      if(input.action==='drag'){
+        const dx=Number(input.dx),dy=Number(input.dy);
+        if(!Number.isFinite(dx)||!Number.isFinite(dy))return;
+        state.orbitAngle-=clamp(dx,-120,120)*.006;
+        state.orbitElevation=clamp(state.orbitElevation+clamp(dy,-120,120)*.0045,-1.12,1.12);
+      }else if(input.action==='zoom'){
+        const ratio=Number(input.ratio);
+        if(Number.isFinite(ratio)&&ratio>.65&&ratio<1.5)
+          state.orbitDistance=clamp(state.orbitDistance*ratio,1.85,5.5);
+      }
+    });
+  }
   saveWorld();
   stars.scale.setScalar(Math.max(1, R / BASE_RADIUS * 1.7));
 
