@@ -55,6 +55,19 @@ test('economy hides detail; balanced and high progressively reveal it',()=>{
  assert.equal(crowns.count,visuals.counts.tufts);
 });
 
+test('roof decor respects longhouse interior visibility across quality changes',()=>{
+ const {visuals,roof}=sceneFixture();
+ const shingles=roof.getObjectByName('nexgameworld-roof-shingles');
+ visuals.applyQuality(1);
+ assert.equal(shingles.visible,true);
+ visuals.setInterior(true);
+ assert.equal(shingles.visible,false);
+ visuals.applyQuality(.68);
+ assert.equal(shingles.visible,false);
+ visuals.setInterior(false);
+ assert.equal(shingles.visible,true);
+});
+
 test('decorative crowns rebuild onto a resized sphere and keep quality',()=>{
  const {scene,visuals,setRadius}=sceneFixture();
  const crown=scene.getObjectByName('nexgameworld-tree-crown-detail');
