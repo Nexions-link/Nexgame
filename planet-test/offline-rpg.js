@@ -676,7 +676,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    for(const item of settingsControls)body.append(item);
    line('Сетевая игра','Тестовая сборка работает локально, без сервера Render.');
    if(!preview){
-    line('Тестирование заданий','Начать заново: уровень, все задания, вещи и сундук. Графика и настройки камеры сохранятся.',[['Сбросить прогресс',resetProgress]]);
+    line('Тестирование заданий','Начать заново: уровень, все задания, вещи и сундук. Графика, масштаб и режим слежения камеры сохранятся.',[['Сбросить прогресс',resetProgress]]);
     body.lastElementChild?.querySelector('button')?.classList.add('reset-progress-action');
    }
   }else if(kind==='bag'){
