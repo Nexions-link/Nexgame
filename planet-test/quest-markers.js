@@ -107,7 +107,7 @@ export function createQuestMarkerFactory(THREE,{document,camera}){
   markers.push({marker,halo,config});
   return marker;
  }
- const tempRotation=new THREE.Quaternion();
+ const tempRotation=new THREE.Quaternion(),tempPoint=new THREE.Vector3();
  function update(time=0,detail=.68){
   const t=Number.isFinite(time)?time:0;
   const quality=Math.max(0,Math.min(1,Number(detail)||0));
@@ -120,7 +120,11 @@ export function createQuestMarkerFactory(THREE,{document,camera}){
    marker.quaternion.copy(tempRotation.invert()).multiply(camera.quaternion);
    const phase=t*1.55+marker.userData.phase;
    marker.position.y=marker.userData.baseHeight+Math.sin(phase)*.095;
-   marker.scale.setScalar(1.12*(1+.035*Math.sin(phase)));
+   // A modest distance compensation keeps the indicator readable on iPhone
+   // without turning it into a giant billboard in whole-planet view.
+   const distance=camera.position.distanceTo(marker.getWorldPosition(tempPoint));
+   const distantBoost=1+THREE.MathUtils.clamp((distance-16)/28,0,.48);
+   marker.scale.setScalar(1.12*distantBoost*(1+.035*Math.sin(phase)));
    halo.material.opacity=quality<.35?0:config.glow*(.87+.13*Math.sin(t*2.3+marker.userData.phase));
   }
  }
