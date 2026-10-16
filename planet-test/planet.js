@@ -4,10 +4,10 @@ import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=1';
-import {createOfflineRpg} from './offline-rpg.js?v=31';
-import {animateSphericalTauren} from './tauren-animation.js?v=3';
+import {createOfflineRpg} from './offline-rpg.js?v=32';
+import {animateSphericalTauren} from './tauren-animation.js?v=4';
 import {GRAPHICS_PRESETS,resolveGraphicsPreset,effectivePixelRatio,graphicsDensity} from './graphics-quality.js?v=2';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=18';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=19';
 initStartZoneMath(THREE);
 
 // Independent pointer streams for joystick, UI buttons and camera gestures.
@@ -281,6 +281,7 @@ try {
   let qualityName=resolveGraphicsPreset(readPreference(graphicsStorageKey,'balanced'));
   if(isPortalPreview)qualityName='economy';
   let shadowActive=false;
+  let combatQualitySink=null;
   function applyGraphicsQuality(){
     const profile=GRAPHICS_PRESETS[qualityName];
     const enabled=!isPortalPreview&&!state.orbit&&profile.shadowSize>0;
@@ -300,6 +301,7 @@ try {
     if(isPortalPreview)sceneryDensity.detail=.68;
     startZone.setGraphics({...sceneryDensity,waterColor:profile.waterColor,shadows:enabled});
     hero.visualDetails?.setQuality(isPortalPreview?.68:profile.detail);
+    combatQualitySink?.(isPortalPreview?.15:profile.detail);
     if(qualityHelp)qualityHelp.textContent=
       qualityName==='economy'?'Разреженная растительность, простая вода и без теней.':
       qualityName==='high'?'Самая плотная растительность, чёткая картинка, тени 1024 px.':
@@ -324,6 +326,8 @@ try {
   const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:options=>createTauren(THREE,scene,options),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
    toLocal:normalToLocal,heightAt,camera,canvas,preview:isPortalPreview});
+  combatQualitySink=rpg.setVisualQuality;
+  combatQualitySink(isPortalPreview?.15:GRAPHICS_PRESETS[qualityName].detail);
   let prevHeading = 0;
   const cameraGoal = new THREE.Vector3();
   const focus = new THREE.Vector3();
