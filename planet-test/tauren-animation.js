@@ -61,9 +61,8 @@ export function animateSphericalTauren(actor,{
   if(stomping&&i===1){lift+=.42*Math.sin(Math.min(stompPower/.48,1)*Math.PI);z+=.17*Math.sin(stompPower*Math.PI);}
   const sample=terrainFeet?.[i],foot=feet[i];
   for(const axis of ['height','pitch','roll']){
-   const desired=clamp(Number.isFinite(sample?.[axis])?sample[axis]:0,
-    axis==='height'?-.31:axis==='pitch'?-.28:-.23,
-    axis==='height'?.31:axis==='pitch'?.28:.23);
+   const limit=axis==='height'?0.31:axis==='pitch'?0.28:0.23;
+   const desired=clamp(Number.isFinite(sample?.[axis])?sample[axis]:0,-limit,limit);
    foot[axis]+=(desired-foot[axis])*footBlend;
   }
   // The swing lifts the hoof above the sampled ground, while the stance
