@@ -144,7 +144,8 @@ export function createCampActions({state,herbalist,gathering,mobs,hero,distance,
   for(const marker of herbalist.root.children){
    if(!marker.userData.questMarker)continue;
    marker.visible=(ready&&marker.userData.glyph==='!')||
-     (complete&&marker.userData.glyph==='?');
+     (complete&&marker.userData.glyph==='?')||
+     (!ready&&!complete&&stage>0&&stage<=3&&marker.userData.glyph==='·');
   }
   const tracker=$('gatherQuestTracker');
   if(tracker){
