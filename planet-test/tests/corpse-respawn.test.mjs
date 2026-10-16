@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {harness,descendants} from './harness.mjs';
 import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS} from '../corpse-loot.js';
 function kill(t){
- t.mock.method(Math,'random',()=>.99); // One predictable feather, no extra drops.
+ t.mock.method(Math,'random',()=>.5); // One feather via the shared table, no extra drops.
  const h=harness({x:-9,z:-25});h.rpg.state.level=60;h.rpg.state.resource=100;h.rpg.state.hp=10000;
  h.rpg.targetNearest();h.rpg.handleSlotKey('4');h.rpg.update(.35);
  const visual=h.scene.getObjectsByProperty('name','dolgonog-fallback')[0],root=visual.parent;

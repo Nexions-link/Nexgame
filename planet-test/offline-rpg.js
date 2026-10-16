@@ -1,7 +1,7 @@
 // Offline spherical NexGame systems. Use the unchanged production rules for items,
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT} from './native-hotbar-art.js?v=1';
-import {ITEM_CATALOG,MERCHANT_STOCK,rollEquipmentLoot,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.17';
+import {ITEM_CATALOG,MERCHANT_STOCK,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.17';
 import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
@@ -30,12 +30,14 @@ import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
 import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=2';
+import {rollCreatureLoot} from './loot-tables.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
 const SAVE_KEY='nexgame-planet-test-offline-rpg-v1';
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const xpRequired=level=>100+(level-1)*50;
 const pretty=num=>Number(num).toLocaleString('ru-RU',{maximumFractionDigits:1});
 const LABEL=EQUIPMENT_LABELS;
 const EQUIP_SLOTS=['weapon','shield','head','chest','legs','hands','waist','wrists','feet'];
@@ -46,7 +48,7 @@ function restore(){
   const raw=JSON.parse(localStorage.getItem(SAVE_KEY));
   if(!raw||typeof raw!=='object')return initial();
   const safe=initial();
-  safe.level=clamp(Math.floor(Number(raw.level)||1),1,30);
+  safe.level=clamp(Math.floor(Number(raw.level)||1),1,60);
   safe.xp=clamp(Math.floor(Number(raw.xp)||0),0,999999);
   safe.gold=clamp(Math.floor(Number(raw.gold)||0),0,999999);
   safe.resource=clamp(Number(raw.resource)||0,0,100);
@@ -228,7 +230,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const beak=new THREE.Mesh(new THREE.ConeGeometry(.18,.5,7),new THREE.MeshStandardMaterial({color:'#d5b16f'}));
   beak.rotation.x=Math.PI/2;beak.position.set(0,2.17,1.1);fallback.add(beak);
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);fallback.add(leg);}
-  const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
+  const entity={kind:'mob',index:i,name:'Равнинный долгоног',lootId:'dolgonog',root,x,z,yaw:.1,
    spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
    respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false,contactShadow,roamTime:i*1.73};
   const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);entity.nameTag=tag;
@@ -246,7 +248,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  SPAWNS.forEach(([x,z],i)=>createBird(x,z,i));
  // The original Narache elite uses the same GLB at 1.8× scale.
  const giant=createBird(BOSS_POSITION.x,BOSS_POSITION.z,mobs.length);
- giant.name='Грозоклюв — огромный долгоног';giant.boss=true;
+ giant.name='Грозоклюв — огромный долгоног';giant.boss=true;giant.lootId='stormbeak';
  giant.hp=giant.maxHp=108;giant.root.scale.setScalar(1.8);
  const oldTag=giant.root.children.find(child=>child.isSprite&&child!==giant.alertTag);
  if(oldTag)oldTag.visible=false;
@@ -427,8 +429,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   draw();
  }
  function levelCheck(){
-  while(state.xp>=state.level*100){
-   state.xp-=state.level*100;state.level++;
+  while(state.level<60&&state.xp>=xpRequired(state.level)){
+   state.xp-=xpRequired(state.level);state.level++;
    const oldMax=stats().maxHp;state.hp=oldMax;msg('Новый уровень: '+state.level+'!');
   }
   state.hotbar=normalizeHotbar(state.hotbar,'warrior',state.level);persist();
@@ -449,10 +451,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    }
    setModelAt(enemy);enemy.deathAnimation.begin(playerNormal());
    if(enemy.nameTag)enemy.nameTag.visible=false;
-   enemy.loot=[{id:'feather',qty:1}];
-   if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
-   if(enemy.boss)enemy.loot.push({id:'giantFeather',qty:1});
-   const gear=rollEquipmentLoot(!!enemy.boss);if(gear)enemy.loot.push(gear);
+   enemy.loot=rollCreatureLoot(enemy.lootId);
    updateLootMarker(enemy);
    state.xp+=enemy.boss?70:22;state.gold+=enemy.boss?12:4;
    levelCheck();mentorChain.killed(enemy);
@@ -524,8 +523,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('resourceBar').setAttribute('aria-valuenow',Math.floor(state.resource));
   $('combatState').textContent=inCombat()?'В бою':
    state.hp<s.maxHp?(clock-lastCombatAt<5?'Отдых после боя':'Восстановление'):'Готов к бою';
-  $('xpFill').style.width=Math.min(100,state.xp/(state.level*100)*100)+'%';
-  $('xpText').textContent='Опыт '+state.xp+' / '+(state.level*100);
+  $('xpFill').style.width=Math.min(100,state.xp/xpRequired(state.level)*100)+'%';
+  $('xpText').textContent='Опыт '+state.xp+' / '+xpRequired(state.level);
   const hostile=target&&['mob','dummy'].includes(target.kind)&&target.root.visible&&target.hp>0&&!target.dead;
   $('targetFrame').hidden=!hostile;$('targetPlaceholder').hidden=!!hostile;
   if(hostile){
@@ -692,7 +691,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     body.append(summary,grid,detail);
   }else if(kind==='character'){
     const values=stats(),summary=document.createElement('div');summary.className='inventory-summary';
-    summary.textContent='Таурен · Воин · '+state.level+' ур. · '+state.xp+'/'+state.level*100+' опыта · '+pretty(state.gold)+' монет';
+    summary.textContent='Таурен · Воин · '+state.level+' ур. · '+state.xp+'/'+xpRequired(state.level)+' опыта · '+pretty(state.gold)+' монет';
     body.append(summary);
     const statsBlock=document.createElement('dl');statsBlock.className='character-stats';
     for(const [name,value] of [['Сила',values.strength],['Выносливость',values.stamina],['Броня',values.armor]]){
