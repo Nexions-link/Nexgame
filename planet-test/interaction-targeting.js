@@ -23,7 +23,7 @@ export function nearbyInteractable(entities,dist,resourceReady){
  rows.sort((a,b)=>a.d-b.d);
  return rows[0]?.entity||null;
 }
-// Directional mobile targeting: favour what the hero faces, not a closer
+// Spherical NexGameWorld directional targeting: favour what the hero faces, not a closer
 // enemy off to the side. Keep the original 40 m spherical acquisition range.
 // Targets outside the 60° forward cone remain reachable by cycling.
 export const FORWARD_TARGET_COSINE=.5;
@@ -51,6 +51,6 @@ export function cycleHostileTarget(mobs,dummy,current,dist,step=1,alignment=null
  }).map(item=>item.entity);
  if(!nearby.length)return null;
  const currentIndex=nearby.indexOf(current);
- if(currentIndex===-1)return step<0?nearby[nearby.length-1]:nearby[0];
+ if(currentIndex===-1)return nearby[0];
  return nearby[(currentIndex+(step<0?-1:1)+nearby.length)%nearby.length];
 }
