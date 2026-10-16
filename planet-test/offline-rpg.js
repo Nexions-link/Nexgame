@@ -10,8 +10,8 @@ import {AXE_TUNER_DEFAULTS} from '../axe-tuner.js?v=0.3.7.0';
 import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
 import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
-import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=6';
-import {createCampActions} from './camp-actions.js?v=8';
+import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=7';
+import {createCampActions} from './camp-actions.js?v=9';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
 import {createSphericalCombatVfx} from './sphere-combat-vfx.js?v=1';
@@ -1081,6 +1081,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function updateQuestMarkers(){questMarkers.update(clock,questMarkerQuality);}
  function setVisualQuality(detail){
   combatVfx.setQuality(detail);
+  camp.setVisualQuality(detail);
   questMarkerQuality=Number.isFinite(detail)?detail:.68;
  }
  function getAnimationState(){
