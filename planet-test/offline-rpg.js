@@ -1068,7 +1068,6 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   updateTrainingTarget(dummy,clock);
   combatFeedback.update(dt);
   combatVfx.update(dt);
-  questMarkers.update(clock,questMarkerQuality);
   stompEffect.update(dt);
   updateSelection();
   if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
@@ -1076,6 +1075,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  let resetPosition=null;
  function onRespawn(fn){resetPosition=fn;}
  let questMarkerQuality=.68;
+ function updateQuestMarkers(){questMarkers.update(clock,questMarkerQuality);}
  function setVisualQuality(detail){
   combatVfx.setQuality(detail);
   questMarkerQuality=Number.isFinite(detail)?detail:.68;
@@ -1098,5 +1098,5 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return false;
  }
  persist();draw();void updateEquipmentVisuals();
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,setVisualQuality,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
 }
