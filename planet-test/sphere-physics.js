@@ -84,8 +84,9 @@ export function cameraObstruction(THREE,{
   direction.copy(point).normalize();
   const loc=toLocal(direction,radius);
   const elevation=point.length()-radius-heightAt(direction);
-  if(elevation<clearance||
-   (loc.d<89&&geometryAt(loc.x,loc.z,elevation,inside))){
+  // Mesas sit at ~105-115 metres from camp, beyond the old 89m cutoff.
+  // World coordinates remain geodesic for every sampled camera segment.
+  if(elevation<clearance||geometryAt(loc.x,loc.z,elevation,inside)){
    safe=Math.max(.08,(i-2)/N);
    blocked=true;break;
   }
