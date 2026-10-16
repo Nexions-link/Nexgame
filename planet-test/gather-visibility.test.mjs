@@ -61,3 +61,18 @@ test('spherical gathering logic preserves eligibility and uses player distance o
  assert.match(camp,/getClock\(\)>=node\.readyAt/);
  assert.match(camp,/GATHER_INTERACT_RANGE/);
 });
+
+test('moon mushrooms have dark rounded caps, a pale stalk and slightly larger sizes',()=>{
+ const world=source('./gather-world.js');
+ assert.match(world,/mushroomCap:material\('#372b3e'/);
+ assert.match(world,/mushroomRim:material\('#786579'/);
+ assert.match(world,/const mushroomDome=new THREE\.SphereGeometry\(1,14,9,0,Math\.PI\*2,0,Math\.PI\/2\)/);
+ assert.match(world,/\[\[-\.17,-\.1,\.41,\.40\],\[\.29,\.15,\.29,\.31\]\]/);
+ assert.match(world,/quest-moon-mushroom-dark-cap/);
+ assert.match(world,/quest-moon-mushroom-stalk/);
+ assert.doesNotMatch(world,/mats\.spot/);
+ // Keep the other quest resources, all three quest locations and interactions unchanged.
+ assert.match(world,/GATHER_QUESTS\[stage\]\.locations\.forEach/);
+ assert.match(world,/if\(stage===1\)/);
+ assert.match(world,/else if\(stage===2\)/);
+});
