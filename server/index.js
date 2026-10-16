@@ -62,7 +62,7 @@ wss.on('connection',(ws,req)=>{
   sphericalWorld.attach(ws);
   return;
  }
- if(clients.size>=MAX_PLAYERS{ws.close(1013,'World is full');return}
+ if(clients.size>=MAX_PLAYERS){ws.close(1013,'World is full');return}
  const id=randomUUID(),now=Date.now();
  const player={id,name:'Странник',x:0,z:10,yaw:Math.PI,level:1,moving:false,
   updatedAt:now,equipment:{},hp:120,maxHp:120,
