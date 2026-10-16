@@ -4,7 +4,7 @@ import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=1';
-import {createOfflineRpg} from './offline-rpg.js?v=32';
+import {createOfflineRpg} from './offline-rpg.js?v=33';
 import {animateSphericalTauren} from './tauren-animation.js?v=4';
 import {GRAPHICS_PRESETS,resolveGraphicsPreset,effectivePixelRatio,graphicsDensity} from './graphics-quality.js?v=2';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=20';
@@ -753,6 +753,7 @@ try {
       if(camera.position.length()<min)camera.position.copy(n.multiplyScalar(min));
     }
     camera.lookAt(focus);
+    rpg.updateQuestMarkers();
     if(shadowActive){
       // Keep the 62-metre shadow frustum centred around the active character.
       tangentBasis(state.normal);
