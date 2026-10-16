@@ -31,6 +31,7 @@ import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
 import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=2';
 import {rollCreatureLoot} from './loot-tables.js?v=1';
+import {sellInventorySlot,buyBackFromMerchant,restoreBuyback} from './merchant-trade.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -42,7 +43,7 @@ const pretty=num=>Number(num).toLocaleString('ru-RU',{maximumFractionDigits:1});
 const LABEL=EQUIPMENT_LABELS;
 const EQUIP_SLOTS=['weapon','shield','head','chest','legs','hands','waist','wrists','feet'];
 const ICON={autoAttack:'⚔️',thunderStomp:'💥',heavyStrike:'🪓',healingPotion:'🧪'};
-const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:0,gatherStage:0,gatherAvailable:false,chestInventory:[],hotbar:DEFAULT_HOTBAR});
+const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:0,gatherStage:0,gatherAvailable:false,chestInventory:[],buyback:[],hotbar:DEFAULT_HOTBAR});
 function restore(){
  try {
   const raw=JSON.parse(localStorage.getItem(SAVE_KEY));
@@ -65,6 +66,7 @@ function restore(){
   safe.equipment={};
   for(const slot of EQUIP_SLOTS){const id=raw.equipment?.[slot]?.id;if(ITEM_CATALOG[id]?.slot===slot)safe.equipment[slot]={id};}
   safe.hotbar=normalizeHotbar(raw.hotbar,'warrior',safe.level);
+  safe.buyback=restoreBuyback(raw.buyback);
   return safe;
  }catch{return initial();}
 }
@@ -125,7 +127,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const preparingStomp=current?.skill==='thunderStomp'&&!current.impacted&&[...mobs,dummy].some(e=>isLivingHostile(e)&&distance(e)<4.5);
   return swinging||preparingStomp||mobs.some(m=>m.root.visible&&m.hp>0&&!m.corpse&&m.aggro);
  }
- let journalTab='current';
+ let journalTab='current',merchantTab='buy';
  const group=new THREE.Group();scene.add(group);
  // The mesh is bent vertex-by-vertex onto the actual spherical terrain:
  // no texture intersection/z-fighting and a saturated red outline.
@@ -742,11 +744,52 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(!visible.length)line('Пока пусто','В этом разделе заданий пока нет.');
   }else if(kind==='merchant'){
    line('Борун Крепкая Ладонь','Твои монеты: '+pretty(state.gold));
-   for(const id of MERCHANT_STOCK){const item=ITEM_CATALOG[id];if(!item?.buy)continue;
-    line((item.icon||'📦')+' '+item.name,item.buy+' монет · '+LABEL[item.slot],
-      [['Купить',()=>{if(state.gold<item.buy)return msg('Недостаточно монет');
+   const tabs=document.createElement('div');tabs.className='planet-journal-tabs';
+   for(const [tab,label] of [['buy','Купить'],['sell','Продать'],['buyback','Выкупить обратно']]){
+    const button=document.createElement('button');button.type='button';
+    button.className='choice'+(merchantTab===tab?' is-selected':'');
+    button.textContent=label;button.addEventListener('click',()=>{merchantTab=tab;renderModal();});
+    tabs.append(button);
+   }
+   body.append(tabs);
+   if(merchantTab==='buy'){
+    for(const id of MERCHANT_STOCK){
+     const item=ITEM_CATALOG[id];if(!item?.buy)continue;
+     line((item.icon||'📦')+' '+item.name,item.buy+' монет · '+LABEL[item.slot],
+      [['Купить',()=>{
+       if(state.gold<item.buy)return msg('Недостаточно монет');
        if(!addItem(id))return msg('Сумка заполнена');
-       state.gold-=item.buy;persist();draw();msg('Куплено: '+item.name);}]]);}
+       state.gold-=item.buy;persist();renderModal();draw();msg('Куплено: '+item.name);
+      }]]);
+    }
+   }else if(merchantTab==='sell'){
+    let available=0;
+    state.inventory.forEach((row,index)=>{
+     const item=ITEM_CATALOG[row.id];if(!item?.sell||item.quest)return;
+     available++;
+     line((item.icon||'📦')+' '+item.name+(row.qty>1?' ×'+row.qty:''),
+      'Продажа всего слота · '+(item.sell*row.qty)+' монет',
+      [['Продать',()=>{
+       const result=sellInventorySlot(state,index);
+       if(!result.ok)return msg('Этот предмет нельзя продать');
+       persist();renderModal();draw();msg('Продано: '+item.name);
+      }]]);
+    });
+    if(!available)line('Нет предметов на продажу','Квестовые вещи нельзя продавать.');
+   }else{
+    if(!state.buyback.length)line('Выкуп пуст','Недавно проданные предметы появятся здесь.');
+    state.buyback.forEach((row,index)=>{
+     const item=ITEM_CATALOG[row.id];
+     line((item?.icon||'📦')+' '+(item?.name||row.id)+(row.qty>1?' ×'+row.qty:''),
+      row.price+' монет · цена последней продажи',
+      [['Выкупить',()=>{
+       const result=buyBackFromMerchant(state,index);
+       if(!result.ok)return msg(result.reason==='gold'?'Недостаточно монет':
+        result.reason==='full'?'Рюкзак заполнен':'Предмет недоступен');
+       persist();renderModal();draw();msg('Возвращено: '+(item?.name||row.id));
+      }]]);
+    });
+   }
   }else if(kind==='spells'){
    const intro=document.createElement('p');intro.className='spellbook-intro';
    intro.textContent='Выбери ячейку 1–8, затем способность или предмет. Занятую ячейку тоже можно заменить.';
