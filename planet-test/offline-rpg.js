@@ -29,7 +29,7 @@ import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
-import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=2';
+import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=2';
 import {rollCreatureLoot} from './loot-tables.js?v=1';
 import {sellInventorySlot,buyBackFromMerchant,restoreBuyback} from './merchant-trade.js?v=1';
 
@@ -312,6 +312,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function updateSelection(){targetRing.update(target);}
  function addItem(id,qty=1){
   if(!ITEM_CATALOG[id]&&id!=='healingPotion')return false;
+  // Reject the complete stack before any mutation; partial additions duplicate loot.
+  if(!canStoreCorpseRow(state.inventory,{id,qty},itemStackLimit,12))return false;
   const cap=itemStackLimit(id);
   let left=qty;
   for(const slot of state.inventory){if(slot.id===id&&slot.qty<cap){const n=Math.min(left,cap-slot.qty);slot.qty+=n;left-=n;}}
