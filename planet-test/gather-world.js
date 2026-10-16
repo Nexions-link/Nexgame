@@ -27,8 +27,10 @@ export function createGatherWorld({THREE,parent,place}){
     petal:material('#f7db9f',{emissive:'#58401d',emissiveIntensity:.18}),
     core:material('#f0ca67',{emissive:'#815422',emissiveIntensity:.22}),
     root:material('#ceb480'),rootLeaf:material('#a7c673',{emissive:'#33481f',emissiveIntensity:.13}),
-    mushroom:material('#b7a7d1',{emissive:'#594780',emissiveIntensity:.30}),
-    spot:material('#f3e8ff'),bone:material('#dfd6ba'),
+    // Moon mushrooms: matte plum-black caps, with a lighter underside edge
+    // against the green and gold wildflowers on the spherical terrain.
+    mushroomCap:material('#372b3e',{emissive:'#231925',emissiveIntensity:.09}),
+    mushroomRim:material('#786579'),bone:material('#e0d3b8'),
     spark:new THREE.MeshBasicMaterial({color:'#f7e4b0',toneMapped:false})
   };
   const nodes=[];
@@ -47,7 +49,8 @@ export function createGatherWorld({THREE,parent,place}){
     mesh.scale.set(sx,sy,sz);group.add(mesh);return mesh;
   }
   const sph=new THREE.SphereGeometry(1,9,7);
-  const cone=new THREE.ConeGeometry(1,1,8);
+  // The dome geometry reads as a mushroom cap, not a pointed wildflower.
+  const mushroomDome=new THREE.SphereGeometry(1,14,9,0,Math.PI*2,0,Math.PI/2);
   const cyl=new THREE.CylinderGeometry(1,1,1,7);
   // Just a few live quest resources exist at once. Reuse geometry between
   // them; their individually adjustable rim opacity is the only unique material.
@@ -81,10 +84,15 @@ export function createGatherWorld({THREE,parent,place}){
         }
         obj(group,sph,mats.core,0,.66,.03,.11,.075,.09);
       } else {
-        for(const [cx,cz,h,r] of [[-.17,-.1,.38,.35],[.29,.15,.26,.27]]){
-          obj(group,cyl,mats.bone,cx,h/2,cz,.07,h,.07);
-          obj(group,cone,mats.mushroom,cx,h+.05,cz,r,.25,r);
-          obj(group,sph,mats.spot,cx,h+.16,cz,r*.38,.045,r*.38);
+        // Two slightly larger moon mushrooms. Pale stalks and a fine
+        // mauve underside separate their dark domes from ordinary flowers.
+        for(const [cx,cz,h,r] of [[-.17,-.1,.41,.40],[.29,.15,.29,.31]]){
+          const stalk=obj(group,cyl,mats.bone,cx,h/2,cz,.085,h,.085);
+          stalk.name='quest-moon-mushroom-stalk';
+          const under=obj(group,cyl,mats.mushroomRim,cx,h+.016,cz,r*.94,.055,r*.94);
+          under.name='quest-moon-mushroom-brim';
+          const cap=obj(group,mushroomDome,mats.mushroomCap,cx,h+.04,cz,r,r*.57,r);
+          cap.name='quest-moon-mushroom-dark-cap';
         }
       }
       // Earth-hugging rim, not a floating quest beacon: it only lights up
