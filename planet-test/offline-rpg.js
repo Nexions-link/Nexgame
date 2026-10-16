@@ -20,7 +20,7 @@ import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumbe
 import {createMentorWorld} from './mentor-world.js?v=1';
 import {createSphericalTargetRing} from './spherical-target-ring.js?v=1';
 import {animateSphericalTauren} from './tauren-animation.js?v=2';
-import {incomingShieldHit,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackProgress} from './sphere-combat.js?v=1';
+import {incomingShieldHit,sphericalMeleeFacing,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackProgress} from './sphere-combat.js?v=2';
 import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '../item-quality.js?v=0.3.7.1';
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=2';
@@ -413,6 +413,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   draw();
  }
+ function facesTarget(enemy){
+  if(!enemy)return false;
+  return sphericalMeleeFacing(THREE,playerNormal(),hero.root,
+   toNormal(enemy.x,enemy.z,getRadius()));
+ }
  function hitEnemy(enemy,bonus=0,skill='autoAttack'){
   if(!enemy||!['mob','dummy'].includes(enemy.kind)||enemy.dead||!enemy.root.visible)return msg('Нет подходящей цели');
   if(distance(enemy)>3.45)return msg('Цель слишком далеко');
@@ -441,7 +446,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    draw();return;
   }
   const ctx={runtime,classId:'warrior',level:state.level,resource:state.resource,
-   hasTarget:!!target&&['mob','dummy'].includes(target.kind)&&!target.dead,range:d,facing:true,
+   hasTarget:!!target&&['mob','dummy'].includes(target.kind)&&!target.dead,range:d,facing:!target||facesTarget(target),
    hasConsumable:itemCount('healingPotion')>0,needsHealing:state.hp<stats().maxHp};
   const result=activateAbility(def,ctx);
   if(!result.ok)return msg(result.error);
@@ -759,8 +764,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const hit=pendingHits[i];hit.remaining-=dt;
    if(hit.remaining>0)continue;
    pendingHits.splice(i,1);
-   if(hit.enemy.root.visible&&hit.enemy.hp>0&&!hit.enemy.dead&&distance(hit.enemy)<=3.65)
-    harm(hit.enemy,hit.damage,hit.skill);
+   if(!hit.enemy.root.visible||hit.enemy.hp<=0||hit.enemy.dead||distance(hit.enemy)>3.65)continue;
+   if(!facesTarget(hit.enemy)){
+    // Native NexGame checks melee facing on the IMPACT frame.
+    // A turn during the 340ms wind-up may avoid landing the strike.
+    if(hit.skill!=='autoAttack')msg('Цель не перед вами',1.1);
+    continue;
+   }
+   harm(hit.enemy,hit.damage,hit.skill);
   }
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
