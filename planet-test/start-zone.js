@@ -396,6 +396,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
   const inside=Math.abs(lx)<9.25&&Math.abs(lz)<10.15;
   if(inside!==roofFaded){
    roofFaded=inside;
+   villageVisuals.setInterior(inside);
    for(const roof of longhouseRoofs)roof.castShadow=shadowsEnabled&&!inside;
    houseRoofMat.transparent=inside;
    houseRoofMat.depthWrite=!inside;
