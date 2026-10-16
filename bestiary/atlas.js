@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id);
 const canvas=$('viewerCanvas'),scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(38,1,.01,200);
 const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'default'});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));renderer.outputColorSpace=THREE.SRGBColorSpace;
-scene.add(new THREE.HemisphereLight(0xffeed8,0x405c50,2.2));
+const ambient=new THREE.HemisphereLight(0xffeed8,0x405c50,2.2);scene.add(ambient);
 const light=new THREE.DirectionalLight(0xffffff,2.6);light.position.set(5,9,6);scene.add(light);
 const controls=new OrbitControls(camera,canvas);controls.enableDamping=true;controls.enablePan=false;
 let category='all',activeId='dolgonog',current=null,mixer=null,actions={},currentAction=null,loadId=0;
@@ -49,6 +49,10 @@ async function selectEntry(id){
  $('entryDescription').textContent=entry.description;
  $('facts').replaceChildren();for(const [key,value] of entry.facts){const el=document.createElement('div');el.className='fact';const a=document.createElement('span'),b=document.createElement('strong');a.textContent=key;b.textContent=value;el.append(a,b);$('facts').append(el)}
  $('modelStatus').textContent='ЗАГРУЗКА МОДЕЛИ';$('animationPanel').hidden=true;
+ // Keep the original lighting for all other Atlas assets.
+ ambient.intensity=entry.id==='wild-boar'?1.35:2.2;
+ light.intensity=entry.id==='wild-boar'?1.55:2.6;
+ $('palettePanel').hidden=true;$('palettePanel').replaceChildren();
  const request=++loadId;
  try{
   // Bypass browser and intermediary caches for GLB assets, including unchanged v0.1 filenames.
@@ -56,7 +60,8 @@ async function selectEntry(id){
   assetUrl.searchParams.set('atlas_refresh',atlasRevision);
   const response=await fetch(assetUrl.href,{cache:'no-store'});
   if(!response.ok)throw new Error('GLB HTTP '+response.status+': '+entry.asset);
-  const gltf=await loader.parseAsync(await response.arrayBuffer(),new URL('.',assetUrl).href);
+  const glbBytes=await response.arrayBuffer();
+  const gltf=await loader.parseAsync(glbBytes,new URL('.',assetUrl).href);
   if(request!==loadId)return;
   if(current){scene.remove(current);current.traverse(o=>{if(o.isMesh){/* shared GLB loader cache may reuse textures; avoid disposal */}})}
   current=gltf.scene;
@@ -70,7 +75,12 @@ async function selectEntry(id){
   for(const clip of gltf.animations){const action=mixer.clipAction(clip);actions[clip.name]=action;const b=document.createElement('button');b.textContent=clip.name;b.dataset.clip=clip.name;b.onclick=()=>setAnimation(clip.name);$('animations').append(b)}
   $('animationPanel').hidden=!gltf.animations.length;
   if(gltf.animations.length)setAnimation(gltf.animations.find(c=>c.name==='Idle')?.name||gltf.animations[0].name);
-  $('modelStatus').textContent='GLB · 3D АКТИВНА';
+  if(entry.id==='wild-boar'){
+   const {mountBoarPaletteEditor}=await import('./atlas-palette-editor.js?refresh='+atlasRevision);
+   if(request!==loadId)return;
+   await mountBoarPaletteEditor({host:$('palettePanel'),model:current,glbBuffer:glbBytes,revision:atlasRevision,isCurrent:()=>request===loadId});
+  }
+  if(request===loadId)$('modelStatus').textContent='GLB · 3D АКТИВНА';
  }catch(error){if(request===loadId){$('modelStatus').textContent='ОШИБКА ЗАГРУЗКИ';console.error(error)}}
 }
 function render(){requestAnimationFrame(render);const w=canvas.clientWidth,h=canvas.clientHeight;if(w>0&&h>0){const d=renderer.getPixelRatio();if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}}const dt=Math.min(clock.getDelta(),.06);mixer?.update(dt);controls.update();renderer.render(scene,camera)}
