@@ -14,6 +14,7 @@ import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v
 import {createCampActions} from './camp-actions.js?v=7';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
+import {createSphericalCombatVfx} from './sphere-combat-vfx.js?v=1';
 import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=5';
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
@@ -139,6 +140,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const feedbackLayer=$('combatFeedback');
  if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
  const combatFeedback=createSphereCombatFeedback({THREE,document,camera,layer:feedbackLayer});
+  const combatVfx=createSphericalCombatVfx({THREE,parent:scene});
  const nameEl=$('playerName'),objective=$('qtext');
  const originalControls=$('labSettingsSources');
  const settingsControls=[...originalControls.children];
@@ -449,10 +451,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!isLivingHostile(enemy))return;
   lastCombatAt=clock;
   state.resource=changeResource(state.resource,rageForHit(skill),'warrior');
-  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);persist();draw();return;}
+  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);combatVfx.trigger(enemy,skill==='heavyStrike'?'strong':skill==='thunderStomp'?'stomp':'hit');persist();draw();return;}
   if(enemy.kind!=='mob'||enemy.dead)return;
   lastCombatAt=clock;enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=HIT_REACTION_SECONDS;
   combatFeedback.hit(enemy,damage,skill);
+  combatVfx.trigger(enemy,skill==='heavyStrike'?'strong':skill==='thunderStomp'?'stomp':'hit');
   if(enemy.hp===0){
    enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;enemy.attackWindup=0;
    if(target===enemy){
@@ -1042,6 +1045,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       lastCombatAt=clock;state.hp=Math.max(0,state.hp-result.damage);
       if(result.blocked){
        blockRemaining=result.blockSeconds;
+       hero.root.userData.blockRecoil=.65;
+       combatVfx.trigger({root:hero.root},'block');
        msg('Блок щитом · отражено '+result.absorbed+' урона',1.1);
       }
       mob.attackCd=mob.boss?1.8:2.1;
@@ -1070,12 +1075,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   updateTrainingTarget(dummy,clock);
   combatFeedback.update(dt);
+  combatVfx.update(dt);
   stompEffect.update(dt);
   updateSelection();
   if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
  }
  let resetPosition=null;
  function onRespawn(fn){resetPosition=fn;}
+ function setVisualQuality(detail){combatVfx.setQuality(detail);}
  function getAnimationState(){
   return {gather:camp.casting,attack:timeline.attackProgress,
    stomp:timeline.stompProgress,blockRemaining,weaponKind:hero.root.userData.weaponKind||'none'};
@@ -1094,5 +1101,5 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return false;
  }
  persist();draw();void updateEquipmentVisuals();
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,setVisualQuality,draw,get state(){return state}};
 }
