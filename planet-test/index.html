@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>NexGame · Planet Test PT 0.6.6</title>
+<title>NexGameWorld · PT 0.6.7</title>
 <!-- Alpha 0.3.7.0: finalized sword grip and preserved independently calibrated axe grip. -->
 <link rel="stylesheet" href="../style.css?v=0.3.7.0">
 <!-- Critical sizing for icon toolbar: must work even when Safari serves an older style.css. -->
@@ -190,7 +190,7 @@
 </style>
 </head>
 <body>
-<main id="viewport" aria-label="Сферический мир NexGame"></main>
+<main id="viewport" aria-label="Сферический мир NexGameWorld"></main>
 <div id="combatFeedback" aria-hidden="true"></div>
 <div id="vignette"></div>
 <div id="hudTop" aria-label="Игровые панели персонажа цели и карты">
@@ -256,15 +256,15 @@
 
 <aside id="planetBuildWidget" data-build="0.6.6" aria-label="Версия тестовой планеты">
   <button id="planetVersionBadge" type="button" aria-expanded="false" aria-controls="planetBuildPanel" title="Версия и изменения тестового мира">
-    <span>PT 0.6.6</span>
+    <span>PT 0.6.7</span>
     <span id="planetBuildNew" hidden></span>
   </button>
   <section id="planetBuildPanel" aria-label="Версии и история обновлений" hidden>
     <div class="planet-release-head">
-      <strong>Версия Planet Test</strong>
+      <strong>Версия NexGameWorld</strong>
       <button id="planetBuildClose" type="button" aria-label="Закрыть информацию о версии">×</button>
     </div>
-    <div id="planetBuildLoaded">Запущена: PT 0.6.6</div>
+    <div id="planetBuildLoaded">Запущена: PT 0.6.7</div>
     <div id="planetBuildPublished">Проверяем публикацию…</div>
     <p id="planetBuildStatusLine">Сверяем локальную сборку с опубликованной версией.</p>
     <h3>Что изменилось в последнем выпуске</h3>
@@ -294,7 +294,7 @@
 <div id="xpWrap"><div id="xpFill"></div><span id="xpText">Опыт 0 / 100</span></div>
 
 <div id="help">1–8 — способности · Вращение планеты — свайп · Книга — умения · Цель — выбрать</div>
-<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Локальный режим · 1 игрок</span><span>NexGame · Planet Test</span></div>
+<div id="build"><span id="fpsCounter" hidden aria-label="Частота кадров">FPS —</span><span id="onlineStatus" aria-live="polite">Локальный режим · 1 игрок</span><span>NexGameWorld · Alpha</span></div>
 <div id="combatError" role="status" aria-live="polite"></div><div id="toast" role="status"></div>
 
 <div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" hidden><div id="panel"><button id="modalClose" type="button" aria-label="Закрыть окно">×</button><div class="panel-corner">◆</div><span class="eyebrow" id="msub"></span><h2 id="mtitle"></h2><div class="ornament">━━━━ ◆ ━━━━</div><div id="mbody"></div><section id="cameraControl" class="camera-settings" hidden aria-label="Настройки камеры">
@@ -318,10 +318,10 @@
  </section><div id="choices"></div></div></div>
 
 <div id="labLegacy" hidden><div id="hud">
-  <div id="identity" class="panel"><div class="eyebrow">NEXGAME · WORLD LAB</div><h1>Круглый мир</h1><small>Отдельная экспериментальная сборка</small></div>
+  <div id="identity" class="panel"><div class="eyebrow">NEXGAMEWORLD · FANTASY RPG</div><h1>NexGameWorld</h1><small>Сферическая одиночная RPG · альфа</small></div>
   <div id="statistics" class="panel"><span class="caption">Путь по экватору</span><strong id="progress">0%</strong><span class="sub" id="distance">0 м · оборотов: 0</span></div>
 </div>
-<div id="zoneTag"><b id="zoneName">Стартовая зона NexGame</b><small id="zoneLabel">ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД</small></div>
+<div id="zoneTag"><b id="zoneName">Стартовая зона NexGameWorld</b><small id="zoneLabel">ЛАГЕРЬ · ОЗЕРО ТИХИХ ВОД</small></div>
 <div id="compass"><canvas id="miniglobe" width="220" height="220" aria-label="Глобус с текущим положением"></canvas></div>
 <div id="instruction" class="panel"><b>Новая планета</b><div>Джойстик — двигаться · свайп — камера<br>Пройди лагерь и озеро. Экватор планеты: ~6:45</div></div>
 <div id="stickBase" role="application" aria-label="Виртуальный джойстик"><div id="stickThumb"></div></div>
@@ -342,18 +342,18 @@
   <button id="resetButton" type="button" class="tool">↺ В начало</button>
 </nav>
 </div>
-<div id="loading">Загружаем сферический мир NexGame…</div>
+<div id="loading">Загружаем NexGameWorld…</div>
 <div id="failure" role="alert"></div>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script>
 <script src="./build-status.js?v=1" defer></script>
 <script type="module">
   // If a dependency fails to load, show a useful error instead of an endless sky.
-  import('./planet.js?v=35').catch(error=>{
+  import('./planet.js?v=36').catch(error=>{
     const loading=document.getElementById('loading');
     const failure=document.getElementById('failure');
     if(loading)loading.classList.add('is-done');
-    if(failure)failure.textContent='Ошибка загрузки NexGame: '+(error?.message||String(error));
-    console.error('NexGame spherical bootstrap:',error);
+    if(failure)failure.textContent='Ошибка загрузки NexGameWorld: '+(error?.message||String(error));
+    console.error('NexGameWorld bootstrap:',error);
   });
 </script>
 </body>
