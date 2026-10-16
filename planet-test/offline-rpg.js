@@ -15,6 +15,7 @@ import {createCampActions} from './camp-actions.js?v=7';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
 import {createSphericalCombatVfx} from './sphere-combat-vfx.js?v=1';
+import {createQuestMarkerFactory} from './quest-markers.js?v=1';
 import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=5';
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
@@ -141,6 +142,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
  const combatFeedback=createSphereCombatFeedback({THREE,document,camera,layer:feedbackLayer});
   const combatVfx=createSphericalCombatVfx({THREE,parent:scene});
+  const questMarkers=createQuestMarkerFactory(THREE,{document,camera});
  const nameEl=$('playerName'),objective=$('qtext');
  const originalControls=$('labSettingsSources');
  const settingsControls=[...originalControls.children];
@@ -189,22 +191,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const e={kind,name,x,z,yaw:.2,root,radius:1.5,actor:npcActor};entities.push(e);citizens.push(e);setModelAt(e);return e;
  }
  const mentor=npc('mentor',-1.5,-5,'Наставник Каменный Рог');
- for(const glyph of ['!','?','·']){
-  const marker=makeLabel(glyph,glyph==='·'?'#b4b395':'#ffe180',72);
-  marker.position.y=5.45;marker.scale.set(2.5,1.6,1);
-  marker.userData.questMarker=true;marker.userData.glyph=glyph;
-  mentor.root.add(marker);
- }
+ for(const glyph of ['!','?','·'])mentor.root.add(questMarkers.create(glyph,5.55));
  const vendor=npc('vendor',6,11,'Борун Крепкая Ладонь');
  const merchantLabel=makeLabel('Оружие и доспехи','#e5c574',23);
  merchantLabel.position.y=3.85;vendor.root.add(merchantLabel);
  const herbalist=npc('herbalist',8,1,'Травница Тихая Заря');
- const herbMarker=makeLabel('!','#ffe180',72),herbTurnin=makeLabel('?','#ffe180',72);
- for(const [glyph,sprite] of [['!',herbMarker],['?',herbTurnin]]){
-  sprite.position.y=5.65;sprite.scale.set(2.5,1.48,1);
-  sprite.userData.questMarker=true;sprite.userData.glyph=glyph;
-  herbalist.root.add(sprite);
- }
+ for(const glyph of ['!','?','·'])herbalist.root.add(questMarkers.create(glyph,5.58));
  // Shared radial ground-shadow texture. Only one transparent plane per mob.
  const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=64;
  const shadowContext=shadowCanvas.getContext('2d');
@@ -1076,13 +1068,18 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   updateTrainingTarget(dummy,clock);
   combatFeedback.update(dt);
   combatVfx.update(dt);
+  questMarkers.update(clock,questMarkerQuality);
   stompEffect.update(dt);
   updateSelection();
   if(Math.floor(clock*5)!==Math.floor((clock-dt)*5))draw(false);
  }
  let resetPosition=null;
  function onRespawn(fn){resetPosition=fn;}
- function setVisualQuality(detail){combatVfx.setQuality(detail);}
+ let questMarkerQuality=.68;
+ function setVisualQuality(detail){
+  combatVfx.setQuality(detail);
+  questMarkerQuality=Number.isFinite(detail)?detail:.68;
+ }
  function getAnimationState(){
   return {gather:camp.casting,attack:timeline.attackProgress,
    stomp:timeline.stompProgress,blockRemaining,weaponKind:hero.root.userData.weaponKind||'none'};
