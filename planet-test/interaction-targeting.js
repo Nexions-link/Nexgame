@@ -13,7 +13,7 @@ export function nearbyInteractable(entities,dist,resourceReady){
    if(!resourceReady(entity))continue;
    range=INTERACTION_RANGE.gather;
   }else if(entity.kind==='mob'){
-   if(!entity.corpse||!entity.loot?.length)continue;
+   if(!entity.corpse||entity.dying||!entity.loot?.length)continue;
    range=INTERACTION_RANGE.corpse;
   }else range=INTERACTION_RANGE[entity.kind]||0;
   if(!range)continue;

@@ -14,7 +14,7 @@ import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v
 import {createCampActions} from './camp-actions.js?v=7';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
-import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=4';
+import {cycleHostileTarget,nearbyInteractable} from './interaction-targeting.js?v=5';
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
 import {createMentorWorld} from './mentor-world.js?v=1';
@@ -28,6 +28,7 @@ import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '.
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
+import {createMobDeath} from './mob-death.js?v=1';
 import {CORPSE_DURATION_SECONDS,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
@@ -151,7 +152,6 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   entity.root.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.09);
   anchorQuat.setFromUnitVectors(up,normal);
   entity.root.quaternion.copy(anchorQuat).multiply(spinQuat.setFromAxisAngle(up,entity.yaw||0));
-  if(entity.kind==='mob'&&entity.corpse)entity.root.rotateX(1.15);
  }
  // Identical native NexGame spriteText typography and palette, no backdrop.
  function makeLabel(name,color='#f9df91',size=32){
@@ -219,18 +219,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function createBird(x,z,i){
   const root=new THREE.Group();group.add(root);
   const contactShadow=addContactShadow(root);
+  const fallback=new THREE.Group();fallback.name='dolgonog-fallback';root.add(fallback);
   const mat=new THREE.MeshStandardMaterial({color:i%2?'#917044':'#826649',roughness:1});
   const body=new THREE.Mesh(new THREE.SphereGeometry(1,12,9),mat);
-  body.scale.set(.58,.48,.8);body.position.y=1.25;root.add(body);
-  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.13,.19,.9,7),mat);neck.position.set(0,1.83,.57);neck.rotation.x=.45;root.add(neck);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.28,9,7),mat);head.position.set(0,2.25,.74);root.add(head);
+  body.scale.set(.58,.48,.8);body.position.y=1.25;fallback.add(body);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.13,.19,.9,7),mat);neck.position.set(0,1.83,.57);neck.rotation.x=.45;fallback.add(neck);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.28,9,7),mat);head.position.set(0,2.25,.74);fallback.add(head);
   const beak=new THREE.Mesh(new THREE.ConeGeometry(.18,.5,7),new THREE.MeshStandardMaterial({color:'#d5b16f'}));
-  beak.rotation.x=Math.PI/2;beak.position.set(0,2.17,1.1);root.add(beak);
-  for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);root.add(leg);}
+  beak.rotation.x=Math.PI/2;beak.position.set(0,2.17,1.1);fallback.add(beak);
+  for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);fallback.add(leg);}
   const entity={kind:'mob',index:i,name:'Равнинный долгоног',root,x,z,yaw:.1,
    spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
    respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false,contactShadow,roamTime:i*1.73};
-  const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);
+  const tag=makeLabel(entity.name,'#f9df91',26);tag.position.y=4.25;root.add(tag);entity.nameTag=tag;
   const alertTag=makeLabel('!','#ffc978',78);
   alertTag.position.y=4.95;alertTag.scale.set(1.55,1.4,1);alertTag.visible=false;
   root.add(alertTag);entity.alertTag=alertTag;
@@ -238,6 +239,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   lootMarker.position.y=1.58;lootMarker.scale.set(1.3,1.06,1);
   lootMarker.material.opacity=.95;lootMarker.visible=false;
   root.add(lootMarker);entity.lootMarker=lootMarker;
+  entity.fallbackVisual=fallback;
+  entity.deathAnimation=createMobDeath({THREE,entity,visual:fallback,getRadius,heightAt});
   mobs.push(entity);entities.push(entity);setModelAt(entity);return entity;
  }
  SPAWNS.forEach(([x,z],i)=>createBird(x,z,i));
@@ -249,7 +252,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  if(oldTag)oldTag.visible=false;
  const bossTag=makeLabel('Грозоклюв · Исполин','#f9bd91',27);
  bossTag.position.y=3.4;bossTag.scale.set(4.7,.84,1);
- giant.root.add(bossTag);giant.alertTag.position.y=4.0;
+ giant.root.add(bossTag);giant.nameTag=bossTag;giant.alertTag.position.y=4.0;
  const dummyRoot=new THREE.Group();group.add(dummyRoot);addContactShadow(dummyRoot,1.1);
  const straw=new THREE.MeshStandardMaterial({color:'#bb9665',roughness:1});
  const dummyBody=new THREE.Mesh(new THREE.CylinderGeometry(.56,.63,2.2,12),straw);
@@ -275,22 +278,27 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const asset=await loader.loadAsync('../bestiary/models/dolgonog-v0.1.glb?v=0.3.5.43');
    if(!validatePlainstriderGltf(asset))throw Error('Unexpected Dolgonog clips');
    for(const mob of mobs){
-    const bird=asset.scene.clone(true);
-    const container=new THREE.Group();container.name='dolgonog-original-v0.1';
-    container.scale.setScalar(PLAINSTRIDER_VISUAL_SCALE);
-    container.add(bird);mob.root.add(container);
-    for(const child of [...mob.root.children])if(child.isMesh&&child!==mob.contactShadow)child.visible=false;
-    bird.traverse(obj=>{if(obj.isMesh){obj.castShadow=/^(Body|Head|Neck|Wing)/.test(obj.name);obj.receiveShadow=false;}});
-    const mixer=new THREE.AnimationMixer(bird);
-    const actions=Object.fromEntries(PLAINSTRIDER_REQUIRED_CLIPS.map(k=>[k,mixer.clipAction(asset.animations.find(a=>a.name===k))]));
-    mob.birdVisual={container,bird,mixer,actions,mode:null,walkGrace:0,attackRemaining:0,lastAttackCd:mob.attackCd};
-    advancePlainstriderVisual(THREE,mob,1/60,0,!!mob.corpse);
+    // Never swap an already falling/settled corpse to a freshly loaded rig.
+    if(mob.corpse)mob.pendingBirdAsset=asset;
+    else attachBirdVisual(mob,asset);
    }
   }catch(err){console.warn('Planet offline Dolgonog fallback:',err);}
  })();
+ function attachBirdVisual(mob,asset){
+  const bird=asset.scene.clone(true);
+  const container=new THREE.Group();container.name='dolgonog-original-v0.1';
+  container.scale.setScalar(PLAINSTRIDER_VISUAL_SCALE);
+  container.add(bird);mob.root.add(container);mob.fallbackVisual.visible=false;
+  bird.traverse(obj=>{if(obj.isMesh){obj.castShadow=/^(Body|Head|Neck|Wing)/.test(obj.name);obj.receiveShadow=false;}});
+  const mixer=new THREE.AnimationMixer(bird);
+  const actions=Object.fromEntries(PLAINSTRIDER_REQUIRED_CLIPS.map(k=>[k,mixer.clipAction(asset.animations.find(a=>a.name===k))]));
+  mob.birdVisual={container,bird,mixer,actions,mode:null,walkGrace:0,attackRemaining:0,lastAttackCd:mob.attackCd};
+  mob.deathAnimation=createMobDeath({THREE,entity:mob,visual:container,getRadius,heightAt,mixer});
+  advancePlainstriderVisual(THREE,mob,1/60,0,false);
+ }
  // Smooth original NexGame GLB Idle, Walk, Peck and hit reactions.
  function birdAnimation(mob,dt,moved=0){
-  if(mob.birdVisual)advancePlainstriderVisual(THREE,mob,dt,moved,!!mob.corpse);
+  if(mob.birdVisual&&!mob.corpse)advancePlainstriderVisual(THREE,mob,dt,moved,false);
  }
  function player(){return toLocal(playerNormal(),getRadius());}
  function distance(entity){
@@ -330,7 +338,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function updateLootMarker(mob){
   if(!mob?.lootMarker)return;
-  const available=mob.corpse&&mob.root.visible&&mob.loot?.length>0;
+  const available=mob.corpse&&!mob.dying&&mob.root.visible&&mob.loot?.length>0;
   mob.lootMarker.visible=!!available;
   if(!available)return;
   const rarity=highestLootRarity(mob.loot,ITEM_CATALOG);
@@ -339,6 +347,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function showCorpseLoot(mob){
   if(!mob?.corpse||!mob.root.visible)return msg('Тело уже исчезло');
+  if(mob.dying)return msg('Дождись, пока тело опустится на землю');
   if(distance(mob)>3.1)return msg('Подойди к телу ближе');
   if(!mob.loot?.length)return msg('На теле ничего нет');
   pendingLoot=mob;openWindow('loot');
@@ -437,7 +446,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     target=null;autoplay=false;approach=null;swing=0;
     if(timeline.current?.target===enemy)timeline.clear();
    }
-   setModelAt(enemy);birdAnimation(enemy,1/60,0);
+   setModelAt(enemy);enemy.deathAnimation.begin(playerNormal());
+   if(enemy.nameTag)enemy.nameTag.visible=false;
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
    if(enemy.boss)enemy.loot.push({id:'giantFeather',qty:1});
@@ -823,7 +833,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   targetEntity(selected||null);
  });
- function resetWorldTransforms(){for(const e of entities)setModelAt(e);mentorWorld.rebuild();targetRing.invalidate();stompEffect.invalidate();updateSelection();draw();}
+ function resetWorldTransforms(){for(const e of entities){setModelAt(e);e.deathAnimation?.refresh();}mentorWorld.rebuild();targetRing.invalidate();stompEffect.invalidate();updateSelection();draw();}
  function canMoveTo(x,z){
   // Friendly NPCs are interaction targets, not physical colliders in the
   // main NexGame. Use the shared geometry for houses, furniture and nature.
@@ -899,7 +909,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     mob.lootMarker.position.y=1.58+.12*Math.sin(clock*3.6);
     mob.lootMarker.material.opacity=.86+.13*Math.pow(Math.sin(clock*2.6),2);
    }
-   if(mob.contactShadow)mob.contactShadow.visible=mob.root.visible&&!mob.corpse;
+   if(mob.contactShadow)mob.contactShadow.visible=mob.root.visible;
+   if(mob.nameTag)mob.nameTag.visible=mob.root.visible&&!mob.corpse;
    if(mob.alertTag){
     mob.alertTag.visible=mob.alertRemaining>0&&mob.root.visible&&!mob.corpse;
     if(mob.alertTag.visible)mob.alertTag.position.y=(mob.boss?4:4.95)+Math.sin(clock*7)*.1;
@@ -908,13 +919,17 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     mob.respawn-=dt;
     if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
      mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.attackWindup=0;mob.hit=0;mob.corpseAge=0;mob.alertRemaining=0;
-     updateLootMarker(mob);
-     resetPlainstriderVisual(mob);setModelAt(mob);}
+     mob.deathAnimation.reset();
+     resetPlainstriderVisual(mob);
+     if(mob.pendingBirdAsset){attachBirdVisual(mob,mob.pendingBirdAsset);mob.pendingBirdAsset=null;}
+     updateLootMarker(mob);setModelAt(mob);}
     continue;
    }
    if(mob.corpse){
+    const wasDying=mob.dying;mob.deathAnimation.update(dt);
+    if(wasDying&&!mob.dying)updateLootMarker(mob);
     // Never expire a corpse while its loot panel is open.
-    if(modal.hidden||modal.dataset.kind!=='loot'||pendingLoot!==mob)mob.corpseAge=(mob.corpseAge||0)+dt;
+    if(!mob.dying&&(modal.hidden||modal.dataset.kind!=='loot'||pendingLoot!==mob))mob.corpseAge=(mob.corpseAge||0)+dt;
     if(mob.corpseAge>CORPSE_DURATION_SECONDS){
      mob.corpse=false;mob.root.visible=false;mob.respawn=12;mob.loot=[];updateLootMarker(mob);
      if(pendingLoot===mob)closeWindow();
