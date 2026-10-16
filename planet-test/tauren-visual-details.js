@@ -32,9 +32,9 @@ export function createTaurenVisualDetails(THREE,actor){
   [[.43,.40,-.08],[.78,.43,-.18],[1.04,.63,-.22],[1.15,.97,-.13],[1.05,1.27,.04]]
    .map(([x,y,z])=>new THREE.Vector3(sign*x,y,z)));
  const ridges=[];
- for(const sign of [-1,1]){
-  const curve=hornCurve(sign);
-  for(const t of [.12,.24,.37,.52]){
+ for(const t of [.12,.24,.37,.52]){
+  for(const sign of [-1,1]){
+   const curve=hornCurve(sign);
    const tangent=curve.getTangent(t).normalize();
    const position=curve.getPoint(t);
    const radius=.205*Math.pow(1-t,.83)+.003;
