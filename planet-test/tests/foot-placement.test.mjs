@@ -28,8 +28,10 @@ test('flat spherical terrain keeps both hooves near baseline at equator, pole an
    assert.equal(f.length,2);
    for(const foot of f){
     assert.ok(Math.abs(foot.height)<.005);
-    nearly(foot.pitch,0,.001);
-    nearly(foot.roll,0,.001);
+    // Even a perfectly smooth sphere has slight lateral curvature across
+    // the 0.43m hoof spacing, especially on the smallest 87m test planet.
+    nearly(foot.pitch,0,.007);
+    nearly(foot.roll,0,.007);
    }
   }
  }
