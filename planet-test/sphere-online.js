@@ -51,7 +51,7 @@ export function createSphericalPresence({
  THREE,scene,createAvatar,animateAvatar,getPosition,getRadius,heightAt,onStatus,
  url=WORLD_URL
 }){
- let socket=null,closed=false,selfId=null,retry=null,sendLoop=null;
+ let socket=null,closed=false,selfId=null,joinedRadius=null,retry=null,sendLoop=null;
  const peers=new Map(),visuals=new Map();
  const east=new THREE.Vector3(),north=new THREE.Vector3(),fwd=new THREE.Vector3(),
   right=new THREE.Vector3(),matrix=new THREE.Matrix4();
@@ -98,6 +98,7 @@ export function createSphericalPresence({
   ws.onopen=()=>{
    const p=position();
    if(!p){ws.close();return}
+   joinedRadius=p.radius;
    ws.send(JSON.stringify({type:'join',name:'Странник',...p}));
    sendLoop=setInterval(()=>{
     if(ws.readyState!==WebSocket.OPEN)return;
@@ -126,7 +127,7 @@ export function createSphericalPresence({
   };
   ws.onclose=()=>{
    if(socket!==ws)return;
-   socket=null;selfId=null;
+   socket=null;selfId=null;joinedRadius=null;
    clearInterval(sendLoop);sendLoop=null;
    stopPeers();
    if(!closed){status('offline');retry=setTimeout(connect,4000)}
@@ -137,6 +138,9 @@ export function createSphericalPresence({
   if(!visuals.size&&!peers.size)return;
   const own=position();
   if(!own)return;
+  if(joinedRadius!==null&&joinedRadius!==own.radius){
+   socket?.close();return;
+  }
   const rows=[...peers.values()].map(peer=>({
    peer,distance:greatCircleDistance(own.normal,peer.normal,own.radius)
   })).filter(p=>p.distance<=VISIBLE_DISTANCE).sort((a,b)=>a.distance-b.distance)
