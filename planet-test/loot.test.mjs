@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ITEM_CATALOG} from '../items.js';
 import {CREATURE_LOOT_TABLES,rollCreatureLoot,getCreatureLootRows,validateCreatureLootTables} from './loot-tables.js';
-import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,
+import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,advanceRespawnTimer,
  corpseRowCapacity,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js';
 
 test('every creature drop is a valid item and Atlas uses the same probabilities as the game',()=>{
@@ -90,4 +90,8 @@ test('body lasts 30 seconds after death animation and timer ignores opening/empt
  assert.equal(advanceCorpseTimer(corpse,0.99),false);
  assert.equal(advanceCorpseTimer(corpse,0.01),true);
  assert.equal(corpse.corpseAge,30);
+ corpse.corpse=false;corpse.root.visible=false;corpse.respawn=NORMAL_MOB_RESPAWN_SECONDS;
+ assert.equal(advanceRespawnTimer(corpse,29.99),false);
+ assert.equal(advanceRespawnTimer(corpse,0.01),true);
+ assert.equal(corpse.respawn,0);
 });
