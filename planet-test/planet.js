@@ -522,6 +522,13 @@ try {
   for (const button of radiusButtons)
     button.addEventListener('click', () => setRadius(Number(button.dataset.radius)));
   rpg.onRespawn(()=>{doReset();cameraSnap=true;});
+  rpg.onResetProgress(()=>{
+    // Return to the camp after resetting quests, without changing graphics,
+    // zoom, follow-camera preference, or the currently selected planet size.
+    state.orbit=false;
+    doReset();
+    cameraSnap=true;
+  });
   setRadius(R);
   // Atmosphere geometry is created at BASE_RADIUS, so scale it even when
   // a larger saved radius is restored without a resize event.
