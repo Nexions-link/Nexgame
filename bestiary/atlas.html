@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#101916"><meta name="description" content="Атлас NexGameWorld — интерактивный каталог существ, оружия, 3D-моделей и анимаций сферического фэнтезийного мира."><meta property="og:title" content="Атлас NexGameWorld"><title>NexGameWorld · Атлас мира</title>
-<link rel="stylesheet" href="./atlas.css?v=0.3.0">
+<script>
+// Styles are loaded with a unique URL per visit, just like the Atlas catalog,
+// so Safari cannot reuse CSS from an older GitHub Pages deployment.
+const atlasStyles=document.createElement('link');
+atlasStyles.rel='stylesheet';
+atlasStyles.href='./atlas.css?refresh='+Date.now();
+document.head.append(atlasStyles);
+</script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"}}</script></head>
 <body><div class="layout"><aside class="sidebar"><a class="brand" href="https://nexions.ru/" target="_top"><span class="brand-icon">N✦</span><span><strong>NEXGAMEWORLD</strong><small>АТЛАС МИРА · 2026</small></span></a>
 <p class="side-label">БИБЛИОТЕКА МИРА</p><nav id="categories" aria-label="Категории атласа"></nav><div class="side-footer"><a href="https://nexions.ru/" target="_top">← Вернуться на Nexions.ru</a></div></aside>
