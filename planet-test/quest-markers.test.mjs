@@ -30,7 +30,9 @@ test('quest stages keep their native three-state mechanics while sharing one vis
  assert.equal(markerStateFromGlyph('?'),'ready');
  assert.equal(markerStateFromGlyph('·'),'active');
  assert.equal(markerStateFromGlyph(''),null);
- assert.equal(QUEST_MARKER_VISUALS.available.color,0xffd400);
+ assert.equal(QUEST_MARKER_VISUALS.available.color,0xedc756);
+ assert.ok(QUEST_MARKER_VISUALS.available.glow<=.12);
+ assert.ok(QUEST_MARKER_VISUALS.active.glow<QUEST_MARKER_VISUALS.ready.glow);
  assert.equal(mentorGlyph(0),'!');
  assert.equal(mentorGlyph(1),'·');
  assert.equal(mentorGlyph(2),'?');
@@ -44,6 +46,8 @@ test('exclamation marker uses solid depth, dark outline and halo instead of text
  assert.equal(m.userData.questMarker,true);
  assert.equal(m.userData.glyph,'!');
  assert.equal(m.userData.questState,'available');
+ assert.ok(Math.abs(m.userData.baseHeight-5.33)<1e-6,'marker now sits closer to NPC');
+ assert.equal(m.scale.x,.8);
  assert.ok(m.children.some(x=>x.isSprite&&x.name==='quest-soft-halo'));
  assert.ok(m.children.some(x=>x.isMesh&&x.geometry.isExtrudeGeometry));
  assert.equal(m.children.filter(x=>x.isMesh).length,4);
@@ -79,6 +83,20 @@ test('marker billboards face the live camera on curved planet without modifying 
  assert.ok(Math.abs(m.position.y-y1)>.001);
  assert.equal(m.children[0].material.opacity,0);
  assert.ok(m.children.filter(x=>x.isMesh).every(x=>x.visible));
+ factory.dispose();
+});
+
+test('quest markers remain compact, rounded and do not grow huge at long camera distance',()=>{
+ const {factory,npc,camera}=fixture();
+ const marker=factory.create('!',5.55);npc.add(marker);marker.visible=true;
+ factory.update(0,.68);
+ assert.ok(marker.scale.x<.95,'marker scale should stay modest at normal viewing distance');
+ assert.ok(marker.children[0].scale.x<1.5,'glow remains compact');
+ camera.position.set(0,30,330);camera.updateMatrixWorld();
+ factory.update(.5,.68);
+ assert.ok(marker.scale.x<.95,'long-distance boost stays below 12 percent');
+ assert.ok(marker.position.y>5.3&&marker.position.y<5.48);
+ assert.ok(marker.children[0].material.opacity<=.12);
  factory.dispose();
 });
 
