@@ -56,7 +56,7 @@ export async function mountBoarPaletteEditor({host,model,glbBuffer,revision,isCu
    host.append(group);
    groups.set(p.group,group);
   }
-  const row=ui('label','palette-row');
+  const row=ui('div','palette-row');
   const label=ui('span','palette-name',p.name);
   const picker=ui('input','palette-picker');
   picker.type='color';picker.value=palette[p.id];picker.setAttribute('aria-label','Цвет: '+p.name);
