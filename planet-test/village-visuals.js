@@ -106,10 +106,14 @@ export function createVillageVisuals(THREE,{scene,getRadius,toNormal,heightAt}){
   // Preserve active level after spherical radius changes.
   applyQuality(currentDetail);
  }
- let currentDetail=0;
+ let currentDetail=0,currentInterior=false;
+ function setInterior(inside){
+  currentInterior=!!inside;
+  for(const roof of roofLayers)roof.visible=currentDetail>=.5&&!currentInterior;
+ }
  function applyQuality(value){
   currentDetail=clamp01(value);
-  for(const roof of roofLayers)roof.visible=currentDetail>=.5;
+  for(const roof of roofLayers)roof.visible=currentDetail>=.5&&!currentInterior;
   for(const tent of tentLayers)tent.visible=currentDetail>=.5;
   if(tufts){
    // The first layer covers all trees; higher settings add more crown volume.
@@ -117,7 +121,7 @@ export function createVillageVisuals(THREE,{scene,getRadius,toNormal,heightAt}){
    tufts.count=Math.min(tuftCapacity,Math.floor(tuftCapacity*fraction));
   }
  }
- return {addRoof,addTent,addTree,rebuild,applyQuality,
+ return {addRoof,addTent,addTree,rebuild,applyQuality,setInterior,
   get counts(){return {roofs:roofLayers.length,tents:tentLayers.length,
    trees:treeLocations.length,tufts:tuftCapacity};}
  };
