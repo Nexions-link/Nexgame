@@ -12,6 +12,7 @@ import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=7';
 import {createCampActions} from './camp-actions.js?v=9';
+import {OFFLINE_RPG_SAVE_KEY,clearOfflineProgress} from './progress-reset.js?v=1';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
 import {createSphericalCombatVfx} from './sphere-combat-vfx.js?v=1';
@@ -37,7 +38,7 @@ import {sellInventorySlot,buyBackFromMerchant,restoreBuyback} from './merchant-t
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
-const SAVE_KEY='nexgame-planet-test-offline-rpg-v1';
+const SAVE_KEY=OFFLINE_RPG_SAVE_KEY;
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const xpRequired=level=>100+(level-1)*50;
@@ -419,6 +420,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   modal.hidden=false;modal.dataset.kind=kind;renderModal();
  }
  function closeWindow(){modal.hidden=true;pendingLoot=null;}
+ let resetProgressView=null;
+ function onResetProgress(fn){resetProgressView=typeof fn==='function'?fn:null;}
+ function resetProgress(){
+  if(preview)return;
+  if(!window.confirm('Сбросить весь прогресс тестового персонажа? Задания, уровень, инвентарь, экипировка и сундук начнутся заново. Настройки графики сохранятся.'))return;
+  if(!clearOfflineProgress(localStorage,{preview})){
+   msg('Не удалось сбросить сохранение. Проверь разрешение на хранение данных.');return;
+  }
+  // The planet resets location before reload; a fresh game also resets
+  // corpses, merchant buyback, ground loot and gathering cooldowns.
+  if(resetProgressView)resetProgressView();
+  window.location.reload();
+ }
  function interact(){
   if(!modal.hidden||camp.casting)return;
   // Approach alone enables NPC dialogue, gathering, storage and corpse loot.
@@ -661,6 +675,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    line('Сферический мир','Меняй радиус планеты, вращай её свайпами и исследуй NexGameWorld.');
    for(const item of settingsControls)body.append(item);
    line('Сетевая игра','Тестовая сборка работает локально, без сервера Render.');
+   if(!preview){
+    line('Тестирование заданий','Начать заново: уровень, все задания, вещи и сундук. Графика и настройки камеры сохранятся.',[['Сбросить прогресс',resetProgress]]);
+    body.lastElementChild?.querySelector('button')?.classList.add('reset-progress-action');
+   }
   }else if(kind==='bag'){
     const summary=document.createElement('div');summary.className='inventory-summary';
     summary.textContent='Ячейки '+state.inventory.length+' / 12 · Монеты '+pretty(state.gold)+' · Настои '+itemCount('healingPotion');
@@ -1102,5 +1120,5 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return false;
  }
  persist();draw();void updateEquipmentVisuals();
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,onResetProgress,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
 }
