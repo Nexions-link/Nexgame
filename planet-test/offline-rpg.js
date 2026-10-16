@@ -10,7 +10,7 @@ import {AXE_TUNER_DEFAULTS} from '../axe-tuner.js?v=0.3.7.0';
 import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
 import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
-import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=5';
+import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=6';
 import {createCampActions} from './camp-actions.js?v=6';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
@@ -23,7 +23,7 @@ import {animateSphericalTauren} from './tauren-animation.js?v=2';
 import {incomingShieldHit,sphericalMeleeFacing,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackProgress} from './sphere-combat.js?v=2';
 import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '../item-quality.js?v=0.3.7.1';
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
-import {canWalkCamp} from './sphere-physics.js?v=2';
+import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
