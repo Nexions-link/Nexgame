@@ -10,6 +10,13 @@ export function advanceCorpseTimer(corpse,dt){
  return corpse.corpseAge>=CORPSE_DURATION_SECONDS;
 }
 
+// Respawn starts only after the body has disappeared, never after collecting loot.
+export function advanceRespawnTimer(mob,dt){
+ if(!mob?.root||mob.root.visible||mob.corpse)return false;
+ mob.respawn=Math.max(0,(mob.respawn||0)-Math.max(0,Number.isFinite(dt)?dt:0));
+ return mob.respawn<=0;
+}
+
 export function corpseRowCapacity(inventory,row,stackLimit,slotCount=12){
  if(!Array.isArray(inventory)||!row||typeof row.id!=='string'||
   !Number.isInteger(row.qty)||row.qty<1||typeof stackLimit!=='function')return 0;
