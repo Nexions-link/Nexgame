@@ -1,5 +1,9 @@
 # NexGame → spherical world migration
 
+> Current checklist: [MIGRATION-PLAN.md](./MIGRATION-PLAN.md), audited against
+> main / PT 0.6.2 on 2026-10-16. This file retains historical milestones;
+> earlier "not yet ported" lists are not the current feature inventory.
+
 Goal: keep the complete original NexGame RPG, assets, user interface and proven iPhone gesture handling, but replace the flat-world render, physics and world-coordinates with a true spherical planet. The canonical public test URL is `https://nexions-link.github.io/Nexgame/planet-test/`. Never change the main `app.html`, `game.js`, `style.css` or live online server while developing the prototype.
 
 ## Source of truth
