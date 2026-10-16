@@ -29,7 +29,7 @@ import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
-import {CORPSE_DURATION_SECONDS,NORMAL_MOB_RESPAWN_SECONDS,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=2';
+import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=3';
 import {rollCreatureLoot} from './loot-tables.js?v=1';
 import {sellInventorySlot,buyBackFromMerchant,restoreBuyback} from './merchant-trade.js?v=1';
 
@@ -981,8 +981,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const wasDying=mob.dying;mob.deathAnimation.update(dt);
     if(wasDying&&!mob.dying)updateLootMarker(mob);
     // A settled body has one fixed lifetime, even when empty or being looted.
-    if(!mob.dying)mob.corpseAge=(mob.corpseAge||0)+dt;
-    if(mob.corpseAge>=CORPSE_DURATION_SECONDS){
+    if(advanceCorpseTimer(mob,dt)){
      mob.corpse=false;mob.root.visible=false;
      mob.respawn=mob.boss?12:NORMAL_MOB_RESPAWN_SECONDS;
      mob.loot=[];updateLootMarker(mob);
