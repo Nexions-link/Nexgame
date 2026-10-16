@@ -1,7 +1,7 @@
 // Test-only spherical copies of the main NexGame gathering resources.
 // Quest locations and timings mirror game.js (main), but all objects remain
 // in this independent offline scene and do not write to the production save.
-import {lakeRadius} from './start-zone.js?v=13';
+import {lakeRadius} from './start-zone.js?v=14';
 
 export const GATHER_QUESTS=[
  null,
