@@ -350,6 +350,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(target===mob){target=null;autoplay=false;updateSelection();}
   closeWindow();draw();
  }
+ function lootNotice(message){
+  const label=$('mbody').querySelector('.planet-loot-notice');
+  if(label)label.textContent=message;
+  else msg(message);
+ }
  function corpseLootServices(){
   return {inventory:state.inventory,stackLimit:itemStackLimit,store:addItem,slotCount:12};
  }
@@ -357,23 +362,23 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(pendingLoot!==mob||modal.hidden||modal.dataset.kind!=='loot')return;
   if(distance(mob)>3.1)return msg('Подойди к телу ближе');
   const result=takeCorpseRow(mob,index,corpseLootServices());
-  if(!result.ok)return msg(result.reason==='full'?'Рюкзак заполнен — предмет остался в теле':'Добыча недоступна');
+  if(!result.ok)return lootNotice(result.reason==='full'?'Рюкзак заполнен — предмет остался в теле':'Добыча недоступна');
   updateLootMarker(mob);
   const def=ITEM_CATALOG[result.item.id];
-  msg('Получено: '+(def?.name||result.item.id)+(result.item.qty>1?' ×'+result.item.qty:''));
-  if(!result.remaining)finishCorpseLoot(mob);
-  else{renderModal();draw();}
+  const received='Получено: '+(def?.name||result.item.id)+(result.item.qty>1?' ×'+result.item.qty:'');
+  if(!result.remaining){finishCorpseLoot(mob);msg(received);}
+  else{renderModal();lootNotice(received);draw();}
  }
  function takeAllFromCorpse(mob){
   if(pendingLoot!==mob||modal.hidden||modal.dataset.kind!=='loot')return;
   if(distance(mob)>3.1)return msg('Подойди к телу ближе');
   const result=takeAllCorpseRows(mob,corpseLootServices());
   updateLootMarker(mob);
-  if(!result.taken.length)return msg('Рюкзак заполнен — добыча осталась в теле');
+  if(!result.taken.length)return lootNotice('Рюкзак заполнен — добыча осталась в теле');
   if(!result.remaining){
    finishCorpseLoot(mob);msg('Собрано предметов: '+result.taken.length);
   }else{
-   renderModal();draw();msg('Часть добычи осталась в теле — рюкзак заполнен');
+   renderModal();lootNotice('Часть добычи осталась в теле — рюкзак заполнен');draw();
   }
  }
  function targetEntity(entity){
@@ -596,6 +601,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const description=document.createElement('p');description.className='planet-loot-intro';
    description.textContent='Нажми на нужный предмет, чтобы забрать его. Остальное останется в теле, если закрыть окно.';
    body.append(description);
+   const notice=document.createElement('p');notice.className='planet-loot-notice';
+   notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
+   body.append(notice);
    const list=document.createElement('div');list.className='loot-list';
    corpse.loot.forEach((item,index)=>{
     const def=ITEM_CATALOG[item.id],rarity=itemRarity(def?.rarity);
