@@ -6,7 +6,8 @@ import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=1';
 import {createOfflineRpg} from './offline-rpg.js?v=31';
 import {animateSphericalTauren} from './tauren-animation.js?v=3';
-import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=14';
+import {GRAPHICS_PRESETS,resolveGraphicsPreset,effectivePixelRatio,graphicsDensity} from './graphics-quality.js?v=1';
+import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=15';
 initStartZoneMath(THREE);
 
 // Independent pointer streams for joystick, UI buttons and camera gestures.
@@ -109,7 +110,7 @@ try {
     camera.updateProjectionMatrix();
   }
   const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'default'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, isPortalPreview ? 1.0 : 1.45));
+  renderer.setPixelRatio(effectivePixelRatio('balanced',window.devicePixelRatio||1,isPortalPreview));
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -123,6 +124,14 @@ try {
   const fill = new THREE.DirectionalLight('#b6e7f6', .62);
   fill.position.set(-100, -40, -150);
   scene.add(fill);
+  // Near-camera shadows only: never render a whole-planet shadow pass.
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  const localFog=new THREE.Fog(skyDay,105,290);
+  sun.shadow.camera.left=-31;sun.shadow.camera.right=31;
+  sun.shadow.camera.top=31;sun.shadow.camera.bottom=-31;
+  sun.shadow.camera.near=1;sun.shadow.camera.far=120;
+  sun.shadow.bias=-.00035;sun.shadow.normalBias=.035;
+  sun.shadow.camera.updateProjectionMatrix();
 
   // Build a genuine closed triangulated sphere, rather than a flat wrapping map.
   const groundGeo = new THREE.SphereGeometry(R, 180, 112);
@@ -261,6 +270,52 @@ try {
     orbitDistance:previousWorld?.orbitDistance??3.22,legCycle:0
   };
   const saveWorld=()=>isPortalPreview?false:writePlanetView(localStorage,state,R);
+  // Independent of existing save data and the multiplayer-disabled prototype.
+  const graphicsStorageKey='nexgameworld-graphics-quality-v1';
+  const fpsStorageKey='nexgameworld-show-fps-v1';
+  function readPreference(key,fallback){try{return localStorage.getItem(key)??fallback}catch{return fallback}}
+  function storePreference(key,value){try{localStorage.setItem(key,value)}catch{}}
+  const graphicsSelect=$('graphicsQuality'),qualityHelp=$('qualityHelp');
+  const fpsToggle=$('showFps'),fpsCounter=$('fpsCounter');
+  if($('graphicsControl'))$('graphicsControl').hidden=false;
+  let qualityName=resolveGraphicsPreset(readPreference(graphicsStorageKey,'balanced'));
+  if(isPortalPreview)qualityName='economy';
+  let shadowActive=false;
+  function applyGraphicsQuality(){
+    const profile=GRAPHICS_PRESETS[qualityName];
+    const enabled=!isPortalPreview&&!state.orbit&&profile.shadowSize>0;
+    renderer.setPixelRatio(effectivePixelRatio(qualityName,window.devicePixelRatio||1,isPortalPreview));
+    renderer.toneMappingExposure=profile.exposure;
+    if(sun.shadow.mapSize.x!==(profile.shadowSize||256)){
+      sun.shadow.mapSize.set(profile.shadowSize||256,profile.shadowSize||256);
+      if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}
+    }
+    sun.castShadow=enabled;
+    renderer.shadowMap.enabled=enabled;
+    shadowActive=enabled;
+    scene.fog=state.orbit||isPortalPreview?null:localFog;
+    localFog.near=profile.fogNear;localFog.far=profile.fogFar;
+    startZone.setGraphics({...graphicsDensity(qualityName),waterColor:profile.waterColor,shadows:enabled});
+    if(qualityHelp)qualityHelp.textContent=
+      qualityName==='economy'?'Разреженная растительность, простая вода и без теней.':
+      qualityName==='high'?'Самая плотная растительность, чёткая картинка, тени 1024 px.':
+      'Умеренная растительность, мягкие тени 512 px и улучшенное озеро.';
+    if(graphicsSelect)graphicsSelect.value=qualityName;
+  }
+  graphicsSelect?.addEventListener('change',()=>{
+    qualityName=resolveGraphicsPreset(graphicsSelect.value);
+    storePreference(graphicsStorageKey,qualityName);
+    applyGraphicsQuality();
+  });
+  if(fpsToggle&&fpsCounter){
+    fpsToggle.checked=readPreference(fpsStorageKey,'false')==='true';
+    fpsCounter.hidden=!fpsToggle.checked;
+    fpsToggle.addEventListener('change',()=>{
+      fpsCounter.hidden=!fpsToggle.checked;
+      storePreference(fpsStorageKey,String(fpsToggle.checked));
+    });
+  }
+  applyGraphicsQuality();
   let saveClock=0;
   const rpg=createOfflineRpg({THREE,scene,hero,makeTauren:options=>createTauren(THREE,scene,options),playerNormal:()=>state.normal,
    getRadius:()=>R,toNormal:(x,z,r)=>localToNormalAt(x,z,r),
