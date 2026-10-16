@@ -3,6 +3,13 @@
 export const CORPSE_DURATION_SECONDS=30;
 export const NORMAL_MOB_RESPAWN_SECONDS=30;
 
+// Timer starts only once the death animation has settled. Looting does not reset it.
+export function advanceCorpseTimer(corpse,dt){
+ if(!corpse?.corpse||corpse.dying)return false;
+ corpse.corpseAge=(corpse.corpseAge||0)+Math.max(0,Number.isFinite(dt)?dt:0);
+ return corpse.corpseAge>=CORPSE_DURATION_SECONDS;
+}
+
 export function corpseRowCapacity(inventory,row,stackLimit,slotCount=12){
  if(!Array.isArray(inventory)||!row||typeof row.id!=='string'||
   !Number.isInteger(row.qty)||row.qty<1||typeof stackLimit!=='function')return 0;
