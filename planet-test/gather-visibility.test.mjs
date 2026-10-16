@@ -64,8 +64,8 @@ test('spherical gathering logic preserves eligibility and uses player distance o
 
 test('moon mushrooms have dark rounded caps, a pale stalk and slightly larger sizes',()=>{
  const world=source('./gather-world.js');
- assert.match(world,/mushroomCap:material\('#372b3e'/);
- assert.match(world,/mushroomRim:material\('#786579'/);
+ assert.match(world,/mushroomCap:material\('#78502c'/);
+ assert.match(world,/mushroomRim:material\('#b18a56'/);
  assert.match(world,/const mushroomDome=new THREE\.SphereGeometry\(1,14,9,0,Math\.PI\*2,0,Math\.PI\/2\)/);
  assert.match(world,/\[\[-\.17,-\.1,\.41,\.40\],\[\.29,\.15,\.29,\.31\]\]/);
  assert.match(world,/quest-moon-mushroom-dark-cap/);
