@@ -1,10 +1,10 @@
 // Native NexGame meadow density and geometry, bent onto a spherical world.
-// Instanced draw calls: 1 grass, 3 blossom species, 1 shrub batch.
+// Instanced draw calls: grass, three blossom colors, shrubs and small stones.
 import {scatterMeadow} from '../meadow.js?v=0.3.7.1';
 function clumpGeometry(THREE){
  const positions=[],colors=[];
- for(let i=0;i<4;i++){
-  const a=i*Math.PI/2,cs=Math.cos(a),sn=Math.sin(a),h=.58+(i%2)*.19,w=.145;
+ for(let i=0;i<5;i++){
+  const a=i*Math.PI*2/5,cs=Math.cos(a),sn=Math.sin(a),h=.51+(i%3)*.135,w=.12+(i%2)*.028;
   positions.push(-sn*w,0,cs*w,sn*w,0,-cs*w,cs*.12,h,sn*.12);
   colors.push(.55,.74,.43,.55,.74,.43,1,.98,.77);
  }
@@ -45,13 +45,13 @@ export function createSphericalMeadow(THREE,{scene,getRadius,toNormal,heightAt,a
  const upQuat=new THREE.Quaternion(),twist=new THREE.Quaternion();
  const layers=[];
  const allowed=(x,z)=>Math.hypot(x+5,z-4)>8&&accept(x,z);
- const grassPoints=scatterMeadow({count:2100,attempts:6200,seed:17031,extent:69,
+ const grassPoints=scatterMeadow({count:2800,attempts:7800,seed:17031,extent:69,
   accept:(x,z)=>allowed(x,z)});
  const grass=new THREE.InstancedMesh(clumpGeometry(THREE),new THREE.MeshStandardMaterial({
   color:0xffffff,roughness:1,side:THREE.DoubleSide,vertexColors:true
  }),grassPoints.length);
  scene.add(grass);layers.push({mesh:grass,points:grassPoints,mode:'grass'});
- const flowerPoints=scatterMeadow({count:330,attempts:3100,seed:69241,extent:65,
+ const flowerPoints=scatterMeadow({count:455,attempts:4100,seed:69241,extent:65,
   accept:(x,z)=>allowed(x,z)&&Math.hypot(x+5,z-4)>13&&
    Math.sin(x*.23+z*.075)*Math.cos(z*.21-x*.12)>.05});
  const flowers=[];
@@ -62,27 +62,35 @@ export function createSphericalMeadow(THREE,{scene,getRadius,toNormal,heightAt,a
    new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide}),rows.length);
   scene.add(flower);flowers.push(flower);layers.push({mesh:flower,points:rows,mode:'flower'});
  }
- const shrubPoints=scatterMeadow({count:125,attempts:1600,seed:83649,extent:66,
+ const shrubPoints=scatterMeadow({count:160,attempts:1900,seed:83649,extent:66,
   accept:(x,z)=>allowed(x,z)&&Math.hypot(x+5,z-4)>19&&Math.sin(x*.17-z*.19)>.1});
  const shrubs=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),
   new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),shrubPoints.length);
  scene.add(shrubs);layers.push({mesh:shrubs,points:shrubPoints,mode:'shrubs'});
+ // Pebbles change the look, never the physics or interaction positions.
+ const pebblePoints=scatterMeadow({count:210,attempts:2500,seed:28641,extent:66,
+  accept:(x,z)=>allowed(x,z)&&Math.sin(x*.21+z*.34)>0});
+ const pebbles=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.22,0),
+  new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true}),pebblePoints.length);
+ scene.add(pebbles);layers.push({mesh:pebbles,points:pebblePoints,mode:'pebbles'});
  function rebuild(){
   const radius=getRadius();
   for(const {mesh,points,mode} of layers){
    for(let i=0;i<points.length;i++){
     const p=points[i],normal=toNormal(p.x,p.z,radius);
     const elevation=heightAt(normal);
-    const scale=mode==='grass'?.55+p.scale*.58:mode==='flower'?.7+p.scale*.5:p.scale;
-    const localHeight=mode==='grass'?0:mode==='flower'?.012:.31*p.scale;
+    const scale=mode==='grass'?.50+p.scale*.7:mode==='flower'?.7+p.scale*.5:p.scale;
+    const localHeight=mode==='grass'?0:mode==='flower'?.012:mode==='pebbles'?.055*p.scale:.31*p.scale;
     dummy.position.copy(normal).multiplyScalar(radius+elevation+localHeight);
     upQuat.setFromUnitVectors(UP,normal);
     dummy.quaternion.copy(upQuat).multiply(twist.setFromAxisAngle(UP,p.angle));
     if(mode==='shrubs')dummy.scale.set(.54*scale,.34*scale,.48*scale);
+    else if(mode==='pebbles')dummy.scale.set(.85*scale,.33*scale,1.1*scale);
     else dummy.scale.setScalar(scale);
     dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
-    if(mode==='grass')mesh.setColorAt(i,new THREE.Color().setHSL(.19+p.variety*.055,.35,.43+p.variety*.14));
-    if(mode==='shrubs')mesh.setColorAt(i,new THREE.Color().setHSL(.21+p.variety*.055,.28,.33+p.variety*.1));
+    if(mode==='grass')mesh.setColorAt(i,new THREE.Color().setHSL(.18+p.variety*.065,.32+.07*p.variety,.36+p.variety*.15));
+    if(mode==='shrubs')mesh.setColorAt(i,new THREE.Color().setHSL(.19+p.variety*.07,.28,.32+p.variety*.14));
+    if(mode==='pebbles')mesh.setColorAt(i,new THREE.Color().setHSL(.09+p.variety*.03,.12,.43+p.variety*.13));
    }
    mesh.instanceMatrix.needsUpdate=true;
    mesh.frustumCulled=false;
@@ -93,8 +101,8 @@ export function createSphericalMeadow(THREE,{scene,getRadius,toNormal,heightAt,a
  function applyDensity(preset){
   const fraction=key=>Math.max(0,Math.min(1,Number(preset[key])||0));
   for(const {mesh,points,mode} of layers)
-   mesh.count=Math.floor(points.length*fraction(mode==='grass'?'grass':mode==='flower'?'flowers':'shrubs'));
+   mesh.count=Math.floor(points.length*fraction(mode==='grass'?'grass':mode==='flower'?'flowers':mode==='pebbles'?'pebbles':'shrubs'));
  }
  rebuild();
- return {rebuild,applyDensity,counts:{grass:grassPoints.length,flowers:flowerPoints.length,shrubs:shrubPoints.length}};
+ return {rebuild,applyDensity,counts:{grass:grassPoints.length,flowers:flowerPoints.length,shrubs:shrubPoints.length,pebbles:pebblePoints.length}};
 }
