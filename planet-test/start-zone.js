@@ -1,6 +1,6 @@
 import {createLandscapeMap} from '../landscape.js?v=0.3.7.0';
 import {createSphericalMeadow} from './sphere-meadow.js?v=1';
-import {canWalkCamp} from './sphere-physics.js?v=2';
+import {canWalkCamp} from './sphere-physics.js?v=3';
 import {VALLEY_MESAS,VALLEY_ROCKS} from './planet-landmarks.js?v=1';
 
 // Spherical NexGame starting zone prototype.
