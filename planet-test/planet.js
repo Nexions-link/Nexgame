@@ -464,6 +464,13 @@ try {
   if(previousWorld?.orbit)orbitButton.click();
   if(isPortalPreview){
     state.orbitDistance=2.45;
+    // Village centre: longhouse, four tents and campfire occupy roughly
+    // x=-8, z=2 in the real starting-zone coordinates.
+    // Aim the orbital camera along that exact surface normal so the village
+    // is centred on the visible globe when the homepage first opens.
+    const villageNormal=localToNormalAt(-8,2,R);
+    state.orbitAngle=Math.atan2(villageNormal.x,villageNormal.z);
+    state.orbitElevation=Math.asin(villageNormal.y);
     orbitButton.click(); // Show the actual current planet in orbital view.
     // The landing page overlays gesture capture and forwards deltas. Ignore
     // messages from other origins. Nothing here touches the game's saves.
