@@ -13,7 +13,16 @@ const light=new THREE.DirectionalLight(0xffffff,2.6);light.position.set(5,9,6);s
 const controls=new OrbitControls(camera,canvas);controls.enableDamping=true;controls.enablePan=false;
 let category='all',activeId='dolgonog',current=null,mixer=null,actions={},currentAction=null,loadId=0;
 const loader=new GLTFLoader(),clock=new THREE.Clock(),center=new THREE.Vector3();let radius=2;
-function resetView(){camera.position.copy(center).add(new THREE.Vector3(radius*.9,radius*.5,radius*1.8));controls.target.copy(center);controls.update()}
+function resetView(){
+ // The original camera distance clipped tall models on narrow mobile canvases.
+ // Fit to the smaller visible dimension with a margin, preserving free orbit/pinch zoom.
+ const aspect=Math.max(.65,canvas.clientWidth/Math.max(1,canvas.clientHeight));
+ const halfFov=THREE.MathUtils.degToRad(camera.fov)*.5;
+ const distance=Math.max(radius*1.9,radius*.88/(Math.tan(halfFov)*Math.min(1,aspect)));
+ camera.position.copy(center).add(new THREE.Vector3(.43,.24,.87).normalize().multiplyScalar(distance));
+ controls.target.copy(center);
+ controls.update();
+}
 $('resetView').onclick=resetView;
 function paintCategories(){
  $('categories').replaceChildren();
