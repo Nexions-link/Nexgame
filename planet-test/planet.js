@@ -3,7 +3,7 @@ import {screenMoveVector,turnTowardsAngle} from '../movement-controls.js?v=0.3.7
 import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
-import {createOfflineRpg} from './offline-rpg.js?v=22';
+import {createOfflineRpg} from './offline-rpg.js?v=23';
 import {animateSphericalTauren} from './tauren-animation.js?v=3';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=14';
 initStartZoneMath(THREE);

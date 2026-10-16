@@ -15,7 +15,8 @@ function setup({normal=new THREE.Vector3(0,1,0),scale=1,clip='Walk',slope=false}
  const east=new THREE.Vector3(1,0,0).applyQuaternion(root.quaternion),north=new THREE.Vector3(0,0,1).applyQuaternion(root.quaternion);
  const heightAt=n=>slope?2+.18*261*n.dot(east)+.08*261*n.dot(north):0;
  root.position.copy(normal).multiplyScalar(261+heightAt(normal)+.09);
- const mixer=new THREE.AnimationMixer(bird),entity={root,index:1};
+ const shadow=new THREE.Object3D();shadow.position.y=.06;root.add(shadow);
+ const mixer=new THREE.AnimationMixer(bird),entity={root,index:1,contactShadow:shadow};
  const death=createMobDeath({THREE,entity,visual,getRadius:()=>261,heightAt,mixer});
  mixer.clipAction(asset.animations.find(c=>c.name===clip)).play();mixer.update(.31);
  visual.rotation.x=-.03;visual.position.z=.07;
@@ -87,4 +88,12 @@ test('real offline RPG advances fallback death each frame, then exposes loot',()
  assert.ok(visual.quaternion.angleTo(initial)>1);assert.equal(h.get('interact').textContent,'Обыскать');
  assert.equal(h.get('interact').hidden,false);h.get('interact').click();
  assert.equal(h.get('modal').dataset.kind,'loot');
+});
+
+test('contact shadow follows the torso and returns to spawn position on reset',()=>{
+ const h=setup();h.death.begin();h.death.update(MOB_DEATH_SECONDS);
+ assert.ok(Math.abs(h.entity.contactShadow.position.x)>.5);
+ const p=h.entity.contactShadow.getWorldPosition(new THREE.Vector3());
+ assert.ok(Math.abs(p.length()-261-.06)<1e-7);
+ h.death.reset();assert.deepEqual(h.entity.contactShadow.position.toArray(),[0,.06,0]);
 });

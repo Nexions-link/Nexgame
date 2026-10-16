@@ -348,7 +348,7 @@
 <script src="./build-status.js?v=1" defer></script>
 <script type="module">
   // If a dependency fails to load, show a useful error instead of an endless sky.
-  import('./planet.js?v=32').catch(error=>{
+  import('./planet.js?v=33').catch(error=>{
     const loading=document.getElementById('loading');
     const failure=document.getElementById('failure');
     if(loading)loading.classList.add('is-done');

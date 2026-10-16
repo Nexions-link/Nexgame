@@ -8,6 +8,8 @@ export function createMobDeath({THREE,entity,visual,getRadius,heightAt,mixer=nul
   nodes.push({node,position:node.position.clone(),quaternion:node.quaternion.clone(),scale:node.scale.clone()});
  });
  const meshes=nodes.filter(({node})=>node.isMesh&&node.geometry?.attributes.position).map(({node})=>node);
+ const body=visual.getObjectByName('Body')||visual;
+ const shadowRest=entity.contactShadow?.position.clone();
  const vector=new THREE.Vector3(),point=new THREE.Vector3(),normal=new THREE.Vector3(),
   up=new THREE.Vector3(),east=new THREE.Vector3(),north=new THREE.Vector3(),
   planeUp=new THREE.Vector3(),seed=new THREE.Vector3(),direction=new THREE.Vector3(),
@@ -85,6 +87,13 @@ export function createMobDeath({THREE,entity,visual,getRadius,heightAt,mixer=nul
   visual.position.z+=-.12*fold;
   visual.position.y-=.48*fold;
   groundContact();
+  if(entity.contactShadow){
+   // The blob follows the falling torso along the curved ground, rather than
+   // remaining under the original standing point while the body tips sideways.
+   body.getWorldPosition(point);normal.copy(point).normalize();
+   point.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.06);
+   entity.root.worldToLocal(point);entity.contactShadow.position.copy(point);
+  }
  }
  return {
   get active(){return active},get finished(){return finished},get elapsed(){return elapsed},
@@ -112,6 +121,7 @@ export function createMobDeath({THREE,entity,visual,getRadius,heightAt,mixer=nul
   reset(){
    if(mixer)mixer.timeScale=mixerSpeed;
    for(const rest of nodes){rest.node.position.copy(rest.position);rest.node.quaternion.copy(rest.quaternion);rest.node.scale.copy(rest.scale);}
+   if(shadowRest)entity.contactShadow.position.copy(shadowRest);
    elapsed=0;active=false;finished=false;start=null;entity.dying=false;
   }
  };
