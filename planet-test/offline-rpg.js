@@ -25,6 +25,7 @@ import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '.
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
+import {CORPSE_DURATION_SECONDS,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
 const SPAWNS=[[-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9]];
@@ -338,15 +339,42 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   mob.lootMarker.material.color.setHex(QUALITY_VISUALS[rarity].marker);
   mob.lootMarker.userData.rarity=rarity;
  }
- function lootMob(mob){
-  if(!mob?.corpse||!mob.loot)return;
-  const remaining=[];
-  for(const item of mob.loot){if(addItem(item.id,item.qty)){msg('Получено: '+(ITEM_CATALOG[item.id]?.name||item.id));}
-   else remaining.push(item);}
-  mob.loot=remaining;
+ function showCorpseLoot(mob){
+  if(!mob?.corpse||!mob.root.visible)return msg('Тело уже исчезло');
+  if(distance(mob)>3.1)return msg('Подойди к телу ближе');
+  if(!mob.loot?.length)return msg('На теле ничего нет');
+  pendingLoot=mob;openWindow('loot');
+ }
+ function finishCorpseLoot(mob){
+  mob.loot=[];mob.corpse=false;mob.root.visible=false;mob.respawn=12;updateLootMarker(mob);
+  if(target===mob){target=null;autoplay=false;updateSelection();}
+  closeWindow();draw();
+ }
+ function corpseLootServices(){
+  return {inventory:state.inventory,stackLimit:itemStackLimit,store:addItem,slotCount:12};
+ }
+ function takeLootFromCorpse(mob,index){
+  if(pendingLoot!==mob||modal.hidden||modal.dataset.kind!=='loot')return;
+  if(distance(mob)>3.1)return msg('Подойди к телу ближе');
+  const result=takeCorpseRow(mob,index,corpseLootServices());
+  if(!result.ok)return msg(result.reason==='full'?'Рюкзак заполнен — предмет остался в теле':'Добыча недоступна');
   updateLootMarker(mob);
-  if(!remaining.length){mob.corpse=false;mob.root.visible=false;mob.respawn=12;target=null;updateSelection();}
-  draw();
+  const def=ITEM_CATALOG[result.item.id];
+  msg('Получено: '+(def?.name||result.item.id)+(result.item.qty>1?' ×'+result.item.qty:''));
+  if(!result.remaining)finishCorpseLoot(mob);
+  else{renderModal();draw();}
+ }
+ function takeAllFromCorpse(mob){
+  if(pendingLoot!==mob||modal.hidden||modal.dataset.kind!=='loot')return;
+  if(distance(mob)>3.1)return msg('Подойди к телу ближе');
+  const result=takeAllCorpseRows(mob,corpseLootServices());
+  updateLootMarker(mob);
+  if(!result.taken.length)return msg('Рюкзак заполнен — добыча осталась в теле');
+  if(!result.remaining){
+   finishCorpseLoot(mob);msg('Собрано предметов: '+result.taken.length);
+  }else{
+   renderModal();draw();msg('Часть добычи осталась в теле — рюкзак заполнен');
+  }
  }
  function targetEntity(entity){
   if(entity&&!['mob','dummy'].includes(entity.kind))entity=null;
@@ -370,7 +398,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(kind!=='gatherLoot')camp.cancel();
   modal.hidden=false;modal.dataset.kind=kind;renderModal();
  }
- function closeWindow(){modal.hidden=true;}
+ function closeWindow(){modal.hidden=true;pendingLoot=null;}
  function interact(){
   if(!modal.hidden||camp.casting)return;
   // Approach alone enables NPC dialogue, gathering, storage and corpse loot.
@@ -381,7 +409,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(nearby.kind==='mentor')openWindow('mentor');
   else if(nearby.kind==='relic')mentorChain.pickedRelic();
   else if(nearby.kind==='vendor')openWindow('merchant');
-  else if(nearby.kind==='mob'&&nearby.corpse)lootMob(nearby);
+  else if(nearby.kind==='mob'&&nearby.corpse)showCorpseLoot(nearby);
   draw();
  }
  function levelCheck(){
@@ -545,7 +573,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('msub').textContent='NEXGAME · ОФЛАЙН · КРУГЛЫЙ МИР';
   $('cameraControl').hidden=kind!=='menu';
   title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
-   merchant:'Торговец',spells:'Книга способностей',loot:'Добыча',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог'})[kind]||'NexGame';
+   merchant:'Торговец',spells:'Книга способностей',loot:'Обыск тела',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог'})[kind]||'NexGame';
   body.replaceChildren();
   const line=(label,caption,actions=[])=>{
    const row=document.createElement('div');row.className='rpgRow';
@@ -556,6 +584,44 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   };
   if(camp.render(kind,body,line))return;
   if(kind==='mentor'){mentorChain.render(line);return;}
+  if(kind==='loot'){
+   const corpse=pendingLoot;
+   if(!corpse?.corpse||!corpse.root.visible||!corpse.loot?.length){
+    line('Нет добычи','Тело уже обыскано или исчезло.');
+    const close=document.createElement('button');close.type='button';close.className='choice';
+    close.textContent='Закрыть';close.addEventListener('click',closeWindow);body.append(close);
+    return;
+   }
+   $('msub').textContent='ДОБЫЧА С ТЕЛА · '+corpse.name;
+   const description=document.createElement('p');description.className='planet-loot-intro';
+   description.textContent='Нажми на нужный предмет, чтобы забрать его. Остальное останется в теле, если закрыть окно.';
+   body.append(description);
+   const list=document.createElement('div');list.className='loot-list';
+   corpse.loot.forEach((item,index)=>{
+    const def=ITEM_CATALOG[item.id],rarity=itemRarity(def?.rarity);
+    const button=document.createElement('button');button.type='button';button.className='loot-item';
+    button.dataset.rarity=rarity;
+    button.setAttribute('aria-label','Взять '+(def?.name||item.id)+', '+item.qty+' шт.');
+    const name=document.createElement('span');name.className='loot-item-name';
+    name.textContent=(def?.icon||'📦')+'  '+(def?.name||item.id)+(item.qty>1?' ×'+item.qty:'');
+    name.style.color=QUALITY_VISUALS[rarity]?.color||'#e6d2aa';
+    button.append(name);
+    const sub=document.createElement('small');sub.className='loot-item-stats';
+    sub.textContent=def?.slot?LABEL[def.slot]+' · '+(def.quality||'Снаряжение')+
+     (def.requiredLevel>1?' · Ур. '+def.requiredLevel:''):def?.description||'Предмет для продажи';
+    button.append(sub);
+    button.addEventListener('click',()=>takeLootFromCorpse(corpse,index));
+    list.append(button);
+   });
+   body.append(list);
+   const actions=document.createElement('div');actions.className='planet-loot-actions';
+   const takeAll=document.createElement('button');takeAll.type='button';takeAll.className='choice';
+   takeAll.textContent='Забрать всё';takeAll.addEventListener('click',()=>takeAllFromCorpse(corpse));
+   const leave=document.createElement('button');leave.type='button';leave.className='choice planet-loot-leave';
+   leave.textContent='Оставить и закрыть';leave.addEventListener('click',closeWindow);
+   actions.append(takeAll,leave);body.append(actions);
+   return;
+  }
   if(kind==='menu'){
    line('Сферический мир','Меняй радиус планеты, вращай её свайпами и проверяй оригинальную NexGame.');
    for(const item of settingsControls)body.append(item);
@@ -735,7 +801,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const hit=intersects.find(v=>v.distance<100)?.object;
   const selected=hit?visible.find(o=>{let p=hit;while(p){if(p===o.root)return true;p=p.parent;}return false;}):null;
   if(selected?.kind==='mob'&&selected.corpse){
-   if(distance(selected)<=3.1)lootMob(selected);
+   if(distance(selected)<=3.1)showCorpseLoot(selected);
    return;
   }
   targetEntity(selected||null);
@@ -821,9 +887,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     continue;
    }
    if(mob.corpse){
-    mob.corpseAge=(mob.corpseAge||0)+dt;
-    if(mob.corpseAge>32){
+    // Never expire a corpse while its loot panel is open.
+    if(modal.hidden||modal.dataset.kind!=='loot'||pendingLoot!==mob)mob.corpseAge=(mob.corpseAge||0)+dt;
+    if(mob.corpseAge>CORPSE_DURATION_SECONDS){
      mob.corpse=false;mob.root.visible=false;mob.respawn=12;mob.loot=[];updateLootMarker(mob);
+     if(pendingLoot===mob)closeWindow();
      if(target===mob){target=null;autoplay=false;}
     }
     continue;
