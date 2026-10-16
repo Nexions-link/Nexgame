@@ -3,47 +3,17 @@ import {screenMoveVector,turnTowardsAngle} from '../movement-controls.js?v=0.3.7
 import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
+import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=1';
 import {createOfflineRpg} from './offline-rpg.js?v=24';
 import {animateSphericalTauren} from './tauren-animation.js?v=3';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=14';
 initStartZoneMath(THREE);
 
-// Reuse the exact iOS gesture protection already proven in the main game.
-// Prevent iOS Safari smart-zoom on double-tap. It can persist even after a
-// refresh and looks like a stuck camera zoom. Do not prevent the two-finger
-// pointer gesture: the game still uses it for its own camera distance.
-let lastTouchTap=null;
-const editableTapTarget=element=>element?.closest?.('input,textarea,select,[contenteditable="true"]');
-document.addEventListener('touchstart',event=>{
- if(editableTapTarget(event.target)||event.touches.length!==1)return;
- const t=event.touches[0],now=performance.now();
- if(lastTouchTap&&now-lastTouchTap.time<350&&
-    Math.hypot(t.clientX-lastTouchTap.x,t.clientY-lastTouchTap.y)<42){
-  event.preventDefault();lastTouchTap=null;
- }
-},{passive:false,capture:true});
-document.addEventListener('touchend',event=>{
- if(editableTapTarget(event.target))return;
- if(event.touches.length||event.changedTouches.length!==1){
-  lastTouchTap=null;return;
- }
- const finger=event.changedTouches[0],now=performance.now();
- const close=lastTouchTap&&now-lastTouchTap.time<330&&
-  Math.hypot(finger.clientX-lastTouchTap.x,finger.clientY-lastTouchTap.y)<36;
- lastTouchTap={time:now,x:finger.clientX,y:finger.clientY};
- if(close){event.preventDefault();lastTouchTap=null}
-},{passive:false,capture:true});
-document.addEventListener('dblclick',event=>{
- if(!editableTapTarget(event.target))event.preventDefault();
-},{capture:true});
-for(const gesture of ['gesturestart','gesturechange','gestureend']){
- document.addEventListener(gesture,event=>{
-  if(!editableTapTarget(event.target))event.preventDefault();
- },{passive:false,capture:true});
-}
-
-// Guard selection/callouts on the 3D surface without blocking UI buttons.
+// Independent pointer streams for joystick, UI buttons and camera gestures.
+// Safari's double-tap protection applies only to the 3D surface.
 const planetViewport=document.getElementById('viewport');
+installTouchButtons(document);
+installSurfaceZoomGuard(document,planetViewport);
 planetViewport.addEventListener('selectstart',event=>event.preventDefault());
 planetViewport.addEventListener('contextmenu',event=>event.preventDefault());
 
@@ -340,31 +310,9 @@ try {
     drawNativeMinimap();
   }
 
-  const joystick = {x: 0, y: 0, pointer: null};
-  const base = $('stick'), thumb = $('nub');
-  function updateStick(e) {
-    const rect = base.getBoundingClientRect();
-    const dx = e.clientX - rect.left - rect.width / 2;
-    const dy = e.clientY - rect.top - rect.height / 2;
-    const len = Math.max(1, Math.hypot(dx, dy));
-    const cap = rect.width * .32;
-    joystick.x = clamp(dx / cap, -1, 1); joystick.y = clamp(dy / cap, -1, 1);
-    if (len > cap) {joystick.x = dx / len; joystick.y = dy / len;}
-    thumb.style.transform = 'translate(' + (joystick.x * cap) + 'px,' + (joystick.y * cap) + 'px)';
-  }
-  function releaseStick() {
-    joystick.pointer = null; joystick.x = joystick.y = 0;
-    thumb.style.transform = 'translate(0,0)';
-  }
-  base.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    if (joystick.pointer !== null) return;
-    joystick.pointer = e.pointerId; base.setPointerCapture(e.pointerId); updateStick(e);
-  });
-  base.addEventListener('pointermove', e => {if (joystick.pointer === e.pointerId) {e.preventDefault(); updateStick(e);}});
-  base.addEventListener('pointerup', e => {if (joystick.pointer === e.pointerId) releaseStick();});
-  base.addEventListener('pointercancel', e => {if (joystick.pointer === e.pointerId) releaseStick();});
-  base.addEventListener('lostpointercapture', e => {if (joystick.pointer === e.pointerId) releaseStick();});
+  const joystick=createPointerJoystick($('stick'),$('nub'));
+  const releaseStick=()=>joystick.release();
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseStick()});
 
   const keys = new Set();
   window.addEventListener('keydown', e => {
