@@ -99,7 +99,7 @@ function colorAt(n, h) {
 
 try {
   const scene = new THREE.Scene();
-  const skyDay = new THREE.Color('#97c6d1');
+  const skyDay = new THREE.Color('#a1ccd5');
   const skyNight = new THREE.Color('#101c32');
   scene.background = skyDay;
   // Improved near/far clipping for mobile depth buffer precision.
@@ -117,11 +117,11 @@ try {
   renderer.toneMappingExposure = 1.15;
   viewport.appendChild(renderer.domElement);
   const canvas = renderer.domElement;
-  scene.add(new THREE.HemisphereLight('#f5e7c3', '#4c7475', 2.25));
-  const sun = new THREE.DirectionalLight('#fff0bd', 2.25);
+  scene.add(new THREE.HemisphereLight('#f7e6c6', '#486b70', 1.95));
+  const sun = new THREE.DirectionalLight('#ffebba', 2.50);
   sun.position.set(130, 225, 155);
   scene.add(sun);
-  const fill = new THREE.DirectionalLight('#b6e7f6', .62);
+  const fill = new THREE.DirectionalLight('#b4dbe9', .62);
   fill.position.set(-100, -40, -150);
   scene.add(fill);
   // Near-camera shadows only: never render a whole-planet shadow pass.
