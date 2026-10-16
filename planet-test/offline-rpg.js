@@ -289,6 +289,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }catch(err){console.warn('Planet offline Dolgonog fallback:',err);}
  })();
  function attachBirdVisual(mob,asset){
+  // A deferred GLB swap after respawn must replace, not overlay, the previous rig.
+  if(mob.birdVisual){
+   mob.birdVisual.mixer.stopAllAction();
+   mob.birdVisual.container.removeFromParent();
+   mob.birdVisual=null;
+  }
   const bird=asset.scene.clone(true);
   const container=new THREE.Group();container.name='dolgonog-original-v0.1';
   container.scale.setScalar(PLAINSTRIDER_VISUAL_SCALE);
@@ -950,7 +956,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const tier=mob.lootMarker.userData.rarity;
     const t=tier==='rare'?.12:tier==='uncommon'?.065:.02;
     const pulse=Math.sin(clock*(tier==='rare'?4:2.7)+mob.index);
-    mob.lootMarker.scale.setScalar(1+.12*pulse*t);
+    const markerScale=1+.12*pulse*t;
+     mob.lootMarker.scale.set(1.3*markerScale,1.06*markerScale,markerScale);
     mob.lootMarker.position.y=1.58+.12*Math.sin(clock*3.6);
     mob.lootMarker.material.opacity=.86+.13*Math.pow(Math.sin(clock*2.6),2);
    }
