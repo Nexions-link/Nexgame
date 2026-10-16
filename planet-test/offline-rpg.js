@@ -29,7 +29,7 @@ import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
-import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=3';
+import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,advanceRespawnTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=4';
 import {rollCreatureLoot} from './loot-tables.js?v=1';
 import {sellInventorySlot,buyBackFromMerchant,restoreBuyback} from './merchant-trade.js?v=1';
 
@@ -968,8 +968,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     if(mob.alertTag.visible)mob.alertTag.position.y=(mob.boss?4:4.95)+Math.sin(clock*7)*.1;
    }
    if(!mob.root.visible){
-    mob.respawn-=dt;
-    if(mob.respawn<=0){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
+    if(advanceRespawnTimer(mob,dt)){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
      mob.root.visible=true;mob.returning=false;mob.aggro=false;mob.attackCd=1.2;mob.attackWindup=0;mob.hit=0;mob.corpseAge=0;mob.alertRemaining=0;
      mob.deathAnimation.reset();
      resetPlainstriderVisual(mob);
