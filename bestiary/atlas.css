@@ -97,3 +97,24 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:clip}
  .top>span:first-child{overflow-wrap:anywhere}
  .intro h1{font-size:clamp(30px,7.9vw,42px)}
 }
+
+
+/* Creature loot data shared by spherical game and the Atlas. */
+.creature-loot{margin-top:24px;border-top:1px solid var(--line);padding-top:18px}
+.creature-loot[hidden]{display:none}
+.creature-loot h3{font:24px Georgia,serif;margin:0 0 8px;color:#f0dfb8}
+.creature-loot-hint{font-size:12px;line-height:1.55;color:var(--muted);margin:0 0 13px}
+.creature-loot-items{display:grid;gap:7px}
+.creature-loot-row{display:flex;align-items:center;gap:10px;min-width:0;padding:10px;background:#14221a;border:1px solid #375040;border-radius:8px}
+.creature-loot-row .loot-icon{font-size:22px;min-width:30px;text-align:center}
+.creature-loot-row .loot-name{display:grid;gap:3px;flex:1;min-width:0}
+.creature-loot-row .loot-name strong{font-size:13px;font-weight:650;line-height:1.3;overflow-wrap:anywhere}
+.creature-loot-row .loot-name small{font-size:11px;color:var(--muted);line-height:1.35}
+.creature-loot-row .loot-chance{white-space:nowrap;color:#ebc987;font:700 13px system-ui,sans-serif}
+.creature-loot-row[data-rarity=poor] .loot-name strong{color:#c1c6bf}
+.creature-loot-row[data-rarity=uncommon] .loot-name strong{color:#7fd18a}
+.creature-loot-row[data-rarity=rare] .loot-name strong{color:#91adf9}
+.loot-equipment{border:1px solid #496149;border-radius:8px;background:#192a20}
+.loot-equipment summary{padding:13px;color:#e8d8b2;cursor:pointer;font-size:13px;font-weight:650;touch-action:manipulation}
+.loot-equipment .creature-loot-row{margin:6px 7px}
+@media(max-width:600px){.creature-loot{margin-top:19px}.creature-loot h3{font-size:22px}.creature-loot-row{padding:9px 8px;gap:7px}.creature-loot-row .loot-chance{font-size:12px}}

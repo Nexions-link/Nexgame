@@ -4,6 +4,8 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 // A unique URL per visit prevents Safari from keeping a stale catalog.
 const atlasRevision=String(Date.now());
 const {ATLAS_CATEGORIES,ATLAS_ENTRIES,filterAtlasEntries}=await import('./atlas-catalog.js?refresh='+atlasRevision);
+const {CREATURE_LOOT_TABLES,getCreatureLootRows}=await import('../planet-test/loot-tables.js?refresh='+atlasRevision);
+const {ITEM_CATALOG}=await import('../items.js?refresh='+atlasRevision);
 const $=id=>document.getElementById(id);
 const canvas=$('viewerCanvas'),scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(38,1,.01,200);
 const renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'default'});
@@ -45,6 +47,40 @@ function paintEntries(){
   b.onclick=()=>selectEntry(entry.id);host.append(b)}
 }
 $('search').addEventListener('input',paintEntries);
+function paintCreatureLoot(entry){
+ const panel=$('lootPanel'),host=$('lootItems'),hint=$('lootHint');
+ panel.hidden=entry.category!=='creatures';host.replaceChildren();
+ if(panel.hidden)return;
+ const table=CREATURE_LOOT_TABLES[entry.id];
+ if(!table){
+  hint.textContent='Для этого существа таблица добычи ещё не назначена. Модель пока находится только в атласе.';
+  return;
+ }
+ hint.textContent='Предварительные шансы NexGameWorld за убийство. Материалы проверяются независимо; снаряжение разыгрывается одной группой.';
+ const all=getCreatureLootRows(entry.id);
+ function renderRow(row){
+  const item=ITEM_CATALOG[row.id],node=document.createElement('div');
+  node.className='creature-loot-row';node.dataset.rarity=item?.rarity||'common';
+  const icon=document.createElement('span');icon.className='loot-icon';icon.textContent=item?.icon||'◇';
+  const body=document.createElement('span');body.className='loot-name';
+  const title=document.createElement('strong');title.textContent=item?.name||row.id;
+  const sub=document.createElement('small');
+  sub.textContent='Кол-во: '+(row.min===row.max?row.min:row.min+'–'+row.max)+' · '+(item?.quality||'Обычный');
+  body.append(title,sub);
+  const chance=document.createElement('strong');chance.className='loot-chance';
+  chance.textContent=(row.chance*100).toLocaleString('ru-RU',{maximumFractionDigits:2})+'%';
+  node.append(icon,body,chance);return node;
+ }
+ for(const row of all.filter(r=>r.group==='materials'))host.append(renderRow(row));
+ const gear=all.filter(r=>r.group==='equipment');
+ if(gear.length){
+  const details=document.createElement('details');details.className='loot-equipment';
+  const summary=document.createElement('summary');summary.textContent='Случайное снаряжение · '+gear.length+' предметов';
+  details.append(summary);
+  for(const row of gear)details.append(renderRow(row));
+  host.append(details);
+ }
+}
 function setAnimation(name){
  if(!actions[name])return;
  if(currentAction&&currentAction!==actions[name])currentAction.fadeOut(.2);
@@ -56,6 +92,7 @@ async function selectEntry(id){
  $('entryNumber').textContent='№ '+entry.number;$('entryVersion').textContent='ОРИГИНАЛ · v'+entry.version;
  $('entryName').textContent=entry.name;$('entrySubtitle').textContent=entry.subtitle;
  $('entryDescription').textContent=entry.description;
+ paintCreatureLoot(entry);
  $('facts').replaceChildren();for(const [key,value] of entry.facts){const el=document.createElement('div');el.className='fact';const a=document.createElement('span'),b=document.createElement('strong');a.textContent=key;b.textContent=value;el.append(a,b);$('facts').append(el)}
  $('modelStatus').textContent='ЗАГРУЗКА МОДЕЛИ';$('animationPanel').hidden=true;
  // Keep the original lighting for all other Atlas assets.
@@ -76,6 +113,7 @@ async function selectEntry(id){
   current=gltf.scene;
   // The exported axe's local up direction is inverted; align it for display.
   if(entry.id==='tauren-axe')current.rotation.x+=Math.PI;
+  if(entry.previewScale)current.scale.setScalar(entry.previewScale);
   scene.add(current);
   const bounds=new THREE.Box3().setFromObject(current);bounds.getCenter(center);const size=bounds.getSize(new THREE.Vector3());radius=Math.max(size.length()*.68,.9);
   controls.minDistance=radius*.6;controls.maxDistance=radius*5;resetView();
