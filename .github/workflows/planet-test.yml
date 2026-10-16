@@ -1,0 +1,48 @@
+name: Planet Test CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'planet-test/**'
+      - 'items.js'
+      - 'skills.js'
+      - 'hotbar.js'
+      - 'training.js'
+      - '*tuner.js'
+      - 'weapon-visuals.js'
+      - 'shield-*.js'
+      - 'combat-feedback.js'
+      - 'plainstrider-model.js'
+      - 'assets/weapons/**'
+      - 'assets/shields/**'
+      - 'package.json'
+      - '.github/workflows/planet-test.yml'
+  pull_request:
+    paths:
+      - 'planet-test/**'
+      - '*.js'
+      - 'assets/weapons/**'
+      - 'assets/shields/**'
+      - 'package.json'
+      - '.github/workflows/planet-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: planet-test-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-sphere:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install existing game test dependencies
+        run: npm install --no-audit --no-fund
+      - name: Check spherical modules and tests
+        run: find planet-test -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -r -n1 node --check
+      - name: Run isolated spherical behavior and GLB pose tests
+        run: node --test planet-test/tests/*.test.mjs

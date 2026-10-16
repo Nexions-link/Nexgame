@@ -2,7 +2,7 @@
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT} from './native-hotbar-art.js?v=1';
 import {ITEM_CATALOG,MERCHANT_STOCK,rollEquipmentLoot,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.17';
-import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,activateAbility,changeResource,WARRIOR_RAGE_PER_HIT,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
+import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
 import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual,PLAINSTRIDER_VISUAL_SCALE} from '../plainstrider-model.js?v=0.3.7.0';
@@ -19,8 +19,11 @@ import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
 import {createMentorWorld} from './mentor-world.js?v=1';
 import {createSphericalTargetRing} from './spherical-target-ring.js?v=1';
-import {animateSphericalTauren} from './tauren-animation.js?v=2';
-import {incomingShieldHit,sphericalMeleeFacing,MELEE_ANIMATION_SECONDS,MELEE_IMPACT_SECONDS,attackProgress} from './sphere-combat.js?v=2';
+import {animateSphericalTauren} from './tauren-animation.js?v=3';
+import {incomingShieldHit,sphericalMeleeFacing} from './sphere-combat.js?v=2';
+import {createCombatTimeline,MELEE_RANGE,APPROACH_RANGE,rageForHit,rollMeleeDamage} from './combat-timeline.js?v=1';
+import {equipmentGrip,applyEquipmentTransform} from './equipment-grip.js?v=1';
+import {EQUIPMENT_LABELS,equipFromBag,unequipToBag} from './equipment-rules.js?v=1';
 import {applyWeaponQuality,itemRarity,QUALITY_VISUALS,highestLootRarity} from '../item-quality.js?v=0.3.7.1';
 import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
@@ -33,7 +36,7 @@ const SAVE_KEY='nexgame-planet-test-offline-rpg-v1';
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const pretty=num=>Number(num).toLocaleString('ru-RU',{maximumFractionDigits:1});
-const LABEL={weapon:'Оружие',shield:'Щит',head:'Голова',chest:'Грудь',legs:'Ноги',hands:'Руки',waist:'Пояс',wrists:'Запястья',feet:'Ступни'};
+const LABEL=EQUIPMENT_LABELS;
 const EQUIP_SLOTS=['weapon','shield','head','chest','legs','hands','waist','wrists','feet'];
 const ICON={autoAttack:'⚔️',thunderStomp:'💥',heavyStrike:'🪓',healingPotion:'🧪'};
 const initial=()=>({level:1,xp:0,gold:30,resource:0,hp:null,inventory:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}],equipment:{},kills:0,quest:0,gatherStage:0,gatherAvailable:false,chestInventory:[],hotbar:DEFAULT_HOTBAR});
@@ -66,12 +69,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const state=restore(),runtime=createAbilityRuntime();
  const rightHand=hero.arms[1]?.hand,leftHand=hero.arms[0]?.hand;
  const modelSlots={weapon:null,shield:null};
- hero.root.userData.equipmentGrip={};
+ hero.root.userData.equipmentGrip={weapon:equipmentGrip('weapon'),shield:equipmentGrip('shield')};
  hero.root.userData.weaponKind='none';
  const modelLoader=import('https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js')
   .then(({GLTFLoader})=>new GLTFLoader()).catch(()=>null);
  let visualRequest=0;
- const radians=d=>d*Math.PI/180;
  async function updateEquipmentVisuals(){
   const request=++visualRequest;
   const weaponDef=ITEM_CATALOG[state.equipment.weapon?.id];
@@ -79,12 +81,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const weaponKind=weaponDef?.weaponKind||null;
   const shieldKind=shieldDef?.rarity==='uncommon'||shieldDef?.rarity==='rare'?'kite':shieldDef?'round':null;
   hero.root.userData.weaponKind=weaponKind||'none';
-  hero.root.userData.equipmentGrip={};
+  hero.root.userData.equipmentGrip={weapon:equipmentGrip('weapon'),shield:equipmentGrip('shield')};
   for(const [slot,model] of Object.entries(modelSlots)){
    if(model){model.removeFromParent();modelSlots[slot]=null;}
   }
-  if(rightHand)rightHand.rotation.set(0,0,0);
-  if(leftHand)leftHand.rotation.set(0,0,0);
+  if(rightHand)rightHand.rotation.set(-Math.PI/2,0,0);
+  if(leftHand)leftHand.rotation.set(Math.PI,0,0);
   const loader=await modelLoader;if(!loader||request!==visualRequest)return;
   const desired=[];
   if(weaponKind&&rightHand){
@@ -100,13 +102,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const gltf=await loader.loadAsync(url);
     if(request!==visualRequest)return;
     const mesh=gltf.scene;mesh.name='gear-'+(slot==='shield'?'shield':kind);
-    mesh.position.set(tuning.posX,tuning.posY,tuning.posZ);
-    const key=slot==='shield'?'shield':kind;
-    mesh.rotation.set(radians(tuning[key+'X']),radians(tuning[key+'Y']),radians(tuning[key+'Z']),'YXZ');
-    if(slot==='weapon')hand.rotation.set(radians(tuning.handX),radians(tuning.handY),radians(tuning.handZ),'XYZ');
+    const def=slot==='weapon'?weaponDef:shieldDef;
+    const grip=applyEquipmentTransform(mesh,hand,{slot,kind,tuning,sourceId:def?.sourceId});
     hand.add(mesh);modelSlots[slot]=mesh;
-    const grip=hand.rotation;
-    hero.root.userData.equipmentGrip[slot]={x:grip.x,y:grip.y,z:grip.z,order:grip.order};
+    hero.root.userData.equipmentGrip[slot]=grip;
     if(slot==='weapon')applyWeaponQuality(THREE,hero.root,kind,weaponDef?.rarity);
     if(slot==='shield')styleShieldGlb(THREE,mesh,shieldDef?.rarity);
    }catch(err){console.warn('Planet equipment model unavailable',url,err);}
@@ -114,11 +113,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
 
  let target=null,autoplay=false,swing=0,clock=0,messageUntil=0,pendingLoot=null,chooseSlot=-1,gatherCast=null,
-  attackRemaining=0,stompPulse=0,blockRemaining=0;
- const pendingHits=[];
+  blockRemaining=0,approach=null;
+ const timeline=createCombatTimeline();
  let lastCombatAt=-100;
  function inCombat(){
-  return pendingHits.length>0||mobs.some(m=>m.root.visible&&m.hp>0&&!m.corpse&&m.aggro);
+  const current=timeline.current;
+  const swinging=current&&current.skill!=='thunderStomp'&&isLivingHostile(current.target);
+  const preparingStomp=current?.skill==='thunderStomp'&&!current.impacted&&[...mobs,dummy].some(e=>isLivingHostile(e)&&distance(e)<4.5);
+  return swinging||preparingStomp||mobs.some(m=>m.root.visible&&m.hp>0&&!m.corpse&&m.aggro);
  }
  let journalTab='current';
  const group=new THREE.Group();scene.add(group);
@@ -317,18 +319,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const camp=createCampActions({state,herbalist,gathering,mobs,hero,distance,addItem,takeItem,
   itemCount,persist,levelCheck,draw,openWindow,closeWindow,msg,getClock:()=>clock});
  const mentorChain=createMentorChain({state,persist,levelCheck,closeWindow,draw,msg});
+ function finishEquipmentChange(slot){
+  if(slot!=='weapon'){autoplay=false;approach=null;timeline.clear();swing=0;}
+  persist();draw();void updateEquipmentVisuals();
+ }
  function equip(id){
-  const def=ITEM_CATALOG[id];if(!def?.slot||!LABEL[def.slot])return msg('Предмет нельзя экипировать');
-  if(state.level<(def.requiredLevel||1))return msg('Требуется '+def.requiredLevel+' уровень');
-  if(!itemCount(id))return;
-  const previous=state.equipment[def.slot]?.id;
-  // Removing the new piece from inventory frees room for the old piece.
-  if(!takeItem(id))return;
-  if(previous)addItem(previous);
-  const maxBefore=stats().maxHp;
-  state.equipment[def.slot]={id};
-  state.hp=Math.min(stats().maxHp,state.hp+Math.max(0,stats().maxHp-maxBefore));
-  persist();draw();void updateEquipmentVisuals();msg('Надето: '+def.name);
+  const result=equipFromBag(state,id,inCombat());
+  if(!result.ok)return msg(result.error);
+  finishEquipmentChange(result.slot);msg('Надето: '+ITEM_CATALOG[id].name);
  }
  function updateLootMarker(mob){
   if(!mob?.lootMarker)return;
@@ -384,7 +382,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function targetEntity(entity){
   if(entity&&!['mob','dummy'].includes(entity.kind))entity=null;
   if(entity&&(entity.hp<=0||entity.dead||!entity.root.visible))entity=null;
-  if(target!==entity)autoplay=false;
+  if(target!==entity){autoplay=false;approach=null;}
+  if(!entity&&timeline.current?.skill!=='thunderStomp')timeline.clear();
   target=entity;
   updateSelection();draw();
  }
@@ -425,14 +424,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.hotbar=normalizeHotbar(state.hotbar,'warrior',state.level);persist();
  }
  function harm(enemy,damage,skill='autoAttack'){
-  if(!enemy||!enemy.root.visible)return;
-  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);draw();return;}
+  if(!isLivingHostile(enemy))return;
+  lastCombatAt=clock;
+  state.resource=changeResource(state.resource,rageForHit(skill),'warrior');
+  if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);persist();draw();return;}
   if(enemy.kind!=='mob'||enemy.dead)return;
   lastCombatAt=clock;enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=HIT_REACTION_SECONDS;
   combatFeedback.hit(enemy,damage,skill);
-  state.resource=changeResource(state.resource,WARRIOR_RAGE_PER_HIT,'warrior');
   if(enemy.hp===0){
-   enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;enemy.attackWindup=0;autoplay=false;
+   enemy.dead=6;enemy.corpse=true;enemy.aggro=false;enemy.attackCd=0;enemy.attackWindup=0;
+   if(target===enemy){
+    target=null;autoplay=false;approach=null;swing=0;
+    if(timeline.current?.target===enemy)timeline.clear();
+   }
    setModelAt(enemy);birdAnimation(enemy,1/60,0);
    enemy.loot=[{id:'feather',qty:1}];
    if(Math.random()<.38)enemy.loot.push({id:Math.random()<.6?'beak':'down',qty:1});
@@ -444,54 +448,59 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(!enemy.boss)msg('Долгоног повержен · доступна добыча');
    persist();
   }
-  draw();
+  persist();draw();
  }
  function facesTarget(enemy){
   if(!enemy)return false;
   return sphericalMeleeFacing(THREE,playerNormal(),hero.root,
    toNormal(enemy.x,enemy.z,getRadius()));
  }
- function hitEnemy(enemy,bonus=0,skill='autoAttack'){
-  if(!enemy||!['mob','dummy'].includes(enemy.kind)||enemy.dead||!enemy.root.visible)return msg('Нет подходящей цели');
-  if(distance(enemy)>3.45)return msg('Цель слишком далеко');
-  // Use the same .8 s model swing as production and apply damage at
-  // 340 ms (0.425 animation progress). A player changing weapons keeps
-  // the combat timeline, just as it does in the original game.
-  const s=stats(),damage=s.damageMin+Math.random()*(s.damageMax-s.damageMin)+bonus;
-  lastCombatAt=clock;pendingHits.push({enemy,damage,skill,remaining:MELEE_IMPACT_SECONDS});
-  attackRemaining=MELEE_ANIMATION_SECONDS;
+ function isLivingHostile(enemy){
+  return !!enemy&&['mob','dummy'].includes(enemy.kind)&&enemy.root.visible&&enemy.hp>0&&!enemy.dead&&!enemy.corpse;
  }
- function useAbility(slot){
-  const entry=state.hotbar[slot],action=actionDefinition(entry,'warrior',state.level);
-  if(!action)return msg('Пустая ячейка');
-  const def=getAbilityDefinition(action.abilityId),d=target?distance(target):Infinity;
-  if(action.id==='autoAttack'){
-   if(autoplay){autoplay=false;draw();return;}
-   // Match main NexGame: pressing autoattack can acquire a living hostile
-   // even if the user hasn't clicked the target-cycle button yet.
-   if(!target||target.hp<=0||target.dead||!target.root.visible){
+ function hitEnemy(enemy,skill='autoAttack'){
+  if(!isLivingHostile(enemy)||distance(enemy)>MELEE_RANGE||!facesTarget(enemy)||timeline.busy)return false;
+  timeline.start(skill,enemy);lastCombatAt=clock;return true;
+ }
+ function abilityContext(){
+  return {runtime,classId:'warrior',level:state.level,resource:state.resource,
+   hasTarget:isLivingHostile(target),range:target?distance(target):Infinity,facing:!target||facesTarget(target),
+   hasConsumable:itemCount('healingPotion')>0,needsHealing:state.hp<stats().maxHp};
+ }
+ function castAction(id){
+  if(!modal.hidden||camp.casting||state.hp<=0)return false;
+  const def=getAbilityDefinition(id);if(!def)return false;
+  if(id==='autoAttack'){
+   approach=null;
+   if(autoplay){autoplay=false;draw();return true;}
+   if(!isLivingHostile(target)){
     const found=cycleHostileTarget(mobs,dummy,null,distance);
-    if(!found)return msg('В радиусе 40 м нет противников');
+    if(!found){msg('В радиусе 40 м нет противников');return false;}
     target=found;
    }
-   if(distance(target)>20){msg('Цель слишком далеко — подойди на 20 м');draw();return;}
-   autoplay=true;swing=0;
-   draw();return;
+   if(distance(target)>APPROACH_RANGE){msg('Цель слишком далеко — подойди на 20 м');draw();return false;}
+   // Toggling autoattack must not reset the weapon's current cooldown.
+   autoplay=true;draw();return true;
   }
-  const ctx={runtime,classId:'warrior',level:state.level,resource:state.resource,
-   hasTarget:!!target&&['mob','dummy'].includes(target.kind)&&!target.dead,range:d,facing:!target||facesTarget(target),
-   hasConsumable:itemCount('healingPotion')>0,needsHealing:state.hp<stats().maxHp};
-  const result=activateAbility(def,ctx);
-  if(!result.ok)return msg(result.error);
-  state.resource=result.resource;
-  if(action.id==='healingPotion'){takeItem('healingPotion');state.hp=Math.min(stats().maxHp,state.hp+55);msg('Здоровье восстановлено');}
-  else if(action.id==='heavyStrike')hitEnemy(target,def.damageBonus||8,action.id);
-  else if(action.id==='thunderStomp'){
-   stompPulse=.55;stompEffect.trigger(playerNormal());
-   let hits=0;for(const mob of mobs)if(!mob.dead&&distance(mob)<4.5){mob.stun=2.5;harm(mob,6,action.id);hits++;}
-   msg('Громовая поступь: '+hits+' целей');
+  if((id==='heavyStrike'||id==='thunderStomp')&&timeline.busy){msg('Дождитесь окончания удара');return false;}
+  if(def.requiresTarget&&isLivingHostile(target)&&distance(target)>def.range){
+   if(distance(target)>APPROACH_RANGE){msg('Цель слишком далеко');return false;}
+   const error=abilityFailure(def,{...abilityContext(),range:null,facing:true});
+   if(error){msg(error);return false;}
+   approach={target,abilityId:id};return true;
   }
-  persist();draw();
+  const result=activateAbility(def,abilityContext());
+  if(!result.ok){msg(result.error);return false;}
+  approach=null;state.resource=result.resource;
+  if(id==='healingPotion'){takeItem('healingPotion');state.hp=Math.min(stats().maxHp,state.hp+55);msg('Здоровье восстановлено');}
+  else if(id==='heavyStrike'){timeline.start(id,target);lastCombatAt=clock;}
+  else if(id==='thunderStomp')timeline.start(id);
+  persist();draw();return true;
+ }
+ function useAbility(slot){
+  const action=actionDefinition(state.hotbar[slot],'warrior',state.level);
+  if(!action)return msg('Пустая ячейка');
+  return castAction(action.abilityId);
  }
  function draw(refreshInteractive=true){
   const s=stats();state.hp=clamp(state.hp,0,s.maxHp);
@@ -689,9 +698,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       const caption=document.createElement('small');caption.textContent=LABEL[slot]+': '+(def?.name||'Пусто');
       btn.append(icon,caption);btn.title=def?'Снять '+def.name:LABEL[slot];
       if(def)btn.addEventListener('click',()=>{
-        if(state.inventory.length>=12)return msg('Сумка заполнена');
-        addItem(id);delete state.equipment[slot];state.hp=Math.min(state.hp,stats().maxHp);
-        persist();draw();void updateEquipmentVisuals();
+        const result=unequipToBag(state,slot,inCombat());
+        if(!result.ok)return msg(result.error);
+        finishEquipmentChange(slot);
       });
       gear.append(btn);
     }
@@ -820,32 +829,35 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   // main NexGame. Use the shared geometry for houses, furniture and nature.
   return canWalkCamp(x,z);
  }
+ function cancelAutoApproach(){approach=null;}
  function getApproachTarget(){
-  if(!autoplay||modal.hidden===false||camp.casting||state.hp<=0)return null;
-  if(!target||target.hp<=0||target.dead||!target.root.visible)return null;
-  const d=distance(target);
-  return d>3.25&&d<=20?target:null;
+  if(!modal.hidden||camp.casting||state.hp<=0||timeline.stompProgress>=0)return null;
+  if(approach&&(!isLivingHostile(approach.target)||target!==approach.target||distance(approach.target)>APPROACH_RANGE))approach=null;
+  const enemy=approach?.target||(autoplay?target:null);
+  if(!isLivingHostile(enemy))return null;
+  const d=distance(enemy);
+  return d>3.25&&d<=APPROACH_RANGE?enemy:null;
  }
  function stopAutoApproach(){
-  if(autoplay){autoplay=false;msg('Путь к цели перекрыт');draw();}
+  if(autoplay||approach){autoplay=false;approach=null;msg('Путь к цели перекрыт');draw();}
  }
  function update(dt){
   clock+=dt;
-  attackRemaining=Math.max(0,attackRemaining-dt);
-  stompPulse=Math.max(0,stompPulse-dt);
   blockRemaining=Math.max(0,blockRemaining-dt);
-  for(let i=pendingHits.length-1;i>=0;i--){
-   const hit=pendingHits[i];hit.remaining-=dt;
-   if(hit.remaining>0)continue;
-   pendingHits.splice(i,1);
-   if(!hit.enemy.root.visible||hit.enemy.hp<=0||hit.enemy.dead||distance(hit.enemy)>3.65)continue;
-   if(!facesTarget(hit.enemy)){
-    // Native NexGame checks melee facing on the IMPACT frame.
-    // A turn during the 340ms wind-up may avoid landing the strike.
-    if(hit.skill!=='autoAttack')msg('Цель не перед вами',1.1);
-    continue;
+  const impact=timeline.update(dt);
+  if(impact?.skill==='thunderStomp'){
+   stompEffect.trigger(playerNormal());
+   let hits=0;
+   for(const enemy of [...mobs,dummy])if(isLivingHostile(enemy)&&distance(enemy)<4.5){
+    if(enemy.kind==='mob')enemy.stun=2.5;
+    harm(enemy,6,impact.skill);hits++;
    }
-   harm(hit.enemy,hit.damage,hit.skill);
+   msg('Громовая поступь: '+hits+' целей');
+  }else if(impact&&isLivingHostile(impact.target)&&distance(impact.target)<=MELEE_RANGE){
+   if(facesTarget(impact.target)){
+    const bonus=impact.skill==='heavyStrike'?(getAbilityDefinition(impact.skill).damageBonus||0):0;
+    harm(impact.target,rollMeleeDamage(stats(),bonus),impact.skill);
+   }else if(impact.skill!=='autoAttack')msg('Цель не перед вами',1.1);
   }
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
   tickAbilityRuntime(runtime,dt);
@@ -867,8 +879,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(state.quest===7&&distance(mentorWorld.scout)<5.5)mentorChain.discoveredScout();
   const local=player();
   swing-=dt;
-  if(autoplay&&target&&['mob','dummy'].includes(target.kind)&&!target.dead&&distance(target)<3.45&&swing<=0){
-   hitEnemy(target);swing=stats().speed;
+  if(approach){
+   if(!isLivingHostile(approach.target)||target!==approach.target||distance(approach.target)>APPROACH_RANGE)approach=null;
+   else if(distance(approach.target)<=MELEE_RANGE&&facesTarget(approach.target)&&!timeline.busy){
+    const id=approach.abilityId;approach=null;castAction(id);
+   }
+  }
+  if(autoplay&&!approach&&modal.hidden&&!camp.casting&&swing<=0){
+   if(hitEnemy(target))swing=stats().speed;
   }
   for(const mob of mobs){
    mob.hit=Math.max(0,(mob.hit||0)-dt);
@@ -966,8 +984,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
        // Otherwise other aggro mobs keep swinging at the old position or
        // instantly damage the freshly respawned hero during the same tick.
        state.hp=stats().maxHp;state.resource=0;
-       autoplay=false;blockRemaining=0;attackRemaining=0;
-       pendingHits.length=0;target=null;swing=stats().speed;
+       autoplay=false;blockRemaining=0;approach=null;timeline.clear();
+       target=null;swing=stats().speed;
        lastCombatAt=clock;
        for(const enemy of mobs){
         enemy.aggro=false;enemy.returning=!enemy.corpse&&enemy.hp>0;
@@ -992,8 +1010,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  let resetPosition=null;
  function onRespawn(fn){resetPosition=fn;}
  function getAnimationState(){
-  return {gather:camp.casting,attack:attackProgress(attackRemaining),
-   stomp:stompPulse/.55,blockRemaining,weaponKind:hero.root.userData.weaponKind||'none'};
+  return {gather:camp.casting,attack:timeline.attackProgress,
+   stomp:timeline.stompProgress,blockRemaining,weaponKind:hero.root.userData.weaponKind||'none'};
  }
  function getQuestMapState(){
   return {
@@ -1009,5 +1027,5 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return false;
  }
  persist();draw();void updateEquipmentVisuals();
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,getAnimationState,getQuestMapState,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,draw,get state(){return state}};
 }

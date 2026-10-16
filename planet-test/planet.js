@@ -3,8 +3,8 @@ import {screenMoveVector,turnTowardsAngle} from '../movement-controls.js?v=0.3.7
 import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
-import {createOfflineRpg} from './offline-rpg.js?v=20';
-import {animateSphericalTauren} from './tauren-animation.js?v=2';
+import {createOfflineRpg} from './offline-rpg.js?v=21';
+import {animateSphericalTauren} from './tauren-animation.js?v=3';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=14';
 initStartZoneMath(THREE);
 
@@ -605,7 +605,8 @@ try {
     // The same deadzone, analog strength and camera-relative stick used by NexGame.
     // The spherical tangent basis maps flat X -> East and flat Z -> -North.
     const input=screenMoveVector(horizontal, -forward, state.cameraHeading-Math.PI/2);
-    let power=state.orbit?0:input.strength;
+    if(input.strength>.11)rpg.cancelAutoApproach();
+    let power=state.orbit||rpg.movementLocked?0:input.strength;
     // Preserve manual camera-relative controls, but when idle allow the same
     // short-range auto-approach to a combat target as in the original NexGame.
     const approach=power<.11&&!state.orbit?rpg.getApproachTarget():null;
