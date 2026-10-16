@@ -1,5 +1,5 @@
 import {createLandscapeMap} from '../landscape.js?v=0.3.7.0';
-import {createSphericalMeadow} from './sphere-meadow.js?v=1';
+import {createSphericalMeadow} from './sphere-meadow.js?v=2';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {VALLEY_MESAS,VALLEY_ROCKS} from './planet-landmarks.js?v=1';
 
@@ -78,9 +78,10 @@ export function createStartZone(three,scene,getRadius,heightAt){
  const wood=m('#694528'),wood2=m('#987046'),hide=m('#e0c899',{map:hideTexture}),hideDark=m('#e0c899',{map:hideTexture}),red=m('#9d5236'),teal=m('#3c7a70'),bone=m('#ded0a5'),leaf=m('#6f8d4c'),leaf2=m('#93a75a'),rock=m('#8c785e'),rockLight=m('#aa926c'),rockDark=m('#6e593c');
  // Only offset thin fabric decorations, not the house's wall materials.
  const detailRed=m('#9d5236',{polygonOffset:true,polygonOffsetFactor:-1.5,polygonOffsetUnits:-1.5});
- const waterMat=new THREE.MeshPhongMaterial({color:'#619fab',transparent:true,opacity:.87,shininess:45,depthWrite:false,side:THREE.DoubleSide});
+ const waterMat=new THREE.MeshPhongMaterial({color:'#64b1b6',vertexColors:true,transparent:true,opacity:.90,shininess:65,specular:0x9acbd0,depthWrite:false,side:THREE.DoubleSide});
+ const waterTint=new THREE.Color('#64b1b6');
  const shoreMat=new THREE.MeshStandardMaterial({color:'#b4a179',roughness:1,side:THREE.DoubleSide});
- const objects=[],meshGroups=[],longhouseRoofs=[];
+ const objects=[],meshGroups=[],longhouseRoofs=[],shadowCasters=[];
  function box(p,mat,x,y,z,w,h,d){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);o.position.set(x,y,z);p.add(o);return o}
  function cyl(p,mat,x,y,z,a,b,h,seg=9){const o=new THREE.Mesh(new THREE.CylinderGeometry(a,b,h,seg),mat);o.position.set(x,y,z);p.add(o);return o}
  function ell(p,mat,x,y,z,a,b,c){const o=new THREE.Mesh(new THREE.SphereGeometry(1,10,8),mat);o.position.set(x,y,z);o.scale.set(a,b,c);p.add(o);return o}
@@ -119,7 +120,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
   const roofR=4.7,slope=Math.atan2(roofR,hw),len=Math.hypot(hw,roofR)+.24;
   for(const sign of [-1,1]){
    const plank=box(g,houseRoofMat,sign*(hw/2+.18),h+roofR/2,0,len,.27,d+1.05);
-   plank.rotation.z=-sign*slope;longhouseRoofs.push(plank);
+   plank.rotation.z=-sign*slope;longhouseRoofs.push(plank);shadowCasters.push(plank);
   }
   // One ridge beam fills the narrow gap while remaining visibly above the roof.
   rod(g,wood,0,h+roofR+.05,-hd-.65,0,h+roofR+.05,hd+.65,.31);
@@ -163,7 +164,7 @@ export function createStartZone(three,scene,getRadius,heightAt){
  function tent(x,z,r,yaw){
   const g=anchor(x,z,yaw);
   const rim=cyl(g,hideDark,0,.24,0,r,r,.49,14);
-  const cone=new THREE.Mesh(new THREE.ConeGeometry(r,r*1.42,14),hide);cone.position.y=r*.71;g.add(cone);
+  const cone=new THREE.Mesh(new THREE.ConeGeometry(r,r*1.42,14),hide);cone.position.y=r*.71;g.add(cone);shadowCasters.push(cone);
   // Same red entrance fabric and timber structural poles as main NexGame.
   for(let i=0;i<9;i++){const a=i*TAU/9;rod(g,wood,Math.sin(a)*r,0,Math.cos(a)*r,0,r*1.58,0,.09)}
   box(g,red,0,r*.71,r*.71,r*.64,.18,.18);
@@ -221,7 +222,9 @@ export function createStartZone(three,scene,getRadius,heightAt){
  function tree(x,z,scale){
   const g=anchor(x,z);g.scale.setScalar(scale);
   rod(g,wood,0,0,0,.2,4.2,0,.33);for(const s of [-1,1])rod(g,wood,0,2,0,s*1.6,4.8,.2,.18);
-  ell(g,leaf,-1.4,4.8,0,2.4,.9,1.75);ell(g,leaf2,1.4,5,.2,2.1,.95,1.6);ell(g,leaf,0,5.65,0,2.5,.85,1.8);
+  shadowCasters.push(ell(g,leaf,-1.4,4.8,0,2.4,.9,1.75));
+  shadowCasters.push(ell(g,leaf2,1.4,5,.2,2.1,.95,1.6));
+  shadowCasters.push(ell(g,leaf,0,5.65,0,2.5,.85,1.8));
  }
  for(const [x,z,s] of [[-26,21,1.2],[54,35,1],[34,-26,.95],[-34,-30,1.15],[9,49,1.2],[-39,40,1.1],[51,25,1.3],[50,-8,.8],[-47,-7,1.1]])tree(x,z,s);
  // Grass and rocks approximate the distribution; the main game uses instancing.
@@ -289,6 +292,16 @@ export function createStartZone(three,scene,getRadius,heightAt){
   const geometry=new THREE.BufferGeometry();
   geometry.setIndex(ix);geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos.length/2*3),3));
   geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.userData={planar:pos,offsetMode};
+  if(offsetMode==='water'){
+   // Radial depth tint avoids flat, uniformly colored water.
+   const colors=[],deep=new THREE.Color('#6e9bb1'),shallow=new THREE.Color('#d9f0d6');
+   for(let j=0;j<=steps;j++){
+    const t=smooth(.12,.98,radiusInner+(radiusOuter-radiusInner)*j/steps);
+    const shade=deep.clone().lerp(shallow,t);
+    for(let i=0;i<=segments;i++)colors.push(shade.r,shade.g,shade.b);
+   }
+   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  }
   geometry.computeBoundingSphere();
   return geometry;
  }
@@ -360,12 +373,24 @@ export function createStartZone(three,scene,getRadius,heightAt){
   updateSurface(shore);updateSurface(water);updateSurface(shimmerGeometry);refreshAnchors();updateBrush();rebuildReeds();meadow.rebuild();rebuildStones();
  }
  rebuild();
- let roofFaded=false;
+ let roofFaded=false,shadowsEnabled=false,shimmerStrength=.30;
+ function setGraphics(preset={}){
+  meadow.applyDensity(preset);
+  reeds.count=Math.floor(reedPoints.length*Math.max(0,Math.min(1,preset.reeds??1)));
+  shimmerStrength=Math.max(0,Math.min(.45,preset.shimmer??.30));
+  shimmer.material.opacity=shimmerStrength;
+  shimmer.visible=shimmerStrength>0;
+  if(Number.isInteger(preset.waterColor))waterTint.setHex(preset.waterColor);
+  shadowsEnabled=!!preset.shadows;
+  for(const caster of shadowCasters)caster.castShadow=shadowsEnabled&&(!roofFaded||!longhouseRoofs.includes(caster));
+  patch.receiveShadow=shadowsEnabled;
+ }
  function updateInteriorView(x,z){
   const lx=-(z+2),lz=x+27;
   const inside=Math.abs(lx)<9.25&&Math.abs(lz)<10.15;
   if(inside!==roofFaded){
    roofFaded=inside;
+   for(const roof of longhouseRoofs)roof.castShadow=shadowsEnabled&&!inside;
    houseRoofMat.transparent=inside;
    houseRoofMat.depthWrite=!inside;
    houseRoofMat.opacity=inside?.12:1;
@@ -376,9 +401,10 @@ export function createStartZone(three,scene,getRadius,heightAt){
    houseWallMat.needsUpdate=true;
   }
  }
- return {rebuild,updateInteriorView,meadow,
+ return {rebuild,updateInteriorView,setGraphics,meadow,
   animate(t){flame.scale.y=1+Math.sin(t*9)*.12;
-   rippleTexture.offset.set(t*.006,t*.003);}};
+   rippleTexture.offset.set(t*.006,t*.003);
+   waterMat.color.copy(waterTint).multiplyScalar(1+.018*Math.sin(t*1.3));}};
 }
 
 
