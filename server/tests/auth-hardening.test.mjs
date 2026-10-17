@@ -34,7 +34,7 @@ function memoryStore(){
   }
  };
 }
-test('alpha invitation and password change revoke existing sessions', {timeout:35000},async()=>{
+test('alpha invitation and password change revoke existing sessions', {timeout:20000},async()=>{
  const store=memoryStore();
  const handler=createAccountApi({store,alphaInvite:'NGW-private-invite',
   rateSecret:'hardening-test-secret',allowedOrigins:['https://nexions.ru']});
@@ -69,14 +69,12 @@ test('alpha invitation and password change revoke existing sessions', {timeout:3
   assert.equal((await post('/api/ngw/login',{...identity,password:'zxc123'})).status,200);
   // Verify database-backed rate counters instead of memory-only per instance.
   assert.ok(store.limits.size>=2);
-  const limit=async username=>{
-   for(let i=0;i<44;i++){
-    const result=await post('/api/ngw/login',{username,password:'wrongpass'});
-    if(result.status===429)return true;
-   }
-   return false;
-  };
-  assert.equal(await limit('nonexistentalpha'),true);
+  const limitKey=[...store.limits.keys()].find(key=>key.startsWith('login-user:'));
+  assert.ok(limitKey,'username throttle key must be persisted');
+  // Simulate previous failed attempts in a shared DB: the next HTTP login
+  // must reject instantly, without running dozens of slow scrypt hashes.
+  store.limits.set(limitKey,40);
+  assert.equal((await post('/api/ngw/login',{username:'alphauser',password:'abc123'})).status,429);
  }finally{
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
  }
