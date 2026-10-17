@@ -3,6 +3,7 @@
 // Call it only from a future authenticated, authoritative world controller.
 import {randomUUID} from 'node:crypto';
 import pg from 'pg';
+import {getMentorQuest,certifyMentorKill} from './economy-rules.js';
 import {
  assertCharacterId,parseRevision,readProgress,validateKillCredit,
  awardVerifiedKill,validateServerCheckpoint,equipOwnedItem,unequipOwnedItem,
@@ -129,7 +130,18 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    if(duplicate.rowCount)
     return {applied:false,reason:'duplicate',progress:state};
    if(state.revision!==expectedRevision)throw conflict();
-   const next=awardVerifiedKill(state,event);
+   let next=awardVerifiedKill(state,event);
+   // Quest kill objectives share the exact same transaction and world-run
+   // identity as the reward: duplicate packets cannot advance objectives.
+   const mentor=getMentorQuest(next);
+   const boss=serverCredit.mobId==='dolgonog-8';
+   if((mentor.step===1&&!boss)||(mentor.step===10&&boss)){
+    const credited=certifyMentorKill(next,serverCredit,worldRunId);
+    await client.query(
+     'INSERT INTO ngw_mentor_kill_evidence(character_id,event_key,quest_step) VALUES($1,$2,$3)',
+     [characterId,credited.evidence.eventKey,credited.evidence.questStep]);
+    next=credited.next;
+   }
    await client.query(
     ['INSERT INTO ngw_progress_events',
      '(character_id,event_key,event_kind,xp_granted,gold_granted,loot)',
