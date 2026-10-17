@@ -61,10 +61,10 @@ export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
    res.setHeader('access-control-allow-origin',origin);
    res.setHeader('vary','Origin');
    res.setHeader('access-control-allow-headers','Authorization,Content-Type');
-   res.setHeader('access-control-allow-methods','GET,POST,OPTIONS');
+   res.setHeader('access-control-allow-methods','GET,POST,DELETE,OPTIONS');
   }
   if(method==='OPTIONS'){res.writeHead(204);res.end();return true;}
-  if(method!=='GET'&&method!=='POST'){
+  if(method!=='GET'&&method!=='POST'&&method!=='DELETE'){
    json(res,405,{error:'Метод не поддерживается'});return true;
   }
   try{
@@ -131,6 +131,19 @@ export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
     json(res,201,{character});return true;
    }
    const match=path.match(/^\/api\/ngw\/characters\/([a-f0-9-]+)$/i);
+   if(method==='DELETE'&&match){
+    // A nickname must be supplied again to confirm a destructive action;
+    // even then only the authenticated account's own hero can be hidden.
+    const key='delete:'+account.id;
+    if(!rateLimit(key,10)){json(res,429,{error:'Попробуйте позже'});return true;}
+    const data=await readJson(req);
+    if(typeof data.confirmNickname!=='string'||!data.confirmNickname){
+     json(res,400,{error:'Подтвердите имя персонажа'});return true;
+    }
+    const deleted=await store.deleteCharacter(account.id,match[1],data.confirmNickname);
+    json(res,deleted?200:404,deleted?{ok:true}:{error:'Персонаж не найден или имя не совпадает'});
+    return true;
+   }
    if(method==='GET'&&match){
     const character=await store.loadCharacter(account.id,match[1]);
     json(res,character?200:404,character?{character}:{error:'Персонаж не найден'});
