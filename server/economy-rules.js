@@ -13,7 +13,7 @@ export const ECONOMY_CHEST_ID='hearth-house';
 export const ECONOMY_VENDOR={x:6,z:11,range:4.7};
 export const ECONOMY_HERBALIST={x:8,z:1,range:4.7};
 export const ECONOMY_MENTOR={x:-1.5,z:-5,range:4.7};
-export const ECONOMY_CHEST={...OFFLINE_CHEST,range:5.5};
+export const ECONOMY_CHEST=OFFLINE_CHEST;
 export const ECONOMY_CAST_MS=GATHER_CAST_SECONDS*1000;
 export const ECONOMY_RESPAWN_MS=GATHER_RESPAWN_SECONDS*1000;
 const STOCK=new Set(MERCHANT_STOCK),MAX_GOLD=2147483647;
