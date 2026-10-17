@@ -514,9 +514,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function openWindow(kind){
   if(kind!=='gatherLoot')camp.cancel();
-  modal.hidden=false;modal.dataset.kind=kind;renderModal();
+  modal.hidden=false;modal.dataset.kind=kind;
+  if(kind==='chest'&&isOnline()){
+   onlineChest=null;
+   const items=[...state.inventory];
+   while(items.length<12)items.push(null);
+   multiplayer.openChest(items);
+  }
+  renderModal();
  }
- function closeWindow(){modal.hidden=true;pendingLoot=null;}
+ function closeWindow(){
+  if(modal.dataset.kind==='chest'&&isOnline())multiplayer.closeChest();
+  modal.hidden=true;pendingLoot=null;
+ }
  let resetProgressView=null;
  function onResetProgress(fn){resetProgressView=typeof fn==='function'?fn:null;}
  function resetProgress(){
@@ -555,7 +565,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   lastCombatAt=clock;
   state.resource=changeResource(state.resource,rageForHit(skill),'warrior');
   if(enemy.kind==='dummy'){applyTrainingHit(enemy,damage,clock,skill);combatFeedback.hit(enemy,damage,skill);combatVfx.trigger(enemy,skill==='heavyStrike'?'strong':skill==='thunderStomp'?'stomp':'hit');persist();draw();return;}
-  if(enemy.kind!=='mob'||enemy.dead)return;
+  if(enemy.kind!=='mob'||enemy.dead||isOnline())return;
   lastCombatAt=clock;enemy.hp=Math.max(0,enemy.hp-damage);enemy.aggro=true;enemy.returning=false;enemy.hit=HIT_REACTION_SECONDS;
   combatFeedback.hit(enemy,damage,skill);
   combatVfx.trigger(enemy,skill==='heavyStrike'?'strong':skill==='thunderStomp'?'stomp':'hit');
@@ -618,7 +628,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const result=activateAbility(def,abilityContext());
   if(!result.ok){msg(result.error);return false;}
   approach=null;state.resource=result.resource;
-  if(id==='healingPotion'){takeItem('healingPotion');state.hp=Math.min(stats().maxHp,state.hp+55);msg('Здоровье восстановлено');}
+  if(id==='healingPotion'){takeItem('healingPotion');state.hp=Math.min(stats().maxHp,state.hp+55);if(isOnline())multiplayer.sendHeal();msg('Здоровье восстановлено');}
   else if(id==='heavyStrike'){timeline.start(id,target);lastCombatAt=clock;}
   else if(id==='thunderStomp')timeline.start(id);
   persist();draw();return true;
@@ -710,13 +720,13 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const kind=modal.dataset.kind,title=$('mtitle'),body=$('mbody');
   $('panel').classList.toggle('character-modal',kind==='character');
   $('panel').classList.toggle('inventory-modal',kind==='bag');
-  $('msub').textContent='NEXGAMEWORLD · ОФЛАЙН · КРУГЛЫЙ МИР';
+  $('msub').textContent=isOnline()?'NEXGAMEWORLD · ОБЩИЙ МИР':'NEXGAMEWORLD · ЛОКАЛЬНЫЙ РЕЖИМ';
   // Only the pause/settings menu may expose camera and graphics controls.
   // Dialogs, loot, backpack, quests and merchant must never inherit these.
   $('cameraControl').hidden=kind!=='menu';
   $('graphicsControl').hidden=kind!=='menu';
   title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
-   merchant:'Торговец',spells:'Книга способностей',loot:'Обыск тела',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог'})[kind]||'NexGameWorld';
+   merchant:'Торговец',spells:'Книга способностей',loot:'Обыск тела',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог',party:'Группа и чат'})[kind]||'NexGameWorld';
   body.replaceChildren();
   const line=(label,caption,actions=[])=>{
    const row=document.createElement('div');row.className='rpgRow';
@@ -771,7 +781,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(kind==='menu'){
    line('Сферический мир','Меняй радиус планеты, вращай её свайпами и исследуй NexGameWorld.');
    for(const item of settingsControls)body.append(item);
-   line('Сетевая игра','Тестовая сборка работает локально, без сервера Render.');
+   line('Сетевая игра',isOnline()?'Общий мир: мобы, бой, награды и группы синхронизируются через Render.':'Сервер недоступен: персонаж продолжает играть локально.');
    if(!preview){
     line('Тестирование заданий','Начать заново: уровень, все задания, вещи и сундук. Графика, масштаб и режим слежения камеры сохранятся.',[['Сбросить прогресс',resetProgress]]);
     body.lastElementChild?.querySelector('button')?.classList.add('reset-progress-action');
@@ -961,7 +971,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   ['journal',()=>openWindow('quests')],['questJournalOpen',()=>openWindow('quests')],
   ['spellbookButton',()=>{chooseSlot=-1;openWindow('spells')}],
   ['pause',()=>openWindow('menu')],
-  ['partyOpen',()=>msg('Группы будут доступны после подключения онлайн-мира')],
+  ['partyOpen',()=>openWindow('party')],
   ['targetClear',()=>{targetEntity(null);autoplay=false;draw()}],
   ['dummyReset',()=>{dummy.trainingStats=createTrainingStats();draw();}]
  ];
@@ -1021,16 +1031,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const impact=timeline.update(dt);
   if(impact?.skill==='thunderStomp'){
    stompEffect.trigger(playerNormal());
+   if(isOnline())multiplayer.sendAttack('thunderStomp');
    let hits=0;
    for(const enemy of [...mobs,dummy])if(isLivingHostile(enemy)&&distance(enemy)<4.5){
-    if(enemy.kind==='mob')enemy.stun=2.5;
-    harm(enemy,6,impact.skill);hits++;
+    if(enemy.kind==='mob'&&!isOnline())enemy.stun=2.5;
+    if(enemy.kind==='dummy'||!isOnline())harm(enemy,6,impact.skill);
+    hits++;
    }
    msg('Громовая поступь: '+hits+' целей');
   }else if(impact&&isLivingHostile(impact.target)&&distance(impact.target)<=MELEE_RANGE){
    if(facesTarget(impact.target)){
     const bonus=impact.skill==='heavyStrike'?(getAbilityDefinition(impact.skill).damageBonus||0):0;
-    harm(impact.target,rollMeleeDamage(stats(),bonus),impact.skill);
+    if(isOnline()&&impact.target.kind==='mob')multiplayer.sendAttack(impact.skill,'dolgonog-'+impact.target.index);
+    else harm(impact.target,rollMeleeDamage(stats(),bonus),impact.skill);
    }else if(impact.skill!=='autoAttack')msg('Цель не перед вами',1.1);
   }
   if(!toast.hidden&&clock>messageUntil){toast.classList.remove('show');toast.hidden=true;}
@@ -1079,6 +1092,16 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(mob.alertTag){
     mob.alertTag.visible=mob.alertRemaining>0&&mob.root.visible&&!mob.corpse;
     if(mob.alertTag.visible)mob.alertTag.position.y=(mob.boss?4:4.95)+Math.sin(clock*7)*.1;
+   }
+   if(isOnline()){
+    if(mob.corpse){
+     const wasDying=mob.dying;mob.deathAnimation.update(dt);
+     if(wasDying&&!mob.dying)updateLootMarker(mob);
+    }else if(mob.root.visible){
+     setModelAt(mob);birdAnimation(mob,dt,mob.networkMovement||0);
+     mob.networkMovement=0;
+    }
+    continue;
    }
    if(!mob.root.visible){
     if(advanceRespawnTimer(mob,dt)){mob.dead=0;mob.corpse=false;mob.hp=mob.maxHp;mob.x=mob.spawnX;mob.z=mob.spawnZ;
@@ -1229,5 +1252,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return false;
  }
  persist();draw();void updateEquipmentVisuals();
- return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,onResetProgress,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,get movementLocked(){return timeline.stompProgress>=0},getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
+ return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,onResetProgress,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,
+  setMultiplayer,networkCharacter,onOnlinePlayers,onPartyState,onPartyInvite,onPartyNotice,onChat,onChestState,onChestResult,
+  onVitals,onCombatEvent,onKillCredit,onMobAttack,onNetworkRespawn,onMobSnapshot,
+  get movementLocked(){return timeline.stompProgress>=0},
+  getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
 }
