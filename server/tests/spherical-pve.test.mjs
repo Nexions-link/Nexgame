@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
  SPHERE_MOB_SPAWNS,SPHERE_CORPSE_MS,SPHERE_RESPAWN_MS,
  createSphericalMobs,localToNormal,normalToLocal,arcDistance,
- facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment
+ facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment,sphericalMobYaw,SPHERE_ROAM_RADIUS
 } from '../spherical-pve.js';
 
 const character=(id,x=-9,z=-24,radius=261)=>({
@@ -79,4 +79,42 @@ test('equipment and wrong-world injections are bounded',()=>{
  const mobs=createSphericalMobs(),p=character('x');
  assert.equal(applySphereAttack(mobs,p,'healingPotion',mobs[0].id,1000).ok,false);
  assert.equal(applySphereAttack(mobs,p,'autoAttack','missing',1000).ok,false);
+});
+
+test('spherical yaw uses GLB tangent +Z frame instead of flat-world bearings',()=>{
+ const forwardZ=sphericalMobYaw(0,0,0,1,261);
+ const forwardX=sphericalMobYaw(0,0,1,0,261);
+ assert.ok(Math.abs(Math.abs(forwardZ)-Math.PI)<.02,'map +Z requires a 180-degree local turn');
+ assert.ok(Math.abs(forwardX-Math.PI/2)<.02,'map +X requires +90 degrees');
+ assert.equal(sphericalMobYaw(0,0,0,0,261),null);
+});
+test('online wildlife walks and rests around spawn instead of snapping home after 0.65m',()=>{
+ const mobs=createSphericalMobs(),players=new Map(),r=261;
+ let randomIndex=0;
+ const rng=()=>((randomIndex++*.173+.03)%1);
+ const start=mobs.map(m=>({x:m.x,z:m.z}));
+ let maxDistance=0,everWalking=false,everResting=false;
+ for(let i=0;i<260;i++){
+  tickSphericalMobs(mobs,players,r,.1,10_000+i*100,rng);
+  for(let j=0;j<mobs.length;j++){
+   const m=mobs[j];const d=Math.hypot(m.x-start[j].x,m.z-start[j].z);
+   maxDistance=Math.max(maxDistance,d);
+   assert.ok(d<=SPHERE_ROAM_RADIUS+.5,'wildlife never leaves its permitted home range');
+   everWalking ||= m.roamState==='walking';
+   everResting ||= m.roamState==='rest';
+  }
+ }
+ assert.ok(maxDistance>1.0,'at least one dolgonog really wanders away from spawn');
+ assert.ok(everWalking&&everResting,'roaming alternates with idle periods');
+});
+test('server stops chase at leash, returns home and restores HP after return',()=>{
+ const mob=createSphericalMobs()[0],p=character('leash',mob.spawnX,mob.spawnZ,261);
+ const players=new Map([[p.id,p]]);
+ mob.x=mob.spawnX+2;mob.z=mob.spawnZ;mob.hp=10;mob.aggroId=p.id;
+ p.normal=localToNormal(75,75,261);
+ tickSphericalMobs([mob],players,261,.1,20000,()=>.2);
+ assert.equal(mob.aggroId,null);assert.equal(mob.returning,true);
+ for(let i=1;i<180&&mob.returning;i++)tickSphericalMobs([mob],players,261,.1,20000+i*100,()=>.2);
+ assert.equal(mob.returning,false,'evading creature reaches its home point');
+ assert.equal(mob.hp,mob.maxHp,'health resets after return, not during the chase');
 });
