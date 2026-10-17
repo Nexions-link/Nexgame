@@ -114,6 +114,21 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
   const rolledBack=await pool.query(
    'SELECT count(*)::int AS n FROM ngw_progress_events WHERE character_id=$1',[id]);
   assert.equal(rolledBack.rows[0].n,3);
+  // Starter pack is granted by the server only, once for a fresh hero.
+  const starterHero=await pool.query(
+   "INSERT INTO ngw_characters(account_id,nickname) VALUES($1,'StarterHero') RETURNING id",[a]);
+  const starterId=starterHero.rows[0].id;
+  await pool.query("INSERT INTO ngw_character_progress(character_id) VALUES($1)",[starterId]);
+  const starter=await store.initializeStarterPack(a,starterId);
+  assert.equal(starter.revision,1);
+  assert.equal(starter.inventory[0]?.id,'wornAxe');
+  assert.deepEqual(starter.inventory[1],{id:'healingPotion',qty:3});
+  const repeat=await store.initializeStarterPack(a,starterId);
+  assert.equal(repeat.revision,1);
+  assert.equal((await pool.query(
+   "SELECT count(*)::int AS n FROM ngw_progress_events WHERE character_id=$1 AND event_key='starter:default:v1'",[starterId]
+  )).rows[0].n,1);
+  await assert.rejects(()=>store.initializeStarterPack(b,starterId),e=>e.status===404);
   // Render restarts reset mob.life to 1. A new process epoch must allow
   // a legitimately new kill without colliding with the old durable ledger.
   const epochHero=await pool.query(
