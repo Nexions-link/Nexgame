@@ -202,6 +202,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     untrusted_interaction_context:'Сейчас взаимодействовать нельзя',
     not_enough_gold:'Недостаточно монет',inventory_full:'Рюкзак заполнен',
     item_not_owned:'Предмет не найден в рюкзаке',item_not_sellable:'Предмет нельзя продать',
+    potion_cooldown:'Зелье восстанавливается',potion_not_needed:'Сейчас здоровье полное',
     chest_transfer_rejected:'В сундуке или рюкзаке нет места',
     gather_node_respawning:'Растение ещё не выросло',
     gather_cast_in_progress:'Сбор пока не завершён',gather_cast_not_started:'Сбор прерван',
@@ -232,7 +233,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    gatherAccept:'Задание травницы принято',gatherFinish:'Ресурс собран и сохранён',
    gatherTurnIn:'Награда за сбор получена',mentorAccept:'Испытание принято',
    mentorInteract:'Цель задания выполнена',mentorTurnIn:'Награда наставника получена',
-   equip:'Предмет экипирован',unequip:'Предмет снят'
+   equip:'Предмет экипирован',unequip:'Предмет снят',
+   usePotion:'Зелье использовано и сохранено'
   };
   if(labels[event.kind])msg(labels[event.kind],2.2);
   if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests'].includes(modal.dataset.kind))
@@ -272,8 +274,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     &&!progress.quests.gather.accepted;
   }
   if(progress.quests?.mentor?.kills!==undefined)state.kills=progress.quests.mentor.kills;
-  if(source==='welcome'){
-   state.hp=progress.health;state.resource=progress.resource;
+  if(source==='welcome'||source==='usePotion'){
+   state.hp=progress.health;
+   if(source==='welcome')state.resource=progress.resource;
   }
   state.hotbar=normalizeHotbar(state.hotbar,'warrior',state.level);
   void updateEquipmentVisuals();
@@ -739,10 +742,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    hasConsumable:itemCount('healingPotion')>0,needsHealing:state.hp<stats().maxHp};
  }
  function castAction(id){
-  if(authenticatedProfile&&id==='healingPotion'){
-   msg('Использование зелий станет доступно после подключения серверного инвентаря.');
-   return false;
-  }
+  if(authenticatedProfile&&id==='healingPotion')return sendAccountAction('usePotion');
   if(authenticatedProfile&&!isOnline()){
    msg('Связь с сервером отсутствует. Боевые действия приостановлены.');
    return false;
