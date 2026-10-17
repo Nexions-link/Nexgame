@@ -7,6 +7,7 @@ import {resolve,dirname,join} from 'node:path';
 import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
 import {createAccountStore} from './account-store.js';
 import {createAccountApi} from './account-api.js';
+import {createWorldSessionGate} from './world-session-gate.js';
 import {runAccountSmoke} from './account-smoke.js';
 const PORT=Number(process.env.PORT||3000),BUILD='0.6.31';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -51,6 +52,7 @@ async function verifyNeonConnection(){
 }
 void verifyNeonConnection();
 let accountStore=null, accountApi=null;
+let authenticatedWorldGate=null;
 let accountCleanupTimer=null;
 let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
 async function initializeAccounts(){
@@ -70,6 +72,12 @@ async function initializeAccounts(){
   if(ready&&process.env.NGW_ACCOUNTS_ENABLED==='true'){
    accountApi=createAccountApi({store:accountStore});
    console.log('NexGameWorld account API enabled');
+   // The new authenticated route is opt-in until durable game progression
+   // and authoritative chest/quest integrations have passed full tests.
+   if(process.env.NGW_AUTH_WORLD_ENABLED==='true'){
+    authenticatedWorldGate=createWorldSessionGate({accountStore});
+    console.log('NexGameWorld authenticated world gateway enabled');
+   }
   }
  }catch(error){
   accountDbStatus='unavailable';
@@ -106,7 +114,40 @@ const http=createServer((req,res)=>{
 const wss=new WebSocketServer({server:http,maxPayload:8192,
  verifyClient:({origin},done)=>done(!origin||origins.has(origin)||(!configuredOrigins.length&&origin.startsWith('https://')))});
 wss.on('connection',(ws,req)=>{
- if(req.url?.split('?')[0]!=='/ws/nexgameworld'){
+ const path=req.url?.split('?')[0];
+ if(path==='/ws/nexgameworld/auth'){
+  if(!authenticatedWorldGate){
+   ws.close(1013,'Authenticated world is not yet enabled');return;
+  }
+  let attempted=false;
+  const deadline=setTimeout(()=>ws.close(1008,'Authentication required'),10000);
+  deadline.unref?.();
+  ws.once('message',async raw=>{
+   if(attempted)return;
+   attempted=true;clearTimeout(deadline);
+   let message;
+   try{message=JSON.parse(String(raw))}catch{ws.close(1008,'Malformed auth handshake');return}
+   if(!message||message.type!=='authJoin'||typeof message.sessionToken!=='string'||
+      typeof message.characterId!=='string'){
+    ws.close(1008,'Invalid auth handshake');return;
+   }
+   try{
+    const trusted=await authenticatedWorldGate.enter(ws,message);
+    if(ws.readyState!==1){authenticatedWorldGate.leave(ws);return}
+    ws.once('close',()=>authenticatedWorldGate.leave(ws));
+    ws.once('error',()=>authenticatedWorldGate.leave(ws));
+    world.attach(ws,{trustedCharacter:trusted});
+    // Synthetic join is generated from trusted Neon state only.
+    ws.emit('message',Buffer.from(JSON.stringify({type:'join'})));
+   }catch(error){
+    authenticatedWorldGate.leave(ws);
+    ws.close(1008,'Account or character authorization failed');
+   }
+  });
+  ws.once('close',()=>clearTimeout(deadline));
+  return;
+ }
+ if(path!=='/ws/nexgameworld'){
   ws.close(1008,'Flat NexGame is archived');return;
  }
  world.attach(ws);
