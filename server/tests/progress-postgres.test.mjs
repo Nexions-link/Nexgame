@@ -129,6 +129,23 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
    "SELECT count(*)::int AS n FROM ngw_progress_events WHERE character_id=$1 AND event_key='starter:default:v1'",[starterId]
   )).rows[0].n,1);
   await assert.rejects(()=>store.initializeStarterPack(b,starterId),e=>e.status===404);
+  const healed=await store.useHealingPotion({
+   accountId:a,characterId:starterId,expectedRevision:1,currentHp:60,maxHp:120
+  });
+  assert.equal(healed.progress.health,115);
+  assert.equal(healed.progress.revision,2);
+  assert.deepEqual(healed.progress.inventory[1],{id:'healingPotion',qty:2});
+  await assert.rejects(()=>store.useHealingPotion({
+   accountId:a,characterId:starterId,expectedRevision:2,currentHp:120,maxHp:120
+  }),e=>e.code==='potion_not_needed');
+  await assert.rejects(()=>store.useHealingPotion({
+   accountId:a,characterId:starterId,expectedRevision:1,currentHp:30,maxHp:120
+  }),e=>e.code==='stale_revision');
+  await assert.rejects(()=>store.useHealingPotion({
+   accountId:b,characterId:starterId,expectedRevision:2,currentHp:30,maxHp:120
+  }),e=>e.status===404);
+  assert.equal((await store.load(a,starterId)).inventory[1].qty,2);
+
   // Render restarts reset mob.life to 1. A new process epoch must allow
   // a legitimately new kill without colliding with the old durable ledger.
   const epochHero=await pool.query(
