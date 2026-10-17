@@ -31,3 +31,12 @@ export function tokenDigest(token){
     !/^[A-Za-z0-9_-]{43}$/.test(token))return null;
  return createHash('sha256').update(token,'utf8').digest();
 }
+
+export function createRecoveryCodes(count=8){
+ if(!Number.isInteger(count)||count<1||count>12)throw new RangeError('Invalid recovery code count');
+ return Array.from({length:count},()=>randomBytes(16).toString('hex').toUpperCase());
+}
+export function recoveryCodeDigest(code){
+ if(typeof code!=='string'||!/^[0-9A-Fa-f]{32}$/.test(code))return null;
+ return createHash('sha256').update(Buffer.from(code,'hex')).digest();
+}
