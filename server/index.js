@@ -7,7 +7,6 @@ import {resolve,dirname,join} from 'node:path';
 import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
 import {createAccountStore} from './account-store.js';
 import {createAccountApi} from './account-api.js';
-import {createProgressStore} from './progress-store.js';
 import {createWorldSessionGate} from './world-session-gate.js';
 import {runAccountSmoke} from './account-smoke.js';
 const PORT=Number(process.env.PORT||3000),BUILD='0.6.31';
@@ -53,7 +52,7 @@ async function verifyNeonConnection(){
 }
 void verifyNeonConnection();
 let accountStore=null, accountApi=null;
-let authenticatedWorldGate=null, authenticatedWorldProgress=null;
+let authenticatedWorldGate=null;
 let accountCleanupTimer=null;
 let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
 async function initializeAccounts(){
@@ -76,9 +75,7 @@ async function initializeAccounts(){
    // The new authenticated route is opt-in until durable game progression
    // and authoritative chest/quest integrations have passed full tests.
    if(process.env.NGW_AUTH_WORLD_ENABLED==='true'){
-    authenticatedWorldProgress=createProgressStore();
-    if(!await authenticatedWorldProgress.schemaReady())throw Error('Progress schema missing');
-    authenticatedWorldGate=createWorldSessionGate({accountStore,progressStore:authenticatedWorldProgress});
+    authenticatedWorldGate=createWorldSessionGate({accountStore});
     console.log('NexGameWorld authenticated world gateway enabled');
    }
   }
@@ -165,4 +162,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void authenticatedWorldProgress?.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void accountStore?.close()});
