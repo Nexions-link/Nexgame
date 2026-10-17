@@ -2,9 +2,10 @@
 // Install on the Render Node server only after a durable DB is provisioned.
 // This API does not accept arbitrary client-side XP, inventory or gold writes.
 import {
- normalizeEmail,validatePassword,CHARACTER_SLOT_LIMIT
+ normalizeUsername,validatePassword,CHARACTER_SLOT_LIMIT
 } from './account-rules.js';
-import {hashPassword,verifyPassword,newSessionToken,tokenDigest} from './auth-crypto.js';
+import {hashPassword,verifyPassword,newSessionToken,tokenDigest,
+ createRecoveryCodes,recoveryCodeDigest} from './auth-crypto.js';
 
 const MAX_BODY=4096,SESSION_DAYS=7,WINDOW_MS=15*60*1000;
 const VALID_ORIGINS=new Set(['https://nexions.ru','https://www.nexions.ru']);
@@ -34,7 +35,7 @@ function readJson(req){
   });
  });
 }
-export function createAccountApi({store,allowUnverified=false,allowedOrigins=VALID_ORIGINS}){
+export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
  if(!store)throw Error('Account store is required');
  const buckets=new Map();
  const allowed=new Set(allowedOrigins);
@@ -71,31 +72,49 @@ export function createAccountApi({store,allowUnverified=false,allowedOrigins=VAL
     const key='register:'+String(req.socket.remoteAddress||'unknown');
     if(!rateLimit(key,5)){json(res,429,{error:'Попробуйте позже'});return true;}
     const data=await readJson(req);
-    const email=normalizeEmail(data.email),password=validatePassword(data.password);
-    const account=await store.createAccount(email,await hashPassword(password));
-    // Until mail verification is implemented, this remains a gated alpha
-    // endpoint. The API never claims that an email address is verified.
-    json(res,201,{accountId:account.id,email:account.email,
-     emailVerificationRequired:!allowUnverified});
+    const username=normalizeUsername(data.username),password=validatePassword(data.password);
+    const account=await store.createAccount(username,await hashPassword(password));
+    const codes=createRecoveryCodes();
+    try{
+     await store.saveRecoveryCodes(account.id,codes.map(recoveryCodeDigest));
+    }catch(error){
+     // Prevent an account without recovery codes from entering normal use.
+     console.error('Account recovery code creation failed',error?.code||error?.name||'unknown');
+     throw error;
+    }
+    // Show recovery codes ONCE. We never store or return their plaintext later.
+    json(res,201,{accountId:account.id,username:account.username,
+     recoveryCodes:codes});
     return true;
    }
    if(method==='POST'&&path==='/api/ngw/login'){
     const key='login:'+String(req.socket.remoteAddress||'unknown');
     if(!rateLimit(key,12)){json(res,429,{error:'Попробуйте позже'});return true;}
     const data=await readJson(req);
-    const email=normalizeEmail(data.email),password=validatePassword(data.password);
-    const record=await store.passwordRecord(email);
+    const username=normalizeUsername(data.username),password=validatePassword(data.password);
+    const record=await store.passwordRecord(username);
     const verified=await verifyPassword(password,record?.password_hash||await dummyHash);
-    if(!record||!verified||record.status!=='active'||
-       (!allowUnverified&&!record.email_verified_at)){
-     json(res,401,{error:'Неверные данные для входа или почта не подтверждена'});
+    if(!record||!verified||record.status!=='active'){
+     json(res,401,{error:'Неверный логин или пароль'});
      return true;
     }
     const token=newSessionToken(),expiresAt=new Date(Date.now()+SESSION_DAYS*86400000);
     await store.saveSession(record.id,tokenDigest(token),expiresAt);
     json(res,200,{token,expiresAt:expiresAt.toISOString(),
-     account:{id:record.id,email:record.email}});
+     account:{id:record.id,username:record.username}});
     return true;
+   }
+   if(method==='POST'&&path==='/api/ngw/recover'){
+    const key='recover:'+String(req.socket.remoteAddress||'unknown');
+    if(!rateLimit(key,5)){json(res,429,{error:'Попробуйте позже'});return true;}
+    const data=await readJson(req);
+    const username=normalizeUsername(data.username);
+    const digest=recoveryCodeDigest(data.recoveryCode);
+    const newPassword=validatePassword(data.newPassword);
+    if(!digest){json(res,400,{error:'Некорректный резервный код'});return true;}
+    const ok=await store.consumeRecoveryCode(username,digest,await hashPassword(newPassword));
+    if(!ok){json(res,401,{error:'Неверный логин или резервный код'});return true;}
+    json(res,200,{ok:true,sessionsRevoked:true});return true;
    }
    const account=await auth(req);
    if(!account){json(res,401,{error:'Требуется вход в аккаунт'});return true;}
@@ -105,8 +124,7 @@ export function createAccountApi({store,allowUnverified=false,allowedOrigins=VAL
     json(res,200,{ok:true});return true;
    }
    if(method==='GET'&&path==='/api/ngw/me'){
-    json(res,200,{id:account.id,email:account.email,
-     emailVerified:!!account.email_verified_at});return true;
+    json(res,200,{id:account.id,username:account.username});return true;
    }
    if(method==='GET'&&path==='/api/ngw/characters'){
     const characters=await store.listCharacters(account.id);
