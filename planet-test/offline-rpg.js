@@ -32,6 +32,7 @@ import {styleShieldGlb} from '../shield-assets.js?v=0.3.7.1';
 import {canWalkCamp} from './sphere-physics.js?v=3';
 import {canWadeAtLocal} from './start-zone.js?v=20';
 import {moveMobToward,mobSegmentClear} from './mob-navigation.js?v=1';
+import {advanceOnlineMobVisual} from './mob-visual-online.js?v=1';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
 import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,advanceRespawnTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=4';
@@ -296,6 +297,13 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   mentorChain.killed(mob);levelCheck();persist();updateLootMarker(mob);draw();
   msg('Награда за '+mob.name+': опыт '+(Number(event.xp)||0));
  }
+ function onMobTelegraph(event){
+  if(!isOnline()||typeof event?.mobId!=='string')return;
+  const mob=mobs.find(m=>'dolgonog-'+m.index===event.mobId);
+  if(!mob||mob.corpse||!mob.root.visible)return;
+  // Visuals only: the server alone decides the actual hit and damage.
+  if(mob.birdVisual)mob.birdVisual.attackRemaining=Math.max(mob.birdVisual.attackRemaining,.8);
+ }
  function onMobAttack(event){
   if(!isOnline())return;
   if(Number.isFinite(event.hp))state.hp=Math.max(0,event.hp);
@@ -315,9 +323,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const remote=byIndex.get(mob.index);
    if(!remote||!['alive','corpse','hidden'].includes(remote.phase)||
     !Number.isFinite(remote.x)||!Number.isFinite(remote.z)||!Number.isFinite(remote.hp))continue;
-   const oldX=mob.x,oldZ=mob.z,wasCorpse=mob.corpse,wasHidden=!mob.root.visible;
-   mob.x=remote.x;mob.z=remote.z;mob.yaw=remote.yaw||0;
-   mob.networkMovement=Math.hypot(oldX-mob.x,oldZ-mob.z);
+   const wasCorpse=mob.corpse,wasHidden=!mob.root.visible;
+   mob.x=remote.x;mob.z=remote.z;
+   if(Number.isFinite(remote.yaw))mob.yaw=remote.yaw;
+   if(!mob.hasNetworkSnapshot||wasCorpse||wasHidden||remote.phase!=='alive'){
+    mob.renderX=mob.x;mob.renderZ=mob.z;mob.renderYaw=mob.yaw;
+    setModelAt(mob,{x:mob.renderX,z:mob.renderZ,yaw:mob.renderYaw});
+   }
+   mob.hasNetworkSnapshot=true;
    mob.hp=remote.hp;mob.life=remote.life;mob.aggro=remote.aggro===true;mob.returning=false;
    mob.corpse=remote.phase==='corpse';mob.dead=mob.corpse?6:0;
    mob.root.visible=remote.phase!=='hidden';
@@ -330,7 +343,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    }else if(remote.phase==='hidden'){
     mob.loot=null;if(pendingLoot===mob)closeWindow();
    }
-   setModelAt(mob);updateLootMarker(mob);
+   updateLootMarker(mob);
   }
  }
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
@@ -351,11 +364,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   toast.textContent=text;toast.hidden=false;toast.classList.add('show');
   messageUntil=clock+Math.min(4,Math.max(1,seconds));
  }
- function setModelAt(entity){
-  const normal=toNormal(entity.x,entity.z,getRadius());
+ function setModelAt(entity,render=null){
+  const normal=toNormal(render?.x??entity.x,render?.z??entity.z,getRadius());
   entity.root.position.copy(normal).multiplyScalar(getRadius()+heightAt(normal)+.09);
   anchorQuat.setFromUnitVectors(up,normal);
-  entity.root.quaternion.copy(anchorQuat).multiply(spinQuat.setFromAxisAngle(up,entity.yaw||0));
+  entity.root.quaternion.copy(anchorQuat).multiply(spinQuat.setFromAxisAngle(up,render?.yaw??entity.yaw??0));
  }
  // Identical native NexGame spriteText typography and palette, no backdrop.
  function makeLabel(name,color='#f9df91',size=32){
@@ -1331,8 +1344,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      const wasDying=mob.dying;mob.deathAnimation.update(dt);
      if(wasDying&&!mob.dying)updateLootMarker(mob);
     }else if(mob.root.visible){
-     setModelAt(mob);birdAnimation(mob,dt,mob.networkMovement||0);
-     mob.networkMovement=0;
+     const moved=advanceOnlineMobVisual(mob,dt);
+     setModelAt(mob,{x:mob.renderX,z:mob.renderZ,yaw:mob.renderYaw});
+     birdAnimation(mob,dt,moved);
     }
     continue;
    }
@@ -1487,7 +1501,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  persist();draw();void updateEquipmentVisuals();
  return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,onResetProgress,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,
   setMultiplayer,networkCharacter,onOnlinePlayers,onPartyState,onPartyInvite,onPartyNotice,onChat,onChestState,onChestResult,
-  onVitals,onCombatEvent,onKillCredit,applyServerProgress,onEconomyResult,onMobAttack,onNetworkRespawn,onMobSnapshot,
+  onVitals,onCombatEvent,onKillCredit,applyServerProgress,onEconomyResult,onMobAttack,onMobTelegraph,onNetworkRespawn,onMobSnapshot,
   get movementLocked(){return timeline.stompProgress>=0},
   getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
 }
