@@ -543,6 +543,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   persist();draw();void updateEquipmentVisuals();
  }
  function equip(id){
+  if(authenticatedProfile){
+   const bagSlot=serverBagSlots.findIndex(row=>row?.id===id);
+   if(bagSlot<0)return msg('Предмет отсутствует на сервере');
+   return sendAccountAction('equip',{bagSlot,equipmentSlot:ITEM_CATALOG[id]?.slot});
+  }
   const result=equipFromBag(state,id,inCombat());
   if(!result.ok)return msg(result.error);
   finishEquipmentChange(result.slot);msg('Надето: '+ITEM_CATALOG[id].name);
@@ -1021,7 +1026,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
           const description=document.createElement('p');description.textContent=def?.description||'Восстанавливает здоровье';
           detail.append(name,description);
           const commands=[...(def?.slot?[['Надеть',()=>equip(item.id)]]:[]),
-            ['🗑 Удалить',()=>{takeItem(item.id,1);draw();}]];
+            ...(authenticatedProfile?[]:[['🗑 Удалить',()=>{takeItem(item.id,1);draw();}]])];
           for(const [label,action] of commands){
             const b=document.createElement('button');b.type='button';b.className='choice';b.textContent=label;
             b.addEventListener('click',action);detail.append(b);
@@ -1052,6 +1057,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       const caption=document.createElement('small');caption.textContent=LABEL[slot]+': '+(def?.name||'Пусто');
       btn.append(icon,caption);btn.title=def?'Снять '+def.name:LABEL[slot];
       if(def)btn.addEventListener('click',()=>{
+        if(authenticatedProfile){
+         const bagSlot=serverBagSlots.findIndex(row=>!row);
+         if(bagSlot<0)return msg('В рюкзаке нет места');
+         sendAccountAction('unequip',{equipmentSlot:slot,bagSlot});
+         return;
+        }
         const result=unequipToBag(state,slot,inCombat());
         if(!result.ok)return msg(result.error);
         finishEquipmentChange(slot);
