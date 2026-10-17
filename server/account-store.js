@@ -16,6 +16,10 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
  });
  const query=(sql,params=[])=>pool.query(sql,params);
  async function ping(){await query('SELECT 1 AS ok');return true}
+ async function schemaReady(){
+  const {rows}=await query("SELECT to_regclass('public.ngw_accounts') AS accounts, to_regclass('public.ngw_characters') AS characters, to_regclass('public.ngw_character_progress') AS progress, to_regclass('public.ngw_sessions') AS sessions");
+  return !!(rows[0]?.accounts&&rows[0]?.characters&&rows[0]?.progress&&rows[0]?.sessions);
+ }
  async function createAccount(email,passwordHash){
   try{
    const {rows}=await query(
@@ -83,6 +87,6 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
    [characterId,accountId]);
   return rows[0]||null;
  }
- return {ping,createAccount,passwordRecord,saveSession,accountForSession,
+ return {ping,schemaReady,createAccount,passwordRecord,saveSession,accountForSession,
   revokeSession,listCharacters,createCharacter,loadCharacter,close:()=>pool.end()};
 }
