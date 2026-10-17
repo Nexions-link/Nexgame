@@ -4,9 +4,11 @@ import {
  requireServerProximity,getGatherQuest,acceptGatherQuest,gatherNode,
  requireGatherAvailable,addOwnedStacks,consumeOwnedStacks,
  buyFromMerchant,sellToMerchant,turnInGatherQuest,moveSharedChest,
- ECONOMY_VENDOR,ECONOMY_HERBALIST,ECONOMY_CHEST
+ getMentorQuest,acceptMentorQuest,certifyMentorKill,certifyMentorInteraction,turnInMentorQuest,
+ ECONOMY_VENDOR,ECONOMY_HERBALIST,ECONOMY_CHEST,ECONOMY_MENTOR
 } from '../economy-rules.js';
 import {localToNormal} from '../spherical-pve.js';
+import {RELIC_POSITION,SCOUT_POSITION} from '../../planet-test/mentor-chain.js';
 const context=(point,extra={})=>({
  normal:localToNormal(point.x,point.z,261),radius:261,inCombat:false,...extra
 });
@@ -89,4 +91,47 @@ test('stack transfers conserve quantities and fail atomically when bag is full',
  const full=Array.from({length:12},()=>({id:'chainVest',qty:1}));
  assert.throws(()=>addOwnedStacks(full,[{id:'feather',qty:1}]),/inventory_full/);
  assert.throws(()=>addOwnedStacks(base,[{id:'forgedLegendary',qty:1}]),/unknown_item/);
+});
+
+test('mentor objectives require genuine server-shape kill credits and fixed progression rewards',()=>{
+ const atMentor=context(ECONOMY_MENTOR);
+ const runId='1a42d6d3-7bd1-42a7-a1e2-c315635833a3';
+ let hero=acceptMentorQuest(state(),atMentor);
+ assert.deepEqual(getMentorQuest(hero),{step:1,kills:0});
+ const normal=life=>({
+  type:'killCredit',mobId:'dolgonog-0',life,xp:22,gold:4,loot:[{id:'feather',qty:1}]
+ });
+ assert.throws(()=>certifyMentorKill(hero,{...normal(1),xp:999},runId),/invalid_kill_reward/);
+ assert.throws(()=>certifyMentorKill(hero,{
+  type:'killCredit',mobId:'dolgonog-8',life:1,xp:70,gold:12,loot:[{id:'giantFeather',qty:1}]
+ },runId),/wrong_mentor_target/);
+ for(let life=1;life<=3;life++)hero=certifyMentorKill(hero,normal(life),runId).next;
+ assert.deepEqual(getMentorQuest(hero),{step:2,kills:3});
+ assert.throws(()=>certifyMentorKill(hero,normal(4),runId),/mentor_kill_not_needed/);
+ const rewarded=turnInMentorQuest(hero,atMentor);
+ assert.equal(rewarded.event.eventKey,'mentor:turnin:2');
+ assert.equal(rewarded.next.gold,125);
+ assert.equal(rewarded.next.experience,80);
+ hero=acceptMentorQuest(rewarded.next,atMentor);
+ assert.equal(getMentorQuest(hero).step,4);
+ assert.throws(()=>certifyMentorInteraction(hero,'relic',context({x:100,z:100})),/interaction_too_far/);
+ hero=certifyMentorInteraction(hero,'relic',context(RELIC_POSITION));
+ assert.equal(getMentorQuest(hero).step,5);
+ hero=acceptMentorQuest(turnInMentorQuest(hero,atMentor).next,atMentor);
+ assert.equal(getMentorQuest(hero).step,7);
+ hero=certifyMentorInteraction(hero,'scout',context(SCOUT_POSITION));
+ assert.equal(getMentorQuest(hero).step,8);
+ hero=acceptMentorQuest(turnInMentorQuest(hero,atMentor).next,atMentor);
+ assert.equal(getMentorQuest(hero).step,10);
+ const boss={
+  type:'killCredit',mobId:'dolgonog-8',life:1,xp:70,gold:12,
+  loot:[{id:'giantFeather',qty:1}]
+ };
+ assert.throws(()=>certifyMentorKill(hero,normal(5),runId),/wrong_mentor_target/);
+ hero=certifyMentorKill(hero,boss,runId).next;
+ assert.equal(getMentorQuest(hero).step,11);
+ hero=turnInMentorQuest(hero,atMentor).next;
+ assert.equal(getMentorQuest(hero).step,12);
+ assert.throws(()=>turnInMentorQuest(hero,atMentor),/mentor_reward_not_ready/);
+ assert.throws(()=>acceptMentorQuest(hero,atMentor),/mentor_quest_not_available/);
 });
