@@ -52,7 +52,7 @@ function mockStore(){
 }
 test('account API requires safe origin and session; creates a character without client state writes',
  {timeout:35000},async()=>{
- const api=createAccountApi({store:mockStore()});
+ const api=createAccountApi({store:mockStore(),alphaInvite:''});
  const server=createServer(async(req,res)=>{
   const handled=await api(req,res);
   if(!handled){res.statusCode=404;res.end()}
