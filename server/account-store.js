@@ -1,7 +1,8 @@
 // NexGameWorld Alpha 0.7: durable account/character persistence.
 // A database URL is read from Render only. Never send it to the browser.
 // Do not enable routes in production before the schema migration is applied.
-import {Pool} from 'pg';
+import pg from 'pg';
+const {Pool}=pg;
 import {normalizeEmail,validateCharacterOptions,CHARACTER_SLOT_LIMIT} from './account-rules.js';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function dbError(error){
