@@ -4,7 +4,7 @@ import {WebSocketServer} from 'ws';
 import {existsSync,unlinkSync} from 'node:fs';
 import {resolve,dirname,join} from 'node:path';
 import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.30';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.31';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
  'https://www.nexions.ru','https://nexions-link.github.io']);
