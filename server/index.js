@@ -37,5 +37,8 @@ wss.on('connection',(ws,req)=>{
  }
  world.attach(ws);
 });
-http.listen(PORT,'0.0.0.0',()=>console.log('NexGameWorld spherical server listening on '+PORT));
+http.listen(PORT,'0.0.0.0',()=>{
+ console.log('NexGameWorld spherical server listening on '+PORT);
+ console.log('NexGameWorld database URL present:',Boolean(process.env.DATABASE_URL));
+});
 process.on('SIGTERM',()=>{world.close();wss.close();http.close()});
