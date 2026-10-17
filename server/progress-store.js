@@ -138,6 +138,8 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
  return {
   schemaReady,load,recordMobKill,saveServerCheckpoint,
   equipInventoryItem,unequipInventoryItem,
+  // Internal server-only transaction hook; never export via HTTP or WS.
+  trustedTransaction:transaction,
   close:()=>ownsPool?pool.end():Promise.resolve()
  };
 }
