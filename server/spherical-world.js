@@ -1,7 +1,7 @@
 // NexGameWorld: one spherical, shared authoritative PvE world per planet radius.
 // Legacy flat-world sessions are intentionally not attached here.
 import {randomUUID} from 'node:crypto';
-import {resolve} from 'node:path';
+import {resolve,dirname,join} from 'node:path';
 import {WebSocket} from 'ws';
 import {createPartyManager} from './groups.js';
 import {createChatManager} from './chat.js';
@@ -31,7 +31,7 @@ const publicPlayer=p=>({
   weapon:p.equipment.weapon?.id||null,shieldId:p.equipment.shield?.id||null
  }
 });
-export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHEST_DATA_FILE||'nexgameworld-chest.json')}={}){
+export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHEST_DATA_FILE||join(dirname(resolve(process.env.CHEST_DATA_FILE||'chest-data.json')),'nexgameworld-chest.json'))}={}){
  const players=new Map(),connections=new Map();
  const rooms=new Map(RADII.map(radius=>[radius,{radius,mobs:createSphericalMobs(),tick:0}]));
  let clock=Date.now();
