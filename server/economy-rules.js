@@ -6,7 +6,8 @@ import {GATHER_QUESTS,GATHER_INTERACT_RANGE,
 import {lakeRadius} from '../planet-test/start-zone.js';
 import {arcDistance,localToNormal} from './spherical-pve.js';
 import {transferChest,cleanStack,CHEST_SLOTS} from './chest.js';
-import {addExperience,ProgressError} from './progress-rules.js';
+import {addExperience,validateKillCredit,ProgressError} from './progress-rules.js';
+import {RELIC_POSITION,SCOUT_POSITION} from '../planet-test/mentor-chain.js';
 
 export const ECONOMY_CHEST_ID='hearth-house';
 export const ECONOMY_VENDOR={x:6,z:11,range:4.7};
@@ -161,4 +162,62 @@ export function moveSharedChest(state,slots,{action,slot},context){
  const moved=transferChest(slots,state.inventory,action,slot);
  if(!moved.ok)invalid('chest_transfer_rejected',409);
  return {next:{...state,inventory:moved.inventory},slots:moved.slots,item:moved.item};
+}
+
+const MENTOR_REWARD={
+ 2:{next:3,gold:25,xp:80},
+ 5:{next:6,gold:40,xp:110},
+ 8:{next:9,gold:50,xp:95},
+ 11:{next:12,gold:90,xp:190}
+};
+export function getMentorQuest(state){
+ const raw=state.quests?.mentor;
+ if(raw===undefined)return {step:0,kills:0};
+ if(!obj(raw)||!int(raw.step,0,12)||!int(raw.kills,0,3))
+  invalid('corrupt_mentor_quest');
+ return {step:raw.step,kills:raw.kills};
+}
+const mentorState=(state,mentor)=>({...state,quests:{...state.quests,mentor}});
+export function acceptMentorQuest(state,context){
+ requireServerProximity(state,context,ECONOMY_MENTOR,ECONOMY_MENTOR.range);
+ const quest=getMentorQuest(state);
+ if(![0,3,6,9].includes(quest.step))invalid('mentor_quest_not_available',409);
+ return mentorState(state,{step:quest.step+1,kills:quest.step===0?0:quest.kills});
+}
+export function certifyMentorKill(state,credit,worldRunId){
+ // Evidence MUST originate from the authoritative spherical PvE simulation
+ // after the kill is accepted; never accept a packet with claimed XP or loot.
+ const quest=getMentorQuest(state),radius=state.worldRadius;
+ if(![1,10].includes(quest.step))invalid('mentor_kill_not_needed',409);
+ const validated=validateKillCredit(credit,radius,worldRunId);
+ const boss=credit.mobId==='dolgonog-8';
+ if((quest.step===1&&boss)||(quest.step===10&&!boss))
+  invalid('wrong_mentor_target',409);
+ const next=quest.step===1?
+  {step:quest.kills>=2?2:1,kills:Math.min(3,quest.kills+1)}:
+  {step:11,kills:quest.kills};
+ return {next:mentorState(state,next),evidence:{
+  eventKey:validated.eventKey,questStep:quest.step
+ }};
+}
+export function certifyMentorInteraction(state,kind,context){
+ const quest=getMentorQuest(state);
+ const allowed=kind==='relic'&&quest.step===4?
+  {point:RELIC_POSITION,next:5}:
+  kind==='scout'&&quest.step===7?
+   {point:SCOUT_POSITION,next:8}:null;
+ if(!allowed)invalid('mentor_interaction_unavailable',409);
+ requireServerProximity(state,context,allowed.point,3.5);
+ return mentorState(state,{...quest,step:allowed.next});
+}
+export function turnInMentorQuest(state,context){
+ requireServerProximity(state,context,ECONOMY_MENTOR,ECONOMY_MENTOR.range);
+ const quest=getMentorQuest(state),reward=MENTOR_REWARD[quest.step];
+ if(!reward)invalid('mentor_reward_not_ready',409);
+ if(state.gold+reward.gold>MAX_GOLD)invalid('gold_overflow',409);
+ const gain=addExperience(state.level,state.experience,reward.xp);
+ return {next:mentorState({...state,...gain,gold:state.gold+reward.gold},
+  {step:reward.next,kills:quest.kills}),
+ event:{eventKey:'mentor:turnin:'+quest.step,eventKind:'quest_reward',
+  xp:reward.xp,gold:reward.gold}};
 }
