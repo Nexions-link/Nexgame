@@ -30,5 +30,7 @@ jobs:
         run: npm run check && npm run check:accounts
       - name: Unit and HTTP account security tests
         run: npm run test:accounts
+      - name: Account-bound character session admission checks
+        run: npm run check:world-auth && npm run test:world-auth
       - name: Multiplayer, groups, combat and chest regressions
         run: npm test
