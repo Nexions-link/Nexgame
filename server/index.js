@@ -2,6 +2,7 @@
 import {createServer} from 'node:http';
 import {WebSocketServer} from 'ws';
 import {existsSync,unlinkSync} from 'node:fs';
+import {readFile} from 'node:fs/promises';
 import {resolve,dirname,join} from 'node:path';
 import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
 const PORT=Number(process.env.PORT||3000),BUILD='0.6.31';
@@ -28,6 +29,17 @@ async function verifyNeonConnection(){
    ssl:{rejectUnauthorized:true},connectionTimeoutMillis:12000,max:1});
   await pool.query('SELECT 1 AS healthy');
   console.log('NexGameWorld Neon connection: ok');
+  const schemaPresent=async()=>{
+   const {rows}=await pool.query("SELECT to_regclass('public.ngw_accounts') AS accounts, to_regclass('public.ngw_sessions') AS sessions, to_regclass('public.ngw_characters') AS characters, to_regclass('public.ngw_character_progress') AS progress");
+   return !!(rows[0]?.accounts&&rows[0]?.sessions&&rows[0]?.characters&&rows[0]?.progress);
+  };
+  let ready=await schemaPresent();
+  if(!ready&&process.env.NGW_ACCOUNTS_MIGRATE==='yes'){
+   const sql=await readFile(new URL('./migrations/001_accounts_characters.sql',import.meta.url),'utf8');
+   await pool.query(sql);
+   ready=await schemaPresent();
+   console.log('NexGameWorld account tables:',ready?'created':'not_ready');
+  }else console.log('NexGameWorld account tables:',ready?'ready':'not_created');
  }catch(error){
   console.error('NexGameWorld Neon connection: failed',error?.code||error?.name||'unknown');
  }finally{
