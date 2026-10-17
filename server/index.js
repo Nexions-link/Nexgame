@@ -18,6 +18,23 @@ if(previousFile!==activeFile){
  try{if(existsSync(previousFile)){unlinkSync(previousFile);legacyCleanup='removed';}}
  catch(error){legacyCleanup='error';console.error('Legacy chest cleanup error',error);}
 }else legacyCleanup='skipped_same_storage_path';
+// One-shot, read-only Neon check; never log the URL, credentials or data.
+async function verifyNeonConnection(){
+ if(!process.env.DATABASE_URL)return;
+ let pool;
+ try{
+  const {default:pg}=await import('pg');
+  pool=new pg.Pool({connectionString:process.env.DATABASE_URL,
+   ssl:{rejectUnauthorized:true},connectionTimeoutMillis:12000,max:1});
+  await pool.query('SELECT 1 AS healthy');
+  console.log('NexGameWorld Neon connection: ok');
+ }catch(error){
+  console.error('NexGameWorld Neon connection: failed',error?.code||error?.name||'unknown');
+ }finally{
+  if(pool)try{await pool.end()}catch{}
+ }
+}
+void verifyNeonConnection();
 const http=createServer((req,res)=>{
  if(req.url?.split('?')[0]==='/health'){
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
