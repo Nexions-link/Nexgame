@@ -66,6 +66,12 @@ service, or Nexions.ru. The current Alpha 0.6.31 game remains accessible.
   or ignore client-provided `level`, `gold`, XP, inventory, equipment, position
   or any `legacySave` / `import` payload. Never copy old browser data.
 
+## Character deletion during Alpha 0.7
+- `DELETE /api/ngw/characters/:id` accepts `{confirmNickname}` from the signed-in account.
+- Server checks account ownership and an exact nickname match. It sets `deleted_at` instead of physically deleting progression, allowing later recovery if needed.
+- Deleted heroes disappear from the active list and no longer count toward three slots; their previous nickname can be registered again by a new hero.
+- Any future irreversible cleanup must be planned separately and must never remove newly active characters.
+
 ## Planned API routes (not active yet)
 - `POST /api/ngw/register`: username and password, returns recovery codes once.
 - `POST /api/ngw/login`: username and password, returns short-lived session.
