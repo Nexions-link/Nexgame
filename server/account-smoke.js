@@ -43,6 +43,7 @@ export async function runAccountSmoke(port){
   throw new Error('Account smoke starting progress does not match database');
  requireResponse(await jsonRequest(base,'/characters',{
   token,method:'POST',body:{nickname:'СтарыйТест',legacySave:{level:60}}}),400,'reject old saves');
+ requireResponse(await jsonRequest(base,'/characters/'+character.id,{method:'DELETE',body:{confirmNickname:nickname},token}),200,'remove hero');
  requireResponse(await jsonRequest(base,'/logout',{token,method:'POST',body:{}}),200,'logout');
  requireResponse(await jsonRequest(base,'/characters',{token}),401,'revoked session');
  console.log('NexGameWorld account smoke: ok (registered, signed in, created level-1 hero, verified persistent record, rejected old saves, logged out)');
