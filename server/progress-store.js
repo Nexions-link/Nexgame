@@ -161,6 +161,22 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   });
  }
  // The item must actually exist in the server-side saved inventory.
+ // Consume an owned potion and heal using only SERVER vitals, not packet values.
+ async function useHealingPotion({accountId,characterId,expectedRevision,currentHp,maxHp}){
+  if(!Number.isFinite(currentHp)||!Number.isFinite(maxHp)||
+     currentHp<=0||maxHp<=0||currentHp>=maxHp)
+   throw new ProgressError('potion_not_needed',409);
+  return transaction(accountId,characterId,expectedRevision,async({state,save})=>{
+   if(state.revision!==expectedRevision)throw conflict();
+   const slot=state.inventory.findIndex(row=>row?.id==='healingPotion'&&row.qty>0);
+   if(slot<0)throw new ProgressError('item_not_owned',409);
+   const inventory=state.inventory.map(row=>row?{...row}:null);
+   inventory[slot].qty--;
+   if(!inventory[slot].qty)inventory[slot]=null;
+   const health=Math.min(maxHp,currentHp+55);
+   return {progress:await save({...state,inventory,health})};
+  });
+ }
  async function equipInventoryItem({accountId,characterId,expectedRevision,
   bagSlot,equipmentSlot}){
   return transaction(accountId,characterId,expectedRevision,async({state,save})=>{
@@ -177,7 +193,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
  }
  return {
   schemaReady,load,initializeStarterPack,recordMobKill,saveServerCheckpoint,
-  equipInventoryItem,unequipInventoryItem,
+  equipInventoryItem,unequipInventoryItem,useHealingPotion,
   // Internal server-only transaction hook; never export via HTTP or WS.
   trustedTransaction:transaction,
   close:()=>ownsPool?pool.end():Promise.resolve()
