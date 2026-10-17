@@ -1,6 +1,7 @@
 // Private-by-default NexGameWorld account HTTP API.
 // Install on the Render Node server only after a durable DB is provisioned.
 // This API does not accept arbitrary client-side XP, inventory or gold writes.
+import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {
  normalizeUsername,validatePassword,CHARACTER_SLOT_LIMIT
 } from './account-rules.js';
@@ -35,11 +36,35 @@ function readJson(req){
   });
  });
 }
-export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
+export function createAccountApi({
+ store,allowedOrigins=VALID_ORIGINS,
+ alphaInvite=process.env.NGW_ALPHA_INVITE_CODE||'',
+ rateSecret=process.env.NGW_AUTH_RATE_SECRET||process.env.DATABASE_URL||'ngw-tests-only'
+}){
  if(!store)throw Error('Account store is required');
  const buckets=new Map();
  const allowed=new Set(allowedOrigins);
  const dummyHash=hashPassword('nonexistent-account-placeholder-secret');
+ const sourceIP=req=>{
+  // Never trust a client-supplied forwarded header for security decisions.
+  return String(req.socket?.remoteAddress||'unknown');
+ };
+ const rateKey=(scope,value)=>scope+':'+createHmac('sha256',rateSecret).
+   update(String(value)).digest('hex');
+ const consume=async(scope,value,limit,seconds)=>{
+  const key=rateKey(scope,value);
+  if(typeof store.consumeAuthRate==='function')
+   return store.consumeAuthRate(key,limit,seconds);
+  return rateLimit(key,limit);
+ };
+ const inviteMatches=code=>{
+  if(!alphaInvite)return true;
+  const supplied=typeof code==='string'?code:'';
+  const actual=createHash('sha256').update(supplied).digest();
+  const required=createHash('sha256').update(alphaInvite).digest();
+  return timingSafeEqual(actual,required);
+ };
+
  const rateLimit=(key,max)=>{
   const now=Date.now(),row=buckets.get(key);
   if(!row||row.until<now){buckets.set(key,{until:now+WINDOW_MS,count:1});return true;}
@@ -69,9 +94,13 @@ export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
   }
   try{
    if(method==='POST'&&path==='/api/ngw/register'){
-    const key='register:'+String(req.socket.remoteAddress||'unknown');
-    if(!rateLimit(key,5)){json(res,429,{error:'Попробуйте позже'});return true;}
+    if(!await consume('register-ip',sourceIP(req),50,3600)){
+     json(res,429,{error:'Слишком много запросов регистрации. Попробуйте позднее'});return true;
+    }
     const data=await readJson(req);
+    if(!inviteMatches(data.inviteCode)){
+     json(res,403,{error:'Для регистрации нужен действующий код приглашения'});return true;
+    }
     const username=normalizeUsername(data.username),password=validatePassword(data.password);
     const codes=createRecoveryCodes();
     // The account and its recovery codes commit together or not at all.
@@ -83,10 +112,12 @@ export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
     return true;
    }
    if(method==='POST'&&path==='/api/ngw/login'){
-    const key='login:'+String(req.socket.remoteAddress||'unknown');
-    if(!rateLimit(key,12)){json(res,429,{error:'Попробуйте позже'});return true;}
     const data=await readJson(req);
     const username=normalizeUsername(data.username),password=validatePassword(data.password);
+    if(!await consume('login-ip',sourceIP(req),120,900)||
+       !await consume('login-user',username,40,900)){
+     json(res,429,{error:'Слишком много попыток входа. Попробуйте через 15 минут'});return true;
+    }
     const record=await store.passwordRecord(username);
     const verified=await verifyPassword(password,record?.password_hash||await dummyHash);
     if(!record||!verified||record.status!=='active'){
@@ -100,10 +131,12 @@ export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
     return true;
    }
    if(method==='POST'&&path==='/api/ngw/recover'){
-    const key='recover:'+String(req.socket.remoteAddress||'unknown');
-    if(!rateLimit(key,5)){json(res,429,{error:'Попробуйте позже'});return true;}
     const data=await readJson(req);
     const username=normalizeUsername(data.username);
+    if(!await consume('recover-ip',sourceIP(req),20,3600)||
+       !await consume('recover-user',username,10,3600)){
+     json(res,429,{error:'Слишком много попыток восстановления'});return true;
+    }
     const digest=recoveryCodeDigest(data.recoveryCode);
     const newPassword=validatePassword(data.newPassword);
     if(!digest){json(res,400,{error:'Некорректный резервный код'});return true;}
@@ -113,6 +146,25 @@ export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
    }
    const account=await auth(req);
    if(!account){json(res,401,{error:'Требуется вход в аккаунт'});return true;}
+   if(method==='POST'&&path==='/api/ngw/password'){
+    const data=await readJson(req);
+    const currentPassword=validatePassword(data.currentPassword);
+    const newPassword=validatePassword(data.newPassword);
+    if(currentPassword===newPassword){
+     json(res,400,{error:'Новый пароль должен отличаться от старого'});return true;
+    }
+    if(!await consume('password-user',account.id,12,900)){
+     json(res,429,{error:'Слишком много попыток смены пароля'});return true;
+    }
+    const record=await store.passwordRecordById(account.id);
+    const valid=record&&await verifyPassword(currentPassword,record.password_hash);
+    if(!valid){json(res,401,{error:'Неверный текущий пароль'});return true;}
+    const changed=await store.changePassword(account.id,record.password_hash,
+     await hashPassword(newPassword));
+    json(res,changed?200:409,changed?{ok:true,sessionsRevoked:true}:
+     {error:'Пароль уже изменился, повторите вход'});
+    return true;
+   }
    if(method==='POST'&&path==='/api/ngw/logout'){
     const digest=tokenDigest(String(req.headers.authorization).slice(7));
     await store.revokeSession(digest);
