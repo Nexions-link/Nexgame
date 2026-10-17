@@ -26,7 +26,7 @@ progress writes directly as client-submitted API operations. A future
 integration must resolve the `accountId` and `characterId` from the
 authenticated, bound server-side session; not from a packet.
 
-- Mob event identity is **per character + radius + mob ID + respawn life**.
+- Mob event identity is **per character + server world-run UUID + radius + mob ID + respawn life**. The world-run UUID changes when Render restarts, so a new mob life #1 does not collide with a kill from the previous process. Within one server lifetime, repeated credits for the same life remain idempotent.
 - XP and gold match the current mob's server-defined values; loot IDs and
   quantities must match that mob's allowed tables.
 - The progress lock serializes events; duplicates return without awarding
