@@ -27,7 +27,7 @@ async function initializeAccounts(){
   accountDbStatus=ready?'ready':'schema_missing';
   if(ready&&process.env.NGW_ACCOUNTS_ENABLED==='true'){
    accountApi=createAccountApi({store:accountStore,
-    allowUnverified:process.env.NGW_ALLOW_UNVERIFIED_ALPHA==='true'});
+    allowedOrigins:['https://nexions.ru','https://www.nexions.ru']});
   }
  }catch(error){
   accountDbStatus='unavailable';
