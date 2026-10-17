@@ -1,12 +1,12 @@
 {
-  "name": "nexgame-world-server",
+  "name": "nexgameworld-server",
   "private": true,
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "start": "node index.js",
-    "check": "node --check index.js && node --check world-mobs.js && node --check groups.js && node --check chat.js && node --check chest.js",
-    "test": "node --test tests/*.test.mjs"
+    "check": "node --check index.js && node --check spherical-world.js && node --check spherical-pve.js && node --check groups.js && node --check chat.js && node --check chest.js",
+    "test": "node --test tests/chat.test.mjs tests/chest.test.mjs tests/groups.test.mjs tests/spherical-world.test.mjs tests/spherical-pve.test.mjs tests/spherical-online-integration.test.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -38,7 +38,7 @@ async function until(fn){
  for(let i=0;i<70;i++){const val=fn();if(val)return val;await wait(70);}
  throw Error('timed out waiting for expected socket message');
 }
-test('spherical presence is isolated by radius and from legacy flat world', {timeout:14000},async()=>{
+test('spherical presence is isolated by radius and archived flat-world socket is rejected', {timeout:14000},async()=>{
  const {p,child}=await start();let a,b,c,flat;
  try{
   [a,b,c,flat]=await Promise.all([client(p),client(p),client(p),client(p,'/')]);
@@ -55,13 +55,15 @@ test('spherical presence is isolated by radius and from legacy flat world', {tim
   const cSnap=await until(()=>c.events.find(e=>e.type==='snapshot'));
   assert.deepEqual(aSnap.players.map(e=>e.name).sort(),['Второй','Первый']);
   assert.equal(cSnap.players.length,1);
-  const flatWelcome=await until(()=>flat.events.find(e=>e.type==='welcome'));
-  assert.equal(flatWelcome.protocol,7);
-  assert.equal(aSnap.players.some(e=>e.id===flatWelcome.id),false);
+  await until(()=>flat.ws.readyState===WebSocket.CLOSED);
+  assert.equal(flat.events.some(e=>e.type==='welcome'),false);
+  assert.equal(aSnap.players.length,2);
   assert.notEqual(aWelcome.id,bWelcome.id);
   const h=await (await fetch('http://127.0.0.1:'+p+'/health')).json();
   assert.equal(h.sphericalPlayers,3);
-  assert.equal(h.players,1);
+  assert.equal(h.players,3);
+  assert.equal(h.world,'nexgameworld');
+  assert.equal(h.protocol,2);
  }finally{
   for(const x of [a,b,c,flat])x?.close();
   child.kill();
