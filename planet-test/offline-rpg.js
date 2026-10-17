@@ -102,8 +102,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const sendAccountAction=(kind,params={})=>{
   if(!isOnline())return msg('Нет связи с сервером. Изменения не применены.');
   if(!multiplayer.economy(kind,{...params,
-   ...(['merchantBuy','merchantSell'].includes(kind)?{requestId:crypto.randomUUID()}:{} )}))
-   return msg('Не удалось отправить команду');
+   ...(['merchantBuy','merchantSell'].includes(kind)?{requestId:crypto.randomUUID()}:{} )})){
+   msg('Не удалось отправить команду');return false;
+  }
+  return true;
  };
 
  const rightHand=hero.arms[1]?.hand,leftHand=hero.arms[0]?.hand;
@@ -620,7 +622,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(kind!=='gatherLoot')camp.cancel();
   modal.hidden=false;modal.dataset.kind=kind;
   if(kind==='chest'&&isOnline()){
-   const items=[...state.inventory];
+   const items=authenticatedProfile?serverBagSlots.map(row=>row?{...row}:null):[...state.inventory];
    while(items.length<12)items.push(null);
    onlineChest={slots:null,inventory:items};
    multiplayer.openChest(items);
@@ -646,7 +648,28 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   window.location.reload();
  }
  function interact(){
-  if(authenticatedProfile)return msg('Квесты, торговля и сундук подключаются к серверным сохранениям позже.');
+  if(authenticatedProfile){
+   if(!modal.hidden||pendingServerGather)return;
+   if(!isOnline())return msg('Нет связи с сервером');
+   const nearby=nearestInteraction();
+   if(!nearby)return msg('Подойди ближе к жителю или предмету');
+   if(nearby.kind==='gather'){
+    const job={stage:nearby.stage,index:nearby.index};
+    if(sendAccountAction('gatherStart',job)){
+     pendingServerGather=job;msg('Сбор растения… 1,5 с');
+    }
+    return;
+   }
+   if(nearby.kind==='relic'||nearby.kind==='scout'){
+    sendAccountAction('mentorInteract',{interaction:nearby.kind});return;
+   }
+   if(nearby.kind==='mob')return msg('Награда за убийство автоматически сохраняется в Neon');
+   if(nearby.kind==='mentor'){openWindow('mentor');return}
+   if(nearby.kind==='vendor'){openWindow('merchant');return}
+   if(nearby.kind==='herbalist'){openWindow('herbalist');return}
+   if(nearby.kind==='chest'){openWindow('chest');return}
+   return msg('Сейчас взаимодействие недоступно');
+  }
   if(!modal.hidden||camp.casting)return;
   // Approach alone enables NPC dialogue, gathering, storage and corpse loot.
   // It never requires a selected combat target.
