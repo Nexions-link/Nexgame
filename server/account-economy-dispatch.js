@@ -60,10 +60,12 @@ export function createAccountEconomyDispatcher({
    else throw Object.assign(Error('unsupported_economy_action'),{code:'unsupported_economy_action'});
    if(result?.progress)publishProgress(result,kind);
    if(kind==='chestMove'){
+    const snapshot=result.chest||await economyStore.readChest({...params,context});
     send({type:'chestResult',ok:true,requestId:message.requestId,
-     revision:result.chest.revision,slots:result.chest.slots,
-     inventory:result.progress.inventory,action:message.action});
-    broadcastChest(result.chest);
+     revision:snapshot.revision,slots:snapshot.slots,
+     inventory:result.progress.inventory,action:message.action,
+     applied:result.applied!==false});
+    if(result.applied!==false)broadcastChest(snapshot);
    }else send({type:'economyResult',ok:true,kind,requestId:message.requestId||null,
     applied:result?.applied!==false,castMs:result?.castMs||null});
   }catch(error){
