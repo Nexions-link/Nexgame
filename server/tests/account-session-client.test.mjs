@@ -36,3 +36,18 @@ test('authenticated play cannot apply local healing potion or cast while disconn
  assert.match(source,/if\(authenticatedProfile&&!isOnline\(\)\)/);
  assert.match(source,/function persist\(\)\{if\(preview\|\|authenticatedProfile\)return;/);
 });
+
+test('authenticated merchant, chest and equipment never mutate local inventory directly',()=>{
+ const scene=readFileSync(new URL('../../planet-test/offline-rpg.js',import.meta.url),'utf8');
+ const online=readFileSync(new URL('../../planet-test/sphere-online.js',import.meta.url),'utf8');
+ const planet=readFileSync(new URL('../../planet-test/planet.js',import.meta.url),'utf8');
+ assert.match(scene,/economySend\('buy',\{itemId:id,qty:1\}\)/);
+ assert.match(scene,/economySend\('sell',\{bagSlot,qty:row\.qty\}\)/);
+ assert.match(scene,/economySend\('chestDeposit',\{slot:i\}\)/);
+ assert.match(scene,/economySend\('chestWithdraw',\{slot:i\}\)/);
+ assert.match(scene,/economySend\('equip',\{bagSlot,equipmentSlot:slot\}\)/);
+ assert.match(scene,/economySend\('unequip',\{bagSlot:empty,equipmentSlot:slot\}\)/);
+ assert.match(scene,/authenticatedProfile\?\[\]:\[\['🗑 Удалить'/);
+ assert.match(online,/sendEconomy:payload=>send\(\{type:'economy',\.\.\.payload\}\)/);
+ assert.match(planet,/onEconomyResult:msg=>rpg\.onEconomyResult\(msg\)/);
+});
