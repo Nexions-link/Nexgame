@@ -1,15 +1,16 @@
 // Isolated server-only PostgreSQL economy. No HTTP or WebSocket routes.
 // The controlling world server must authenticate/resolve the character and
 // supply a validated live position, combat state and gather interaction.
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import pg from 'pg';
 import {createProgressStore} from './progress-store.js';
 import {GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS} from '../planet-test/gather-world.js';
-import {assertCharacterId,ProgressError} from './progress-rules.js';
+import {assertCharacterId,validateKillCredit,ProgressError} from './progress-rules.js';
 import {
  ECONOMY_CHEST_ID,ECONOMY_CHEST,ECONOMY_HERBALIST,
  ECONOMY_VENDOR,
  getGatherQuest,acceptGatherQuest,gatherNode,requireGatherAvailable,
+ acceptMentorQuest,certifyMentorKill,certifyMentorInteraction,turnInMentorQuest,
  requireServerProximity,addOwnedStacks,buyFromMerchant,sellToMerchant,
  turnInGatherQuest,moveSharedChest
 } from './economy-rules.js';
@@ -20,7 +21,7 @@ const revision= (state,expected)=>{
  if(state.revision!==expected)fail('stale_revision');
 };
 export function createEconomyStore({pool:externalPool,
- connectionString=process.env.DATABASE_URL}={}){
+ connectionString=process.env.DATABASE_URL,worldRunId=randomUUID()}={}){
  if(!externalPool&&!connectionString)throw Error('Economy store requires DATABASE_URL');
  const pool=externalPool||new Pool({
   connectionString,connectionTimeoutMillis:6000,idleTimeoutMillis:30000,
@@ -34,7 +35,7 @@ export function createEconomyStore({pool:externalPool,
    "SELECT to_regclass('public.ngw_shared_chests') IS NOT NULL AS chest,"+
    "to_regclass('public.ngw_economy_receipts') IS NOT NULL AS receipts,"+
    "to_regclass('public.ngw_gather_nodes') IS NOT NULL AS nodes,"+
-   "to_regclass('public.ngw_gather_casts') IS NOT NULL AS casts");
+   "to_regclass('public.ngw_gather_casts') IS NOT NULL AS casts,to_regclass('public.ngw_mentor_kill_evidence') IS NOT NULL AS mentor");
   return Object.values(rows[0]||{}).every(Boolean);
  }
  function receiptDetails(args,kind,payload){
@@ -183,9 +184,60 @@ export function createEconomyStore({pool:externalPool,
     nextStage:getGatherQuest(saved).stage};
   });
  }
+ async function startMentor(args){
+  const {context}=args;
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(acceptMentorQuest(state,context))};
+  });
+ }
+ async function mentorInteract(args){
+  const {kind,context}=args;
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(certifyMentorInteraction(state,kind,context))};
+  });
+ }
+ async function recordMentorKill(args){
+  const {serverCredit}=args;
+  return transaction(args,async({client,state,save})=>{
+   // Check the durable ledger before testing a potentially already-advanced
+   // quest state, so repeated PvE packets never increment objective counts.
+   const credit=validateKillCredit(serverCredit,state.worldRadius,worldRunId);
+   const existing=await client.query(
+    'SELECT 1 FROM ngw_mentor_kill_evidence WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,credit.eventKey]);
+   if(existing.rowCount)return {applied:false,reason:'duplicate',progress:state};
+   revision(state,args.expectedRevision);
+   const {next,evidence}=certifyMentorKill(state,serverCredit,worldRunId);
+   await client.query(
+    'INSERT INTO ngw_mentor_kill_evidence(character_id,event_key,quest_step) VALUES($1,$2,$3)',
+    [args.characterId,evidence.eventKey,evidence.questStep]);
+   return {applied:true,progress:await save(next)};
+  });
+ }
+ async function turnInMentor(args){
+  const {context}=args;
+  return transaction(args,async({client,state,save})=>{
+   revision(state,args.expectedRevision);
+   const {next,event}=turnInMentorQuest(state,context);
+   const existing=await client.query(
+    'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,event.eventKey]);
+   if(existing.rowCount)fail('mentor_reward_already_paid');
+   await client.query(
+    ["INSERT INTO ngw_progress_events",
+     "(character_id,event_key,event_kind,xp_granted,gold_granted,loot)",
+     "VALUES($1,$2,$3,$4,$5,'[]'::jsonb)"].join(' '),
+    [args.characterId,event.eventKey,event.eventKind,event.xp,event.gold]);
+   return {progress:await save(next),
+    reward:{xp:event.xp,gold:event.gold}};
+  });
+ }
  return {
   schemaReady:ready,buy,sell,readChest,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
+  startMentor,mentorInteract,recordMentorKill,turnInMentor,
   close:()=>externalPool?Promise.resolve():pool.end()
  };
 }
