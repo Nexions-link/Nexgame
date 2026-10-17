@@ -6,7 +6,7 @@ import {validateCharacterOptions} from '../account-rules.js';
 const ORIGIN='https://nexions.ru';
 
 function mockStore(){
- const accounts=new Map(),tokens=new Map(),characters=new Map();
+ const accounts=new Map(),tokens=new Map(),characters=new Map(),codeSets=new Map();
  let count=0;
  return {
   async createAccount(username,password_hash,digests){
@@ -14,14 +14,14 @@ function mockStore(){
    const account={id:'account-'+(++count),username,password_hash,
     status:'active'};
    accounts.set(username,account);
-   this.codes=new Set(digests.map(x=>x.toString('hex')));
+   codeSets.set(account.id,new Set(digests.map(x=>x.toString('hex'))));
    return account;
   },
   async passwordRecord(username){return accounts.get(username)||null},
   async consumeRecoveryCode(username,digest,newPasswordHash){
    const a=accounts.get(username),key=digest.toString('hex');
-   if(!a||!this.codes?.has(key))return false;
-   this.codes.delete(key);a.password_hash=newPasswordHash;
+   if(!a||!codeSets.get(a.id)?.has(key))return false;
+   codeSets.get(a.id).delete(key);a.password_hash=newPasswordHash;
    for(const [token,user] of tokens)if(user.id===a.id)tokens.delete(token);
    return true;
   },
