@@ -192,6 +192,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }else if(event?.reason)msg(event.reason);
  }
  let pendingServerGather=null;
+ let lastServerScoutRequest=0;
  function onEconomyResult(event){
   if(!authenticatedProfile||!event)return;
   if(!event.ok){
@@ -915,6 +916,36 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    });
    return;
   }
+  if(authenticatedProfile&&kind==='herbalist'){
+   const quest=GATHER_QUESTS[state.gatherStage];
+   if(state.gatherStage===0){
+    line('Цветы равнин','Помоги собрать первые цветы для травницы.',
+     [['Принять',()=>sendAccountAction('gatherAccept')]]);
+   }else if(state.gatherStage>=4){
+    line('Все поручения выполнены','Травница благодарит за помощь.');
+   }else if(state.gatherAvailable){
+    line(quest.title,'Готово следующее поручение. '+quest.hint,
+     [['Принять',()=>sendAccountAction('gatherAccept')]]);
+   }else{
+    const count=itemCount(quest.item);
+    line(quest.title,'Собрано '+count+' / '+quest.count+'. '+quest.hint,
+     count>=quest.count?[['Сдать',()=>sendAccountAction('gatherTurnIn')]]:[]);
+   }
+   return;
+  }
+  if(authenticatedProfile&&kind==='mentor'){
+   const q=state.quest;
+   if([0,3,6,9].includes(q))
+    line((QUEST_LINES[q]||[])[0]||'Наставник',(QUEST_LINES[q]||[])[1]||'Начни новое испытание.',
+     [['Принять испытание',()=>sendAccountAction('mentorAccept')]]);
+   else if([2,5,8,11].includes(q))
+    line('Испытание выполнено','Наставник готов вручить заслуженную награду.',
+     [['Получить награду',()=>sendAccountAction('mentorTurnIn')]]);
+   else if(q===12)line('Все испытания пройдены','Ты завершил обучение!');
+   else line((QUEST_LINES[q]||[])[0]||'Испытание',
+    q===1?'Долгоноги: '+state.kills+' / 3':(QUEST_LINES[q]||[])[1]||'Выполняется.');
+   return;
+  }
   if(camp.render(kind,body,line))return;
   if(kind==='mentor'){mentorChain.render(line);return;}
   if(kind==='loot'){
@@ -1243,7 +1274,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    animateSphericalTauren(citizens[i].actor,{dt,time:clock+i*1.47,walk:0,phase:0});
   }
   mentorWorld.update(state,clock);
-  if(state.quest===7&&distance(mentorWorld.scout)<5.5)mentorChain.discoveredScout();
+  if(state.quest===7&&distance(mentorWorld.scout)<5.5){
+   if(authenticatedProfile){
+    if(isOnline()&&(!lastServerScoutRequest||Date.now()-lastServerScoutRequest>4500)){
+     lastServerScoutRequest=Date.now();
+     sendAccountAction('mentorInteract',{interaction:'scout'});
+    }
+   }else mentorChain.discoveredScout();
+  }
   const local=player();
   swing-=dt;
   if(approach){
