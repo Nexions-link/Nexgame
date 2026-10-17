@@ -153,12 +153,16 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
         result=await economyStore.sell({...args,bagSlot:m.bagSlot,qty:m.qty});
         break;
        case 'equip':
+        if(interactionContext().inCombat&&m.equipmentSlot!=='weapon')
+         throw Object.assign(Error('equipment_in_combat'),{code:'equipment_in_combat'});
         result=await progressStore.equipInventoryItem({
          accountId:p.accountId,characterId:p.characterId,
          expectedRevision:p.savedRevision,bagSlot:m.bagSlot,
          equipmentSlot:m.equipmentSlot});
         break;
        case 'unequip':
+        if(interactionContext().inCombat&&m.equipmentSlot!=='weapon')
+         throw Object.assign(Error('equipment_in_combat'),{code:'equipment_in_combat'});
         result=await progressStore.unequipInventoryItem({
          accountId:p.accountId,characterId:p.characterId,
          expectedRevision:p.savedRevision,bagSlot:m.bagSlot,
