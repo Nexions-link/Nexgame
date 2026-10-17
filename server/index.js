@@ -51,6 +51,7 @@ async function verifyNeonConnection(){
 }
 void verifyNeonConnection();
 let accountStore=null, accountApi=null;
+let accountCleanupTimer=null;
 let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
 async function initializeAccounts(){
  if(!process.env.DATABASE_URL)return;
@@ -59,6 +60,13 @@ async function initializeAccounts(){
   await accountStore.ping();
   const ready=await accountStore.schemaReady();
   accountDbStatus=ready?'ready':'schema_missing';
+  if(ready){
+   accountCleanupTimer=setInterval(async()=>{
+    try{await accountStore.pruneAuthData()}
+    catch(error){console.error('NexGameWorld auth cleanup error:',error?.code||error?.name||'unknown')}
+   },60*60*1000);
+   accountCleanupTimer.unref?.();
+  }
   if(ready&&process.env.NGW_ACCOUNTS_ENABLED==='true'){
    accountApi=createAccountApi({store:accountStore});
    console.log('NexGameWorld account API enabled');
@@ -113,4 +121,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{world.close();wss.close();http.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void accountStore?.close()});
