@@ -128,7 +128,8 @@ function addStacks(bag,drops){
  }
  return next;
 }
-export function validateKillCredit(event,radius){
+export function validateKillCredit(event,radius,worldRunId){
+ if(typeof worldRunId!=='string'||!UUID.test(worldRunId))invalid('invalid_world_epoch');
  if(!plain(event)||!RADII.has(radius)||
     Object.keys(event).some(key=>!['type','mobId','life','xp','gold','loot'].includes(key))||
     event.type!=='killCredit'||!/^dolgonog-(0|[1-8])$/.test(event.mobId)||
@@ -157,7 +158,7 @@ export function validateKillCredit(event,radius){
   }else invalid('invalid_kill_loot');
   return {id:item.id,qty:item.qty};
  });
- return {eventKey:'mob:'+radius+':'+event.mobId+':'+event.life,
+ return {eventKey:'mob:'+worldRunId+':'+radius+':'+event.mobId+':'+event.life,
   eventKind:'mob_kill',xp:event.xp,gold:event.gold,loot};
 }
 export function awardVerifiedKill(state,verified){
