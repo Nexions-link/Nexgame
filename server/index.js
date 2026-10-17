@@ -11,7 +11,7 @@ import {createWorldSessionGate} from './world-session-gate.js';
 import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.33';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.34';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
  'https://www.nexions.ru','https://nexions-link.github.io']);
