@@ -21,6 +21,9 @@ export function cleanInventory(value){
   if(row==null){arr.push(null);continue}
   const safe=cleanStack(row);
   // Quest items may remain in a backpack, but may not enter the chest.
+  if(!safe&&row?.id==='healingPotion'&&Number.isInteger(row.qty)&&row.qty>=1&&row.qty<=20){
+   arr.push({id:'healingPotion',qty:row.qty});continue;
+  }
   if(!safe&&typeof row?.id==='string'&&Object.hasOwn(ITEM_CATALOG,row.id)&&ITEM_CATALOG[row.id].quest&&
    Number.isInteger(row.qty)&&row.qty>=1&&row.qty<=itemStackLimit(row.id)){
    arr.push({id:row.id,qty:row.qty});continue;
