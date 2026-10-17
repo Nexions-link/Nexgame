@@ -45,7 +45,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  const chest=createSharedChest({players,send:sendToId,
   broadcast:event=>{for(const p of players.values())sendToId(p.id,event)},filePath:chestFilePath});
  let timer=null;
- function attach(ws,{trustedCharacter=null,progressStore=null}={}){
+ function attach(ws,{trustedCharacter=null,progressStore=null,economyStore=null}={}){
   // Serialize all server-generated character saves for this connection.
   // A socket is not released for another login until its save queue drains.
   let saveQueue=Promise.resolve(),lastCheckpoint=0;
@@ -112,6 +112,61 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      joined:true,x:local.x,z:local.z,abilityCooldowns:{},
      savedRevision:saved?.revision??null};
     if(trustedCharacter&&progressStore){
+     const interactionContext=()=>({
+      normal:[...p.normal],radius:p.radius,
+      inCombat:Date.now()-p.lastCombatAt<5000||
+       rooms.get(p.radius).mobs.some(m=>m.aggroId===p.id)
+     });
+     const economyArgs=m=>({
+      accountId:p.accountId,characterId:p.characterId,
+      expectedRevision:p.savedRevision,
+      context:interactionContext(),
+      requestId:m.requestId
+     });
+     p.queueEconomy=m=>queueSave(async()=>{
+      if(!economyStore)throw Error('Economy store is unavailable');
+      const args=economyArgs(m);
+      let result;
+      switch(m.action){
+       case 'chestOpen':{
+        const chestData=await economyStore.readChest(args);
+        send(ws,{type:'chestState',...chestData,
+         inventory:await progressStore.load(p.accountId,p.characterId).then(s=>s.inventory)});
+        return;
+       }
+       case 'chestDeposit':
+       case 'chestWithdraw':
+        result=await economyStore.moveChest({...args,
+         action:m.action==='chestDeposit'?'deposit':'withdraw',slot:m.slot});
+        publishProgress(p,result,'chest');
+        send(ws,{type:'chestResult',ok:true,requestId:m.requestId,
+         revision:result.chest.revision,slots:result.chest.slots,
+         inventory:result.progress.inventory});
+        return;
+       case 'buy':
+        result=await economyStore.buy({...args,itemId:m.itemId,qty:m.qty});
+        break;
+       case 'sell':
+        result=await economyStore.sell({...args,bagSlot:m.bagSlot,qty:m.qty});
+        break;
+       case 'equip':
+        result=await progressStore.equipInventoryItem({
+         accountId:p.accountId,characterId:p.characterId,
+         expectedRevision:p.savedRevision,bagSlot:m.bagSlot,
+         equipmentSlot:m.equipmentSlot});
+        break;
+       case 'unequip':
+        result=await progressStore.unequipInventoryItem({
+         accountId:p.accountId,characterId:p.characterId,
+         expectedRevision:p.savedRevision,bagSlot:m.bagSlot,
+         equipmentSlot:m.equipmentSlot});
+        break;
+       default:throw Error('Unknown economy operation');
+      }
+      if(result.progress)publishProgress(p,result,'economy');
+      send(ws,{type:'economyResult',ok:true,action:m.action,
+       requestId:m.requestId||null});
+     });
      p.queueVerifiedKill=credit=>queueSave(async()=>{
       const result=await progressStore.recordMobKill({
        accountId:p.accountId,characterId:p.characterId,
@@ -155,12 +210,32 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    if(m.type==='partyRespond'){party.respond(current.id,m.fromId,m.accept===true);return}
    if(m.type==='partyLeave'){party.leave(current.id);return}
    if(m.type==='chatSend'){chat.handle(current.id,m);return}
+   if(m.type==='economy'&&trustedCharacter){
+    if(typeof m.action!=='string'||m.action.length>24)return;
+    if(!current.queueEconomy)return;
+    void current.queueEconomy(m).catch(error=>{
+     const reason=String(error?.code||error?.message||'economy_unavailable');
+     send(ws,{type:'economyResult',ok:false,action:m.action,
+      requestId:m.requestId||null,reason});
+     if(m.action==='chestOpen'||m.action==='chestDeposit'||m.action==='chestWithdraw')
+      send(ws,{type:'chestResult',ok:false,requestId:m.requestId||null,reason});
+    });
+    return;
+   }
    if(m.type==='chestOpen'){
-    if(trustedCharacter){send(ws,{type:'chestResult',ok:false,reason:'pending_server_inventory'});return}
+    if(trustedCharacter){void current.queueEconomy({action:'chestOpen'}).catch(error=>{
+     send(ws,{type:'chestResult',ok:false,reason:error?.code||'chest_unavailable'});
+    });return}
     chest.open(current.id,m.inventory);return
    }
    if(m.type==='chestMove'){
-    if(trustedCharacter){send(ws,{type:'chestResult',ok:false,reason:'pending_server_inventory'});return}
+    if(trustedCharacter){
+     const action=m.action==='deposit'?'chestDeposit':m.action==='withdraw'?'chestWithdraw':null;
+     if(!action){send(ws,{type:'chestResult',ok:false,reason:'invalid_chest_action'});return}
+     void current.queueEconomy({...m,action}).catch(error=>{
+      send(ws,{type:'chestResult',ok:false,requestId:m.requestId,
+       reason:error?.code||'chest_unavailable'});
+     });return}
     chest.move(current.id,m);return
    }
    if(m.type==='chestClose'){chest.close(current.id);return}
