@@ -9,6 +9,7 @@ import {createAccountStore} from './account-store.js';
 import {createAccountApi} from './account-api.js';
 import {createWorldSessionGate} from './world-session-gate.js';
 import {createProgressStore} from './progress-store.js';
+import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 const PORT=Number(process.env.PORT||3000),BUILD='0.6.33';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -53,7 +54,7 @@ async function verifyNeonConnection(){
 }
 void verifyNeonConnection();
 let accountStore=null, accountApi=null;
-let authenticatedWorldGate=null,worldProgressStore=null;
+let authenticatedWorldGate=null,worldProgressStore=null,worldEconomyStore=null;
 let accountCleanupTimer=null;
 let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
 async function initializeAccounts(){
@@ -78,6 +79,10 @@ async function initializeAccounts(){
    if(process.env.NGW_AUTH_WORLD_ENABLED==='true'){
     worldProgressStore=createProgressStore();
     if(!await worldProgressStore.schemaReady())throw Error('Progress event ledger is not ready');
+    // Fail closed if the economy schema is absent: authenticated
+    // characters must never use browser-authored inventories.
+    worldEconomyStore=createEconomyStore();
+    if(!await worldEconomyStore.schemaReady())throw Error('Economy tables not ready');
     authenticatedWorldGate=createWorldSessionGate({accountStore,progressStore:worldProgressStore});
     console.log('NexGameWorld authenticated world gateway enabled');
    }
@@ -139,7 +144,7 @@ wss.on('connection',(ws,req)=>{
     const trusted=await authenticatedWorldGate.enter(ws,message);
     if(ws.readyState!==1){authenticatedWorldGate.leave(ws);return}
     const attached=world.attach(ws,{trustedCharacter:trusted,
-     progressStore:worldProgressStore});
+     progressStore:worldProgressStore,economyStore:worldEconomyStore});
     ws.once('close',()=>{
      // Keep a character lease while outstanding committed rewards/position
      // writes finish. Never allow concurrent reconnect to race the last save.
@@ -170,4 +175,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldEconomyStore?.close();void worldProgressStore?.close();void accountStore?.close()});
