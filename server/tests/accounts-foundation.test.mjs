@@ -21,6 +21,24 @@ test('nickname rules accept Cyrillic, reject control/markup/unsupported classes'
  assert.throws(()=>validateCharacterOptions({nickname:'Северный',classId:'mage'}));
  assert.equal(CHARACTER_SLOT_LIMIT,3);
 });
+test('new online characters cannot import legacy saves or choose their own progress',()=>{
+ const expected=validateCharacterOptions({nickname:'НовыйГерой'});
+ assert.deepEqual(expected,{
+  nickname:'НовыйГерой',raceId:INITIAL_RACE,classId:INITIAL_CLASS,appearance:{}
+ });
+ for(const [field,value] of [
+  ['level',60],['experience',25000],['gold',999999],
+  ['inventory',[{id:'legacy_axe'}]],['equipment',{weapon:'legendary'}],
+  ['quests',{completed:['all']}],['worldRadius',87],
+  ['positionNormal',[0,1,0]],['progress',{level:60}],
+  ['legacySave',{level:60}],['import',true],
+  ['accountId','legacy-account'],['characterId','legacy-character']
+ ]){
+  assert.throws(()=>validateCharacterOptions({nickname:'НовыйГерой',[field]:value}),
+    /Перенос старого прогресса/);
+ }
+});
+
 test('passwords are salted and never stored as plaintext',async()=>{
  assert.throws(()=>validatePassword('1234567'));
  assert.equal(validatePassword('12345678'),'12345678');
