@@ -31,6 +31,16 @@ export function arcDistance(a,b,r){
 export function localDistance(mob,player,r){
  return arcDistance(localToNormal(mob.x,mob.z,r),player.normal,r);
 }
+// Exact curved-surface facing corresponding to the client's radial quaternion.
+export function sphereMobFacingYaw(x,z,goalX,goalZ,radius){
+ const n=localToNormal(x,z,radius),t=localToNormal(goalX,goalZ,radius),a=1+n[1];
+ if(a<1e-7)return Math.atan2(goalX-x,goalZ-z);
+ const dot=n[0]*t[0]+n[1]*t[1]+n[2]*t[2];
+ const fx=t[0]-dot*n[0],fy=t[1]-dot*n[1],fz=t[2]-dot*n[2];
+ const localX=fx*(1-n[0]*n[0]/a)-fy*n[0]-fz*n[0]*n[2]/a;
+ const localZ=-fx*n[0]*n[2]/a-fy*n[2]+fz*(1-n[2]*n[2]/a);
+ return Math.atan2(localX,localZ);
+}
 // Hero heading is measured in the tangent East/North basis used in planet.js.
 export function facesMob(player,mob,r,cosLimit=Math.cos(.9)){
  const n=player.normal, other=localToNormal(mob.x,mob.z,r);
@@ -59,7 +69,7 @@ export function createSphericalMobs(){
    boss,name:boss?'Грозоклюв':'Равнинный долгоног',hp:boss?108:54,maxHp:boss?108:54,
    phase:'alive',life:1,aggroId:null,contributors:new Set(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
-   roaming:i*1.73,navigation:null};
+   roaming:i*1.73,returning:false,navigation:null};
  });
 }
 export function mobSnapshot(mobs){
@@ -108,7 +118,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
     (abilityId==='heavyStrike'?ability.damageBonus||0:0));
   target.hp=Math.max(0,target.hp-damage);
   target.contributors.add(player.id);
-  target.aggroId=player.id;
+  target.aggroId=player.id;target.returning=false;
   target.lastHitAt=now;
   if(abilityId==='thunderStomp')target.stunUntil=Math.max(target.stunUntil,now+2500);
   player.resource=clamp(player.resource+(abilityId==='autoAttack'?12:abilityId==='heavyStrike'?8:3),0,100);
@@ -117,7 +127,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
   if(target.hp===0){
    target.phase='corpse';target.deathAt=now;target.corpseUntil=now+SPHERE_CORPSE_MS;
    target.respawnAt=target.corpseUntil+SPHERE_RESPAWN_MS;
-   target.aggroId=null;target.attackAt=0;target.attackCooldownAt=0;target.navigation=null;
+   target.aggroId=null;target.returning=false;target.attackAt=0;target.attackCooldownAt=0;target.navigation=null;
    const recipients=[...target.contributors];
    for(const attackerId of recipients)credits.push({targetId:attackerId,
     event:{type:'killCredit',mobId:target.id,life:target.life,
@@ -137,16 +147,18 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    mob.phase='alive';mob.hp=mob.maxHp;mob.life++;
    mob.x=mob.spawnX;mob.z=mob.spawnZ;mob.yaw=0;mob.aggroId=null;
    mob.contributors.clear();mob.navigation=null;mob.attackAt=0;mob.attackCooldownAt=0;
-   mob.stunUntil=0;mob.roaming=mob.index*1.73;
+   mob.stunUntil=0;mob.returning=false;mob.roaming=mob.index*1.73;
   }
   if(mob.phase!=='alive')continue;
   const spawnNormal=localToNormal(mob.spawnX,mob.spawnZ,radius);
   let target=mob.aggroId?players.get(mob.aggroId):null;
+  // Return-to-spawn happens only when an encounter ends, not during peaceful patrol.
+  if(mob.aggroId&&!target){mob.aggroId=null;mob.returning=true;mob.attackAt=0;}
   if(target&&(!target.joined||target.hp<=0||target.radius!==radius||
     arcDistance(spawnNormal,target.normal,radius)>SPHERE_LEASH_METRES)){
-   mob.aggroId=null;mob.attackAt=0;target=null;
+   mob.aggroId=null;mob.returning=true;mob.attackAt=0;target=null;
   }
-  if(!target){
+  if(!target&&!mob.returning){
    let closest=Infinity;
    for(const p of alive){
     const spawnDistance=arcDistance(spawnNormal,p.normal,radius);
@@ -155,11 +167,11 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
      closest=distance;target=p;
     }
    }
-   if(target)mob.aggroId=target.id;
+   if(target){mob.aggroId=target.id;mob.returning=false;}
   }
   const aim=target?normalToLocal(target.normal,radius):null;
   mob.roaming+=dt;
-  const home=(!target&&Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)>.65);
+  const home=!target&&mob.returning;
   const gx=target?aim?.x:home?mob.spawnX:mob.spawnX+Math.sin(mob.roaming*.18+mob.index)*2.2;
   const gz=target?aim?.z:home?mob.spawnZ:mob.spawnZ+Math.cos(mob.roaming*.14+mob.index)*2.2;
   if(!finite(gx)||!finite(gz))continue;
@@ -175,14 +187,13 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   const dx=(target&&distance<3.5?gx-mob.x:speed>.001?mob.x-beforeX:gx-mob.x);
   const dz=(target&&distance<3.5?gz-mob.z:speed>.001?mob.z-beforeZ:gz-mob.z);
   if(Math.hypot(dx,dz)>.00001){
-   // Local-geodesic chart bearing maps directly to the spherical mob yaw convention.
-   const desired=Math.atan2(dx,dz);
+   const desired=sphereMobFacingYaw(mob.x,mob.z,mob.x+dx,mob.z+dz,radius);
    const delta=Math.atan2(Math.sin(desired-mob.yaw),Math.cos(desired-mob.yaw));
    mob.yaw+=clamp(delta,-dt*12,dt*12);
   }
   if(!target){
    if(home&&Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<.65){
-    mob.hp=mob.maxHp;mob.contributors.clear();mob.navigation=null;
+    mob.returning=false;mob.hp=mob.maxHp;mob.contributors.clear();mob.navigation=null;
    }
    mob.attackAt=0;continue;
   }
