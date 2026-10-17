@@ -1,6 +1,7 @@
 // NexGameWorld 0.7.2: server-only, revisioned PostgreSQL character progress.
 // This module is deliberately NOT registered as an HTTP or WebSocket route.
 // Call it only from a future authenticated, authoritative world controller.
+import {randomUUID} from 'node:crypto';
 import pg from 'pg';
 import {
  assertCharacterId,parseRevision,readProgress,validateKillCredit,
@@ -24,7 +25,7 @@ const missing=()=>new ProgressError('character_not_found',404);
 const conflict=()=>new ProgressError('stale_revision',409);
 
 export function createProgressStore({connectionString=process.env.DATABASE_URL,
- pool:externalPool=null}={}){
+ pool:externalPool=null,worldRunId=randomUUID()}={}){
  if(!externalPool&&!connectionString)throw Error('Progress store requires DATABASE_URL');
  const pool=externalPool||new Pool({connectionString,
   connectionTimeoutMillis:6000,idleTimeoutMillis:30000,max:3,
@@ -90,7 +91,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
  // Identity is unique per hero, radius, mob and respawn life.
  async function recordMobKill({accountId,characterId,expectedRevision,
   radius,serverCredit}){
-  const event=validateKillCredit(serverCredit,radius);
+  const event=validateKillCredit(serverCredit,radius,worldRunId);
   return transaction(accountId,characterId,expectedRevision,async({client,state,save})=>{
    if(state.worldRadius!==radius)
     throw new ProgressError('wrong_world_radius',409);
