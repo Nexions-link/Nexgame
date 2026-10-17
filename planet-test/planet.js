@@ -354,6 +354,7 @@ try {
     onCombat:(msg,selfId)=>rpg.onCombatEvent(msg,selfId),
     onKillCredit:msg=>rpg.onKillCredit(msg),
     onVerifiedProgress:(progress,source)=>rpg.applyServerProgress(progress,source),
+    onEconomyResult:event=>rpg.onEconomyResult(event),
     onAuthRejected:reason=>rpg.onPartyNotice({message:reason}),
     onMobAttack:msg=>rpg.onMobAttack(msg),
     onRespawn:msg=>rpg.onNetworkRespawn(msg),
