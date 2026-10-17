@@ -8,7 +8,7 @@
     "check": "node --check index.js && node --check spherical-world.js && node --check spherical-pve.js && node --check groups.js && node --check chat.js && node --check chest.js",
     "test": "node --test tests/chat.test.mjs tests/chest.test.mjs tests/groups.test.mjs tests/spherical-world.test.mjs tests/spherical-pve.test.mjs tests/spherical-online-integration.test.mjs",
     "check:accounts": "node --check account-rules.js && node --check auth-crypto.js && node --check account-store.js && node --check account-api.js && node --check account-smoke.js",
-    "test:accounts": "node --test tests/accounts-foundation.test.mjs tests/account-api.test.mjs tests/auth-hardening.test.mjs",
+    "test:accounts": "node --test tests/accounts-foundation.test.mjs tests/account-api.test.mjs tests/auth-hardening.test.mjs tests/auth-throttle-store.test.mjs",
     "prestart": "npm run check && npm run check:accounts && npm run test:accounts"
   },
   "engines": {
