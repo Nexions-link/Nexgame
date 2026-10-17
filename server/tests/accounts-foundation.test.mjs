@@ -22,7 +22,9 @@ test('nickname rules accept Cyrillic, reject control/markup/unsupported classes'
  assert.equal(CHARACTER_SLOT_LIMIT,3);
 });
 test('passwords are salted and never stored as plaintext',async()=>{
- assert.throws(()=>validatePassword('short'));
+ assert.throws(()=>validatePassword('1234567'));
+ assert.equal(validatePassword('12345678'),'12345678');
+ assert.equal(validatePassword('пароЛь12'),'пароЛь12');
  const password='test-password-2026!';
  const one=await hashPassword(password),two=await hashPassword(password);
  assert.notEqual(one,two);
