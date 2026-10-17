@@ -5,6 +5,9 @@ import {existsSync,unlinkSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {resolve,dirname,join} from 'node:path';
 import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
+import {createAccountStore} from './account-store.js';
+import {createAccountApi} from './account-api.js';
+import {runAccountSmoke} from './account-smoke.js';
 const PORT=Number(process.env.PORT||3000),BUILD='0.6.31';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
@@ -47,13 +50,47 @@ async function verifyNeonConnection(){
  }
 }
 void verifyNeonConnection();
+let accountStore=null, accountApi=null;
+let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
+async function initializeAccounts(){
+ if(!process.env.DATABASE_URL)return;
+ try{
+  accountStore=createAccountStore();
+  await accountStore.ping();
+  const ready=await accountStore.schemaReady();
+  accountDbStatus=ready?'ready':'schema_missing';
+  if(ready&&process.env.NGW_ACCOUNTS_ENABLED==='true'){
+   accountApi=createAccountApi({store:accountStore});
+   console.log('NexGameWorld account API enabled');
+  }
+ }catch(error){
+  accountDbStatus='unavailable';
+  console.error('NexGameWorld account API unavailable:',error?.code||error?.name||'unknown');
+ }
+}
+const accountsReady=initializeAccounts();
 const http=createServer((req,res)=>{
  if(req.url?.split('?')[0]==='/health'){
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
   res.end(JSON.stringify({ok:true,world:'nexgameworld',
    players:world.population(),sphericalPlayers:world.population(),mobs:world.mobCount(),
    protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup,
-   databaseConfigured:Boolean(process.env.DATABASE_URL)}));return;
+   databaseConfigured:Boolean(process.env.DATABASE_URL),
+   accountDbStatus,accountApiEnabled:!!accountApi}));return;
+ }
+ if(req.url?.split('?')[0]?.startsWith('/api/ngw/')){
+  if(accountApi){
+   void accountApi(req,res).catch(error=>{
+    console.error('NexGameWorld account request failed:',error?.code||error?.name||'unknown');
+    if(!res.headersSent){
+     res.writeHead(500,{'content-type':'application/json','cache-control':'no-store'});
+     res.end(JSON.stringify({error:'Временная ошибка сервера'}));
+    }
+   });
+   return;
+  }
+  res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});
+  res.end(JSON.stringify({error:'Система регистрации ещё не включена'}));return;
  }
  res.writeHead(410,{'content-type':'text/plain','cache-control':'no-store'});
  res.end('Archived NexGame server is retired. Use NexGameWorld.');
@@ -69,5 +106,11 @@ wss.on('connection',(ws,req)=>{
 http.listen(PORT,'0.0.0.0',()=>{
  console.log('NexGameWorld spherical server listening on '+PORT);
  console.log('NexGameWorld database URL present:',Boolean(process.env.DATABASE_URL));
+ if(process.env.NGW_ACCOUNTS_SMOKE==='once'){
+  void accountsReady.then(()=>{
+   if(!accountApi)throw new Error('Account API is not enabled; smoke test skipped');
+   return runAccountSmoke(PORT);
+  }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
+ }
 });
-process.on('SIGTERM',()=>{world.close();wss.close();http.close()});
+process.on('SIGTERM',()=>{world.close();wss.close();http.close();void accountStore?.close()});
