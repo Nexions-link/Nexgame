@@ -49,7 +49,7 @@ test('spherical presence is isolated by radius and from legacy flat world', {tim
   const aWelcome=await until(()=>a.events.find(e=>e.type==='welcome'));
   const bWelcome=await until(()=>b.events.find(e=>e.type==='welcome'));
   const cWelcome=await until(()=>c.events.find(e=>e.type==='welcome'));
-  assert.equal(aWelcome.protocol,1);
+  assert.equal(aWelcome.protocol,2);
   assert.equal(cWelcome.radius,87);
   const aSnap=await until(()=>a.events.find(e=>e.type==='snapshot'&&e.players.length===2));
   const cSnap=await until(()=>c.events.find(e=>e.type==='snapshot'));
