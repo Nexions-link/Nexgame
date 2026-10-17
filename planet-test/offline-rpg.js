@@ -1428,7 +1428,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  persist();draw();void updateEquipmentVisuals();
  return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,onResetProgress,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,
-  setMultiplayer,networkCharacter,onOnlinePlayers,onPartyState,onPartyInvite,onPartyNotice,onChat,onChestState,onChestResult,
+  setMultiplayer,networkCharacter,onOnlinePlayers,onPartyState,onPartyInvite,onPartyNotice,onChat,onChestState,onChestResult,onEconomyResult,
   onVitals,onCombatEvent,onKillCredit,applyServerProgress,onMobAttack,onNetworkRespawn,onMobSnapshot,
   get movementLocked(){return timeline.stompProgress>=0},
   getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
