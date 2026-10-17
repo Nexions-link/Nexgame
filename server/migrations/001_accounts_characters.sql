@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS ngw_character_progress (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Historical placeholder from the early alpha plan. Not used by the
+-- authenticated online world: all accounts create fresh characters instead.
+-- Keep existing database objects untouched; review removal only after launch.
 CREATE TABLE IF NOT EXISTS ngw_save_imports (
   character_id UUID PRIMARY KEY REFERENCES ngw_characters(id) ON DELETE CASCADE,
   source TEXT NOT NULL DEFAULT 'browser_alpha_0_6',
