@@ -189,6 +189,52 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(!modal.hidden&&modal.dataset.kind==='chest')renderModal();
   }else if(event?.reason)msg(event.reason);
  }
+ let pendingServerGather=null;
+ function onEconomyResult(event){
+  if(!authenticatedProfile||!event)return;
+  if(!event.ok){
+   if(event.kind==='gatherStart'||event.kind==='gatherFinish')pendingServerGather=null;
+   const labels={
+    interaction_too_far:'Подойди ближе к персонажу или предмету',
+    untrusted_interaction_context:'Сейчас взаимодействовать нельзя',
+    not_enough_gold:'Недостаточно монет',inventory_full:'Рюкзак заполнен',
+    item_not_owned:'Предмет не найден в рюкзаке',item_not_sellable:'Предмет нельзя продать',
+    chest_transfer_rejected:'В сундуке или рюкзаке нет места',
+    gather_node_respawning:'Растение ещё не выросло',
+    gather_cast_in_progress:'Сбор пока не завершён',gather_cast_not_started:'Сбор прерван',
+    quest_not_ready:'Сначала выполни условия задания',
+    quest_not_active:'Сначала прими задание травницы',
+    mentor_reward_not_ready:'Испытание ещё не завершено',
+    stale_revision:'Сохранение обновилось. Повтори действие',
+    equipment_requirements_not_met:'Это снаряжение пока нельзя надеть'
+   };
+   msg(labels[event.reason]||'Сервер отклонил действие: '+(event.reason||'ошибка'));
+   return;
+  }
+  if(event.kind==='gatherStart'&&pendingServerGather){
+   const job=pendingServerGather;
+   setTimeout(()=>{
+    if(!isOnline()||pendingServerGather!==job)return;
+    sendAccountAction('gatherFinish',{stage:job.stage,index:job.index});
+   },Math.max(1500,event.castMs||1500)+120);
+   return;
+  }
+  if(event.kind==='gatherFinish'&&pendingServerGather){
+   const job=pendingServerGather;pendingServerGather=null;
+   const node=gathering.nodes.find(n=>n.stage===job.stage&&n.index===job.index);
+   if(node)node.readyAt=clock+GATHER_RESPAWN_SECONDS;
+  }
+  const labels={
+   merchantBuy:'Покупка сохранена',merchantSell:'Продажа сохранена',
+   gatherAccept:'Задание травницы принято',gatherFinish:'Ресурс собран и сохранён',
+   gatherTurnIn:'Награда за сбор получена',mentorAccept:'Испытание принято',
+   mentorInteract:'Цель задания выполнена',mentorTurnIn:'Награда наставника получена',
+   equip:'Предмет экипирован',unequip:'Предмет снят'
+  };
+  if(labels[event.kind])msg(labels[event.kind],2.2);
+  if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests'].includes(modal.dataset.kind))
+   renderModal();
+ }
  function onVitals(event){
   if(!isOnline())return;
   if(Number.isFinite(event.hp))state.hp=Math.max(0,Math.min(stats().maxHp,event.hp));
@@ -229,6 +275,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.hotbar=normalizeHotbar(state.hotbar,'warrior',state.level);
   void updateEquipmentVisuals();
   draw();
+  if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','chest'].includes(modal.dataset.kind))renderModal();
   if(source==='mob')msg('Награда за бой сохранена в Neon',2.6);
  }
  function onKillCredit(event){
@@ -1364,7 +1411,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  persist();draw();void updateEquipmentVisuals();
  return {update,targetNearest,interact,resetWorldTransforms,canMoveTo,onRespawn,onResetProgress,handleSlotKey,getApproachTarget,stopAutoApproach,cancelAutoApproach,
   setMultiplayer,networkCharacter,onOnlinePlayers,onPartyState,onPartyInvite,onPartyNotice,onChat,onChestState,onChestResult,
-  onVitals,onCombatEvent,onKillCredit,applyServerProgress,onMobAttack,onNetworkRespawn,onMobSnapshot,
+  onVitals,onCombatEvent,onKillCredit,applyServerProgress,onEconomyResult,onMobAttack,onNetworkRespawn,onMobSnapshot,
   get movementLocked(){return timeline.stompProgress>=0},
   getAnimationState,getQuestMapState,setVisualQuality,updateQuestMarkers,draw,get state(){return state}};
 }
