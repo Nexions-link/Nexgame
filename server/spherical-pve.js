@@ -231,6 +231,10 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    mob.attackAt=now+(mob.boss?450:400);
    events.push({type:'mobTelegraph',mobId:mob.id,life:mob.life,targetId:target.id,windupMs:mob.boss?450:400});
   }else if(mob.attackAt>0&&now>=mob.attackAt){
+   // Do not deal invisible rear-facing hits while a mob completes its turn.
+   const facing=sphericalMobYaw(mob.x,mob.z,gx-mob.x,gz-mob.z,radius);
+   const error=facing===null?Math.PI:Math.abs(Math.atan2(Math.sin(facing-mob.yaw),Math.cos(facing-mob.yaw)));
+   if(error>.32){mob.attackAt=now+100;continue;}
    const stats=playerStats(target);
    const block=stats.blockChance>0&&rng()<stats.blockChance;
    const reduction=armorReduction(stats.armor,mob.boss?5:1);
