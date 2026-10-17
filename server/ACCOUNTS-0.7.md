@@ -38,11 +38,11 @@ service, or Nexions.ru. The current Alpha 0.6.31 game remains accessible.
   confirms an atomic import. Never silently wipe browser data.
 
 ## Planned API routes (not active yet)
-- `POST /api/auth/register`: email and password; email verification required.
-- `POST /api/auth/login`: returns a short-lived bearer session and renewal
+- `POST /api/ngw/register`: username and password, returns recovery codes once.
+- `POST /api/ngw/login`: username and password, returns short-lived session.
   mechanism (no sensitive tokens in query strings).
-- `POST /api/auth/logout`, `GET /api/auth/me` and password/email recovery.
-- `GET /api/characters`, `POST /api/characters`,
+- `POST /api/ngw/logout`, `GET /api/ngw/me`, `POST /api/ngw/recover`.
+- `GET /api/ngw/characters`, `POST /api/ngw/characters`, `GET /api/ngw/characters/:id`.
   `POST /api/characters/:id/select`.
 - WebSocket `/ws/nexgameworld` must require a valid authenticated session
   and verify ownership of the selected character before joining. Unauthenticated
@@ -53,7 +53,7 @@ service, or Nexions.ru. The current Alpha 0.6.31 game remains accessible.
   cross-origin bearer-session exchange and strict CORS origin allowlist.
 - Add rate limiting (IP/account), constant-time verification, secure recovery,
   audit logging without passwords/tokens, and CSRF protections as applicable.
-  An email provider and operational reset workflow must be set up before launch.
+  Recovery codes must be securely generated and shown only once; do not log them.
 
 ## Activation gates
 1. Durable database is purchased/approved and backups tested.
