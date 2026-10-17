@@ -41,7 +41,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
   if(p?.radius===radius)send(ws,event)};
  const party=createPartyManager({players,send:sendToId});
  const chat=createChatManager({players,parties:party,send:sendToId,
-  broadcast:event=>{for(const p of players.values())sendToId(p.id,{...event});}});
+  broadcast:event=>{const from=players.get(event.fromId);if(from)sendInRoom(from.radius,event);}});
  const chest=createSharedChest({players,send:sendToId,
   broadcast:event=>{for(const p of players.values())sendToId(p.id,event)},filePath:chestFilePath});
  let timer=null;
@@ -75,7 +75,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     const p={id:randomUUID(),name:cleanName(m.name),
      normal,heading:m.heading,moving:false,radius:m.radius,
      level,equipment,hp,maxHp:stats.maxHp,resource:0,
-     lastMobAttackAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
+     lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
      joined:true,x:local.x,z:local.z,abilityCooldowns:{}};
     players.set(p.id,p);connections.set(ws,p);
     send(ws,{type:'welcome',world:'nexgameworld',protocol:SPHERE_PROTOCOL,
@@ -109,6 +109,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     if(current.respawnShieldUntil>Date.now())return;
     const res=applySphereAttack(rooms.get(current.radius).mobs,current,m.abilityId,m.mobId);
     if(!res.ok){send(ws,{type:'combatRejected',abilityId:m.abilityId,reason:res.reason});return}
+    if(res.events.length)current.lastCombatAt=Date.now();
     for(const event of res.events)sendInRoom(current.radius,event);
     for(const entry of res.credits)sendToId(entry.targetId,entry.event);
     return;
@@ -117,7 +118,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     // Potions are currently saved locally. Keep server state bounded to actual
     // player stats, without accepting arbitrary max HP or a direct HP value.
     const now=Date.now();
-    if(now<(current.lastHealAt||0)+60000)return;
+    if(now<(current.lastHealAt||0)+1500){send(ws,{type:'combatRejected',reason:'Настой восстанавливается'});return;}
     current.lastHealAt=now;current.hp=Math.min(current.maxHp,current.hp+55);
     send(ws,{type:'playerVitals',hp:current.hp,maxHp:current.maxHp,resource:current.resource});
     return;
@@ -146,8 +147,16 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    room.tick++;
    const events=tickSphericalMobs(room.mobs,players,room.radius,dt,now);
    for(const e of events){
+    if(e.type==='mobAttack'){
+     const p=players.get(e.targetId);if(p)p.lastCombatAt=now;
+    }
     if(e.type==='mobAttack'||e.type==='respawnAccepted')sendToId(e.targetId,e);
     else sendInRoom(room.radius,e);
+   }
+   for(const p of players.values()){
+    if(p.radius!==room.radius||now-(p.lastCombatAt||0)<=5000)continue;
+    p.hp=Math.min(p.maxHp,p.hp+3*dt);
+    p.resource=Math.max(0,p.resource-5*dt);
    }
    if(![...players.values()].some(p=>p.radius===room.radius))continue;
    const snapshot={type:'snapshot',protocol:SPHERE_PROTOCOL,tick:room.tick,radius:room.radius,
