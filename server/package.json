@@ -9,7 +9,11 @@
     "test": "node --test tests/chat.test.mjs tests/chest.test.mjs tests/groups.test.mjs tests/spherical-world.test.mjs tests/spherical-pve.test.mjs tests/spherical-online-integration.test.mjs",
     "check:accounts": "node --check account-rules.js && node --check auth-crypto.js && node --check account-store.js && node --check account-api.js && node --check account-smoke.js",
     "test:accounts": "node --test tests/accounts-foundation.test.mjs tests/account-api.test.mjs tests/auth-hardening.test.mjs",
-    "prestart": "npm run check && npm run check:accounts && npm run test:accounts"
+    "prestart": "npm run check && npm run check:accounts && npm run test:accounts",
+    "check:progress": "node --check progress-rules.js && node --check progress-store.js && node --check tests/progress-rules.test.mjs && node --check tests/progress-postgres.test.mjs",
+    "test:progress": "node --test tests/progress-rules.test.mjs tests/progress-postgres.test.mjs",
+    "check:economy": "node --check economy-rules.js && node --check economy-store.js && node --check tests/economy-rules.test.mjs && node --check tests/economy-postgres.test.mjs",
+    "test:economy": "node --test tests/economy-rules.test.mjs tests/economy-postgres.test.mjs"
   },
   "engines": {
     "node": ">=20"
