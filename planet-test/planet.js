@@ -336,7 +336,24 @@ try {
     createAvatar:options=>createTauren(THREE,scene,options),
     animateAvatar:animateSphericalTauren,
     getPosition:()=>({normal:state.normal.toArray(),heading:state.heading,radius:R,moving:presenceMoving}),
+    getCharacter:()=>rpg.networkCharacter(),
     getRadius:()=>R,heightAt,
+    onPlayers:rows=>rpg.onOnlinePlayers(rows),
+    onMobs:rows=>rpg.onMobSnapshot(rows),
+    onVitals:msg=>rpg.onVitals(msg),
+    onCombat:(msg,selfId)=>rpg.onCombatEvent(msg,selfId),
+    onKillCredit:msg=>rpg.onKillCredit(msg),
+    onMobAttack:msg=>rpg.onMobAttack(msg),
+    onRespawn:msg=>rpg.onNetworkRespawn(msg),
+    onPartyState:msg=>rpg.onPartyState(msg),
+    onPartyInvite:msg=>rpg.onPartyInvite(msg),
+    onPartyNotice:msg=>rpg.onPartyNotice(msg),
+    onChat:msg=>rpg.onChat(msg),
+    onChatRejected:msg=>rpg.onPartyNotice({message:msg.reason}),
+    onChestState:msg=>rpg.onChestState(msg),
+    onChestResult:msg=>rpg.onChestResult(msg),
+    onCombatRejected:msg=>rpg.onPartyNotice({message:msg.reason||'Удар отклонён сервером'}),
+    onDisconnect:()=>rpg.onPartyState({groupId:null,leaderId:null,members:[]}),
     onStatus:(value,count)=>{
       const element=$('onlineStatus');if(!element)return;
       element.textContent=value==='online'?'В мире: '+count+' игрок'+(count===1?'':count>=2&&count<=4?'а':'ов'):
@@ -345,6 +362,7 @@ try {
         'Локальный режим · 1 игрок';
     }
   });
+  rpg.setMultiplayer(onlinePresence);
   window.addEventListener('pagehide',()=>onlinePresence?.close());
   let prevHeading = 0;
   const cameraGoal = new THREE.Vector3();
