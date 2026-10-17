@@ -40,8 +40,12 @@ test('new online characters cannot import legacy saves or choose their own progr
 });
 
 test('passwords are salted and never stored as plaintext',async()=>{
- assert.throws(()=>validatePassword('1234567'));
+ assert.throws(()=>validatePassword('12345'));
+ assert.equal(validatePassword('123456'),'123456');
+ assert.equal(validatePassword('1234567'),'1234567');
  assert.equal(validatePassword('12345678'),'12345678');
+ assert.throws(()=>validatePassword('x'.repeat(129)));
+ assert.equal(validatePassword('x'.repeat(128)).length,128);
  assert.equal(validatePassword('пароЛь12'),'пароЛь12');
  const password='test-password-2026!';
  const one=await hashPassword(password),two=await hashPassword(password);
@@ -50,6 +54,8 @@ test('passwords are salted and never stored as plaintext',async()=>{
  assert.equal(await verifyPassword(password,one),true);
  assert.equal(await verifyPassword('wrong-password-2026',one),false);
  assert.equal(await verifyPassword(password,'invalid'),false);
+ const shortHash=await hashPassword('ab12!?');
+ assert.equal(await verifyPassword('ab12!?',shortHash),true);
 });
 test('sessions store only fixed-size hash of a random secret',()=>{
  const a=newSessionToken(),b=newSessionToken(),hash=tokenDigest(a);
