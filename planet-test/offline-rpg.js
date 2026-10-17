@@ -735,6 +735,47 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    row.append(name);for(const [caption,fn] of actions){const b=document.createElement('button');b.type='button';b.textContent=caption;b.addEventListener('click',fn);row.append(b);}
    body.append(row);
   };
+  if(kind==='party'){
+   if(!isOnline()){line('Нет подключения','Группы и чат доступны при подключении к общему миру.');return;}
+   line('Группа',partyState.groupId?'Участников: '+partyState.members.length+' / 5':'Вы пока не в группе',
+    partyState.groupId?[['Покинуть',()=>multiplayer.leaveParty()]]:[]);
+   for(const member of partyState.members)
+    line(member.name||'Игрок',(member.id===partyState.leaderId?'Лидер · ':'')+'Уровень '+(member.level||1));
+   if(!partyState.groupId||partyState.members.length<5){
+    line('Игроки в мире','Выбери игрока для приглашения.');
+    for(const peer of onlinePlayers)if(!partyState.members.some(x=>x.id===peer.id))
+     line(peer.name||'Странник','Уровень '+(peer.level||1),[['Пригласить',()=>multiplayer.invite(peer.id)]]);
+   }
+   const message=document.createElement('input');message.type='text';message.maxLength=180;
+   message.placeholder='Написать сообщение…';message.style.cssText='width:100%;margin:8px 0;padding:9px';
+   body.append(message);
+   const sendMessage=channel=>{
+    if(message.value.trim()&&multiplayer.sendChat(channel,message.value.trim())){
+     message.value='';msg('Сообщение отправлено',1.2);
+    }
+   };
+   line('Чат','Общий чат или чат участников группы',[
+    ['В мир',()=>sendMessage('world')],['В группу',()=>sendMessage('party')]
+   ]);
+   return;
+  }
+  if(kind==='chest'&&isOnline()){
+   if(!onlineChest?.slots){line('Общий сундук','Загружаем 18 ячеек с сервера…');return;}
+   line('Общий сундук','18 ячеек синхронизируются через Render.');
+   for(let i=0;i<onlineChest.slots.length;i++){
+    const item=onlineChest.slots[i],def=ITEM_CATALOG[item?.id];
+    if(item)line('Ячейка '+(i+1)+' · '+(def?.name||item.id),'×'+item.qty,
+     [['Забрать',()=>multiplayer.moveChest('withdraw',i,crypto.randomUUID())]]);
+   }
+   line('Рюкзак','Нажми «Положить», чтобы переместить предмет.');
+   state.inventory.forEach((item,i)=>{
+    const def=ITEM_CATALOG[item.id];
+    if(def&&!def.quest)
+     line(def.name+' ×'+item.qty,'Ячейка '+(i+1),
+      [['Положить',()=>multiplayer.moveChest('deposit',i,crypto.randomUUID())]]);
+   });
+   return;
+  }
   if(camp.render(kind,body,line))return;
   if(kind==='mentor'){mentorChain.render(line);return;}
   if(kind==='loot'){
