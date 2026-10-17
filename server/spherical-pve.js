@@ -12,6 +12,7 @@ export const SPHERE_MOB_SPAWNS=Object.freeze([
 export const SPHERE_CORPSE_MS=30000;
 export const SPHERE_RESPAWN_MS=30000;
 export const SPHERE_LEASH_METRES=23;
+export const SPHERE_ROAM_RADIUS=3.2;
 const TAU=Math.PI*2,MAX_TICK=.25,MELEE_RANGE=3.45,STOMP_RANGE=4.5;
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
@@ -52,6 +53,29 @@ const lakeWalkable=(x,z)=>{
  return Math.hypot(dx,dz)/shoreline>=.98;
 };
 const walkable=(x,z,r)=>canWalkCamp(x,z,r)&&lakeWalkable(x,z);
+// The visual GLB points along tangent-local +Z, matching mob-facing.js.
+export function sphericalMobYaw(x,z,dx,dz,radius){
+ const d=Math.hypot(dx,dz);if(d<1e-8)return null;
+ const n=localToNormal(x,z,radius),to=localToNormal(x+dx/d,z+dz/d,radius);
+ const dot=n[0]*to[0]+n[1]*to[1]+n[2]*to[2];
+ const f=[to[0]-dot*n[0],to[1]-dot*n[1],to[2]-dot*n[2]];
+ const qden=Math.sqrt(2*(1+n[1]));if(qden<1e-8)return null;
+ const qx=n[2]/qden,qz=-n[0]/qden,qw=(1+n[1])/qden;
+ const localX=[1-2*qz*qz,2*qw*qz,2*qx*qz];
+ const localZ=[2*qx*qz,-2*qw*qx,1-2*qx*qx];
+ return Math.atan2(f[0]*localX[0]+f[1]*localX[1]+f[2]*localX[2],
+   f[0]*localZ[0]+f[1]*localZ[1]+f[2]*localZ[2]);
+}
+function chooseRoamGoal(mob,now,rng){
+ const size=mob.boss?.94:.52,canWalk=(x,z)=>walkable(x,z,size);
+ for(let attempt=0;attempt<12;attempt++){
+  const angle=TAU*clamp(rng(),0,1),distance=1.15+(SPHERE_ROAM_RADIUS-1.15)*clamp(rng(),0,1);
+  const x=mob.spawnX+Math.sin(angle)*distance,z=mob.spawnZ+Math.cos(angle)*distance;
+  if(!canWalk(x,z)||!mobSegmentClear(mob.x,mob.z,x,z,canWalk))continue;
+  mob.roamGoalX=x;mob.roamGoalZ=z;mob.roamState='walking';mob.navigation=null;return;
+ }
+ mob.roamState='rest';mob.roamUntil=now+1800;
+}
 export function createSphericalMobs(){
  return SPHERE_MOB_SPAWNS.map(([x,z],i)=>{
   const boss=i===SPHERE_MOB_SPAWNS.length-1;
@@ -59,7 +83,8 @@ export function createSphericalMobs(){
    boss,name:boss?'Грозоклюв':'Равнинный долгоног',hp:boss?108:54,maxHp:boss?108:54,
    phase:'alive',life:1,aggroId:null,contributors:new Set(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
-   roaming:i*1.73,navigation:null};
+   roaming:i*1.73,navigation:null,returning:false,
+    roamState:'rest',roamUntil:0,roamGoalX:x,roamGoalZ:z};
  });
 }
 export function mobSnapshot(mobs){
@@ -108,7 +133,8 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
     (abilityId==='heavyStrike'?ability.damageBonus||0:0));
   target.hp=Math.max(0,target.hp-damage);
   target.contributors.add(player.id);
-  target.aggroId=player.id;
+  target.aggroId=player.id;target.returning=false;target.roamState='rest';
+  target.navigation=null;
   target.lastHitAt=now;
   if(abilityId==='thunderStomp')target.stunUntil=Math.max(target.stunUntil,now+2500);
   player.resource=clamp(player.resource+(abilityId==='autoAttack'?12:abilityId==='heavyStrike'?8:3),0,100);
@@ -138,61 +164,77 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    mob.x=mob.spawnX;mob.z=mob.spawnZ;mob.yaw=0;mob.aggroId=null;
    mob.contributors.clear();mob.navigation=null;mob.attackAt=0;mob.attackCooldownAt=0;
    mob.stunUntil=0;mob.roaming=mob.index*1.73;
+   mob.returning=false;mob.roamState='rest';mob.roamUntil=now+1500;
+   mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;
   }
   if(mob.phase!=='alive')continue;
   const spawnNormal=localToNormal(mob.spawnX,mob.spawnZ,radius);
   let target=mob.aggroId?players.get(mob.aggroId):null;
   if(target&&(!target.joined||target.hp<=0||target.radius!==radius||
     arcDistance(spawnNormal,target.normal,radius)>SPHERE_LEASH_METRES)){
-   mob.aggroId=null;mob.attackAt=0;target=null;
+   mob.aggroId=null;mob.attackAt=0;mob.navigation=null;
+   mob.returning=true;target=null;
   }
-  if(!target){
+  if(!target&&mob.aggroId){mob.aggroId=null;mob.attackAt=0;mob.returning=true;mob.navigation=null;}
+  // An evading creature must actually finish its return before reacquiring aggro.
+  if(!target&&!mob.returning){
    let closest=Infinity;
    for(const p of alive){
-    const spawnDistance=arcDistance(spawnNormal,p.normal,radius);
-    const distance=localDistance(mob,p,radius);
+    const spawnDistance=arcDistance(spawnNormal,p.normal,radius),distance=localDistance(mob,p,radius);
     if(spawnDistance<SPHERE_LEASH_METRES&&distance<(mob.boss?9:7)&&distance<closest){
      closest=distance;target=p;
     }
    }
-   if(target)mob.aggroId=target.id;
+   if(target){mob.aggroId=target.id;mob.navigation=null;}
   }
   const aim=target?normalToLocal(target.normal,radius):null;
   mob.roaming+=dt;
-  const home=(!target&&Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)>.65);
-  const gx=target?aim?.x:home?mob.spawnX:mob.spawnX+Math.sin(mob.roaming*.18+mob.index)*2.2;
-  const gz=target?aim?.z:home?mob.spawnZ:mob.spawnZ+Math.cos(mob.roaming*.14+mob.index)*2.2;
+  if(target){mob.returning=false;mob.roamState='rest';}
+  else if(mob.returning){
+   if(Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<.35){
+    mob.returning=false;mob.hp=mob.maxHp;mob.contributors.clear();
+    mob.navigation=null;mob.roamState='rest';
+    mob.roamUntil=now+1500+Math.floor(clamp(rng(),0,1)*1500);
+   }
+  }else if(mob.roamState==='walking'){
+   if(Math.hypot(mob.x-mob.roamGoalX,mob.z-mob.roamGoalZ)<.28){
+    mob.roamState='rest';mob.roamUntil=now+1400+Math.floor(clamp(rng(),0,1)*2200);
+    mob.navigation=null;
+   }
+  }else if(now>=mob.roamUntil){chooseRoamGoal(mob,now,rng);}
+  const walking=mob.roamState==='walking';
+  const gx=target?aim?.x:mob.returning?mob.spawnX:walking?mob.roamGoalX:mob.x;
+  const gz=target?aim?.z:mob.returning?mob.spawnZ:walking?mob.roamGoalZ:mob.z;
   if(!finite(gx)||!finite(gz))continue;
   const distance=target?localDistance(mob,target,radius):Math.hypot(gx-mob.x,gz-mob.z);
   const beforeX=mob.x,beforeZ=mob.z;
   const cannotMove=now<mob.stunUntil||now<mob.attackAt;
-  if(!cannotMove&&distance>(target?(mob.boss?3:2.35):.3)){
+  if(!cannotMove&&distance>(target?(mob.boss?3:2.35):.28)){
    moveMobToward(mob,{goalX:gx,goalZ:gz,dt,
-    speed:target?(mob.boss?1.75:2.05):1.45,mode:target?'chase':home?'return':'roam',
-    canWalk:(x,z)=>walkable(x,z,mob.boss?.94:.52),detour:!!target||home});
+    speed:target?(mob.boss?1.75:2.05):mob.returning?1.65:.95,
+    mode:target?'chase':mob.returning?'return':'roam',
+    canWalk:(x,z)=>walkable(x,z,mob.boss?.94:.52),detour:!!target||mob.returning});
   }
-  const speed=Math.hypot(mob.x-beforeX,mob.z-beforeZ);
-  const dx=(target&&distance<3.5?gx-mob.x:speed>.001?mob.x-beforeX:gx-mob.x);
-  const dz=(target&&distance<3.5?gz-mob.z:speed>.001?mob.z-beforeZ:gz-mob.z);
-  if(Math.hypot(dx,dz)>.00001){
-   // Local-geodesic chart bearing maps directly to the spherical mob yaw convention.
-   const desired=Math.atan2(dx,dz);
+  const travelled=Math.hypot(mob.x-beforeX,mob.z-beforeZ);
+  const dx=target&&distance<3.5?gx-mob.x:travelled>.001?mob.x-beforeX:mob.returning?gx-mob.x:0;
+  const dz=target&&distance<3.5?gz-mob.z:travelled>.001?mob.z-beforeZ:mob.returning?gz-mob.z:0;
+  const desired=sphericalMobYaw(mob.x,mob.z,dx,dz,radius);
+  if(desired!==null){
    const delta=Math.atan2(Math.sin(desired-mob.yaw),Math.cos(desired-mob.yaw));
-   mob.yaw+=clamp(delta,-dt*12,dt*12);
+   mob.yaw+=clamp(delta,-dt*(target?9:5),dt*(target?9:5));
   }
-  if(!target){
-   if(home&&Math.hypot(mob.x-mob.spawnX,mob.z-mob.spawnZ)<.65){
-    mob.hp=mob.maxHp;mob.contributors.clear();mob.navigation=null;
-   }
-   mob.attackAt=0;continue;
-  }
+  if(!target){mob.attackAt=0;continue;}
   const close=distance<(mob.boss?3:2.6)&&
    mobSegmentClear(mob.x,mob.z,gx,gz,(x,z)=>walkable(x,z,.12));
   if(now<mob.stunUntil||!close){mob.attackAt=0;continue;}
   if(mob.attackAt===0&&now>=mob.attackCooldownAt){
    mob.attackAt=now+(mob.boss?450:400);
-   events.push({type:'mobTelegraph',mobId:mob.id,targetId:target.id,windupMs:mob.boss?450:400});
+   events.push({type:'mobTelegraph',mobId:mob.id,life:mob.life,targetId:target.id,windupMs:mob.boss?450:400});
   }else if(mob.attackAt>0&&now>=mob.attackAt){
+   // Do not deal invisible rear-facing hits while a mob completes its turn.
+   const facing=sphericalMobYaw(mob.x,mob.z,gx-mob.x,gz-mob.z,radius);
+   const error=facing===null?Math.PI:Math.abs(Math.atan2(Math.sin(facing-mob.yaw),Math.cos(facing-mob.yaw)));
+   if(error>.32){mob.attackAt=now+100;continue;}
    const stats=playerStats(target);
    const block=stats.blockChance>0&&rng()<stats.blockChance;
    const reduction=armorReduction(stats.armor,mob.boss?5:1);
