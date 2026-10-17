@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {getAccountLaunch,fetchAuthenticatedProfile} from '../../planet-test/account-session.js';
+import {readFileSync} from 'node:fs';
 const id='c01be28a-b89c-4400-a860-eb0701f197e3';
 const token='A'.repeat(43);
 test('account selection only reads same-origin session storage; no URL bearer token',()=>{
@@ -27,4 +28,11 @@ test('profile requests authenticate and verify hero identity without sending tok
   /другого персонажа/);
  await assert.rejects(()=>fetchAuthenticatedProfile({sessionToken:token,characterId:id},
   async()=>({ok:false,status:401})),/Сессия завершена/);
+});
+
+test('authenticated play cannot apply local healing potion or cast while disconnected',()=>{
+ const source=readFileSync(new URL('../../planet-test/offline-rpg.js',import.meta.url),'utf8');
+ assert.match(source,/if\(authenticatedProfile&&id==='healingPotion'\)/);
+ assert.match(source,/if\(authenticatedProfile&&!isOnline\(\)\)/);
+ assert.match(source,/function persist\(\)\{if\(preview\|\|authenticatedProfile\)return;/);
 });
