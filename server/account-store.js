@@ -3,10 +3,10 @@
 // Do not enable routes in production before the schema migration is applied.
 import pg from 'pg';
 const {Pool}=pg;
-import {normalizeEmail,validateCharacterOptions,CHARACTER_SLOT_LIMIT} from './account-rules.js';
+import {normalizeUsername,validateCharacterOptions,CHARACTER_SLOT_LIMIT} from './account-rules.js';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function dbError(error){
- if(error?.code==='23505')throw Object.assign(Error('Этот адрес или ник уже занят'),{status:409});
+ if(error?.code==='23505')throw Object.assign(Error('Этот логин или ник уже занят'),{status:409});
  throw error;
 }
 export function createAccountStore({connectionString=process.env.DATABASE_URL,pool:providedPool=null}={}){
@@ -21,18 +21,18 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
   const {rows}=await query("SELECT to_regclass('public.ngw_accounts') AS accounts, to_regclass('public.ngw_characters') AS characters, to_regclass('public.ngw_character_progress') AS progress, to_regclass('public.ngw_sessions') AS sessions");
   return !!(rows[0]?.accounts&&rows[0]?.characters&&rows[0]?.progress&&rows[0]?.sessions);
  }
- async function createAccount(email,passwordHash){
+ async function createAccount(username,passwordHash){
   try{
    const {rows}=await query(
-    'INSERT INTO ngw_accounts(email,password_hash) VALUES($1,$2) RETURNING id,email,created_at',
-    [normalizeEmail(email),passwordHash]);
+    'INSERT INTO ngw_accounts(username,password_hash) VALUES($1,$2) RETURNING id,username,created_at',
+    [normalizeUsername(username),passwordHash]);
    return rows[0];
   }catch(e){return dbError(e)}
  }
- async function passwordRecord(email){
+ async function passwordRecord(username){
   const {rows}=await query(
-   'SELECT id,email,password_hash,status,email_verified_at FROM ngw_accounts WHERE lower(email)=lower($1) LIMIT 1',
-   [normalizeEmail(email)]);
+   'SELECT id,username,password_hash,status FROM ngw_accounts WHERE lower(username)=lower($1) LIMIT 1',
+   [normalizeUsername(username)]);
   return rows[0]||null;
  }
  async function saveSession(accountId,digest,expiresAt){
@@ -41,9 +41,37 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
  }
  async function accountForSession(digest){
   const {rows}=await query(
-   'SELECT a.id,a.email,a.email_verified_at,a.status FROM ngw_sessions s JOIN ngw_accounts a ON a.id=s.account_id WHERE s.token_digest=$1 AND s.revoked_at IS NULL AND s.expires_at > now() AND a.status=\'active\' LIMIT 1',
+   'SELECT a.id,a.username,a.status FROM ngw_sessions s JOIN ngw_accounts a ON a.id=s.account_id WHERE s.token_digest=$1 AND s.revoked_at IS NULL AND s.expires_at > now() AND a.status=\'active\' LIMIT 1',
    [digest]);
   return rows[0]||null;
+ }
+ async function saveRecoveryCodes(accountId,digests){
+  const client=await pool.connect();
+  try{
+   await client.query('BEGIN');
+   await client.query('DELETE FROM ngw_recovery_codes WHERE account_id=$1',[accountId]);
+   for(const digest of digests){
+    await client.query('INSERT INTO ngw_recovery_codes(code_digest,account_id) VALUES($1,$2)',[digest,accountId]);
+   }
+   await client.query('COMMIT');
+  }catch(error){try{await client.query('ROLLBACK')}catch{}throw error}
+  finally{client.release()}
+ }
+ async function consumeRecoveryCode(username,digest,newPasswordHash){
+  const client=await pool.connect();
+  try{
+   await client.query('BEGIN');
+   const user=await client.query("SELECT id FROM ngw_accounts WHERE lower(username)=lower($1) AND status='active' FOR UPDATE",[normalizeUsername(username)]);
+   if(!user.rowCount){await client.query('ROLLBACK');return false}
+   const id=user.rows[0].id;
+   const codes=await client.query('UPDATE ngw_recovery_codes SET used_at=now() WHERE account_id=$1 AND code_digest=$2 AND used_at IS NULL RETURNING code_digest',[id,digest]);
+   if(!codes.rowCount){await client.query('ROLLBACK');return false}
+   await client.query('UPDATE ngw_accounts SET password_hash=$1,updated_at=now() WHERE id=$2',[newPasswordHash,id]);
+   await client.query('UPDATE ngw_sessions SET revoked_at=now() WHERE account_id=$1 AND revoked_at IS NULL',[id]);
+   await client.query('COMMIT');
+   return true;
+  }catch(error){try{await client.query('ROLLBACK')}catch{}throw error}
+  finally{client.release()}
  }
  async function revokeSession(digest){
   await query('UPDATE ngw_sessions SET revoked_at=now() WHERE token_digest=$1 AND revoked_at IS NULL',
@@ -89,5 +117,6 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
   return rows[0]||null;
  }
  return {ping,schemaReady,createAccount,passwordRecord,saveSession,accountForSession,
+  saveRecoveryCodes,consumeRecoveryCode,
   revokeSession,listCharacters,createCharacter,loadCharacter,close:()=>pool.end()};
 }
