@@ -7,7 +7,7 @@ const ORIGIN='https://nexions.ru';
 
 function mockStore(){
  const accounts=new Map(),tokens=new Map(),characters=new Map(),codeSets=new Map();
- let count=0;
+ let count=0,charSeq=0;
  return {
   async createAccount(username,password_hash,digests){
    if(accounts.has(username))throw Object.assign(Error('Адрес занят'),{status:409});
@@ -31,22 +31,27 @@ function mockStore(){
   },
   async accountForSession(digest){return tokens.get(digest.toString('hex'))||null},
   async revokeSession(digest){tokens.delete(digest.toString('hex'))},
-  async listCharacters(id){return characters.get(id)||[]},
+  async listCharacters(id){return (characters.get(id)||[]).filter(row=>!row.deletedAt)},
+  async deleteCharacter(id,charId,confirmNickname){
+   const row=(characters.get(id)||[]).find(row=>row.id===charId&&!row.deletedAt&&row.nickname===confirmNickname);
+   if(!row)return false;
+   row.deletedAt=new Date().toISOString();return true;
+  },
   async createCharacter(id,raw){
    const character=validateCharacterOptions(raw);
    const rows=characters.get(id)||[];
-   if(rows.length>=3)throw Object.assign(Error('Нет слотов'),{status:409});
-   const row={id:'char-'+(rows.length+1),...character,level:1};
+   if(rows.filter(row=>!row.deletedAt).length>=3)throw Object.assign(Error('Нет слотов'),{status:409});
+   const row={id:'00000000-0000-4000-8000-'+(++charSeq).toString(16).padStart(12,'0'),...character,level:1};
    rows.push(row);characters.set(id,rows);
    return row;
   },
   async loadCharacter(id,charId){
-   return (characters.get(id)||[]).find(row=>row.id===charId)||null;
+   return (characters.get(id)||[]).find(row=>row.id===charId&&!row.deletedAt)||null;
   }
  };
 }
 test('account API requires safe origin and session; creates a character without client state writes',
- {timeout:20000},async()=>{
+ {timeout:35000},async()=>{
  const api=createAccountApi({store:mockStore()});
  const server=createServer(async(req,res)=>{
   const handled=await api(req,res);
@@ -56,6 +61,12 @@ test('account API requires safe origin and session; creates a character without 
  const host='http://127.0.0.1:'+server.address().port;
  const post=async(path,data,token=null,origin=ORIGIN)=>{
   const res=await fetch(host+path,{method:'POST',headers:{
+   Origin:origin,'Content-Type':'application/json',
+   ...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(data)});
+  return {status:res.status,json:await res.json()};
+ };
+ const remove=async(path,data,token=null,origin=ORIGIN)=>{
+  const res=await fetch(host+path,{method:'DELETE',headers:{
    Origin:origin,'Content-Type':'application/json',
    ...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(data)});
   return {status:res.status,json:await res.json()};
@@ -105,7 +116,37 @@ test('account API requires safe origin and session; creates a character without 
   },token)).status,400);
 
   assert.equal((await get('/api/ngw/characters',token)).json.characters.length,1);
-  assert.equal((await get('/api/ngw/characters/char-1',token)).status,404);
+  const heroId=character.json.character.id;
+  assert.equal((await get('/api/ngw/characters/'+heroId,token)).status,200);
+  // Character deletion requires both the owner session and exact nickname.
+  assert.equal((await remove('/api/ngw/characters/'+heroId,
+   {confirmNickname:'Копытце'})).status,401);
+  assert.equal((await remove('/api/ngw/characters/'+heroId,
+   {confirmNickname:'Копытце'},token,'https://attacker.invalid')).status,403);
+  assert.equal((await remove('/api/ngw/characters/'+heroId,{},token)).status,400);
+  assert.equal((await remove('/api/ngw/characters/'+heroId,
+   {confirmNickname:'НеКопытце'},token)).status,404);
+  // A second account must not delete another account's character.
+  const other=await post('/api/ngw/login',{username:'alphatest',password:'123456'});
+  assert.equal(other.status,200);
+  assert.equal((await remove('/api/ngw/characters/'+heroId,
+   {confirmNickname:'Копытце'},other.json.token)).status,404);
+  assert.equal((await get('/api/ngw/characters/'+heroId,other.json.token)).status,404);
+  const second=await post('/api/ngw/characters',{nickname:'Второй'},token);
+  const third=await post('/api/ngw/characters',{nickname:'Третий'},token);
+  assert.equal(second.status,201);
+  assert.equal(third.status,201);
+  assert.equal((await post('/api/ngw/characters',{nickname:'Четвёртый'},token)).status,409);
+  assert.equal((await remove('/api/ngw/characters/'+heroId,
+   {confirmNickname:'Копытце'},token)).status,200);
+  assert.equal((await remove('/api/ngw/characters/'+heroId,
+   {confirmNickname:'Копытце'},token)).status,404);
+  assert.equal((await get('/api/ngw/characters/'+heroId,token)).status,404);
+  assert.equal((await get('/api/ngw/characters',token)).json.characters.length,2);
+  const replacement=await post('/api/ngw/characters',{nickname:'Копытце'},token);
+  assert.equal(replacement.status,201);
+  assert.notEqual(replacement.json.character.id,heroId);
+  assert.equal((await get('/api/ngw/characters',token)).json.characters.length,3);
   assert.equal((await post('/api/ngw/characters',{
    nickname:'Маг',classId:'mage'
   },token)).status,400);
