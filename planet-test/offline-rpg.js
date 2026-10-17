@@ -140,6 +140,89 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const stompEffect=createSphericalStomp({THREE,parent:group,getRadius,heightAt});
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[],citizens=[];
+ let multiplayer=null,partyState={groupId:null,leaderId:null,members:[]},onlinePlayers=[],onlineChest=null;
+ const receivedCredits=new Set();
+ const isOnline=()=>!!multiplayer?.connected;
+ function setMultiplayer(transport){multiplayer=transport||null;}
+ function networkCharacter(){return {level:state.level,hp:state.hp,equipment:state.equipment};}
+ function onOnlinePlayers(rows){onlinePlayers=Array.isArray(rows)?rows:[];if(!modal.hidden&&modal.dataset.kind==='party')renderModal();}
+ function onPartyState(event){partyState=event||{groupId:null,leaderId:null,members:[]};if(!modal.hidden&&modal.dataset.kind==='party')renderModal();}
+ function onPartyInvite(event){
+  if(isOnline())multiplayer.respondInvite(event.fromId,window.confirm((event.fromName||'Игрок')+' приглашает в группу. Принять?'));
+ }
+ function onPartyNotice(event){if(event?.message)msg(event.message);}
+ function onChat(event){if(event?.text)msg((event.channel==='party'?'[Группа] ':'[Мир] ')+(event.name||'Игрок')+': '+event.text,3.3);}
+ function onChestState(event){onlineChest=event;if(!modal.hidden&&modal.dataset.kind==='chest')renderModal();}
+ function onChestResult(event){
+  if(event?.ok&&Array.isArray(event.inventory)){
+   state.inventory=event.inventory.filter(Boolean).map(row=>({id:row.id,qty:row.qty}));
+   onlineChest={slots:event.slots,revision:event.revision};persist();draw();
+   if(!modal.hidden&&modal.dataset.kind==='chest')renderModal();
+  }else if(event?.reason)msg(event.reason);
+ }
+ function onVitals(event){
+  if(!isOnline())return;
+  if(Number.isFinite(event.hp))state.hp=Math.max(0,Math.min(stats().maxHp,event.hp));
+  if(Number.isFinite(event.resource))state.resource=clamp(event.resource,0,100);
+ }
+ function onCombatEvent(event,selfId){
+  const mob=mobs.find(e=>e.index===Number(String(event?.mobId).split('-').at(-1)));
+  if(!mob||event.life!==mob.life)return;
+  if(Number.isFinite(event.hp))mob.hp=Math.max(0,event.hp);
+  mob.hit=HIT_REACTION_SECONDS;
+  combatFeedback.hit(mob,event.damage,event.abilityId);
+  combatVfx.trigger(mob,event.abilityId==='heavyStrike'?'strong':event.abilityId==='thunderStomp'?'stomp':'hit');
+  if(event.fromId===selfId)lastCombatAt=clock;
+  draw(false);
+ }
+ function onKillCredit(event){
+  const mob=mobs.find(e=>e.index===Number(String(event?.mobId).split('-').at(-1)));
+  if(!mob||!Number.isInteger(event.life))return;
+  const key=event.mobId+':'+event.life;
+  if(receivedCredits.has(key))return;
+  receivedCredits.add(key);
+  mob.loot=Array.isArray(event.loot)?event.loot.filter(row=>row&&ITEM_CATALOG[row.id]&&Number.isInteger(row.qty)&&row.qty>0).map(row=>({...row})):[];
+  state.xp+=Number(event.xp)||0;state.gold+=Number(event.gold)||0;
+  mentorChain.killed(mob);levelCheck();persist();updateLootMarker(mob);draw();
+  msg('Награда за '+mob.name+': опыт '+(Number(event.xp)||0));
+ }
+ function onMobAttack(event){
+  if(!isOnline())return;
+  if(Number.isFinite(event.hp))state.hp=Math.max(0,event.hp);
+  if(event.blocked){blockRemaining=.65;hero.root.userData.blockRecoil=.65;combatVfx.trigger({root:hero.root},'block');}
+  state.resource=changeResource(state.resource,5,'warrior');lastCombatAt=clock;draw(false);
+ }
+ function onNetworkRespawn(event){
+  state.hp=Number(event.hp)||stats().maxHp;state.resource=0;
+  autoplay=false;approach=null;timeline.clear();target=null;
+  for(const mob of mobs)mob.aggro=false;
+  resetPosition?.();updateSelection();persist();draw();msg('Герой возродился у костра');
+ }
+ function onMobSnapshot(rows){
+  if(!isOnline()||!Array.isArray(rows))return;
+  const byIndex=new Map(rows.filter(x=>Number.isInteger(x.index)).map(x=>[x.index,x]));
+  for(const mob of mobs){
+   const remote=byIndex.get(mob.index);
+   if(!remote||!['alive','corpse','hidden'].includes(remote.phase)||
+    !Number.isFinite(remote.x)||!Number.isFinite(remote.z)||!Number.isFinite(remote.hp))continue;
+   const oldX=mob.x,oldZ=mob.z,wasCorpse=mob.corpse,wasHidden=!mob.root.visible;
+   mob.x=remote.x;mob.z=remote.z;mob.yaw=remote.yaw||0;
+   mob.networkMovement=Math.hypot(oldX-mob.x,oldZ-mob.z);
+   mob.hp=remote.hp;mob.life=remote.life;mob.aggro=remote.aggro===true;mob.returning=false;
+   mob.corpse=remote.phase==='corpse';mob.dead=mob.corpse?6:0;
+   mob.root.visible=remote.phase!=='hidden';
+   if(mob.corpse&&!wasCorpse){
+    mob.deathAnimation.begin(playerNormal());
+    if(target===mob){target=null;autoplay=false;approach=null;timeline.clear();}
+   }else if(remote.phase==='alive'&&(wasCorpse||wasHidden)){
+    mob.deathAnimation.reset();resetPlainstriderVisual(mob);
+    mob.loot=null;mob.navigation=null;
+   }else if(remote.phase==='hidden'){
+    mob.loot=null;if(pendingLoot===mob)closeWindow();
+   }
+   setModelAt(mob);updateLootMarker(mob);
+  }
+ }
  const hotbar=$('actionsBar'),modal=$('modal'),toast=$('toast');
  const feedbackLayer=$('combatFeedback');
  if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
