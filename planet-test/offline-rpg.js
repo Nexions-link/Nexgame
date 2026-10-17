@@ -865,7 +865,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    for(let i=0;i<onlineChest.slots.length;i++){
     const item=onlineChest.slots[i],def=ITEM_CATALOG[item?.id];
     if(item)line('Ячейка '+(i+1)+' · '+(def?.name||item.id),'×'+item.qty,
-     [['Забрать',()=>multiplayer.moveChest('withdraw',i,crypto.randomUUID())]]);
+     [['Забрать',()=>authenticatedProfile?economySend('chestWithdraw',{slot:i}):multiplayer.moveChest('withdraw',i,crypto.randomUUID())]]);
    }
    line('Рюкзак','Нажми «Положить», чтобы переместить предмет.');
    (onlineChest.inventory||state.inventory).forEach((item,i)=>{
@@ -873,8 +873,36 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const def=ITEM_CATALOG[item.id];
     if(def&&!def.quest)
      line(def.name+' ×'+item.qty,'Ячейка '+(i+1),
-      [['Положить',()=>multiplayer.moveChest('deposit',i,crypto.randomUUID())]]);
+      [['Положить',()=>authenticatedProfile?economySend('chestDeposit',{slot:i}):multiplayer.moveChest('deposit',i,crypto.randomUUID())]]);
    });
+   return;
+  }
+  if(authenticatedProfile&&kind==='merchant'){
+   line('Борун Крепкая Ладонь','Монеты: '+pretty(state.gold)+' · покупки подтверждаются Neon');
+   const tabs=document.createElement('div');tabs.className='planet-journal-tabs';
+   for(const [tab,label] of [['buy','Купить'],['sell','Продать']]){
+    const b=document.createElement('button');b.className='choice'+(merchantTab===tab?' is-selected':'');
+    b.textContent=label;b.addEventListener('click',()=>{merchantTab=tab;renderModal()});tabs.append(b);
+   }
+   body.append(tabs);
+   if(merchantTab==='buy'){
+    for(const id of MERCHANT_STOCK){
+     const item=ITEM_CATALOG[id];if(!item?.buy)continue;
+     line((item.icon||'📦')+' '+item.name,item.buy+' монет',
+      [['Купить',()=>economySend('buy',{itemId:id,qty:1})]]);
+    }
+   }else{
+    let count=0;
+    serverInventorySlots?.forEach((row,bagSlot)=>{
+     const item=row&&ITEM_CATALOG[row.id];
+     if(!item?.sell||item.quest)return;
+     count++;
+     line((item.icon||'📦')+' '+item.name+' ×'+row.qty,
+      'Продажа слота: '+item.sell*row.qty+' монет',
+      [['Продать',()=>economySend('sell',{bagSlot,qty:row.qty})]]);
+    });
+    if(!count)line('Нет предметов для продажи','Квестовые предметы продать нельзя.');
+   }
    return;
   }
   if(camp.render(kind,body,line))return;
@@ -952,7 +980,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
           const description=document.createElement('p');description.textContent=def?.description||'Восстанавливает здоровье';
           detail.append(name,description);
           const commands=[...(def?.slot?[['Надеть',()=>equip(item.id)]]:[]),
-            ['🗑 Удалить',()=>{takeItem(item.id,1);draw();}]];
+            ...(authenticatedProfile?[]:[['🗑 Удалить',()=>{takeItem(item.id,1);draw();}]])];
           for(const [label,action] of commands){
             const b=document.createElement('button');b.type='button';b.className='choice';b.textContent=label;
             b.addEventListener('click',action);detail.append(b);
@@ -983,6 +1011,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       const caption=document.createElement('small');caption.textContent=LABEL[slot]+': '+(def?.name||'Пусто');
       btn.append(icon,caption);btn.title=def?'Снять '+def.name:LABEL[slot];
       if(def)btn.addEventListener('click',()=>{
+        if(authenticatedProfile){
+         const empty=serverInventorySlots?.findIndex(row=>row===null);
+         if(empty<0)return msg('Рюкзак заполнен');
+         economySend('unequip',{bagSlot:empty,equipmentSlot:slot});return;
+        }
         const result=unequipToBag(state,slot,inCombat());
         if(!result.ok)return msg(result.error);
         finishEquipmentChange(slot);
