@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {createAccountApi} from '../account-api.js';
+import {validateCharacterOptions} from '../account-rules.js';
 const ORIGIN='https://nexions.ru';
 
 function mockStore(){
@@ -24,10 +25,10 @@ function mockStore(){
   async revokeSession(digest){tokens.delete(digest.toString('hex'))},
   async listCharacters(id){return characters.get(id)||[]},
   async createCharacter(id,raw){
+   const character=validateCharacterOptions(raw);
    const rows=characters.get(id)||[];
    if(rows.length>=3)throw Object.assign(Error('Нет слотов'),{status:409});
-   const row={id:'char-'+(rows.length+1),nickname:raw.nickname,
-    raceId:'hornfolk',classId:'warrior',level:1};
+   const row={id:'char-'+(rows.length+1),...character,level:1};
    rows.push(row);characters.set(id,rows);
    return row;
   },
