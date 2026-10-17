@@ -142,7 +142,7 @@ export function createEconomyStore({pool:externalPool,
    revision(state,args.expectedRevision);
    requireGatherAvailable(state,node,context);
    const casting=await client.query(
-    ["SELECT node_id,now()>=started_at+($2::int * INTERVAL '1 second') AS finished,",
+    ["SELECT node_id,now()>=started_at+($2::double precision * INTERVAL '1 second') AS finished,",
      "expires_at>now() AS active FROM ngw_gather_casts",
      "WHERE character_id=$1 FOR UPDATE"].join(' '),
     [args.characterId,GATHER_CAST_SECONDS]);
