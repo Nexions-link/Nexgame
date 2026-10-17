@@ -139,8 +139,11 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
         result=await economyStore.moveChest({...args,
          action:m.action==='chestDeposit'?'deposit':'withdraw',slot:m.slot});
         publishProgress(p,result,'chest');
+        // Receipt replays have no mutation payload. Return current canonical
+        // chest and bag instead of applying the transfer twice or crashing.
+        const chestState=result.chest||await economyStore.readChest(args);
         send(ws,{type:'chestResult',ok:true,requestId:m.requestId,
-         revision:result.chest.revision,slots:result.chest.slots,
+         revision:chestState.revision,slots:chestState.slots,
          inventory:result.progress.inventory});
         return;
        case 'buy':
