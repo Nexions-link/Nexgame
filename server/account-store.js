@@ -68,7 +68,7 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
   return rows[0]||null;
  }
  async function consumeAuthRate(bucketKey,maxAttempts,windowSeconds){
-  if(typeof bucketKey!=='string'||!/^([a-z]+):[0-9a-f]{64}$/.test(bucketKey)||
+  if(typeof bucketKey!=='string'||!/^[a-z]+(?:-[a-z]+)*:[0-9a-f]{64}$/.test(bucketKey)||
     !Number.isInteger(maxAttempts)||maxAttempts<1||maxAttempts>1000||
     !Number.isInteger(windowSeconds)||windowSeconds<30||windowSeconds>86400)
    throw new TypeError('Incorrect auth throttle parameters');
