@@ -34,6 +34,8 @@ jobs:
         run: npm run check:world-auth && npm run check:world-client && npm run test:world-auth
       - name: Isolated authoritative progression rules
         run: npm run check:progress && npm run test:progress
+      - name: Isolated server economy rules
+        run: npm run test:economy
       - name: Multiplayer, groups, combat and chest regressions
         run: npm test
 
@@ -67,3 +69,34 @@ jobs:
       - run: npm install --ignore-scripts --no-audit --no-fund
       - name: Test real durable Neon-style progress transactions
         run: npm run check:progress && npm run test:progress
+
+  economy-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ngweconomy
+          POSTGRES_PASSWORD: ngweconomy
+          POSTGRES_DB: ngw_economy_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ngweconomy -d ngw_economy_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    defaults:
+      run:
+        working-directory: server
+    env:
+      NGW_PROGRESS_TEST_DATABASE: postgresql://ngweconomy:ngweconomy@127.0.0.1:5432/ngw_economy_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify merchant, chest, mentor and gathering transactions
+        run: npm run check:economy && npm run test:economy
