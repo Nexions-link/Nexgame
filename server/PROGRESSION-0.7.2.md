@@ -43,6 +43,58 @@ authenticated, bound server-side session; not from a packet.
   use the same transaction and conservation rules instead of trusting the
   old browser inventory.
 
+## Server-side economy and quests (isolated, not live)
+
+- `economy-rules.js`: prices come **only** from `ITEM_CATALOG` and
+  `MERCHANT_STOCK`; herbalist potion price is fixed at 10; selling needs
+  real inventory items. Quests, prices, XP and currency are never taken
+  from client-supplied claimed values.
+- `economy-store.js`: all mutations run in an authenticated-owner-scoped
+  progress transaction. Buy/sell and chest transfers also have durable
+  UUID idempotency receipts. Retrying the same request cannot transact twice;
+  reusing the UUID for a different action is rejected.
+- `migrations/004_economy_quests.sql`: one durable 18-slot house chest
+  shared across all characters, permanent operation receipts, global resource
+  respawn timestamps and database-timed gathering casts. For any shared chest
+  mutation, the chest row is locked and saved atomically with the player's
+  inventory. A failed transfer rolls back *both sides*.
+- Gathering uses the client game's real stage locations and quests from
+  `planet-test/gather-world.js`. The actor must have the matching stage active,
+  be in range, not be in combat and complete 1.5 seconds on the **DB clock**.
+  Nodes then respawn after 32 seconds globally. The three herbalist quests
+  require quantities actually held in the player's saved backpack.
+  Quest rewards are single-use and recorded in the existing progress ledger.
+- `migrations/005_mentor_evidence.sql` records every verified mentor kill
+  objective once per character and server-world epoch. The complete existing
+  twelve-step mentor chain is mapped to server-confirmed mob kills and
+  proximity-confirmed relic/scout interactions. Reward amounts are fixed and
+  each hand-in is recorded once in the progress ledger.
+- The current vendor and NPC coordinates are preserved from the spherical
+  offline game: merchant (6,11), herbalist (8,1), mentor (-1.5,-5),
+  house chest (-33.2,-7.4). Quest resource visuals near the lake are
+  matched with the original dry-ground adjustment.
+
+**Trust boundary:** `context.normal`, `context.radius` and `context.inCombat`
+MUST come from an authenticated, validated **server-controlled world player**;
+never forward a browser-supplied interaction context into these methods.
+`serverCredit` must come directly from the authoritative PvE kill event.
+Proximity checks here do not replace real-time server movement and cast
+interruption checks. Before online activation, bind the same server run UUID
+to kill rewards and mentor evidence and unify quest kill credit with the
+actual mob reward pipeline in one retry-safe operation.
+
+**Chest migration warning:** `server/chest.js` is still the legacy active
+multiplayer file-based chest. New `ngw_shared_chests` is separate and empty.
+Do not import untrusted browser snapshots, do not leave both chest authorities
+active after cutover, and do not delete the old file before the whole online
+migration is verified. No old character progress is imported.
+
+**Validation:** GitHub Actions executes pure economy rules and full transaction
+tests against a disposable PostgreSQL 16 database. Tests cover purchase price
+tampering, wrong owners, stale revisions, receipt replay, competing withdrawals,
+full backpacks, shared resource respawn, quest turn-in and the complete mentor
+chain. Live Render and the WebSocket are deliberately unchanged.
+
 ## Release gates before connecting the world
 
 1. Validate migration 003 in disposable PostgreSQL, then apply **additive**
