@@ -87,6 +87,34 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   if(!state)throw missing();
   return state;
  }
+ // Initialize a new Neon hero's server-owned starter pack exactly once.
+ // Never import the old browser localStorage character.
+ async function initializeStarterPack(accountId,characterId){
+  validateIds(accountId,characterId);
+  const client=await pool.connect();
+  try{
+   await client.query('BEGIN');
+   const state=await select(client,accountId,characterId,true);
+   if(!state)throw missing();
+   const {rowCount}=await client.query(
+    'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+    [characterId,'starter:default:v1']);
+   if(rowCount||state.revision!==0||state.inventory.some(Boolean)||
+      Object.keys(state.equipment).length){
+    await client.query('COMMIT');return state;
+   }
+   const loot=[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}];
+   const inventory=[...loot,...Array(state.inventory.length-2).fill(null)];
+   await client.query(
+    ["INSERT INTO ngw_progress_events",
+     "(character_id,event_key,event_kind,xp_granted,gold_granted,loot)",
+     "VALUES($1,'starter:default:v1','starter_pack',0,0,$2::jsonb)"].join(' '),
+    [characterId,JSON.stringify(loot)]);
+   const saved=await write(client,characterId,state,{...state,inventory});
+   await client.query('COMMIT');return saved;
+  }catch(error){try{await client.query('ROLLBACK')}catch{}throw error}
+  finally{client.release()}
+ }
  // Event MUST be produced by the trusted PvE process, never by a browser.
  // Identity is unique per hero, radius, mob and respawn life.
  async function recordMobKill({accountId,characterId,expectedRevision,
@@ -136,7 +164,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   });
  }
  return {
-  schemaReady,load,recordMobKill,saveServerCheckpoint,
+  schemaReady,load,initializeStarterPack,recordMobKill,saveServerCheckpoint,
   equipInventoryItem,unequipInventoryItem,
   // Internal server-only transaction hook; never export via HTTP or WS.
   trustedTransaction:transaction,
