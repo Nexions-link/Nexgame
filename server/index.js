@@ -10,7 +10,7 @@ import {createAccountApi} from './account-api.js';
 import {createWorldSessionGate} from './world-session-gate.js';
 import {createProgressStore} from './progress-store.js';
 import {runAccountSmoke} from './account-smoke.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.31';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.32';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
  'https://www.nexions.ru','https://nexions-link.github.io']);
@@ -95,7 +95,8 @@ const http=createServer((req,res)=>{
    players:world.population(),sphericalPlayers:world.population(),mobs:world.mobCount(),
    protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup,
    databaseConfigured:Boolean(process.env.DATABASE_URL),
-   accountDbStatus,accountApiEnabled:!!accountApi}));return;
+   accountDbStatus,accountApiEnabled:!!accountApi,
+   authenticatedWorldEnabled:!!authenticatedWorldGate}));return;
  }
  if(req.url?.split('?')[0]?.startsWith('/api/ngw/')){
   if(accountApi){
