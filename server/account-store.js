@@ -29,6 +29,14 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
   const client=await pool.connect();
   try{
    await client.query('BEGIN');
+   // Serialize account creation to enforce alpha capacity under concurrent requests.
+   await client.query('SELECT pg_advisory_xact_lock(707010)');
+   const maxAccounts=Number(process.env.NGW_MAX_ACCOUNTS||10);
+   if(!Number.isInteger(maxAccounts)||maxAccounts<1||maxAccounts>500)
+    throw new Error('Invalid NGW_MAX_ACCOUNTS configuration');
+   const count=await client.query('SELECT count(*)::int AS used FROM ngw_accounts');
+   if(count.rows[0].used>=maxAccounts)
+    throw Object.assign(Error('Регистрация в альфе временно закрыта: лимит аккаунтов достигнут'),{status:409});
    const result=await client.query(
     'INSERT INTO ngw_accounts(username,password_hash) VALUES($1,$2) RETURNING id,username,created_at',
     [normalized,passwordHash]);
@@ -58,6 +66,56 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
    'SELECT a.id,a.username,a.status FROM ngw_sessions s JOIN ngw_accounts a ON a.id=s.account_id WHERE s.token_digest=$1 AND s.revoked_at IS NULL AND s.expires_at > now() AND a.status=\'active\' LIMIT 1',
    [digest]);
   return rows[0]||null;
+ }
+ async function consumeAuthRate(bucketKey,maxAttempts,windowSeconds){
+  if(typeof bucketKey!=='string'||!/^([a-z]+):[0-9a-f]{64}$/.test(bucketKey)||
+    !Number.isInteger(maxAttempts)||maxAttempts<1||maxAttempts>1000||
+    !Number.isInteger(windowSeconds)||windowSeconds<30||windowSeconds>86400)
+   throw new TypeError('Incorrect auth throttle parameters');
+  const {rows}=await query(`
+   INSERT INTO ngw_auth_rate_limits (bucket_key,attempts,window_start,last_attempt_at)
+    VALUES($1,1,now(),now())
+   ON CONFLICT(bucket_key) DO UPDATE SET
+    attempts=CASE WHEN ngw_auth_rate_limits.window_start <
+      now() - ($2::int * INTERVAL '1 second') THEN 1
+      ELSE ngw_auth_rate_limits.attempts + 1 END,
+    window_start=CASE WHEN ngw_auth_rate_limits.window_start <
+      now() - ($2::int * INTERVAL '1 second') THEN now()
+      ELSE ngw_auth_rate_limits.window_start END,
+    last_attempt_at=now()
+   RETURNING attempts`,[bucketKey,windowSeconds]);
+  return rows[0].attempts<=maxAttempts;
+ }
+ async function pruneAuthData(){
+  // Safe cleanup: only expired/revoked sessions and expired rate counters.
+  const sessions=await query(
+   "DELETE FROM ngw_sessions WHERE expires_at < now() OR revoked_at < now() - INTERVAL '7 days'");
+  const buckets=await query(
+   "DELETE FROM ngw_auth_rate_limits WHERE last_attempt_at < now() - INTERVAL '2 days'");
+  return {sessions:sessions.rowCount,buckets:buckets.rowCount};
+ }
+ async function passwordRecordById(accountId){
+  const {rows}=await query(
+   "SELECT id,username,password_hash,status FROM ngw_accounts WHERE id=$1 AND status='active'",
+   [accountId]);
+  return rows[0]||null;
+ }
+ async function changePassword(accountId,expectedHash,newHash){
+  const client=await pool.connect();
+  try{
+   await client.query('BEGIN');
+   const result=await client.query(
+    "UPDATE ngw_accounts SET password_hash=$1,updated_at=now() "+
+    "WHERE id=$2 AND password_hash=$3 AND status='active' RETURNING id",
+    [newHash,accountId,expectedHash]);
+   if(!result.rowCount){await client.query('ROLLBACK');return false}
+   await client.query(
+    "UPDATE ngw_sessions SET revoked_at=now() WHERE account_id=$1 AND revoked_at IS NULL",
+    [accountId]);
+   await client.query('COMMIT');
+   return true;
+  }catch(error){try{await client.query('ROLLBACK')}catch{}throw error}
+  finally{client.release()}
  }
  async function saveRecoveryCodes(accountId,digests){
   const client=await pool.connect();
@@ -157,6 +215,7 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
   return rows[0]||null;
  }
  return {ping,schemaReady,createAccount,passwordRecord,saveSession,accountForSession,
-  saveRecoveryCodes,consumeRecoveryCode,
+  saveRecoveryCodes,consumeRecoveryCode,consumeAuthRate,pruneAuthData,
+  passwordRecordById,changePassword,
   revokeSession,listCharacters,createCharacter,deleteCharacter,loadCharacter,close:()=>pool.end()};
 }
