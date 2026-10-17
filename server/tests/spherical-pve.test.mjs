@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
  SPHERE_MOB_SPAWNS,SPHERE_CORPSE_MS,SPHERE_RESPAWN_MS,
  createSphericalMobs,localToNormal,normalToLocal,arcDistance,
- facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment
+ facesMob,sphereMobFacingYaw,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment
 } from '../spherical-pve.js';
 
 const character=(id,x=-9,z=-24,radius=261)=>({
@@ -79,4 +79,40 @@ test('equipment and wrong-world injections are bounded',()=>{
  const mobs=createSphericalMobs(),p=character('x');
  assert.equal(applySphereAttack(mobs,p,'healingPotion',mobs[0].id,1000).ok,false);
  assert.equal(applySphereAttack(mobs,p,'autoAttack','missing',1000).ok,false);
+});
+
+test('peaceful online Dolgonog explores its patrol radius without being pulled home at 0.65m',()=>{
+ const mob=createSphericalMobs()[0],start={x:mob.x,z:mob.z};
+ let furthest=0;
+ for(let i=0;i<220;i++){
+  tickSphericalMobs([mob],new Map(),261,.1,20000+i*100,()=>.5);
+  furthest=Math.max(furthest,Math.hypot(mob.x-start.x,mob.z-start.z));
+  assert.equal(mob.returning,false,'ordinary patrol must not trigger evade');
+ }
+ assert.ok(furthest>1.0,'mob should walk more than one metre from spawn');
+ assert.ok(furthest<6,'idle mob should remain near its original habitat');
+});
+
+test('on losing online aggro the Dolgonog returns, heals at home, then resumes patrol',()=>{
+ const mob=createSphericalMobs()[0],home={x:mob.x,z:mob.z};
+ mob.x+=3;mob.z+=1;mob.hp=17;mob.aggroId='gone';mob.contributors.add('gone');
+ tickSphericalMobs([mob],new Map(),261,.1,10000,()=>.5);
+ assert.equal(mob.returning,true);
+ assert.equal(mob.hp,17,'healing must wait for arrival at spawn');
+ for(let i=0;i<160&&mob.returning;i++)tickSphericalMobs([mob],new Map(),261,.1,10100+i*100,()=>.5);
+ assert.equal(mob.returning,false);
+ assert.equal(mob.hp,mob.maxHp);
+ assert.equal(mob.contributors.size,0);
+ assert.ok(Math.hypot(mob.x-home.x,mob.z-home.z)<.65);
+});
+
+test('server facing corresponds to radial +Z-forward frame instead of a flat-map bearing',()=>{
+ const epsilon=1e-8;
+ assert.ok(Math.abs(Math.abs(sphereMobFacingYaw(0,0,0,3,261))-Math.PI)<epsilon);
+ assert.ok(Math.abs(sphereMobFacingYaw(0,0,3,0,261)-Math.PI/2)<epsilon);
+ for(const radius of [87,174,261]){
+  const yaw=sphereMobFacingYaw(38,42,40,47,radius);
+  assert.ok(Number.isFinite(yaw));
+  assert.ok(yaw>=-Math.PI&&yaw<=Math.PI);
+ }
 });

@@ -4,8 +4,8 @@ import {readPlanetView,writePlanetView} from './world-save.js?v=3';
 import {cameraObstruction} from './sphere-physics.js?v=3';
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=1';
-import {createOfflineRpg} from './offline-rpg.js?v=47';
-import {createSphericalPresence} from './sphere-online.js?v=4';
+import {createOfflineRpg} from './offline-rpg.js?v=48';
+import {createSphericalPresence} from './sphere-online.js?v=5';
 import {getAccountLaunch,fetchAuthenticatedProfile,AUTH_WORLD_URL} from './account-session.js?v=1';
 import {animateSphericalTauren} from './tauren-animation.js?v=5';
 import {sampleSphericalFooting} from './foot-placement.js?v=1';
@@ -21,7 +21,7 @@ installSurfaceZoomGuard(document,planetViewport);
 planetViewport.addEventListener('selectstart',event=>event.preventDefault());
 planetViewport.addEventListener('contextmenu',event=>event.preventDefault());
 
-// NexGameWorld uses isolated spherical WebSockets for player presence; RPG combat stays local.
+// Online NexGameWorld uses a server-authoritative spherical world for AI and combat.
 const isPortalPreview = new URLSearchParams(location.search).get('portal-preview') === '1';
 const accountMode=!isPortalPreview&&new URLSearchParams(location.search).get('account-play')==='1';
 const accountLaunch=accountMode?getAccountLaunch(sessionStorage):null;
@@ -357,6 +357,7 @@ try {
     onEconomyResult:event=>rpg.onEconomyResult(event),
     onAuthRejected:reason=>rpg.onPartyNotice({message:reason}),
     onMobAttack:msg=>rpg.onMobAttack(msg),
+    onMobTelegraph:msg=>rpg.onMobTelegraph(msg),
     onRespawn:msg=>rpg.onNetworkRespawn(msg),
     onPartyState:msg=>rpg.onPartyState(msg),
     onPartyInvite:msg=>rpg.onPartyInvite(msg),
