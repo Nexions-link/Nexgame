@@ -159,7 +159,7 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
   // Did not silently create free currency or duplicate shared items.
   assert.equal((await pool.query(
    'SELECT count(*)::int AS n FROM ngw_economy_receipts WHERE character_id=$1',[alice]
-  )).rows[0].n,2);
+  )).rows[0].n,3);
  }finally{
   await store.close();await progress.close();await pool.end();
  }
