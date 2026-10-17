@@ -6,12 +6,15 @@
   "scripts": {
     "start": "node index.js",
     "check": "node --check index.js && node --check spherical-world.js && node --check spherical-pve.js && node --check groups.js && node --check chat.js && node --check chest.js",
-    "test": "node --test tests/chat.test.mjs tests/chest.test.mjs tests/groups.test.mjs tests/spherical-world.test.mjs tests/spherical-pve.test.mjs tests/spherical-online-integration.test.mjs"
+    "test": "node --test tests/chat.test.mjs tests/chest.test.mjs tests/groups.test.mjs tests/spherical-world.test.mjs tests/spherical-pve.test.mjs tests/spherical-online-integration.test.mjs",
+    "test:accounts": "node --test tests/accounts-foundation.test.mjs tests/account-api.test.mjs",
+    "migrate:accounts": "node migrate-accounts.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "pg": "^8.16.3"
   }
 }
