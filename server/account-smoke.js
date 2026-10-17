@@ -44,6 +44,10 @@ export async function runAccountSmoke(port){
  requireResponse(await jsonRequest(base,'/characters',{
   token,method:'POST',body:{nickname:'СтарыйТест',legacySave:{level:60}}}),400,'reject old saves');
  requireResponse(await jsonRequest(base,'/characters/'+character.id,{method:'DELETE',body:{confirmNickname:nickname},token}),200,'remove hero');
+ requireResponse(await jsonRequest(base,'/characters/'+character.id,{token}),404,'removed hero inaccessible');
+ const activeAfter= requireResponse(await jsonRequest(base,'/characters',{token}),200,'after deletion');
+ if(activeAfter.characters.length!==0)throw Error('Removed test hero still active');
+
  requireResponse(await jsonRequest(base,'/logout',{token,method:'POST',body:{}}),200,'logout');
  requireResponse(await jsonRequest(base,'/characters',{token}),401,'revoked session');
  console.log('NexGameWorld account smoke: ok (registered, signed in, created level-1 hero, verified persistent record, rejected old saves, logged out)');
