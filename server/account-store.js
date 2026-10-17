@@ -115,9 +115,9 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
     [accountId,character.nickname,character.raceId,character.classId,
      JSON.stringify(character.appearance)]);
    const row=created.rows[0];
-   await client.query('INSERT INTO ngw_character_progress(character_id) VALUES($1)',[row.id]);
+   const progress=await client.query('INSERT INTO ngw_character_progress(character_id) VALUES($1) RETURNING level,experience,gold',[row.id]);
    await client.query('COMMIT');
-   return row;
+   return {...row,level:progress.rows[0].level,experience:progress.rows[0].experience,gold:progress.rows[0].gold};
   }catch(e){
    try{await client.query('ROLLBACK')}catch{}
    return dbError(e);
