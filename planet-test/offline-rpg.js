@@ -152,6 +152,34 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[],citizens=[];
  let multiplayer=null,partyState={groupId:null,leaderId:null,members:[]},onlinePlayers=[],onlineChest=null;
+ let serverInventorySlots=authenticatedProfile?
+  (Array.isArray(authenticatedProfile.inventory)?authenticatedProfile.inventory:[]):null;
+ const authenticatedSlotAt=denseIndex=>{
+  if(!serverInventorySlots||!Number.isInteger(denseIndex)||denseIndex<0)return -1;
+  let seen=-1;
+  return serverInventorySlots.findIndex(row=>row&&++seen===denseIndex);
+ };
+ const economySend=(action,payload={})=>{
+  if(!authenticatedProfile||!isOnline())return msg('Для этого действия необходимо подключение к серверу');
+  if(!multiplayer.sendEconomy({action,requestId:crypto.randomUUID(),...payload}))
+   return msg('Сервер временно недоступен');
+ };
+ function onEconomyResult(result){
+  if(!authenticatedProfile)return;
+  if(!result?.ok){
+   const translations={
+    interaction_too_far:'Подойди ближе',not_enough_gold:'Недостаточно монет',
+    inventory_full:'Рюкзак заполнен',item_not_owned:'Предмет отсутствует',
+    chest_transfer_rejected:'Нельзя переложить этот предмет',
+    stale_revision:'Сохранение обновилось. Повторите действие',
+    item_not_sellable:'Предмет нельзя продать',
+    economy_unavailable:'Серверная экономика пока недоступна'
+   };
+   return msg(translations[result?.reason]||'Действие отклонено сервером');
+  }
+  if(!modal.hidden&&['chest','merchant','bag','character'].includes(modal.dataset.kind))
+   renderModal();
+ }
  const receivedCredits=new Set();
  const isOnline=()=>!!multiplayer?.connected;
  function setMultiplayer(transport){multiplayer=transport||null;}
@@ -163,9 +191,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function onPartyNotice(event){if(event?.message)msg(event.message);}
  function onChat(event){if(event?.text)msg((event.channel==='party'?'[Группа] ':'[Мир] ')+(event.name||'Игрок')+': '+event.text,3.3);}
- function onChestState(event){onlineChest={...(onlineChest||{}),...event};if(!modal.hidden&&modal.dataset.kind==='chest')renderModal();}
+ function onChestState(event){
+  onlineChest={...(onlineChest||{}),...event};
+  if(authenticatedProfile&&Array.isArray(event?.inventory))
+   serverInventorySlots=event.inventory.map(row=>row?{...row}:null);
+  if(!modal.hidden&&modal.dataset.kind==='chest')renderModal();
+ }
  function onChestResult(event){
   if(event?.ok&&Array.isArray(event.inventory)){
+   if(authenticatedProfile)serverInventorySlots=event.inventory.map(row=>row?{...row}:null);
    state.inventory=event.inventory.filter(Boolean).map(row=>({id:row.id,qty:row.qty}));
    onlineChest={slots:event.slots,revision:event.revision,inventory:event.inventory};persist();draw();
    if(!modal.hidden&&modal.dataset.kind==='chest')renderModal();
@@ -191,8 +225,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.level=progress.level;
   state.xp=progress.experience;
   state.gold=progress.gold;
-  if(Array.isArray(progress.inventory))
+  if(Array.isArray(progress.inventory)){
+   serverInventorySlots=progress.inventory.map(row=>row?{...row}:null);
    state.inventory=progress.inventory.filter(Boolean).map(row=>({...row}));
+  }
   if(progress.equipment&&typeof progress.equipment==='object')
    state.equipment=progress.equipment;
   if(progress.quests?.mentor?.step!==undefined)
@@ -469,6 +505,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   persist();draw();void updateEquipmentVisuals();
  }
  function equip(id){
+  if(authenticatedProfile){
+   const dense=state.inventory.findIndex(row=>row.id===id);
+   const bagSlot=authenticatedSlotAt(dense);
+   const slot=ITEM_CATALOG[id]?.slot;
+   if(bagSlot<0||!slot)return msg('Не удалось найти предмет на сервере');
+   economySend('equip',{bagSlot,equipmentSlot:slot});
+   return;
+  }
   const result=equipFromBag(state,id,inCombat());
   if(!result.ok)return msg(result.error);
   finishEquipmentChange(result.slot);msg('Надето: '+ITEM_CATALOG[id].name);
@@ -548,7 +592,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function openWindow(kind){
   if(kind!=='gatherLoot')camp.cancel();
   modal.hidden=false;modal.dataset.kind=kind;
-  if(kind==='chest'&&isOnline()){
+  if(kind==='chest'&&authenticatedProfile){
+   onlineChest={slots:null,inventory:serverInventorySlots};
+   economySend('chestOpen');
+  }else if(kind==='chest'&&isOnline()){
    const items=[...state.inventory];
    while(items.length<12)items.push(null);
    onlineChest={slots:null,inventory:items};
@@ -575,7 +622,16 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   window.location.reload();
  }
  function interact(){
-  if(authenticatedProfile)return msg('Квесты, торговля и сундук подключаются к серверным сохранениям позже.');
+  if(authenticatedProfile){
+   if(!isOnline())return msg('Для общения с NPC требуется соединение с сервером');
+   if(!modal.hidden)return;
+   const nearby=nearestInteraction();
+   if(!nearby)return msg('Подойди ближе к персонажу или объекту');
+   if(nearby.kind==='vendor')openWindow('merchant');
+   else if(nearby.kind==='chest')openWindow('chest');
+   else msg('Задания и сбор ресурсов пока подключаются к серверу');
+   return;
+  }
   if(!modal.hidden||camp.casting)return;
   // Approach alone enables NPC dialogue, gathering, storage and corpse loot.
   // It never requires a selected combat target.
