@@ -7,8 +7,9 @@ import {readFile} from 'node:fs/promises';
 import pg from 'pg';
 import {createEconomyStore} from '../economy-store.js';
 import {createProgressStore} from '../progress-store.js';
-import {gatherNode,ECONOMY_VENDOR,ECONOMY_HERBALIST,ECONOMY_CHEST} from '../economy-rules.js';
+import {gatherNode,ECONOMY_VENDOR,ECONOMY_HERBALIST,ECONOMY_CHEST,ECONOMY_MENTOR} from '../economy-rules.js';
 import {localToNormal} from '../spherical-pve.js';
+import {RELIC_POSITION,SCOUT_POSITION} from '../../planet-test/mentor-chain.js';
 const connectionString=process.env.NGW_PROGRESS_TEST_DATABASE;
 const ctx=(point,extra={})=>({
  normal:localToNormal(point.x,point.z,261),radius:261,inCombat:false,...extra
@@ -154,6 +155,73 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
   assert.equal((await pool.query(
    'SELECT count(*)::int AS n FROM ngw_gather_nodes WHERE node_id=$1 AND ready_at>now()',[node.nodeId]
   )).rows[0].n,0);
+
+  // Mentor quest chain is driven only by verified PvE evidence and interaction
+  // positions; duplicate kills and repeated turn-ins never duplicate rewards.
+  const normalKill=life=>({type:'killCredit',mobId:'dolgonog-0',
+   life,xp:22,gold:4,loot:[{id:'feather',qty:1}]});
+  const start=await store.startMentor(base(c,charlie,(await progress.load(c,charlie)).revision,
+   ctx(ECONOMY_MENTOR)));
+  let mentorRev=start.progress.revision;
+  assert.equal(start.progress.quests.mentor.step,1);
+  for(let life=1;life<=3;life++){
+   const killed=await store.recordMentorKill(base(c,charlie,mentorRev,null,{
+    serverCredit:normalKill(life)
+   }));
+   assert.equal(killed.applied,true);
+   mentorRev=killed.progress.revision;
+   const duplicate=await store.recordMentorKill(base(c,charlie,mentorRev-1,null,{
+    serverCredit:normalKill(life)
+   }));
+   assert.equal(duplicate.applied,false);
+  }
+  assert.equal((await progress.load(c,charlie)).quests.mentor.step,2);
+  await assert.rejects(()=>store.recordMentorKill(base(c,charlie,mentorRev,null,{
+   serverCredit:{...normalKill(4),gold:999999}
+  })),e=>e.code==='invalid_kill_reward');
+  const mentorReward1=await store.turnInMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
+  assert.equal(mentorReward1.reward.gold,25);
+  assert.equal(mentorReward1.reward.xp,80);
+  mentorRev=mentorReward1.progress.revision;
+  await assert.rejects(()=>store.turnInMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR))),
+   e=>e.code==='mentor_reward_not_ready');
+  const mentorStage4=await store.startMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
+  mentorRev=mentorStage4.progress.revision;
+  await assert.rejects(()=>store.mentorInteract(base(c,charlie,mentorRev,ctx({x:100,z:100}),{
+   kind:'relic'
+  })),e=>e.code==='interaction_too_far');
+  const relic=await store.mentorInteract(base(c,charlie,mentorRev,ctx(RELIC_POSITION),{kind:'relic'}));
+  mentorRev=relic.progress.revision;
+  const mentorReward2=await store.turnInMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
+  mentorRev=mentorReward2.progress.revision;
+  const mentorStage7=await store.startMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
+  mentorRev=mentorStage7.progress.revision;
+  const scout=await store.mentorInteract(base(c,charlie,mentorRev,ctx(SCOUT_POSITION),{kind:'scout'}));
+  mentorRev=scout.progress.revision;
+  const mentorReward3=await store.turnInMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
+  mentorRev=mentorReward3.progress.revision;
+  const mentorStage10=await store.startMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
+  mentorRev=mentorStage10.progress.revision;
+  const boss={type:'killCredit',mobId:'dolgonog-8',life:1,
+   xp:70,gold:12,loot:[{id:'giantFeather',qty:1}]};
+  await assert.rejects(()=>store.recordMentorKill(base(c,charlie,mentorRev,null,{
+   serverCredit:normalKill(5)
+  })),e=>e.code==='wrong_mentor_target');
+  const bossReward=await store.recordMentorKill(base(c,charlie,mentorRev,null,{
+   serverCredit:boss
+  }));
+  mentorRev=bossReward.progress.revision;
+  const mentorFinished=await store.turnInMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
+  assert.equal(mentorFinished.progress.quests.mentor.step,12);
+  assert.equal(mentorFinished.progress.gold,235);
+  assert.equal(mentorFinished.progress.level,4);
+  assert.equal(mentorFinished.progress.experience,25);
+  assert.equal((await pool.query(
+   "SELECT count(*)::int AS n FROM ngw_progress_events WHERE character_id=$1 AND event_kind='quest_reward'",[charlie]
+  )).rows[0].n,4);
+  assert.equal((await pool.query(
+   "SELECT count(*)::int AS n FROM ngw_mentor_kill_evidence WHERE character_id=$1",[charlie]
+  )).rows[0].n,4);
   await pool.query('UPDATE ngw_characters SET deleted_at=now() WHERE id=$1',[alice]);
   await assert.rejects(()=>store.moveChest(base(a,alice,turned.progress.revision,
    ctx(ECONOMY_CHEST),{action:'withdraw',slot:0})),e=>e.status===404);
