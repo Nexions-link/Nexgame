@@ -47,6 +47,12 @@ export async function runAccountSmoke(port){
  requireResponse(await jsonRequest(base,'/characters/'+character.id,{token}),404,'removed hero inaccessible');
  const activeAfter= requireResponse(await jsonRequest(base,'/characters',{token}),200,'after deletion');
  if(activeAfter.characters.length!==0)throw Error('Removed test hero still active');
+ const recreated=requireResponse(await jsonRequest(base,'/characters',{
+  method:'POST',body:{nickname},token}),201,'recreate deleted nickname');
+ if(recreated.character.id===character.id)throw Error('Recreated hero reused deleted id');
+ requireResponse(await jsonRequest(base,'/characters/'+recreated.character.id,{
+  method:'DELETE',body:{confirmNickname:nickname},token}),200,'remove replacement hero');
+
 
  requireResponse(await jsonRequest(base,'/logout',{token,method:'POST',body:{}}),200,'logout');
  requireResponse(await jsonRequest(base,'/characters',{token}),401,'revoked session');
