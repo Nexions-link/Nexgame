@@ -1,0 +1,34 @@
+name: NexGameWorld server checks
+on:
+  push:
+    branches:
+      - main
+      - feature/ngw-auth-hardening-0.7.1
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ngw-server-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Check game server and account module syntax
+        run: npm run check && npm run check:accounts
+      - name: Unit and HTTP account security tests
+        run: npm run test:accounts
+      - name: Multiplayer, groups, combat and chest regressions
+        run: npm test
