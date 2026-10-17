@@ -9,14 +9,22 @@ function mockStore(){
  const accounts=new Map(),tokens=new Map(),characters=new Map();
  let count=0;
  return {
-  async createAccount(email,password_hash){
-   if(accounts.has(email))throw Object.assign(Error('Адрес занят'),{status:409});
-   const account={id:'account-'+(++count),email,password_hash,
-    status:'active',email_verified_at:null};
-   accounts.set(email,account);
+  async createAccount(username,password_hash){
+   if(accounts.has(username))throw Object.assign(Error('Адрес занят'),{status:409});
+   const account={id:'account-'+(++count),username,password_hash,
+    status:'active'};
+   accounts.set(username,account);
    return account;
   },
-  async passwordRecord(email){return accounts.get(email)||null},
+  async passwordRecord(username){return accounts.get(username)||null},
+  async saveRecoveryCodes(id,digests){this.codes=new Set(digests.map(x=>x.toString('hex')))},
+  async consumeRecoveryCode(username,digest,newPasswordHash){
+   const a=accounts.get(username),key=digest.toString('hex');
+   if(!a||!this.codes?.has(key))return false;
+   this.codes.delete(key);a.password_hash=newPasswordHash;
+   for(const [token,user] of tokens)if(user.id===a.id)tokens.delete(token);
+   return true;
+  },
   async saveSession(id,digest){
    const account=[...accounts.values()].find(a=>a.id===id);
    tokens.set(digest.toString('hex'),account);
@@ -39,7 +47,7 @@ function mockStore(){
 }
 test('account API requires safe origin and session; creates a character without client state writes',
  {timeout:20000},async()=>{
- const api=createAccountApi({store:mockStore(),allowUnverified:true});
+ const api=createAccountApi({store:mockStore()});
  const server=createServer(async(req,res)=>{
   const handled=await api(req,res);
   if(!handled){res.statusCode=404;res.end()}
@@ -59,19 +67,21 @@ test('account API requires safe origin and session; creates a character without 
  };
  try{
   assert.equal((await post('/api/ngw/register',{
-   email:'test@example.com',password:'enough-long-password!'
+   username:'herotest',password:'enough-long-password!'
   },null,'https://attacker.invalid')).status,403);
   assert.equal((await post('/api/ngw/register',{
-   email:'test@example.com',password:'short'
+   username:'herotest',password:'short'
   })).status,400);
-  assert.equal((await post('/api/ngw/register',{
-   email:'test@example.com',password:'enough-long-password!'
-  })).status,201);
+  const registration=await post('/api/ngw/register',{
+   username:'herotest',password:'enough-long-password!'
+  });
+  assert.equal(registration.status,201);
+  assert.equal(registration.json.recoveryCodes.length,8);
   assert.equal((await post('/api/ngw/login',{
-   email:'test@example.com',password:'not-correct-password'
+   username:'herotest',password:'not-correct-password'
   })).status,401);
   const logged=await post('/api/ngw/login',{
-   email:'test@example.com',password:'enough-long-password!'
+   username:'herotest',password:'enough-long-password!'
   });
   assert.equal(logged.status,200);
   assert.equal(typeof logged.json.token,'string');
@@ -90,6 +100,15 @@ test('account API requires safe origin and session; creates a character without 
   },token)).status,400);
   assert.equal((await post('/api/ngw/logout',{},token)).status,200);
   assert.equal((await get('/api/ngw/me',token)).status,401);
+  const recovered=await post('/api/ngw/recover',{
+   username:'herotest',recoveryCode:registration.json.recoveryCodes[0],
+   newPassword:'new-password-for-account!'
+  });
+  assert.equal(recovered.status,200);
+  assert.equal((await post('/api/ngw/recover',{
+   username:'herotest',recoveryCode:registration.json.recoveryCodes[0],
+   newPassword:'new-password-for-account!'
+  })).status,401);
  }finally{
   server.closeAllConnections();
   await new Promise(resolve=>server.close(resolve));
