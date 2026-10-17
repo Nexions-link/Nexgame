@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - feature/ngw-auth-hardening-0.7.1
+      - feature/ngw-live-economy-0.7.5
   pull_request:
     branches:
       - main
