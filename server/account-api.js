@@ -94,7 +94,7 @@ export function createAccountApi({
   }
   try{
    if(method==='POST'&&path==='/api/ngw/register'){
-    if(!await consume('register-ip',sourceIP(req),8,3600)){
+    if(!await consume('register-ip',sourceIP(req),50,3600)){
      json(res,429,{error:'Слишком много запросов регистрации. Попробуйте позднее'});return true;
     }
     const data=await readJson(req);
