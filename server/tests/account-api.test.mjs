@@ -70,14 +70,14 @@ test('account API requires safe origin and session; creates a character without 
    username:'herotest',password:'enough-long-password!'
   },null,'https://attacker.invalid')).status,403);
   assert.equal((await post('/api/ngw/register',{
-   username:'herotest',password:'1234567'
+   username:'herotest',password:'12345'
   })).status,400);
   const registration=await post('/api/ngw/register',{
    username:'herotest',password:'enough-long-password!'
   });
   assert.equal(registration.status,201);
   assert.equal((await post('/api/ngw/register',{
-   username:'alphatest',password:'12345678'
+   username:'alphatest',password:'123456'
   })).status,201);
   assert.equal(registration.json.recoveryCodes.length,8);
   assert.equal((await post('/api/ngw/login',{
