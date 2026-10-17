@@ -5,12 +5,13 @@ export const CHARACTER_SLOT_LIMIT=3;
 export const INITIAL_RACE='hornfolk';
 export const INITIAL_CLASS='warrior';
 const NAME_PATTERN=/^[\p{L}\p{N}][\p{L}\p{N}_-]*[\p{L}\p{N}]$/u;
-export function normalizeEmail(value){
- if(typeof value!=='string')throw new TypeError('Некорректная почта');
- const email=value.trim().normalize('NFC').toLowerCase();
- if(email.length<3||email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email))
-  throw new TypeError('Некорректная почта');
- return email;
+export function normalizeUsername(value){
+ if(typeof value!=='string')throw new TypeError('Некорректный логин');
+ const username=value.trim().normalize('NFC').toLowerCase();
+ if([...username].length<3||[...username].length>24||
+    !/^[a-z][a-z0-9_-]*$/.test(username))
+  throw new TypeError('Логин: 3–24 символа латиницей, цифры, дефис и подчёркивание');
+ return username;
 }
 export function validatePassword(value){
  if(typeof value!=='string'||value.length<12||value.length>128||
