@@ -114,6 +114,26 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
   const rolledBack=await pool.query(
    'SELECT count(*)::int AS n FROM ngw_progress_events WHERE character_id=$1',[id]);
   assert.equal(rolledBack.rows[0].n,3);
+  // Render restarts reset mob.life to 1. A new process epoch must allow
+  // a legitimately new kill without colliding with the old durable ledger.
+  const epochHero=await pool.query(
+   "INSERT INTO ngw_characters(account_id,nickname) VALUES($1,'EpochHero') RETURNING id",[a]);
+  const epochId=epochHero.rows[0].id;
+  await pool.query("INSERT INTO ngw_character_progress(character_id) VALUES($1)",[epochId]);
+  const oldRunKill=await store.recordMobKill({
+   accountId:a,characterId:epochId,expectedRevision:0,radius:261,serverCredit:credit(1)
+  });
+  const restartedServerStore=createProgressStore({pool});
+  const newRunKill=await restartedServerStore.recordMobKill({
+   accountId:a,characterId:epochId,expectedRevision:1,radius:261,serverCredit:credit(1)
+  });
+  assert.equal(oldRunKill.applied,true);
+  assert.equal(newRunKill.applied,true);
+  assert.notEqual(oldRunKill.eventKey,newRunKill.eventKey);
+  assert.equal((await store.load(a,epochId)).gold,38);
+  assert.equal((await pool.query(
+   "SELECT count(*)::int AS n FROM ngw_progress_events WHERE character_id=$1",[epochId]
+  )).rows[0].n,2);
   await pool.query('UPDATE ngw_characters SET deleted_at=now() WHERE id=$1',[id]);
   await assert.rejects(()=>store.load(a,id),e=>e.status===404);
   await assert.rejects(()=>store.recordMobKill({
