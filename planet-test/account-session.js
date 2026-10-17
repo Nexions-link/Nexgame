@@ -1,7 +1,7 @@
 // Same-origin alpha account launch. Session tokens remain in sessionStorage,
 // never in URLs, query strings, referrers or published HTML.
 const SESSION_KEY='ngw-alpha-session',CHARACTER_KEY='ngw-selected-character';
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN=/^[A-Za-z0-9_-]{43}$/;
 export const ACCOUNT_API='https://nexgame-world.onrender.com/api/ngw';
 export const AUTH_WORLD_URL='wss://nexgame-world.onrender.com/ws/nexgameworld/auth';
