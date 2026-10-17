@@ -3,6 +3,7 @@
 // Call it only from a future authenticated, authoritative world controller.
 import {randomUUID} from 'node:crypto';
 import pg from 'pg';
+import {getMentorQuest,certifyMentorKill} from './economy-rules.js';
 import {
  assertCharacterId,parseRevision,readProgress,validateKillCredit,
  awardVerifiedKill,validateServerCheckpoint,equipOwnedItem,unequipOwnedItem,
@@ -129,7 +130,18 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    if(duplicate.rowCount)
     return {applied:false,reason:'duplicate',progress:state};
    if(state.revision!==expectedRevision)throw conflict();
-   const next=awardVerifiedKill(state,event);
+   let next=awardVerifiedKill(state,event);
+   // Quest kill objectives share the exact same transaction and world-run
+   // identity as the reward: duplicate packets cannot advance objectives.
+   const mentor=getMentorQuest(next);
+   const boss=serverCredit.mobId==='dolgonog-8';
+   if((mentor.step===1&&!boss)||(mentor.step===10&&boss)){
+    const credited=certifyMentorKill(next,serverCredit,worldRunId);
+    await client.query(
+     'INSERT INTO ngw_mentor_kill_evidence(character_id,event_key,quest_step) VALUES($1,$2,$3)',
+     [characterId,credited.evidence.eventKey,credited.evidence.questStep]);
+    next=credited.next;
+   }
    await client.query(
     ['INSERT INTO ngw_progress_events',
      '(character_id,event_key,event_kind,xp_granted,gold_granted,loot)',
@@ -149,6 +161,22 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   });
  }
  // The item must actually exist in the server-side saved inventory.
+ // Consume an owned potion and heal using only SERVER vitals, not packet values.
+ async function useHealingPotion({accountId,characterId,expectedRevision,currentHp,maxHp}){
+  if(!Number.isFinite(currentHp)||!Number.isFinite(maxHp)||
+     currentHp<=0||maxHp<=0||currentHp>=maxHp)
+   throw new ProgressError('potion_not_needed',409);
+  return transaction(accountId,characterId,expectedRevision,async({state,save})=>{
+   if(state.revision!==expectedRevision)throw conflict();
+   const slot=state.inventory.findIndex(row=>row?.id==='healingPotion'&&row.qty>0);
+   if(slot<0)throw new ProgressError('item_not_owned',409);
+   const inventory=state.inventory.map(row=>row?{...row}:null);
+   inventory[slot].qty--;
+   if(!inventory[slot].qty)inventory[slot]=null;
+   const health=Math.min(maxHp,currentHp+55);
+   return {progress:await save({...state,inventory,health})};
+  });
+ }
  async function equipInventoryItem({accountId,characterId,expectedRevision,
   bagSlot,equipmentSlot}){
   return transaction(accountId,characterId,expectedRevision,async({state,save})=>{
@@ -165,7 +193,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
  }
  return {
   schemaReady,load,initializeStarterPack,recordMobKill,saveServerCheckpoint,
-  equipInventoryItem,unequipInventoryItem,
+  equipInventoryItem,unequipInventoryItem,useHealingPotion,
   // Internal server-only transaction hook; never export via HTTP or WS.
   trustedTransaction:transaction,
   close:()=>ownsPool?pool.end():Promise.resolve()

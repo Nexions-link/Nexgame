@@ -1,6 +1,7 @@
 // NexGameWorld: one spherical, shared authoritative PvE world per planet radius.
 // Legacy flat-world sessions are intentionally not attached here.
 import {randomUUID} from 'node:crypto';
+import {createAccountEconomyDispatcher} from './account-economy-dispatch.js';
 import {resolve,dirname,join} from 'node:path';
 import {WebSocket} from 'ws';
 import {createPartyManager} from './groups.js';
@@ -45,7 +46,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  const chest=createSharedChest({players,send:sendToId,
   broadcast:event=>{for(const p of players.values())sendToId(p.id,event)},filePath:chestFilePath});
  let timer=null;
- function attach(ws,{trustedCharacter=null,progressStore=null}={}){
+ function attach(ws,{trustedCharacter=null,progressStore=null,economyStore=null}={}){
   // Serialize all server-generated character saves for this connection.
   // A socket is not released for another login until its save queue drains.
   let saveQueue=Promise.resolve(),lastCheckpoint=0;
@@ -61,6 +62,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
   function publishProgress(p,result,source){
    const progress=result.progress;
    p.savedRevision=progress.revision;
+   p.savedInventory=progress.inventory;
    p.level=progress.level;
    p.equipment=sanitizeSphereEquipment(progress.equipment,progress.level);
    p.maxHp=deriveStats(progress.level,p.equipment).maxHp;
@@ -127,6 +129,23 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
       publishProgress(p,result,source);
      });
     }
+    p.savedInventory=Array.isArray(saved?.inventory)?saved.inventory:null;
+    if(trustedCharacter&&progressStore&&economyStore){
+     const dispatch=createAccountEconomyDispatcher({
+      player:p,economyStore,progressStore,queueSave,
+      publishProgress:(result,source)=>publishProgress(p,result,source),
+      send:event=>send(ws,event),
+      broadcastChest:chestState=>{
+       for(const other of players.values()){
+        if(other.id===p.id||!other.accountId||!other.accountChestOpen||
+           other.radius!==p.radius)continue;
+        sendToId(other.id,{type:'chestState',...chestState});
+       }
+      }
+     });
+     p.queueEconomy=dispatch.invoke;
+     p.closeAccountChest=()=>{dispatch.closeChest();p.accountChestOpen=false};
+    }
     players.set(p.id,p);connections.set(ws,p);
     send(ws,{type:'welcome',world:'nexgameworld',protocol:SPHERE_PROTOCOL,
      id:p.id,radius:p.radius,tickMs:TICK_MS,players:[...players.values()]
@@ -156,14 +175,30 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    if(m.type==='partyLeave'){party.leave(current.id);return}
    if(m.type==='chatSend'){chat.handle(current.id,m);return}
    if(m.type==='chestOpen'){
-    if(trustedCharacter){send(ws,{type:'chestResult',ok:false,reason:'pending_server_inventory'});return}
+    if(trustedCharacter){
+     if(current.queueEconomy)void current.queueEconomy('chestOpen').catch(()=>{});
+     else send(ws,{type:'chestResult',ok:false,reason:'pending_server_inventory'});
+     return;
+    }
     chest.open(current.id,m.inventory);return
    }
    if(m.type==='chestMove'){
-    if(trustedCharacter){send(ws,{type:'chestResult',ok:false,reason:'pending_server_inventory'});return}
+    if(trustedCharacter){
+     if(current.queueEconomy)void current.queueEconomy('chestMove',m).catch(()=>{});
+     else send(ws,{type:'chestResult',ok:false,reason:'pending_server_inventory'});
+     return;
+    }
     chest.move(current.id,m);return
    }
-   if(m.type==='chestClose'){chest.close(current.id);return}
+   if(m.type==='chestClose'){
+    if(trustedCharacter){current.closeAccountChest?.();return}
+    chest.close(current.id);return
+   }
+   if(m.type==='economyAction'){
+    if(trustedCharacter&&current.queueEconomy&&typeof m.kind==='string'&&m.kind.length<40)
+     void current.queueEconomy(m.kind,m).catch(()=>{});
+    return;
+   }
    if(m.type==='attack'){
     if(current.respawnShieldUntil>Date.now())return;
     const res=applySphereAttack(rooms.get(current.radius).mobs,current,m.abilityId,m.mobId);

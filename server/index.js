@@ -1,5 +1,6 @@
 // NexGameWorld Alpha 0.6.30 — one active spherical-world WebSocket server.
 import {createServer} from 'node:http';
+import {randomUUID} from 'node:crypto';
 import {WebSocketServer} from 'ws';
 import {existsSync,unlinkSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
@@ -9,8 +10,9 @@ import {createAccountStore} from './account-store.js';
 import {createAccountApi} from './account-api.js';
 import {createWorldSessionGate} from './world-session-gate.js';
 import {createProgressStore} from './progress-store.js';
+import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.33';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.34';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
  'https://www.nexions.ru','https://nexions-link.github.io']);
@@ -53,7 +55,8 @@ async function verifyNeonConnection(){
 }
 void verifyNeonConnection();
 let accountStore=null, accountApi=null;
-let authenticatedWorldGate=null,worldProgressStore=null;
+let authenticatedWorldGate=null,worldProgressStore=null,worldEconomyStore=null;
+const worldRunId=randomUUID();
 let accountCleanupTimer=null;
 let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
 async function initializeAccounts(){
@@ -76,9 +79,14 @@ async function initializeAccounts(){
    // The new authenticated route is opt-in until durable game progression
    // and authoritative chest/quest integrations have passed full tests.
    if(process.env.NGW_AUTH_WORLD_ENABLED==='true'){
-    worldProgressStore=createProgressStore();
+    worldProgressStore=createProgressStore({worldRunId});
     if(!await worldProgressStore.schemaReady())throw Error('Progress event ledger is not ready');
     authenticatedWorldGate=createWorldSessionGate({accountStore,progressStore:worldProgressStore});
+    if(process.env.NGW_ECONOMY_ENABLED==='true'){
+     worldEconomyStore=createEconomyStore({worldRunId});
+     if(!await worldEconomyStore.schemaReady())throw Error('Economy schema missing');
+     console.log('NexGameWorld authenticated economy enabled');
+    }
     console.log('NexGameWorld authenticated world gateway enabled');
    }
   }
@@ -96,7 +104,8 @@ const http=createServer((req,res)=>{
    protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup,
    databaseConfigured:Boolean(process.env.DATABASE_URL),
    accountDbStatus,accountApiEnabled:!!accountApi,
-   authenticatedWorldEnabled:!!authenticatedWorldGate}));return;
+   authenticatedWorldEnabled:!!authenticatedWorldGate,
+   authenticatedEconomyEnabled:!!worldEconomyStore}));return;
  }
  if(req.url?.split('?')[0]?.startsWith('/api/ngw/')){
   if(accountApi){
@@ -139,7 +148,7 @@ wss.on('connection',(ws,req)=>{
     const trusted=await authenticatedWorldGate.enter(ws,message);
     if(ws.readyState!==1){authenticatedWorldGate.leave(ws);return}
     const attached=world.attach(ws,{trustedCharacter:trusted,
-     progressStore:worldProgressStore});
+     progressStore:worldProgressStore,economyStore:worldEconomyStore});
     ws.once('close',()=>{
      // Keep a character lease while outstanding committed rewards/position
      // writes finish. Never allow concurrent reconnect to race the last save.
@@ -170,4 +179,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});
