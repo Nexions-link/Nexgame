@@ -19,6 +19,11 @@ service, or Nexions.ru. The current Alpha 0.6.31 game remains accessible.
   Do not apply without verifying the target database.
 - Run foundation tests with `cd server && node --test tests/accounts-foundation.test.mjs`.
 
+## Alpha password policy
+- Minimum password length is **8 characters** (previously 12), maximum 128.
+- Passwords are salted and hashed; plaintext is never persisted.
+- Recommend that players choose a unique password not used for email or other services.
+
 ## Identity and character model
 - An account owns zero to three characters. Character IDs are independent
   UUIDs, with a global case-insensitive nickname uniqueness constraint.
