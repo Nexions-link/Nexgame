@@ -18,8 +18,8 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
  const query=(sql,params=[])=>pool.query(sql,params);
  async function ping(){await query('SELECT 1 AS ok');return true}
  async function schemaReady(){
-  const {rows}=await query("SELECT to_regclass('public.ngw_accounts') AS accounts, to_regclass('public.ngw_characters') AS characters, to_regclass('public.ngw_character_progress') AS progress, to_regclass('public.ngw_sessions') AS sessions");
-  return !!(rows[0]?.accounts&&rows[0]?.characters&&rows[0]?.progress&&rows[0]?.sessions);
+  const {rows}=await query("SELECT to_regclass('public.ngw_accounts') AS accounts, to_regclass('public.ngw_characters') AS characters, to_regclass('public.ngw_character_progress') AS progress, to_regclass('public.ngw_sessions') AS sessions, to_regclass('public.ngw_auth_rate_limits') AS limits");
+  return !!(rows[0]?.accounts&&rows[0]?.characters&&rows[0]?.progress&&rows[0]?.sessions&&rows[0]?.limits);
  }
  async function createAccount(username,passwordHash,recoveryDigests){
   const normalized=normalizeUsername(username);
