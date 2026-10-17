@@ -21,13 +21,27 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
   const {rows}=await query("SELECT to_regclass('public.ngw_accounts') AS accounts, to_regclass('public.ngw_characters') AS characters, to_regclass('public.ngw_character_progress') AS progress, to_regclass('public.ngw_sessions') AS sessions");
   return !!(rows[0]?.accounts&&rows[0]?.characters&&rows[0]?.progress&&rows[0]?.sessions);
  }
- async function createAccount(username,passwordHash){
+ async function createAccount(username,passwordHash,recoveryDigests){
+  const normalized=normalizeUsername(username);
+  if(!Array.isArray(recoveryDigests)||recoveryDigests.length!==8||
+   !recoveryDigests.every(x=>Buffer.isBuffer(x)&&x.length===32))
+   throw new TypeError('Требуется восемь резервных кодов');
+  const client=await pool.connect();
   try{
-   const {rows}=await query(
+   await client.query('BEGIN');
+   const result=await client.query(
     'INSERT INTO ngw_accounts(username,password_hash) VALUES($1,$2) RETURNING id,username,created_at',
-    [normalizeUsername(username),passwordHash]);
-   return rows[0];
-  }catch(e){return dbError(e)}
+    [normalized,passwordHash]);
+   const account=result.rows[0];
+   for(const digest of recoveryDigests){
+    await client.query('INSERT INTO ngw_recovery_codes(code_digest,account_id) VALUES($1,$2)',[digest,account.id]);
+   }
+   await client.query('COMMIT');
+   return account;
+  }catch(error){
+   try{await client.query('ROLLBACK')}catch{}
+   return dbError(error);
+  }finally{client.release()}
  }
  async function passwordRecord(username){
   const {rows}=await query(
