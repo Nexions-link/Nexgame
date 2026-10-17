@@ -1099,6 +1099,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      const item=ITEM_CATALOG[id];if(!item?.buy)continue;
      line((item.icon||'📦')+' '+item.name,item.buy+' монет · '+LABEL[item.slot],
       [['Купить',()=>{
+       if(authenticatedProfile)return sendAccountAction('merchantBuy',{itemId:id,qty:1});
        if(state.gold<item.buy)return msg('Недостаточно монет');
        if(!addItem(id))return msg('Сумка заполнена');
        state.gold-=item.buy;persist();renderModal();draw();msg('Куплено: '+item.name);
@@ -1112,6 +1113,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      line((item.icon||'📦')+' '+item.name+(row.qty>1?' ×'+row.qty:''),
       'Продажа всего слота · '+(item.sell*row.qty)+' монет',
       [['Продать',()=>{
+       if(authenticatedProfile)return sendAccountAction('merchantSell',{
+        bagSlot:serverBagSlot(index),qty:row.qty});
        const result=sellInventorySlot(state,index);
        if(!result.ok)return msg('Этот предмет нельзя продать');
        persist();renderModal();draw();msg('Продано: '+item.name);
@@ -1119,6 +1122,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     });
     if(!available)line('Нет предметов на продажу','Квестовые вещи нельзя продавать.');
    }else{
+    if(authenticatedProfile){line('Выкуп недоступен','Серверная история продаж появится позже.');return;}
     if(!state.buyback.length)line('Выкуп пуст','Недавно проданные предметы появятся здесь.');
     state.buyback.forEach((row,index)=>{
      const item=ITEM_CATALOG[row.id];
