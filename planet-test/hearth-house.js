@@ -68,7 +68,7 @@ export function buildHearthHouse(THREE,{root,villageVisuals}){
  for(const x of [-hw+t+.075,hw-t-.075]){
   createBox(walls,M.insideWall,x,4.85,0,.10,5.8,hd*1.93);
  }
- createBox(walls,M.insideWall,0,4.85,-hd+t+.075,LONGHOUSE.width-2*t,.10, .10);
+ createBox(walls,M.insideWall,0,4.85,-hd+t+.075,LONGHOUSE.width-2*t,5.8,.10);
  // All beams overlap physical solids by volume rather than coplanar polygons.
  for(const sx of [-1,1])for(const sz of [-1,1]){
   createBox(walls,M.darkWood,sx*(hw-.52),h*.50,sz*(hd-.52),.62,h,.62);
