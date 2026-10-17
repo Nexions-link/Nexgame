@@ -48,8 +48,7 @@ export function cycleHostileTarget(mobs,dummy,current,dist,step=1,alignment=null
    Number.isFinite(d)&&d<=TARGET_ACQUISITION_RADIUS)
  .sort((a,b)=>{
   const zoneA=targetPriorityZone(a.a),zoneB=targetPriorityZone(b.a);
-  return zoneA-zoneB||a.d-b.d||b.a-a.a||a.index-b.index;
- }
+  return zoneA-zoneB||a.d-b.d||(Number.isFinite(a.a)&&Number.isFinite(b.a)?b.a-a.a:0)||a.index-b.index;
  }).map(item=>item.entity);
  if(!nearby.length)return null;
  const currentIndex=nearby.indexOf(current);
