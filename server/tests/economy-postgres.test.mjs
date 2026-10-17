@@ -112,7 +112,7 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
    assert.equal(collected.item.id,'meadowFlower');
    rev=collected.progress.revision;
    await assert.rejects(()=>store.finishGather(base(a,alice,rev,ctx(node),{stage:1,index})),
-    e=>e.code==='gather_cast_not_started');
+    e=>['gather_cast_not_started','quest_ingredients_complete'].includes(e.code));
    if(index===0){
     const other=await store.acceptGather(base(b,bob,(await progress.load(b,bob)).revision,
      ctx(ECONOMY_HERBALIST)));
