@@ -70,16 +70,19 @@ test('account API requires safe origin and session; creates a character without 
    username:'herotest',password:'enough-long-password!'
   },null,'https://attacker.invalid')).status,403);
   assert.equal((await post('/api/ngw/register',{
-   username:'herotest',password:'1234567'
+   username:'herotest',password:'12345'
   })).status,400);
   const registration=await post('/api/ngw/register',{
    username:'herotest',password:'enough-long-password!'
   });
   assert.equal(registration.status,201);
   assert.equal((await post('/api/ngw/register',{
-   username:'alphatest',password:'12345678'
+   username:'alphatest',password:'123456'
   })).status,201);
   assert.equal(registration.json.recoveryCodes.length,8);
+  assert.equal((await post('/api/ngw/login',{
+   username:'alphatest',password:'123456'
+  })).status,200);
   assert.equal((await post('/api/ngw/login',{
    username:'herotest',password:'not-correct-password'
   })).status,401);
@@ -113,12 +116,15 @@ test('account API requires safe origin and session; creates a character without 
   assert.equal((await get('/api/ngw/me',token)).status,401);
   const recovered=await post('/api/ngw/recover',{
    username:'herotest',recoveryCode:registration.json.recoveryCodes[0],
-   newPassword:'new-password-for-account!'
+   newPassword:'new654'
   });
   assert.equal(recovered.status,200);
+  assert.equal((await post('/api/ngw/login',{
+   username:'herotest',password:'new654'
+  })).status,200);
   assert.equal((await post('/api/ngw/recover',{
    username:'herotest',recoveryCode:registration.json.recoveryCodes[0],
-   newPassword:'new-password-for-account!'
+   newPassword:'new654'
   })).status,401);
  }finally{
   server.closeAllConnections();
