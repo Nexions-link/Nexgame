@@ -88,6 +88,24 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return safe;
  };
  const state=preview?initial():authenticatedProfile?serverInitial():restore(),runtime=createAbilityRuntime();
+ let serverBagSlots=authenticatedProfile?.inventory?.length?
+  authenticatedProfile.inventory.map(row=>row?{...row}:null):Array(12).fill(null);
+ const isAccountHero=()=>!!authenticatedProfile;
+ const serverBagSlot=(clientIndex)=>{
+  const row=state.inventory[clientIndex];if(!row)return -1;
+  const ordinal=state.inventory.slice(0,clientIndex+1).filter(r=>r.id===row.id).length;
+  let found=0;
+  for(let i=0;i<serverBagSlots.length;i++)
+   if(serverBagSlots[i]?.id===row.id&&++found===ordinal)return i;
+  return -1;
+ };
+ const sendAccountAction=(kind,params={})=>{
+  if(!isOnline())return msg('Нет связи с сервером. Изменения не применены.');
+  if(!multiplayer.economy(kind,{...params,
+   ...(['merchantBuy','merchantSell'].includes(kind)?{requestId:crypto.randomUUID()}:{} )}))
+   return msg('Не удалось отправить команду');
+ };
+
  const rightHand=hero.arms[1]?.hand,leftHand=hero.arms[0]?.hand;
  const modelSlots={weapon:null,shield:null};
  hero.root.userData.equipmentGrip={weapon:equipmentGrip('weapon'),shield:equipmentGrip('shield')};
@@ -191,14 +209,20 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.level=progress.level;
   state.xp=progress.experience;
   state.gold=progress.gold;
-  if(Array.isArray(progress.inventory))
-   state.inventory=progress.inventory.filter(Boolean).map(row=>({...row}));
+  if(Array.isArray(progress.inventory)){
+   serverBagSlots=progress.inventory.map(row=>row?{...row}:null);
+   state.inventory=serverBagSlots.filter(Boolean).map(row=>({...row}));
+  }
   if(progress.equipment&&typeof progress.equipment==='object')
    state.equipment=progress.equipment;
   if(progress.quests?.mentor?.step!==undefined)
    state.quest=progress.quests.mentor.step;
-  if(progress.quests?.gather?.stage!==undefined)
+  if(progress.quests?.gather?.stage!==undefined){
    state.gatherStage=progress.quests.gather.stage;
+   state.gatherAvailable=progress.quests.gather.stage>=1&&progress.quests.gather.stage<=3
+    &&!progress.quests.gather.accepted;
+  }
+  if(progress.quests?.mentor?.kills!==undefined)state.kills=progress.quests.mentor.kills;
   if(source==='welcome'){
    state.hp=progress.health;state.resource=progress.resource;
   }
