@@ -123,6 +123,32 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
    return dbError(e);
   }finally{client.release()}
  }
+ // Soft deletion removes the hero from active slots without destroying their
+ // progression. Lock the account, just as character creation does, to avoid
+ // races between simultaneous delete and create requests.
+ async function deleteCharacter(accountId,characterId,confirmNickname){
+  if(typeof characterId!=='string'||!UUID.test(characterId)||
+     typeof confirmNickname!=='string'||!confirmNickname||
+     confirmNickname.length>24)return false;
+  const client=await pool.connect();
+  try{
+   await client.query('BEGIN');
+   const owner=await client.query(
+    "SELECT id FROM ngw_accounts WHERE id=$1 AND status='active' FOR UPDATE",
+    [accountId]);
+   if(!owner.rowCount){await client.query('ROLLBACK');return false;}
+   const {rows}=await client.query(
+    'UPDATE ngw_characters SET deleted_at=now() '+
+    'WHERE id=$1 AND account_id=$2 AND deleted_at IS NULL AND nickname=$3 '+
+    'RETURNING id',
+    [characterId,accountId,confirmNickname]);
+   await client.query('COMMIT');
+   return rows.length===1;
+  }catch(error){
+   try{await client.query('ROLLBACK')}catch{}
+   throw error;
+  }finally{client.release()}
+ }
  async function loadCharacter(accountId,characterId){
   if(typeof characterId!=='string'||!UUID.test(characterId))return null;
   const {rows}=await query(
@@ -132,5 +158,5 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,po
  }
  return {ping,schemaReady,createAccount,passwordRecord,saveSession,accountForSession,
   saveRecoveryCodes,consumeRecoveryCode,
-  revokeSession,listCharacters,createCharacter,loadCharacter,close:()=>pool.end()};
+  revokeSession,listCharacters,createCharacter,deleteCharacter,loadCharacter,close:()=>pool.end()};
 }
