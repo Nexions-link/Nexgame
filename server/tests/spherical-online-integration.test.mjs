@@ -81,6 +81,7 @@ test('spherical parties, room-scoped chat and server chest reuse existing rules'
   a.send({type:'chatSend',channel:'party',text:'Привет, группа!'});
   await until(()=>b.events.find(e=>e.type==='chat'&&e.text==='Привет, группа!'));
   assert.equal(c.events.some(e=>e.type==='chat'&&e.text==='Привет, группа!'),false);
+  await sleep(950); // Honor existing chat rate limit: at least 900 ms between messages.
   a.send({type:'chatSend',channel:'world',text:'Привет, мир!'});
   await until(()=>c.events.find(e=>e.type==='chat'&&e.text==='Привет, мир!'));
   assert.equal(d.events.some(e=>e.type==='chat'&&e.text==='Привет, мир!'),false);
