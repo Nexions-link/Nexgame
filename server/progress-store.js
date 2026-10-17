@@ -35,7 +35,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   assertCharacterId(accountId);assertCharacterId(characterId);
  };
  const select=async(client,accountId,characterId,locked=false)=>{
-  const {rows}=await client.query(FIELDS+(locked?' FOR UPDATE OF p':''),[
+  const {rows}=await client.query(FIELDS+(locked?' FOR UPDATE OF p,c':''),[
    characterId,accountId]);
   return rows[0]?readProgress(rows[0]):null;
  };
