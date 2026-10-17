@@ -23,7 +23,8 @@ const http=createServer((req,res)=>{
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
   res.end(JSON.stringify({ok:true,world:'nexgameworld',
    players:world.population(),sphericalPlayers:world.population(),mobs:world.mobCount(),
-   protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup}));return;
+   protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup,
+   databaseConfigured:Boolean(process.env.DATABASE_URL)}));return;
  }
  res.writeHead(410,{'content-type':'text/plain','cache-control':'no-store'});
  res.end('Archived NexGame server is retired. Use NexGameWorld.');
