@@ -61,7 +61,7 @@ export function sphericalMobYaw(x,z,dx,dz,radius){
  const f=[to[0]-dot*n[0],to[1]-dot*n[1],to[2]-dot*n[2]];
  const qden=Math.sqrt(2*(1+n[1]));if(qden<1e-8)return null;
  const qx=n[2]/qden,qz=-n[0]/qden,qw=(1+n[1])/qden;
- const localX=[1-2*qz*qz,2*qx*qz,-2*qw*qz];
+ const localX=[1-2*qz*qz,2*qw*qz,2*qx*qz];
  const localZ=[2*qx*qz,-2*qw*qx,1-2*qx*qx];
  return Math.atan2(f[0]*localX[0]+f[1]*localX[1]+f[2]*localX[2],
    f[0]*localZ[0]+f[1]*localZ[1]+f[2]*localZ[2]);
@@ -175,6 +175,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    mob.aggroId=null;mob.attackAt=0;mob.navigation=null;
    mob.returning=true;target=null;
   }
+  if(!target&&mob.aggroId){mob.aggroId=null;mob.attackAt=0;mob.returning=true;mob.navigation=null;}
   // An evading creature must actually finish its return before reacquiring aggro.
   if(!target&&!mob.returning){
    let closest=Infinity;
