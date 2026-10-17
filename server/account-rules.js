@@ -7,6 +7,7 @@ export const INITIAL_CLASS='warrior';
 const NAME_PATTERN=/^[\p{L}\p{N}][\p{L}\p{N}_-]*[\p{L}\p{N}]$/u;
 export function normalizeUsername(value){
  if(typeof value!=='string')throw new TypeError('Некорректный логин');
+ if(/[\u0000-\u001f\u007f]/u.test(value))throw new TypeError('Управляющие символы запрещены');
  const username=value.trim().normalize('NFC').toLowerCase();
  if([...username].length<3||[...username].length>24||
     !/^[a-z][a-z0-9_-]*$/.test(username))
@@ -21,6 +22,7 @@ export function validatePassword(value){
 }
 export function normalizeNickname(value){
  if(typeof value!=='string')throw new TypeError('Некорректное имя персонажа');
+ if(/[\u0000-\u001f\u007f]/u.test(value))throw new TypeError('Управляющие символы запрещены');
  const name=value.trim().normalize('NFC');
  const length=[...name].length;
  if(length<3||length>24||!NAME_PATTERN.test(name))
