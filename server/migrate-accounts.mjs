@@ -18,7 +18,8 @@ try{
  await store.ping();
  // Migration script is additive/idempotent and wraps changes in a transaction.
  // It contains no DELETE or DROP statements.
- const {Pool}=await import('pg');
+ const {default:pg}=await import('pg');
+ const {Pool}=pg;
  const pool=new Pool({connectionString:process.env.DATABASE_URL,
   connectionTimeoutMillis:6000,ssl:{rejectUnauthorized:true},max:1});
  try{
