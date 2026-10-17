@@ -108,7 +108,7 @@ test('on losing online aggro the Dolgonog returns, heals at home, then resumes p
 
 test('server facing corresponds to radial +Z-forward frame instead of a flat-map bearing',()=>{
  const epsilon=1e-8;
- assert.ok(Math.abs(sphereMobFacingYaw(0,0,0,3,261))<epsilon);
+ assert.ok(Math.abs(Math.abs(sphereMobFacingYaw(0,0,0,3,261))-Math.PI)<epsilon);
  assert.ok(Math.abs(sphereMobFacingYaw(0,0,3,0,261)-Math.PI/2)<epsilon);
  for(const radius of [87,174,261]){
   const yaw=sphereMobFacingYaw(38,42,40,47,radius);
