@@ -160,12 +160,12 @@ export function createSphericalPresence({
   ws.onerror=()=>{if(ws.readyState<WebSocket.CLOSING)ws.close()};
  }
  function tick(dt,time){
-  if(!visuals.size&&!peers.size)return;
   const own=position();
   if(!own)return;
   if(joinedRadius!==null&&joinedRadius!==own.radius){
    socket?.close();return;
   }
+  if(!visuals.size&&!peers.size)return;
   const rows=[...peers.values()].map(peer=>({
    peer,distance:greatCircleDistance(own.normal,peer.normal,own.radius)
   })).filter(p=>p.distance<=VISIBLE_DISTANCE).sort((a,b)=>a.distance-b.distance)
