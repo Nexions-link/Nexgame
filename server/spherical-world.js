@@ -45,7 +45,28 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  const chest=createSharedChest({players,send:sendToId,
   broadcast:event=>{for(const p of players.values())sendToId(p.id,event)},filePath:chestFilePath});
  let timer=null;
- function attach(ws,{trustedCharacter=null}={}){
+ function attach(ws,{trustedCharacter=null,progressStore=null}={}){
+  // Serialize all server-generated character saves for this connection.
+  // A socket is not released for another login until its save queue drains.
+  let saveQueue=Promise.resolve(),lastCheckpoint=0;
+  function queueSave(operation){
+   const pending=saveQueue.then(operation);
+   saveQueue=pending.catch(error=>{
+    console.error('NexGameWorld authoritative progress save failed:',
+     error?.code||error?.name||'unknown');
+    send(ws,{type:'progressError',reason:'Не удалось сохранить прогресс. Переподключитесь.'});
+   });
+   return pending;
+  }
+  function publishProgress(p,result,source){
+   const progress=result.progress;
+   p.savedRevision=progress.revision;
+   p.level=progress.level;
+   p.equipment=sanitizeSphereEquipment(progress.equipment,progress.level);
+   p.maxHp=deriveStats(progress.level,p.equipment).maxHp;
+   p.hp=Math.min(p.maxHp,p.hp);
+   send(ws,{type:'progressSaved',source,progress});
+  }
   if(connections.size>=MAX_PLAYERS){ws.close(1013,'World is full');return}
   connections.set(ws,null);
   const cleanup=()=>{
@@ -53,6 +74,10 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const p=connections.get(ws);
    connections.delete(ws);
    if(p){
+    if(p.queueCheckpoint){
+     void p.queueCheckpoint({normal:[...p.normal],heading:p.heading,
+      radius:p.radius},'exit').catch(()=>{});
+    }
     party.disconnect(p.id);chat.disconnect(p.id);chest.disconnect(p.id);
     players.delete(p.id);sendInRoom(p.radius,{type:'leave',id:p.id});
     for(const mob of rooms.get(p.radius).mobs)if(mob.aggroId===p.id)mob.aggroId=null;
@@ -84,12 +109,31 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      normal,heading,moving:false,radius,
      level,equipment,hp,maxHp:stats.maxHp,resource:0,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
-     joined:true,x:local.x,z:local.z,abilityCooldowns:{}};
+     joined:true,x:local.x,z:local.z,abilityCooldowns:{},
+     savedRevision:saved?.revision??null};
+    if(trustedCharacter&&progressStore){
+     p.queueVerifiedKill=credit=>queueSave(async()=>{
+      const result=await progressStore.recordMobKill({
+       accountId:p.accountId,characterId:p.characterId,
+       expectedRevision:p.savedRevision,radius:p.radius,serverCredit:credit
+      });
+      if(result.applied)publishProgress(p,result,'mob');
+     });
+     p.queueCheckpoint=(checkpoint,source='checkpoint')=>queueSave(async()=>{
+      const result=await progressStore.saveServerCheckpoint({
+       accountId:p.accountId,characterId:p.characterId,
+       expectedRevision:p.savedRevision,checkpoint
+      });
+      publishProgress(p,result,source);
+     });
+    }
     players.set(p.id,p);connections.set(ws,p);
     send(ws,{type:'welcome',world:'nexgameworld',protocol:SPHERE_PROTOCOL,
      id:p.id,radius:p.radius,tickMs:TICK_MS,players:[...players.values()]
       .filter(x=>x.radius===p.radius&&x.id!==p.id).map(publicPlayer),
-     mobs:mobSnapshot(rooms.get(p.radius).mobs),hp:p.hp,maxHp:p.maxHp,resource:p.resource});
+     mobs:mobSnapshot(rooms.get(p.radius).mobs),hp:p.hp,maxHp:p.maxHp,resource:p.resource,
+     ...(trustedCharacter?{characterId:p.characterId,
+      progress:trustedCharacter.progress,authenticated:true}:{})});
     send(ws,party.state(p.id));
     return;
    }
@@ -126,7 +170,12 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     if(!res.ok){send(ws,{type:'combatRejected',abilityId:m.abilityId,reason:res.reason});return}
     if(res.events.length)current.lastCombatAt=Date.now();
     for(const event of res.events)sendInRoom(current.radius,event);
-    for(const entry of res.credits)sendToId(entry.targetId,entry.event);
+    for(const entry of res.credits){
+     const recipient=players.get(entry.targetId);
+     if(recipient?.queueVerifiedKill){
+      void recipient.queueVerifiedKill(entry.event).catch(()=>{});
+     }else sendToId(entry.targetId,entry.event);
+    }
     return;
    }
    if(m.type==='heal'){
@@ -149,6 +198,11 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    current.updatedAt=now;
    const loc=normalToLocal(normal,current.radius);
    current.x=loc.x;current.z=loc.z;
+   if(current.queueCheckpoint&&now-lastCheckpoint>=6000){
+    lastCheckpoint=now;
+    const checkpoint={normal:[...normal],heading:m.heading,radius:current.radius};
+    void current.queueCheckpoint(checkpoint).catch(()=>{});
+   }
    if(!trustedCharacter&&Number.isInteger(m.level)&&m.level>=1&&m.level<=60){
     current.level=m.level;
     current.equipment=sanitizeSphereEquipment(m.equipment,current.level);
@@ -157,6 +211,12 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    }
   });
   ws.on('close',cleanup);ws.on('error',cleanup);
+  return {drain:()=>saveQueue,requestCheckpoint:()=>{
+   const p=connections.get(ws);
+   if(!p?.queueCheckpoint)return saveQueue;
+   return p.queueCheckpoint({normal:[...p.normal],
+    heading:p.heading,radius:p.radius},'exit');
+  }};
  }
  function tickOnce(dt=.1,now=Date.now()){
   for(const room of rooms.values()){

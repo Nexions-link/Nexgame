@@ -8,6 +8,7 @@ import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
 import {createAccountStore} from './account-store.js';
 import {createAccountApi} from './account-api.js';
 import {createWorldSessionGate} from './world-session-gate.js';
+import {createProgressStore} from './progress-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 const PORT=Number(process.env.PORT||3000),BUILD='0.6.31';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
@@ -52,7 +53,7 @@ async function verifyNeonConnection(){
 }
 void verifyNeonConnection();
 let accountStore=null, accountApi=null;
-let authenticatedWorldGate=null;
+let authenticatedWorldGate=null,worldProgressStore=null;
 let accountCleanupTimer=null;
 let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
 async function initializeAccounts(){
@@ -75,7 +76,9 @@ async function initializeAccounts(){
    // The new authenticated route is opt-in until durable game progression
    // and authoritative chest/quest integrations have passed full tests.
    if(process.env.NGW_AUTH_WORLD_ENABLED==='true'){
-    authenticatedWorldGate=createWorldSessionGate({accountStore});
+    worldProgressStore=createProgressStore();
+    if(!await worldProgressStore.schemaReady())throw Error('Progress event ledger is not ready');
+    authenticatedWorldGate=createWorldSessionGate({accountStore,progressStore:worldProgressStore});
     console.log('NexGameWorld authenticated world gateway enabled');
    }
   }
@@ -134,9 +137,13 @@ wss.on('connection',(ws,req)=>{
    try{
     const trusted=await authenticatedWorldGate.enter(ws,message);
     if(ws.readyState!==1){authenticatedWorldGate.leave(ws);return}
-    ws.once('close',()=>authenticatedWorldGate.leave(ws));
-    ws.once('error',()=>authenticatedWorldGate.leave(ws));
-    world.attach(ws,{trustedCharacter:trusted});
+    const attached=world.attach(ws,{trustedCharacter:trusted,
+     progressStore:worldProgressStore});
+    ws.once('close',()=>{
+     // Keep a character lease while outstanding committed rewards/position
+     // writes finish. Never allow concurrent reconnect to race the last save.
+     Promise.resolve(attached.drain()).finally(()=>authenticatedWorldGate.leave(ws));
+    });
     // Synthetic join is generated from trusted Neon state only.
     ws.emit('message',Buffer.from(JSON.stringify({type:'join'})));
    }catch(error){
@@ -162,4 +169,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void accountStore?.close()});

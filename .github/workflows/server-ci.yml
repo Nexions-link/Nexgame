@@ -30,7 +30,40 @@ jobs:
         run: npm run check && npm run check:accounts
       - name: Unit and HTTP account security tests
         run: npm run test:accounts
-      - name: Account-bound character session admission checks
-        run: npm run check:world-auth && npm run test:world-auth
+      - name: Account-bound character session and browser bridge checks
+        run: npm run check:world-auth && npm run check:world-client && npm run test:world-auth
+      - name: Isolated authoritative progression rules
+        run: npm run check:progress && npm run test:progress
       - name: Multiplayer, groups, combat and chest regressions
         run: npm test
+
+  progress-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ngwtest
+          POSTGRES_PASSWORD: ngwtest
+          POSTGRES_DB: ngw_progress_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ngwtest -d ngw_progress_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    defaults:
+      run:
+        working-directory: server
+    env:
+      NGW_PROGRESS_TEST_DATABASE: postgresql://ngwtest:ngwtest@127.0.0.1:5432/ngw_progress_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Test real durable Neon-style progress transactions
+        run: npm run check:progress && npm run test:progress

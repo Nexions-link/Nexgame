@@ -19,7 +19,9 @@ export function createWorldSessionGate({accountStore,progressStore}){
   if(!account)throw new WorldAuthError('session_expired');
   const character=await accountStore.loadCharacter(account.id,characterId);
   if(!character)throw new WorldAuthError('character_not_owned',403);
-  const progress=progressStore?await progressStore.load(account.id,characterId):{
+  const progress=progressStore?(typeof progressStore.initializeStarterPack==='function'?
+   await progressStore.initializeStarterPack(account.id,characterId):
+   await progressStore.load(account.id,characterId)):{
    revision:Number(character.revision),level:character.level,
    experience:character.experience,gold:character.gold,
    health:character.health,resource:character.resource,
