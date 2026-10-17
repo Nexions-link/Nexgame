@@ -14,9 +14,9 @@ export function normalizeUsername(value){
  return username;
 }
 export function validatePassword(value){
- if(typeof value!=='string'||value.length<12||value.length>128||
+ if(typeof value!=='string'||value.length<8||value.length>128||
     /[\u0000-\u001f\u007f]/u.test(value))
-  throw new TypeError('Пароль должен содержать от 12 до 128 символов');
+  throw new TypeError('Пароль должен содержать от 8 до 128 символов');
  return value;
 }
 export function normalizeNickname(value){
