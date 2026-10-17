@@ -49,9 +49,10 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
   // Serialize all server-generated character saves for this connection.
   // A socket is not released for another login until its save queue drains.
   let saveQueue=Promise.resolve(),lastCheckpoint=0;
-  function queueSave(operation){
+  function queueSave(operation,{reportFailure=true}={}){
    const pending=saveQueue.then(operation);
    saveQueue=pending.catch(error=>{
+    if(!reportFailure)return;
     console.error('NexGameWorld authoritative progress save failed:',
      error?.code||error?.name||'unknown');
     send(ws,{type:'progressError',reason:'Не удалось сохранить прогресс. Переподключитесь.'});
@@ -173,7 +174,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
       if(result.progress)publishProgress(p,result,'economy');
       send(ws,{type:'economyResult',ok:true,action:m.action,
        requestId:m.requestId||null});
-     });
+     },{reportFailure:false});
      p.queueVerifiedKill=credit=>queueSave(async()=>{
       const result=await progressStore.recordMobKill({
        accountId:p.accountId,characterId:p.characterId,
