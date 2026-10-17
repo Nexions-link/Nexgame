@@ -7,7 +7,7 @@ export class WorldAuthError extends Error{
  constructor(code,status=401){super(code);this.code=code;this.status=status}
 }
 export function createWorldSessionGate({accountStore,progressStore}){
- if(!accountStore||!progressStore)throw Error('Both stores required');
+ if(!accountStore)throw Error('Account store required');
  const leases=new Map();
  const bySocket=new WeakMap();
  async function resolve({sessionToken,characterId}){
@@ -19,7 +19,14 @@ export function createWorldSessionGate({accountStore,progressStore}){
   if(!account)throw new WorldAuthError('session_expired');
   const character=await accountStore.loadCharacter(account.id,characterId);
   if(!character)throw new WorldAuthError('character_not_owned',403);
-  const progress=await progressStore.load(account.id,characterId);
+  const progress=progressStore?await progressStore.load(account.id,characterId):{
+   revision:Number(character.revision),level:character.level,
+   experience:character.experience,gold:character.gold,
+   health:character.health,resource:character.resource,
+   worldRadius:character.worldRadius,positionNormal:character.positionNormal,
+   heading:character.heading,inventory:character.inventory,
+   equipment:character.equipment,quests:character.quests,actionBar:character.actionBar
+  };
   return {accountId:account.id,characterId:character.id,
    nickname:character.nickname,progress};
  }
