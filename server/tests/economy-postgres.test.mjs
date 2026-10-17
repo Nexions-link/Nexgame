@@ -19,7 +19,8 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
  const store=createEconomyStore({pool}),progress=createProgressStore({pool});
  try{
   for(const name of ['001_accounts_characters.sql','002_auth_rate_limits.sql',
-   '003_progress_event_ledger.sql','004_economy_quests.sql']){
+   '003_progress_event_ledger.sql','004_economy_quests.sql',
+   '005_mentor_evidence.sql']){
    await pool.query(await readFile(new URL('../migrations/'+name,import.meta.url),'utf8'));
   }
   assert.equal(await store.schemaReady(),true);
