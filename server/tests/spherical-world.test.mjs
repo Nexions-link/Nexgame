@@ -55,7 +55,7 @@ test('spherical presence is isolated by radius and archived flat-world socket is
   const cSnap=await until(()=>c.events.find(e=>e.type==='snapshot'));
   assert.deepEqual(aSnap.players.map(e=>e.name).sort(),['Второй','Первый']);
   assert.equal(cSnap.players.length,1);
-  await until(()=>flat.ws.readyState===WebSocket.CLOSED);
+  await until(()=>flat.socket.readyState===WebSocket.CLOSED);
   assert.equal(flat.events.some(e=>e.type==='welcome'),false);
   assert.equal(aSnap.players.length,2);
   assert.notEqual(aWelcome.id,bWelcome.id);
