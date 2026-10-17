@@ -30,6 +30,14 @@ export function normalizeNickname(value){
 export function validateCharacterOptions(input){
  if(!input||typeof input!=='object'||Array.isArray(input))
   throw new TypeError('Некорректные параметры персонажа');
+ // Progress is always born from database defaults. Never allow a client to
+ // claim an old browser save or inject level, gold, gear, or world coordinates.
+ const forbidden=['level','experience','xp','gold','health','resource',
+  'inventory','equipment','quests','actionBar','progress','save',
+  'legacySave','import','position','positionNormal','worldRadius',
+  'characterId','accountId'];
+ if(forbidden.some(key=>Object.prototype.hasOwnProperty.call(input,key)))
+  throw new TypeError('Перенос старого прогресса или установка характеристик запрещены');
  const nickname=normalizeNickname(input.nickname);
  // The launch build has one playable race/class. The DB schema remains open
  // to additional class and appearance ids after server-side allowlisting.
