@@ -30,12 +30,21 @@ export function createAccountEconomyDispatcher({
     itemId:message.itemId,qty:message.qty,requestId:message.requestId});
    else if(kind==='merchantSell')result=await economyStore.sell({...params,context,
     bagSlot:message.bagSlot,qty:message.qty,requestId:message.requestId});
-   else if(kind==='equip'){
-    if(context.inCombat)throw Object.assign(Error('equipment_combat_restricted'),{code:'equipment_combat_restricted'});
+   else if(kind==='usePotion'){
+    const now=Date.now();
+    if(now-(player.lastPotionUseAt||0)<1500)
+     throw Object.assign(Error('potion_cooldown'),{code:'potion_cooldown'});
+    result=await progressStore.useHealingPotion({...params,
+     currentHp:player.hp,maxHp:player.maxHp});
+    player.lastPotionUseAt=now;
+    player.hp=result.progress.health;
+    send({type:'playerVitals',hp:player.hp,maxHp:player.maxHp,resource:player.resource});
+   }else if(kind==='equip'){
+    if(context.inCombat&&message.equipmentSlot!=='weapon')throw Object.assign(Error('equipment_combat_restricted'),{code:'equipment_combat_restricted'});
     result=await progressStore.equipInventoryItem({...params,
      bagSlot:message.bagSlot,equipmentSlot:message.equipmentSlot});
    }else if(kind==='unequip'){
-    if(context.inCombat)throw Object.assign(Error('equipment_combat_restricted'),{code:'equipment_combat_restricted'});
+    if(context.inCombat&&message.equipmentSlot!=='weapon')throw Object.assign(Error('equipment_combat_restricted'),{code:'equipment_combat_restricted'});
     result=await progressStore.unequipInventoryItem({...params,
      bagSlot:message.bagSlot,equipmentSlot:message.equipmentSlot});
    }else if(kind==='gatherAccept')result=await economyStore.acceptGather({...params,context});
