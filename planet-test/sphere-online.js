@@ -52,7 +52,7 @@ export function createSphericalPresence({
  onPlayers,onMobs,onVitals,onCombat,onKillCredit,onMobAttack,onRespawn,
  onPartyState,onPartyInvite,onPartyNotice,onChat,onChatRejected,
  onChestState,onChestResult,onCombatRejected,onDisconnect,
- onVerifiedProgress,onAuthRejected,
+ onVerifiedProgress,onAuthRejected,onEconomyResult,
  auth=null,url=WORLD_URL
 }){
  let socket=null,closed=false,selfId=null,joinedRadius=null,retry=null,sendLoop=null;
@@ -151,6 +151,7 @@ export function createSphericalPresence({
    else if(m.type==='chatRejected')onChatRejected?.(m);
    else if(m.type==='chestState')onChestState?.(m);
    else if(m.type==='chestResult')onChestResult?.(m);
+   else if(m.type==='economyResult')onEconomyResult?.(m);
    else if(m.type==='progressSaved')onVerifiedProgress?.(m.progress,m.source);
    else if(m.type==='progressError')onAuthRejected?.(m.reason||'Ошибка сохранения');
    else if(m.type==='nameChanged')onPartyNotice?.({message:'Имя обновлено'});
@@ -224,6 +225,7 @@ export function createSphericalPresence({
  return {tick,close,
   sendAttack:(abilityId,mobId=null)=>send({type:'attack',abilityId,mobId}),
   sendHeal:()=>send({type:'heal'}),
+  sendEconomy:payload=>send({type:'economy',...payload}),
   rename:name=>send({type:'rename',name}),
   invite:targetId=>send({type:'partyInvite',targetId}),
   respondInvite:(fromId,accept)=>send({type:'partyRespond',fromId,accept}),
