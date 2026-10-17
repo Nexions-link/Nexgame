@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  CHARACTER_SLOT_LIMIT,INITIAL_CLASS,INITIAL_RACE,
- normalizeEmail,validatePassword,normalizeNickname,validateCharacterOptions
+ normalizeUsername,validatePassword,normalizeNickname,validateCharacterOptions
 } from '../account-rules.js';
-import {hashPassword,verifyPassword,newSessionToken,tokenDigest} from '../auth-crypto.js';
+import {hashPassword,verifyPassword,newSessionToken,tokenDigest,createRecoveryCodes,recoveryCodeDigest} from '../auth-crypto.js';
 
-test('email canonicalization and unsafe addresses',()=>{
- assert.equal(normalizeEmail('  Hero@Example.COM  '),'hero@example.com');
- for(const bad of ['','no-at-sign','x@y','name@@example.com','a@ b.com'])
-  assert.throws(()=>normalizeEmail(bad));
+test('username normalization and invalid login names',()=>{
+ assert.equal(normalizeUsername('  HERO_01  '),'hero_01');
+ for(const bad of ['','a','a@b.com','name with spaces','-bad','тест'])
+  assert.throws(()=>normalizeUsername(bad));
 });
 test('nickname rules accept Cyrillic, reject control/markup/unsupported classes',()=>{
  assert.equal(normalizeNickname('  Грозный_Тур  '),'Грозный_Тур');
@@ -39,4 +39,12 @@ test('sessions store only fixed-size hash of a random secret',()=>{
  assert.deepEqual(tokenDigest(a),hash);
  assert.notDeepEqual(tokenDigest(b),hash);
  assert.equal(tokenDigest('malformed'),null);
+});
+
+test('recovery codes are unique one-time secrets not their stored hashes',()=>{
+ const codes=createRecoveryCodes();
+ assert.equal(codes.length,8);
+ assert.equal(new Set(codes).size,8);
+ for(const code of codes){assert.match(code,/^[0-9A-F]{32}$/);assert.equal(recoveryCodeDigest(code).length,32)}
+ assert.equal(recoveryCodeDigest('invalid'),null);
 });
