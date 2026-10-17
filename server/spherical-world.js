@@ -74,6 +74,10 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const p=connections.get(ws);
    connections.delete(ws);
    if(p){
+    if(p.queueCheckpoint){
+     void p.queueCheckpoint({normal:[...p.normal],heading:p.heading,
+      radius:p.radius},'exit').catch(()=>{});
+    }
     party.disconnect(p.id);chat.disconnect(p.id);chest.disconnect(p.id);
     players.delete(p.id);sendInRoom(p.radius,{type:'leave',id:p.id});
     for(const mob of rooms.get(p.radius).mobs)if(mob.aggroId===p.id)mob.aggroId=null;
