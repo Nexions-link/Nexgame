@@ -4,6 +4,7 @@ import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
 import {WebSocket} from 'ws';
 import {localToNormal} from '../spherical-pve.js';
+import {CHEST_X,CHEST_Z} from '../chest.js';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function server(){
  const port=await new Promise(resolve=>{
@@ -64,10 +65,10 @@ test('two browsers share authoritative dolgonog health, kill credit and quest re
 test('spherical parties, room-scoped chat and server chest reuse existing rules', {timeout:10000},async()=>{
  const {port,child}=await server();let a,b,c,d;
  try{
-  a=await join(port,'Игрок А',-33.2,-7.4);
-  b=await join(port,'Игрок Б',-33.2,-7.4);
-  c=await join(port,'Игрок В',-33.2,-7.4);
-  d=await join(port,'Отдельная планета',-33.2,-7.4,1,87);
+  a=await join(port,'Игрок А',CHEST_X,CHEST_Z);
+  b=await join(port,'Игрок Б',CHEST_X,CHEST_Z);
+  c=await join(port,'Игрок В',CHEST_X,CHEST_Z);
+  d=await join(port,'Отдельная планета',CHEST_X,CHEST_Z,1,87);
   const aw=await until(()=>a.events.find(e=>e.type==='welcome'));
   const bw=await until(()=>b.events.find(e=>e.type==='welcome'));
   await until(()=>c.events.find(e=>e.type==='welcome'));

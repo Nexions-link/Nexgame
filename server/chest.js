@@ -3,9 +3,10 @@
 import {readFileSync,writeFileSync,renameSync,mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {ITEM_CATALOG,itemStackLimit} from '../items.js';
+import {HOUSE_CHEST} from '../planet-test/hearth-house.js';
 
 export const CHEST_SLOTS=18;
-export const CHEST_X=-33.2,CHEST_Z=-7.4,CHEST_RANGE=5.5;
+export const CHEST_X=HOUSE_CHEST.x,CHEST_Z=HOUSE_CHEST.z,CHEST_RANGE=HOUSE_CHEST.range;
 const validSlot=(slot,length)=>Number.isInteger(slot)&&slot>=0&&slot<length;
 const copy=row=>row?{id:row.id,qty:row.qty}:null;
 export function cleanStack(row){
