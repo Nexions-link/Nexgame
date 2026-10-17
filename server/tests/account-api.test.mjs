@@ -96,6 +96,14 @@ test('account API requires safe origin and session; creates a character without 
   },token);
   assert.equal(character.status,201);
   assert.equal(character.json.character.nickname,'Копытце');
+  assert.equal(character.json.character.level,1);
+  assert.equal((await post('/api/ngw/characters',{
+   nickname:'СтарыйГерой',legacySave:{level:60,gold:30000}
+  },token)).status,400);
+  assert.equal((await post('/api/ngw/characters',{
+   nickname:'Подмена',level:50,inventory:[{id:'legendary_weapon'}]
+  },token)).status,400);
+
   assert.equal((await get('/api/ngw/characters',token)).json.characters.length,1);
   assert.equal((await get('/api/ngw/characters/char-1',token)).status,404);
   assert.equal((await post('/api/ngw/characters',{
