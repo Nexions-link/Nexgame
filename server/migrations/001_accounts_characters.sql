@@ -1,21 +1,20 @@
 -- NexGameWorld Alpha 0.7.0: accounts and character persistence foundation.
 -- Apply to a DURABLE PostgreSQL database only. Do not execute on Render's
 -- 30-day Free Postgres or on the ephemeral filesystem of the Free web service.
--- No passwords or raw session/reset tokens may be stored in this database.
+-- No plaintext passwords, sessions or recovery codes may be stored here.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS ngw_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT NOT NULL,
+  username TEXT NOT NULL,
   password_hash TEXT NOT NULL,
-  email_verified_at TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT ngw_account_email_length CHECK (char_length(email) BETWEEN 3 AND 254)
+  CONSTRAINT ngw_account_username_length CHECK (char_length(username) BETWEEN 3 AND 24)
 );
-CREATE UNIQUE INDEX IF NOT EXISTS ngw_accounts_email_lower_unique
-  ON ngw_accounts (lower(email));
+CREATE UNIQUE INDEX IF NOT EXISTS ngw_accounts_username_lower_unique
+  ON ngw_accounts (lower(username));
 
 CREATE TABLE IF NOT EXISTS ngw_sessions (
   token_digest BYTEA PRIMARY KEY CHECK (octet_length(token_digest) = 32),
@@ -28,16 +27,14 @@ CREATE TABLE IF NOT EXISTS ngw_sessions (
 CREATE INDEX IF NOT EXISTS ngw_sessions_account_idx ON ngw_sessions(account_id);
 CREATE INDEX IF NOT EXISTS ngw_sessions_expiry_idx ON ngw_sessions(expires_at);
 
-CREATE TABLE IF NOT EXISTS ngw_email_tokens (
-  token_digest BYTEA PRIMARY KEY CHECK (octet_length(token_digest) = 32),
+CREATE TABLE IF NOT EXISTS ngw_recovery_codes (
+  code_digest BYTEA PRIMARY KEY CHECK (octet_length(code_digest) = 32),
   account_id UUID NOT NULL REFERENCES ngw_accounts(id) ON DELETE CASCADE,
-  purpose TEXT NOT NULL CHECK (purpose IN ('verify_email','reset_password')),
-  expires_at TIMESTAMPTZ NOT NULL,
-  used_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  used_at TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS ngw_email_tokens_account_idx
-  ON ngw_email_tokens(account_id, purpose);
+CREATE INDEX IF NOT EXISTS ngw_recovery_codes_account_idx
+  ON ngw_recovery_codes(account_id);
 
 CREATE TABLE IF NOT EXISTS ngw_characters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
