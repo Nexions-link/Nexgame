@@ -73,15 +73,10 @@ export function createAccountApi({store,allowedOrigins=VALID_ORIGINS}){
     if(!rateLimit(key,5)){json(res,429,{error:'Попробуйте позже'});return true;}
     const data=await readJson(req);
     const username=normalizeUsername(data.username),password=validatePassword(data.password);
-    const account=await store.createAccount(username,await hashPassword(password));
     const codes=createRecoveryCodes();
-    try{
-     await store.saveRecoveryCodes(account.id,codes.map(recoveryCodeDigest));
-    }catch(error){
-     // Prevent an account without recovery codes from entering normal use.
-     console.error('Account recovery code creation failed',error?.code||error?.name||'unknown');
-     throw error;
-    }
+    // The account and its recovery codes commit together or not at all.
+    const account=await store.createAccount(username,await hashPassword(password),
+     codes.map(recoveryCodeDigest));
     // Show recovery codes ONCE. We never store or return their plaintext later.
     json(res,201,{accountId:account.id,username:account.username,
      recoveryCodes:codes});
