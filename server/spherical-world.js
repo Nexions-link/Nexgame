@@ -117,9 +117,13 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      p.queueVerifiedKill=credit=>queueSave(async()=>{
       const result=await progressStore.recordMobKill({
        accountId:p.accountId,characterId:p.characterId,
-       expectedRevision:p.savedRevision,radius:p.radius,serverCredit:credit
+       expectedRevision:p.savedRevision,radius:p.radius,serverCredit:credit,deferLoot:true
       });
-      if(result.applied)publishProgress(p,result,'mob');
+      if(result.applied){
+       publishProgress(p,result,'mob');
+       send(ws,{type:'economyResult',kind:'lootAvailable',ok:true,
+        mobId:credit.mobId,life:credit.life,loot:credit.loot});
+      }
      });
      p.queueCheckpoint=(checkpoint,source='checkpoint')=>queueSave(async()=>{
       const result=await progressStore.saveServerCheckpoint({
@@ -133,6 +137,15 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     if(trustedCharacter&&progressStore&&economyStore){
      const dispatch=createAccountEconomyDispatcher({
       player:p,economyStore,progressStore,queueSave,
+      corpseContext:message=>{
+       const mob=rooms.get(p.radius).mobs.find(e=>e.id===message.mobId);
+       if(!mob||mob.phase!=='corpse'||mob.life!==message.life||
+          Date.now()>=mob.corpseUntil||p.hp<=0)
+        throw Object.assign(Error('corpse_unavailable'),{code:'corpse_unavailable'});
+       if(Math.hypot(p.x-mob.x,p.z-mob.z)>3.1)
+        throw Object.assign(Error('interaction_too_far'),{code:'interaction_too_far'});
+       return {mobId:mob.id,life:mob.life,radius:p.radius,x:mob.x,z:mob.z};
+      },
       publishProgress:(result,source)=>publishProgress(p,result,source),
       send:event=>send(ws,event),
       broadcastChest:chestState=>{

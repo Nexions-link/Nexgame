@@ -64,6 +64,54 @@ export function createEconomyStore({pool:externalPool,
    return {applied:true,progress:saved,...operation.result};
   });
  }
+ // Corpse rewards live only for the current server-world epoch and mob life.
+ // The :corpse suffix excludes older kills already auto-granted to inventory.
+ function corpseKey({mobId,life,radius}){
+  const boss=mobId==='dolgonog-8';
+  return validateKillCredit({type:'killCredit',mobId,life,
+   xp:boss?70:22,gold:boss?12:4,loot:[]},radius,worldRunId).eventKey+':corpse';
+ }
+ function checkCorpse(state,args){
+  const corpse=args.corpse;
+  if(!corpse||corpse.radius!==state.worldRadius)fail('corpse_unavailable');
+  requireServerProximity(state,{...args.context,inCombat:false},corpse,3.1);
+  return corpseKey(corpse);
+ }
+ async function readCorpseLoot(args){
+  const state=await progress.load(args.accountId,args.characterId);
+  const key=checkCorpse(state,args);
+  const {rows}=await pool.query(
+   'SELECT loot FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+   [args.characterId,key]);
+  return {loot:rows[0]?.loot||[]};
+ }
+ async function takeCorpseLoot(args){
+  const key=corpseKey(args.corpse),itemId=args.itemId??null;
+  if(itemId!==null&&typeof itemId!=='string')fail('invalid_loot_item');
+  return transaction(args,async({client,state,save})=>{
+   checkCorpse(state,args);
+   const {rows}=await client.query(
+    'SELECT loot FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2 FOR UPDATE',
+    [args.characterId,key]);
+   if(!rows.length)fail('corpse_not_owned');
+   // The locked transaction removes pending stacks and grants inventory
+   // together. A retried command cannot grant the same stack twice.
+   if(!rows[0].loot.length||(itemId!==null&&!rows[0].loot.some(row=>row.id===itemId)))
+    return {applied:false,progress:state,loot:rows[0].loot,taken:[]};
+   revision(state,args.expectedRevision);
+   let inventory=state.inventory,remaining=[],taken=[];
+   for(const row of rows[0].loot){
+    if(itemId!==null&&row.id!==itemId){remaining.push(row);continue;}
+    try{inventory=addOwnedStacks(inventory,[row]);taken.push(row)}
+    catch(error){if(error.code!=='inventory_full')throw error;remaining.push(row)}
+   }
+   if(!taken.length)fail(rows[0].loot.length?'inventory_full':'corpse_empty');
+   await client.query(
+    'UPDATE ngw_progress_events SET loot=$3::jsonb WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,key,JSON.stringify(remaining)]);
+   return {applied:true,progress:await save({...state,inventory}),loot:remaining,taken};
+  });
+ }
  async function buy(args){
   const {itemId,qty,context}=args;
   return executeReceipt(args,'merchant_buy',{itemId,qty},async({state})=>({
@@ -243,7 +291,7 @@ export function createEconomyStore({pool:externalPool,
   });
  }
  return {
-  schemaReady:ready,buy,sell,readChest,readChestStatus,moveChest,
+  schemaReady:ready,buy,sell,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
   close:()=>externalPool?Promise.resolve():pool.end()

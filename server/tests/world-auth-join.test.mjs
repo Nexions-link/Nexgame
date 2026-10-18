@@ -73,6 +73,7 @@ test('authenticated mob kill commits progress before a verified reward is sent',
    assert.equal(args.characterId,'hero');
    assert.equal(args.expectedRevision,current.revision);
    assert.equal(args.serverCredit.type,'killCredit');
+   assert.equal(args.deferLoot,true);
    current={...current,revision:current.revision+1,experience:22,gold:34};
    return {applied:true,progress:current};
   },
@@ -104,6 +105,10 @@ test('authenticated mob kill commits progress before a verified reward is sent',
   assert.equal(committed.progress.revision,2);
   assert.equal(killCount,1);
   assert.equal(events.some(e=>e.type==='killCredit'),false);
+  const corpseLoot=await until(events,'economyResult');
+  assert.equal(corpseLoot.kind,'lootAvailable');
+  assert.equal(corpseLoot.mobId,'dolgonog-0');
+  assert.ok(Array.isArray(corpseLoot.loot));
   // Movement may not claim a higher level or forged weapon.
   await new Promise(ok=>setTimeout(ok,130));
   ws.send(JSON.stringify({type:'move',radius:261,heading:Math.PI/2,
