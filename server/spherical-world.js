@@ -9,11 +9,12 @@ import {createChatManager} from './chat.js';
 import {createSharedChest,CHEST_X,CHEST_Z,CHEST_SLOTS} from './chest.js';
 import {
  createSphericalMobs,mobSnapshot,tickSphericalMobs,applySphereAttack,
- sanitizeSphereEquipment,normalToLocal,arcDistance
+ sanitizeSphereEquipment,normalToLocal,arcDistance,localDistance
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
 import {resolveSphereWalk} from './world-movement.js';
 import {selectVisiblePlayers} from './world-interest.js';
+import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
 
 export const SPHERE_PROTOCOL=2;
 // Recover from dropped/throttled mobile movement packets without teleporting.
@@ -209,7 +210,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
        if(!mob||mob.phase!=='corpse'||mob.life!==message.life||
           Date.now()>=mob.corpseUntil||p.hp<=0)
         throw Object.assign(Error('corpse_unavailable'),{code:'corpse_unavailable'});
-       if(Math.hypot(p.x-mob.x,p.z-mob.z)>3.1)
+       if(localDistance(mob,p,p.radius)>CORPSE_LOOT_RANGE)
         throw Object.assign(Error('interaction_too_far'),{code:'interaction_too_far'});
        return {mobId:mob.id,life:mob.life,radius:p.radius,x:mob.x,z:mob.z};
       },
