@@ -151,3 +151,14 @@ test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite
  assert.equal(mobs[5].maxHp,66,'level 2 mobs have slightly more health');
  assert.equal(mobs[5].name,'Равнинный долгоног');
 });
+
+test('all ten monsters are beasts; none has a currency kill reward',()=>{
+ const mobs=createSphericalMobs();
+ assert.equal(mobs.length,10);
+ assert.ok(mobs.every(m=>m.creatureType==='beast'));
+ assert.ok(mobSnapshot(mobs).every(m=>m.creatureType==='beast'));
+ const hero=character('hunter'),mob=mobs[0];mob.hp=1;
+ const result=applySphereAttack(mobs,hero,'autoAttack',mob.id,4000,()=>.5);
+ assert.equal(result.credits[0].event.gold,0);
+ assert.ok(result.credits[0].event.loot.every(row=>row.id!=='coins'));
+});

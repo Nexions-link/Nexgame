@@ -8,7 +8,7 @@ import {createProgressStore} from '../progress-store.js';
 import {ProgressError} from '../progress-rules.js';
 const connectionString=process.env.NGW_PROGRESS_TEST_DATABASE;
 const credit=(life,loot=[{id:'feather',qty:1}],mobId='dolgonog-0')=>({
- type:'killCredit',mobId,life,xp:22,gold:4,loot
+ type:'killCredit',mobId,life,xp:22,gold:0,loot
 });
 test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, CAS, rollback and loadout',
  {skip:!connectionString,timeout:55000},async()=>{
@@ -50,7 +50,7 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
   assert.equal(first.applied,true);
   assert.equal(first.progress.revision,1);
   assert.equal(first.progress.experience,22);
-  assert.equal(first.progress.gold,34);
+  assert.equal(first.progress.gold,30);
   assert.deepEqual(first.progress.inventory[0],{id:'feather',qty:1});
   const replay=await store.recordMobKill({
    accountId:a,characterId:id,expectedRevision:0,radius:261,serverCredit:credit(1)
@@ -75,7 +75,7 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
   });
   assert.equal(checkpoint.progress.revision,3);
   assert.deepEqual(checkpoint.progress.positionNormal,[0,0.6,0.8]);
-  assert.equal(checkpoint.progress.gold,38);
+  assert.equal(checkpoint.progress.gold,30);
   await assert.rejects(()=>store.saveServerCheckpoint({
    accountId:a,characterId:id,expectedRevision:3,
    checkpoint:{normal:[0,0,1],heading:0,radius:261,gold:100000}
@@ -162,7 +162,7 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
   assert.equal(oldRunKill.applied,true);
   assert.equal(newRunKill.applied,true);
   assert.notEqual(oldRunKill.eventKey,newRunKill.eventKey);
-  assert.equal((await store.load(a,epochId)).gold,38);
+  assert.equal((await store.load(a,epochId)).gold,30);
   assert.equal((await pool.query(
    "SELECT count(*)::int AS n FROM ngw_progress_events WHERE character_id=$1",[epochId]
   )).rows[0].n,2);
@@ -209,7 +209,7 @@ test('PostgreSQL action bar persists through reconnect, checkpoints and inventor
 
 // Do not grant XP for low-level mobs to characters past the classic gray threshold;
 // the immutable event ledger must still record the kill and its zero XP reward.
-test('real Postgres: gray monster grants zero XP but persists gold and the correct ledger amount',
+test('real Postgres: gray beast grants zero XP and zero coins in the ledger',
  {skip:!connectionString,timeout:55000},async()=>{
  const pool=new pg.Pool({connectionString,max:3,ssl:false});
  const store=createProgressStore({pool});
@@ -223,8 +223,8 @@ test('real Postgres: gray monster grants zero XP but persists gold and the corre
   const result=await store.recordMobKill({accountId:account,characterId:char,expectedRevision:initial.revision,radius:261,serverCredit:credit(1,[])});
   assert.equal(result.applied,true);
   assert.equal(result.progress.level,6);assert.equal(result.progress.experience,0);
-  assert.equal(result.progress.gold,initial.gold+4);
+  assert.equal(result.progress.gold,initial.gold);
   const log=await pool.query("SELECT xp_granted,gold_granted FROM ngw_progress_events WHERE character_id=$1 AND event_kind='mob_kill'",[char]);
-  assert.equal(Number(log.rows[0].xp_granted),0);assert.equal(Number(log.rows[0].gold_granted),4);
+  assert.equal(Number(log.rows[0].xp_granted),0);assert.equal(Number(log.rows[0].gold_granted),0);
  }finally{await pool.end()}
 });
