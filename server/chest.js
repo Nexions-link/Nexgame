@@ -6,7 +6,12 @@ import {ITEM_CATALOG,itemStackLimit} from '../items.js';
 import {HOUSE_CHEST} from '../planet-test/hearth-house.js';
 
 export const CHEST_SLOTS=18;
+// Follow the original interior cabinet location from hearth-house.js.
+// Keep this file updated when the physical layout moves so that Render's
+// server/ scoped auto-deploy also installs the shared client/server coordinates.
 export const CHEST_X=HOUSE_CHEST.x,CHEST_Z=HOUSE_CHEST.z,CHEST_RANGE=HOUSE_CHEST.range;
+if(![CHEST_X,CHEST_Z,CHEST_RANGE].every(Number.isFinite)||CHEST_RANGE<=0)
+ throw Error('Invalid shared chest geometry');
 const validSlot=(slot,length)=>Number.isInteger(slot)&&slot>=0&&slot<length;
 const copy=row=>row?{id:row.id,qty:row.qty}:null;
 export function cleanStack(row){
