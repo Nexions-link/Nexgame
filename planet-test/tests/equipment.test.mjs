@@ -35,3 +35,34 @@ test('missing, invalid and level-locked pieces leave equipment and bag unchanged
  }
  const s=fresh(),before=structuredClone(s);assert.equal(equipFromBag(s,'wornAxe').ok,false);assert.deepEqual(s,before);
 });
+
+
+test('portrait character sheet exposes real slots beside model and weapon/shield below',()=>{
+ const h=harness({save:{equipment:{weapon:{id:'wornAxe'},shield:{id:'batteredBuckler'},chest:{id:'chainVest'}}}});
+ h.get('character').click();
+ assert.equal(h.get('modal').dataset.kind,'character');
+ const children=descendants(h.get('mbody'));
+ const slots=children.filter(e=>e.className.startsWith('character-socket'));
+ assert.equal(slots.length,9);
+ assert.deepEqual(slots.map(e=>e.dataset.slot),['head','chest','hands','wrists','waist','legs','feet','weapon','shield']);
+ assert.equal(children.filter(e=>e.className==='character-preview-viewport').length,1);
+ assert.equal(children.filter(e=>e.className==='character-rotate').length,1);
+ assert.ok(slots.find(e=>e.dataset.slot==='weapon').className.includes('equipped'));
+ assert.ok(slots.find(e=>e.dataset.slot==='shield').className.includes('equipped'));
+ assert.ok(children.some(e=>e.textContent==='Основные характеристики'));
+ assert.ok(children.some(e=>e.textContent==='Здоровье'));
+ assert.equal(h.rpg.movementLocked,true);
+ h.get('modalClose').click();
+ assert.equal(h.rpg.movementLocked,false);
+});
+test('tapping character chest slot unequips through existing inventory rules',()=>{
+ const h=harness({save:{equipment:{chest:{id:'chainVest'},weapon:{id:'wornAxe'}}}});
+ h.get('character').click();
+ const slot=descendants(h.get('mbody')).find(e=>e.dataset.slot==='chest');
+ assert.ok(slot.className.includes('equipped'));
+ slot.click();
+ assert.equal(h.rpg.state.equipment.chest,undefined);
+ assert.equal(h.rpg.state.inventory.some(e=>e.id==='chainVest'),true);
+ assert.equal(descendants(h.get('mbody')).find(e=>e.dataset.slot==='chest').className,'character-socket');
+ h.get('modalClose').click();
+});
