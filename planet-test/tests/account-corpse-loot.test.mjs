@@ -41,7 +41,7 @@ test('loot sheet displays quality, quantity and prevents duplicate online take r
  const nodes=()=>descendants(h.get('mbody'));
  const first=nodes().filter(e=>e.className==='loot-item');
  assert.equal(first.length,2);
- assert.equal(first[0].dataset.rarity,'common');
+ assert.equal(first[0].dataset.rarity,'poor');
  assert.ok(first[0].children.some(c=>c.className==='loot-item-icon'));
  assert.equal(first[0].children.find(c=>c.className==='loot-item-count').textContent,'×3');
  assert.ok(nodes().some(e=>e.className==='planet-loot-summary'));

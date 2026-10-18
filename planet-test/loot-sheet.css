@@ -44,6 +44,7 @@
  box-shadow:inset 0 1px 0 #e6d5a01b,0 2px 5px #0c120d72;
  text-align:left;touch-action:manipulation;
 }
+#modal.world-sheet[data-kind="loot"] .loot-item[data-rarity="poor"]{--rarity-color:#a5a4a0}
 #modal.world-sheet[data-kind="loot"] .loot-item[data-rarity="uncommon"]{--rarity-color:#68ce8f}
 #modal.world-sheet[data-kind="loot"] .loot-item[data-rarity="rare"]{--rarity-color:#74a9f5}
 #modal.world-sheet[data-kind="loot"] .loot-item:focus-visible{
