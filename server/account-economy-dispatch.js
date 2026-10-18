@@ -2,6 +2,7 @@
 // This module never accepts client-supplied ownership, position or revisions.
 export function createAccountEconomyDispatcher({
  player,economyStore,progressStore,queueSave,publishProgress,send,
+ corpseContext=()=>{throw Object.assign(Error('corpse_unavailable'),{code:'corpse_unavailable'})},
  broadcastChest=()=>{}
 }){
  if(!player.accountId||!player.characterId||!economyStore||!progressStore)
@@ -15,6 +16,18 @@ export function createAccountEconomyDispatcher({
    inCombat:player.hp<=0||Date.now()-(player.lastCombatAt||0)<5000};
   try{
    let result;
+   if(['lootOpen','lootInspect','lootTake'].includes(kind)){
+    const corpse=corpseContext(message);
+    if(kind==='lootTake'){
+     result=await economyStore.takeCorpseLoot({...params,context,corpse,
+      itemId:message.itemId,requestId:message.requestId});
+     if(result.progress)publishProgress(result,kind);
+    }
+    const snapshot=await economyStore.readCorpseLoot({...params,context,corpse});
+    send({type:'economyResult',ok:true,kind,mobId:corpse.mobId,life:corpse.life,
+     loot:snapshot.loot,taken:result?.taken||[],requestId:message.requestId||null});
+    return;
+   }
    if(kind==='chestOpen'){
     const chest=await economyStore.readChest({...params,context});
     chestOpen=true;

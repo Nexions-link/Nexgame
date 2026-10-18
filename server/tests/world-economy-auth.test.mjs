@@ -101,3 +101,51 @@ test('WebSocket economy is bound to server-owned hero identity, location and pro
   auth.close();guest.close();wss.close();server.close();world.close();
  }
 });
+
+test('corpse commands validate server life, distance and ownership before applying inventory', {timeout:10000},async()=>{
+ const world=createSphericalWorld(),server=createServer(),wss=new WebSocketServer({server});
+ const normal=localToNormal(-9,-24,261);
+ let persistent={revision:1,level:1,experience:0,gold:30,health:120,resource:0,worldRadius:261,
+  positionNormal:normal,heading:Math.PI/2,inventory:Array(12).fill(null),equipment:{weapon:{id:'wornAxe'}},quests:{},actionBar:[]};
+ let loot=[{id:'feather',qty:1}],takes=0;
+ const progressStore={async recordMobKill(args){
+  assert.equal(args.deferLoot,true);
+  persistent={...persistent,revision:2,experience:22,gold:34};
+  return {applied:true,progress:persistent};
+ },async saveServerCheckpoint(){return {progress:persistent}}};
+ const economyStore={
+  async readCorpseLoot(args){assert.equal(args.characterId,'owner');return {loot};},
+  async takeCorpseLoot(args){
+   takes++;assert.equal(args.accountId,'account');assert.equal(args.characterId,'owner');
+   assert.equal(args.expectedRevision,2);assert.equal(args.corpse.mobId,'dolgonog-0');
+   assert.equal(args.corpse.life,1);assert.deepEqual(args.context.normal,normal);
+   persistent={...persistent,revision:3,inventory:[...loot,...Array(11).fill(null)]};
+   const taken=loot;loot=[];return {applied:true,progress:persistent,taken};
+  }
+ };
+ wss.on('connection',ws=>world.attach(ws,{trustedCharacter:{accountId:'account',characterId:'owner',nickname:'Охотник',progress:persistent},progressStore,economyStore}));
+ await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
+ const ws=new WebSocket('ws://127.0.0.1:'+server.address().port),events=[];
+ ws.on('message',raw=>events.push(JSON.parse(String(raw))));
+ const send=message=>ws.send(JSON.stringify(message));
+ try{
+  await new Promise((ok,fail)=>{ws.once('open',ok);ws.once('error',fail)});
+  send({type:'join'});await waitFor(events,e=>e.type==='welcome');
+  const mob=world.rooms.get(261).mobs[0];mob.hp=1;
+  send({type:'attack',abilityId:'autoAttack',mobId:mob.id});
+  await waitFor(events,e=>e.kind==='lootAvailable');
+  assert.equal(persistent.inventory.some(Boolean),false);
+  send({type:'economyAction',kind:'lootOpen',mobId:mob.id,life:mob.life+1});
+  assert.equal((await waitFor(events,e=>e.kind==='lootOpen')).reason,'corpse_unavailable');
+  events.length=0;
+  const actor=[...world.players.values()][0];actor.x=50;actor.z=50;
+  send({type:'economyAction',kind:'lootTake',mobId:mob.id,life:mob.life});
+  assert.equal((await waitFor(events,e=>e.kind==='lootTake')).reason,'interaction_too_far');assert.equal(takes,0);
+  events.length=0;actor.x=-9;actor.z=-24;
+  send({type:'economyAction',kind:'lootOpen',mobId:mob.id,life:mob.life});
+  assert.deepEqual((await waitFor(events,e=>e.kind==='lootOpen')).loot,loot);
+  send({type:'economyAction',kind:'lootTake',mobId:mob.id,life:mob.life,accountId:'attacker',characterId:'attacker',loot:[{id:'fake',qty:999}],requestId:'f3e39735-c79a-48fc-85ce-688626355184'});
+  const result=await waitFor(events,e=>e.kind==='lootTake');assert.equal(result.ok,true);assert.deepEqual(result.loot,[]);
+  assert.equal(takes,1);assert.deepEqual(persistent.inventory[0],{id:'feather',qty:1});
+ }finally{ws.close();wss.close();server.close();world.close()}
+});

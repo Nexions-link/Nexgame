@@ -119,8 +119,9 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
  // Event MUST be produced by the trusted PvE process, never by a browser.
  // Identity is unique per hero, radius, mob and respawn life.
  async function recordMobKill({accountId,characterId,expectedRevision,
-  radius,serverCredit}){
+  radius,serverCredit,deferLoot=false}){
   const event=validateKillCredit(serverCredit,radius,worldRunId);
+  if(deferLoot)event.eventKey+=':corpse';
   return transaction(accountId,characterId,expectedRevision,async({client,state,save})=>{
    if(state.worldRadius!==radius)
     throw new ProgressError('wrong_world_radius',409);
@@ -130,7 +131,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    if(duplicate.rowCount)
     return {applied:false,reason:'duplicate',progress:state};
    if(state.revision!==expectedRevision)throw conflict();
-   let next=awardVerifiedKill(state,event);
+   let next=awardVerifiedKill(state,deferLoot?{...event,loot:[]}:event);
    // Quest kill objectives share the exact same transaction and world-run
    // identity as the reward: duplicate packets cannot advance objectives.
    const mentor=getMentorQuest(next);

@@ -233,3 +233,48 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
   await store.close();await progress.close();await pool.end();
  }
 });
+
+test('Postgres corpse loot: deferred grant, ownership, partial take-all, replay and atomic rollback',
+ {skip:!connectionString,timeout:45000},async()=>{
+ const pool=new pg.Pool({connectionString,max:4,ssl:false});
+ const worldRunId=randomUUID(),store=createEconomyStore({pool,worldRunId}),progress=createProgressStore({pool,worldRunId});
+ try{
+  for(const name of ['001_accounts_characters.sql','002_auth_rate_limits.sql','003_progress_event_ledger.sql','004_economy_quests.sql','005_mentor_evidence.sql'])
+   await pool.query(await readFile(new URL('../migrations/'+name,import.meta.url),'utf8'));
+  const account=(await pool.query("INSERT INTO ngw_accounts(username,password_hash) VALUES($1,'test') RETURNING id",['loot'+randomUUID().replaceAll('-','').slice(0,12)])).rows[0].id;
+  const makeHero=async nickname=>{
+   const id=(await pool.query('INSERT INTO ngw_characters(account_id,nickname) VALUES($1,$2) RETURNING id',[account,nickname])).rows[0].id;
+   await pool.query('INSERT INTO ngw_character_progress(character_id) VALUES($1)',[id]);return id;
+  };
+  const hero=await makeHero('Добытчик'),other=await makeHero('Чужой');
+  const credit={type:'killCredit',mobId:'dolgonog-0',life:1,xp:22,gold:4,loot:[{id:'feather',qty:1},{id:'batteredBuckler',qty:1}]};
+  const killed=await progress.recordMobKill({accountId:account,characterId:hero,expectedRevision:0,radius:261,serverCredit:credit,deferLoot:true});
+  assert.equal(killed.progress.experience,22);assert.equal(killed.progress.gold,34);
+  assert.equal(killed.progress.inventory.some(Boolean),false,'Kill must not auto-loot');
+  const corpse={mobId:credit.mobId,life:1,radius:261,x:-9,z:-23};
+  const args={accountId:account,characterId:hero,expectedRevision:1,context:ctx(corpse),corpse};
+  assert.deepEqual((await store.readCorpseLoot(args)).loot,credit.loot);
+  assert.deepEqual((await store.readCorpseLoot({...args,characterId:other})).loot,[]);
+  await assert.rejects(()=>store.takeCorpseLoot({...args,characterId:other,expectedRevision:0,requestId:randomUUID()}),e=>e.code==='corpse_not_owned');
+  await assert.rejects(()=>store.takeCorpseLoot({...args,context:ctx({x:50,z:50}),requestId:randomUUID()}),e=>e.code==='interaction_too_far');
+  const requestId=randomUUID();
+  const take=await store.takeCorpseLoot({...args,itemId:'feather',requestId});
+  assert.deepEqual(take.loot,[{id:'batteredBuckler',qty:1}]);
+  assert.deepEqual(take.progress.inventory[0],{id:'feather',qty:1});
+  const duplicate=await store.takeCorpseLoot({...args,itemId:'feather',requestId});
+  assert.equal(duplicate.applied,false);assert.equal(duplicate.progress.revision,2);
+  assert.equal((await store.takeCorpseLoot({...args,itemId:'feather',expectedRevision:2})).applied,false);
+  await pool.query('UPDATE ngw_character_progress SET inventory=$2::jsonb WHERE character_id=$1',[hero,JSON.stringify(Array.from({length:12},()=>({id:'wornAxe',qty:1})))]);
+  await assert.rejects(()=>store.takeCorpseLoot({...args,expectedRevision:2,requestId:randomUUID()}),e=>e.code==='inventory_full');
+  assert.deepEqual((await store.readCorpseLoot(args)).loot,[{id:'batteredBuckler',qty:1}]);
+  const bag=Array.from({length:12},()=>({id:'wornAxe',qty:1}));bag[0]={id:'feather',qty:1};
+  await pool.query('UPDATE ngw_character_progress SET inventory=$2::jsonb WHERE character_id=$1',[hero,JSON.stringify(bag)]);
+  const killed2=await progress.recordMobKill({accountId:account,characterId:hero,expectedRevision:2,radius:261,serverCredit:{...credit,life:2},deferLoot:true});
+  assert.equal(killed2.progress.experience,44,'Full bag must not block XP');
+  const partial=await store.takeCorpseLoot({...args,expectedRevision:3,corpse:{...corpse,life:2},requestId:randomUUID()});
+  assert.deepEqual(partial.taken,[{id:'feather',qty:1}]);
+  assert.deepEqual(partial.loot,[{id:'batteredBuckler',qty:1}]);
+  assert.equal(partial.progress.inventory[0].qty,2);
+  assert.equal(partial.progress.experience,44);
+ }finally{await store.close();await progress.close();await pool.end()}
+});
