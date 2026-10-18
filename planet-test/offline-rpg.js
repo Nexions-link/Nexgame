@@ -42,7 +42,7 @@ import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
 import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,advanceRespawnTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=4';
 import {rollCreatureLoot} from './loot-tables.js?v=1';
-import {creatureByIndex,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,BANDIT_QUEST_KILLS,BANDIT_QUEST_MIN_LEVEL} from './creature-registry.js?v=2';
+import {creatureByIndex,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,BANDIT_QUEST_KILLS,BANDIT_QUEST_MIN_LEVEL,BANDIT_BOSS_SCALE} from './creature-registry.js?v=3';
 import {createBanditVisual} from './bandit-visual.js?v=1';
 import {rollCreatureCoins} from './creature-types.js?v=1';
 import {creatureTypeForMob,CREATURE_TYPE_LABELS,CORPSE_COIN_ID,isValidCorpseCoins} from './creature-types.js?v=1';
@@ -599,7 +599,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    spawnX:x,spawnZ:z,hp,maxHp:hp,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
    respawn:0,returning:false,walk:0,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,
    boss:spec.boss,contactShadow,roamTime:spec.index*1.73,navigation:null,banditVisual:visual};
-  if(spec.boss){visual.root.scale.setScalar(1.35);contactShadow.scale.setScalar(1.35);contactShadow.position.y=.02;}
+  if(spec.boss){visual.root.scale.setScalar(BANDIT_BOSS_SCALE);contactShadow.scale.setScalar(BANDIT_BOSS_SCALE);contactShadow.position.y=.02;}
   const nameTag=makeLabel(spec.name+' · ур. '+spec.level,'#e4c68f',24);
   nameTag.position.y=spec.boss?4.9:3.7;root.add(nameTag);mob.nameTag=nameTag;
   const alertTag=makeLabel('!','#ffc978',78);alertTag.position.y=spec.boss?5.35:4.25;alertTag.scale.set(1.55,1.4,1);
@@ -706,7 +706,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const rig=asset.scene.clone(true);
   const container=new THREE.Group();container.name='dust-trail-raider-v0.3';
   container.add(rig);mob.root.add(container);mob.fallbackVisual.visible=false;
-  if(mob.boss)container.scale.setScalar(1.35);
+  if(mob.boss)container.scale.setScalar(BANDIT_BOSS_SCALE);
   rig.traverse(part=>{if(part.isMesh){part.castShadow=true;part.receiveShadow=false;}});
   const mixer=new THREE.AnimationMixer(rig);
   const actions=Object.fromEntries(asset.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
