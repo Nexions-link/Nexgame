@@ -127,3 +127,28 @@ test('server catches up a divergent position before authenticated-distance chest
   assert.equal(client.events.some(e=>e.type==='chestResult'&&e.ok===false),false);
  }finally{clearInterval(timer);client?.close();child.kill()}
 });
+
+// Regression from iPhone: repeated turning used to take yaw beyond ±4π.
+// The old handler silently dropped EVERY movement packet, leaving the server
+// outside the chest interaction range even while the model stood beside it.
+test('multiple full turns never strand an online hero outside the chest', {timeout:9000},async()=>{
+ const {port,child}=await server();let hero,peer,timer;
+ try{
+  hero=await join(port,'Крутящийся герой',CHEST_X+8,CHEST_Z);
+  peer=await join(port,'Наблюдатель',CHEST_X+8,CHEST_Z);
+  const welcome=await until(()=>hero.events.find(e=>e.type==='welcome'));
+  await until(()=>peer.events.find(e=>e.type==='welcome'));
+  const chestNormal=localToNormal(CHEST_X,CHEST_Z,261);
+  const turns=20*Math.PI+.35;
+  timer=setInterval(()=>hero.send({type:'move',radius:261,
+   normal:chestNormal,heading:turns,moving:true}),100);
+  await sleep(1600);
+  const snapshot=peer.events.filter(e=>e.type==='snapshot'
+   &&e.players.some(p=>p.id===welcome.id&&Math.abs(p.heading-.35)<1e-5)).at(-1);
+  assert.ok(snapshot,'server must accept and canonicalize a multi-turn yaw');
+  hero.send({type:'chestOpen',inventory:Array(12).fill(null)});
+  const chest=await until(()=>hero.events.find(e=>e.type==='chestState'));
+  assert.equal(chest.slots.length,18);
+  assert.equal(hero.events.some(e=>e.type==='chestResult'&&e.ok===false),false);
+ }finally{clearInterval(timer);hero?.close();peer?.close();child.kill()}
+});

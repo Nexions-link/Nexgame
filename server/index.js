@@ -13,7 +13,7 @@ import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.10';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.11';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
  'https://www.nexions.ru','https://nexions-link.github.io']);

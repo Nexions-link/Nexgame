@@ -36,7 +36,12 @@ const normalFrom=raw=>{
  if(!Array.isArray(raw)||raw.length!==3||!raw.every(finite))return null;
  const d=Math.hypot(...raw);return d<.99||d>1.01?null:raw.map(n=>n/d);
 };
-const headingOkay=h=>finite(h)&&Math.abs(h)<=Math.PI*4;
+// The camera/gameplay can accumulate multiple full turns. Discarding otherwise
+// valid movement packets with yaw > 4π leaves the server avatar stranded.
+// Reduce finite headings to their canonical angle before validating movement.
+export const canonicalSphereHeading=h=>finite(h)&&Math.abs(h)<=1e6
+ ?Math.atan2(Math.sin(h),Math.cos(h)):null;
+const headingOkay=h=>canonicalSphereHeading(h)!==null;
 const send=(ws,p)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(p))};
 const publicPlayer=p=>({
  id:p.id,name:p.name,normal:p.normal,heading:p.heading,
@@ -110,8 +115,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     const radius=saved?saved.worldRadius:m.radius;
     if(!RADII.includes(radius))return;
     const normal=normalFrom(saved?saved.positionNormal:m.normal);
-    const heading=saved?saved.heading:m.heading;
-    if(!normal||!headingOkay(heading))return;
+    const heading=canonicalSphereHeading(saved?saved.heading:m.heading);
+    if(!normal||heading===null)return;
     const level=saved?saved.level:Number.isInteger(m.level)?bound(m.level,1,60):1;
     const equipment=sanitizeSphereEquipment(saved?saved.equipment:m.equipment,level);
     const stats=deriveStats(level,equipment);
@@ -266,21 +271,25 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     return;
    }
    if(m.type!=='move')return;
-   if(m.radius!==current.radius||typeof m.moving!=='boolean'||!headingOkay(m.heading))return;
-   const normal=normalFrom(m.normal);if(!normal)return;
+   if(m.radius!==current.radius||typeof m.moving!=='boolean')return;
+   const heading=canonicalSphereHeading(m.heading);
+   const normal=normalFrom(m.normal);
+   if(!normal||heading===null)return;
    const now=Date.now(),dt=Math.min(1,(now-current.updatedAt)/1000);
    if(dt<.075)return;
    const delta=arcDistance(normal,current.normal,current.radius);
    current.normal=delta>MAX_SPEED*dt+.8
     ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt)
     :normal;
-   current.heading=m.heading;current.moving=m.moving;
+   current.heading=heading;current.moving=m.moving;
    current.updatedAt=now;
    const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
    if(current.queueCheckpoint&&now-lastCheckpoint>=6000){
     lastCheckpoint=now;
-    const checkpoint={normal:[...normal],heading:m.heading,radius:current.radius};
+    // Save only the movement actually accepted by the authoritative server,
+    // never an unbounded proposed destination or a multi-turn heading.
+    const checkpoint={normal:[...current.normal],heading:current.heading,radius:current.radius};
     void current.queueCheckpoint(checkpoint).catch(()=>{});
    }
    if(!trustedCharacter&&Number.isInteger(m.level)&&m.level>=1&&m.level<=60){
