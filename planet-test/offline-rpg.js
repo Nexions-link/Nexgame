@@ -1187,14 +1187,26 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const glyph=mentorGlyph(state.quest);
   for(const child of mentor.root.children)if(child.userData.questMarker)child.visible=child.userData.glyph===glyph;
   const banditStage=state.banditQuest?.stage??0;
+  const weaponStage=weaponsStage(),weaponCount=itemCount(BANDIT_WEAPON_ITEM);
   const chiefStage=state.banditChiefQuest?.stage??0;
-  const banditGlyph=banditStage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'!':null):banditStage===2||chiefStage===2?'?':banditStage===1||chiefStage===1?'·':banditStage===3&&chiefStage===0&&state.level>=4?'!':null;
+  const banditGlyph=banditStage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'!':null):
+   banditStage===1?'·':banditStage===2?'?':
+   weaponStage===0?'!':weaponStage===1?(weaponCount>=BANDIT_WEAPON_REQUIRED?'?':'·'):
+   chiefStage===0?(state.level>=4?'!':null):chiefStage===1?'·':chiefStage===2?'?':null;
   for(const child of banditGuide.root.children)if(child.userData.questMarker)
    child.visible=child.userData.glyph===banditGlyph;
-  const showChief=banditStage===3&&(chiefStage===1||chiefStage===2);
-  $('banditQuestTracker').hidden=!authenticatedProfile||!(showChief||banditStage===1||banditStage===2);
+  const showWeapons=banditStage===3&&weaponStage===1;
+  const showChief=banditStage===3&&weaponStage===2&&(chiefStage===1||chiefStage===2);
+  $('banditQuestTracker').hidden=!authenticatedProfile||
+   !(showChief||showWeapons||banditStage===1||banditStage===2);
+  const banditTrackerTitle=$('banditQuestTitle');
+  if(banditTrackerTitle)banditTrackerTitle.textContent=showChief?'Главарь · 3/3':
+   showWeapons?'Оружие разбойников · 2/3':'Разведка лагеря · 1/3';
   if(authenticatedProfile&&showChief)
    $('banditQuestText').textContent=chiefStage===2?'Главарь повержен! Вернись к следопыту.':'Главарь: 0 / 1';
+  else if(authenticatedProfile&&showWeapons)
+   $('banditQuestText').textContent=weaponCount>=BANDIT_WEAPON_REQUIRED?
+    'Кинжалы собраны! Вернись к следопыту.':'Кинжалы: '+weaponCount+' / '+BANDIT_WEAPON_REQUIRED;
   else if(authenticatedProfile&&banditStage>0&&banditStage<3)
    $('banditQuestText').textContent=banditStage===2?'Готово! Вернись к следопыту.':
     'Разбойники: '+(state.banditQuest?.kills??0)+' / '+BANDIT_QUEST_KILLS;
