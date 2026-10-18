@@ -110,3 +110,20 @@ test('spherical parties, room-scoped chat and server chest reuse existing rules'
   assert.equal(stale.slots[slot],null);
  }finally{for(const x of [a,b,c,d])x?.close();child.kill()}
 });
+
+// Regression: a missed mobile-frame update cannot strand server coordinates.
+test('server catches up a divergent position before authenticated-distance chest check', {timeout:9000},async()=>{
+ const {port,child}=await server();let client,timer;
+ try{
+  client=await join(port,'Путник',CHEST_X+12,CHEST_Z);
+  await until(()=>client.events.find(e=>e.type==='welcome'));
+  const normal=localToNormal(CHEST_X,CHEST_Z,261);
+  const move=()=>client.send({type:'move',radius:261,normal,heading:Math.PI/2,moving:false});
+  timer=setInterval(move,100);
+  await sleep(2400);
+  client.send({type:'chestOpen',inventory:Array(12).fill(null)});
+  const accepted=await until(()=>client.events.find(e=>e.type==='chestState'));
+  assert.equal(accepted.slots.length,18);
+  assert.equal(client.events.some(e=>e.type==='chestResult'&&e.ok===false),false);
+ }finally{clearInterval(timer);client?.close();child.kill()}
+});

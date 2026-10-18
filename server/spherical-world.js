@@ -14,6 +14,19 @@ import {
 import {deriveStats} from '../items.js';
 
 export const SPHERE_PROTOCOL=2;
+// Recover from dropped/throttled mobile movement packets without teleporting.
+// Authoritative distance and chest checks remain entirely server-side.
+export function boundedSphereAdvance(from,to,radius,meters){
+ const distance=arcDistance(from,to,radius);
+ if(!Number.isFinite(distance)||distance<=0||distance>=Math.PI*radius-1e-5)return [...from];
+ if(distance<=meters)return [...to];
+ if(!(meters>0))return [...from];
+ const theta=distance/radius,t=meters/distance,s=Math.sin(theta);
+ const next=from.map((v,i)=>
+  (v*Math.sin((1-t)*theta)+to[i]*Math.sin(t*theta))/s);
+ const length=Math.hypot(...next);
+ return length>1e-8?next.map(v=>v/length):[...from];
+}
 const RADII=[87,174,261],TICK_MS=100,MAX_PLAYERS=100,MAX_SPEED=7;
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const bound=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -257,10 +270,13 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const normal=normalFrom(m.normal);if(!normal)return;
    const now=Date.now(),dt=Math.min(1,(now-current.updatedAt)/1000);
    if(dt<.075)return;
-   if(arcDistance(normal,current.normal,current.radius)>MAX_SPEED*dt+.8)return;
-   current.normal=normal;current.heading=m.heading;current.moving=m.moving;
+   const delta=arcDistance(normal,current.normal,current.radius);
+   current.normal=delta>MAX_SPEED*dt+.8
+    ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt)
+    :normal;
+   current.heading=m.heading;current.moving=m.moving;
    current.updatedAt=now;
-   const loc=normalToLocal(normal,current.radius);
+   const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
    if(current.queueCheckpoint&&now-lastCheckpoint>=6000){
     lastCheckpoint=now;
