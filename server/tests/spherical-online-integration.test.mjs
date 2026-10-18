@@ -87,11 +87,18 @@ test('spherical parties, room-scoped chat and server chest reuse existing rules'
   await until(()=>c.events.find(e=>e.type==='chat'&&e.text==='Привет, мир!'));
   assert.equal(d.events.some(e=>e.type==='chat'&&e.text==='Привет, мир!'),false);
   const inventory=[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3},...Array(10).fill(null)];
+  a.send({type:'chestStatus'});
+  const emptyStatus=await until(()=>a.events.find(e=>e.type==='chestStatus'));
+  assert.equal(emptyStatus.total,18);
+  assert.equal(emptyStatus.occupied,0);
   a.send({type:'chestOpen',inventory});
   await until(()=>a.events.find(e=>e.type==='chestState'));
   a.send({type:'chestMove',action:'deposit',slot:0,requestId:'deposit-test-001'});
   const deposit=await until(()=>a.events.find(e=>e.type==='chestResult'&&e.requestId==='deposit-test-001'));
   assert.equal(deposit.ok,true);
+  b.send({type:'chestStatus'});
+  const usedStatus=await until(()=>b.events.find(e=>e.type==='chestStatus'&&e.occupied===1));
+  assert.equal(usedStatus.total,18);
   b.send({type:'chestOpen',inventory:Array(12).fill(null)});
   const shared=await until(()=>b.events.find(e=>e.type==='chestState'&&e.slots.some(x=>x?.id==='wornAxe')));
   const slot=shared.slots.findIndex(x=>x?.id==='wornAxe');

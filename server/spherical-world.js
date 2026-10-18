@@ -6,7 +6,7 @@ import {resolve,dirname,join} from 'node:path';
 import {WebSocket} from 'ws';
 import {createPartyManager} from './groups.js';
 import {createChatManager} from './chat.js';
-import {createSharedChest} from './chest.js';
+import {createSharedChest,CHEST_X,CHEST_Z,CHEST_SLOTS} from './chest.js';
 import {
  createSphericalMobs,mobSnapshot,tickSphericalMobs,applySphereAttack,
  sanitizeSphereEquipment,normalToLocal,arcDistance
@@ -44,7 +44,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  const chat=createChatManager({players,parties:party,send:sendToId,
   broadcast:event=>{const from=players.get(event.fromId);if(from)sendInRoom(from.radius,event);}});
  const chest=createSharedChest({players,send:sendToId,
-  broadcast:event=>{for(const p of players.values())sendToId(p.id,event)},filePath:chestFilePath});
+  broadcast:event=>{for(const p of players.values())if(!p.accountId)sendToId(p.id,event)},filePath:chestFilePath});
  let timer=null;
  function attach(ws,{trustedCharacter=null,progressStore=null,economyStore=null}={}){
   // Serialize all server-generated character saves for this connection.
@@ -136,10 +136,12 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
       publishProgress:(result,source)=>publishProgress(p,result,source),
       send:event=>send(ws,event),
       broadcastChest:chestState=>{
+       const occupied=chestState.slots.filter(Boolean).length;
        for(const other of players.values()){
-        if(other.id===p.id||!other.accountId||!other.accountChestOpen||
-           other.radius!==p.radius)continue;
-        sendToId(other.id,{type:'chestState',...chestState});
+        if(other.id===p.id||!other.accountId||other.radius!==p.radius)continue;
+        if(Math.hypot(other.x-CHEST_X,other.z-CHEST_Z)<=12)
+         sendToId(other.id,{type:'chestStatus',occupied,total:CHEST_SLOTS,revision:chestState.revision});
+        if(other.accountChestOpen)sendToId(other.id,{type:'chestState',...chestState});
        }
       }
      });
@@ -174,6 +176,20 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    if(m.type==='partyRespond'){party.respond(current.id,m.fromId,m.accept===true);return}
    if(m.type==='partyLeave'){party.leave(current.id);return}
    if(m.type==='chatSend'){chat.handle(current.id,m);return}
+   if(m.type==='chestStatus'){
+    // Read-only count for nearby players; never leak item IDs.
+    if(Math.hypot(current.x-CHEST_X,current.z-CHEST_Z)>12)return;
+    if(trustedCharacter){
+     if(economyStore?.readChestStatus)
+      void economyStore.readChestStatus().then(status=>
+       send(ws,{type:'chestStatus',...status})).catch(()=>{});
+    }else{
+     const snapshot=chest.state();
+     send(ws,{type:'chestStatus',occupied:snapshot.slots.filter(Boolean).length,
+      total:CHEST_SLOTS,revision:snapshot.revision});
+    }
+    return;
+   }
    if(m.type==='chestOpen'){
     if(trustedCharacter){
      if(current.queueEconomy)void current.queueEconomy('chestOpen').catch(()=>{});

@@ -365,6 +365,7 @@ try {
     onChat:msg=>rpg.onChat(msg),
     onChatRejected:msg=>rpg.onPartyNotice({message:msg.reason}),
     onChestState:msg=>rpg.onChestState(msg),
+    onChestStatus:msg=>rpg.onChestStatus(msg),
     onChestResult:msg=>rpg.onChestResult(msg),
     onCombatRejected:msg=>rpg.onPartyNotice({message:msg.reason||'Удар отклонён сервером'}),
     onDisconnect:()=>rpg.onPartyState({groupId:null,leaderId:null,members:[]}),

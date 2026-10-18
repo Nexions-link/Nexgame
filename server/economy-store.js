@@ -85,7 +85,15 @@ export function createEconomyStore({pool:externalPool,
   if(!rows.length)fail('shared_chest_missing',503);
   return {revision:Number(rows[0].revision),slots:rows[0].slots};
  }
- async function moveChest(args){
+ async function readChestStatus(){
+   // Public occupancy only. Inventory item IDs remain on the protected route.
+   const {rows}=await pool.query(
+    'SELECT revision,slots FROM ngw_shared_chests WHERE chest_id=$1',[ECONOMY_CHEST_ID]);
+   if(!rows.length)fail('shared_chest_missing',503);
+   return {revision:Number(rows[0].revision),
+    occupied:rows[0].slots.filter(Boolean).length,total:ECONOMY_CHEST.slots};
+  }
+  async function moveChest(args){
   const {action,slot,context}=args;
   const kind=action==='deposit'?'chest_deposit':
    action==='withdraw'?'chest_withdraw':null;
@@ -235,7 +243,7 @@ export function createEconomyStore({pool:externalPool,
   });
  }
  return {
-  schemaReady:ready,buy,sell,readChest,moveChest,
+  schemaReady:ready,buy,sell,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
   close:()=>externalPool?Promise.resolve():pool.end()
