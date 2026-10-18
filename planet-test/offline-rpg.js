@@ -446,6 +446,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     if(target===mob){target=null;autoplay=false;approach=null;timeline.clear();}
    }else if(remote.phase==='alive'&&(wasCorpse||wasHidden)){
     mob.deathAnimation.reset();if(mob.family!=='bandit')resetPlainstriderVisual(mob);
+    if(mob.pendingBanditAsset){attachBanditVisual(mob,mob.pendingBanditAsset);mob.pendingBanditAsset=null;}
     mob.loot=null;mob.lootKnown=false;mob.lootInspectAt=0;mob.navigation=null;
    }else if(remote.phase==='hidden'){
     mob.loot=null;if(pendingLoot===mob)closeWindow();
@@ -670,6 +671,45 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  })();
  const mentorWorld=createMentorWorld({THREE,parent:group,
   place:e=>{entities.push(e);setModelAt(e);},getRadius,toNormal,heightAt});
+ // Shared GLB: Atlas and all three in-world humanoids display the same model.
+ // The previous procedural geometry stays available only as a network fallback.
+ void (async()=>{
+  try{
+   const loader=await modelLoader;
+   if(!loader)throw Error('GLTFLoader unavailable');
+   const asset=await loader.loadAsync('../bestiary/models/dust-trail-raider-v0.1.glb?v=0.1');
+   if(!['Idle','Walk','Attack','Hurt','Death'].every(name=>asset.animations.some(a=>a.name===name))||
+      !asset.scene.getObjectByName('Arm_R')||!asset.scene.getObjectByName('Leg_L'))
+    throw Error('Raider GLB rig or animation missing');
+   for(const mob of mobs.filter(m=>m.family==='bandit')){
+    if(mob.corpse)mob.pendingBanditAsset=asset;
+    else attachBanditVisual(mob,asset);
+   }
+  }catch(err){console.warn('Shared raider GLB fallback:',err);}
+ })();
+ function attachBanditVisual(mob,asset){
+  if(mob.banditGltf){mob.banditGltf.mixer.stopAllAction();mob.banditGltf.container.removeFromParent();}
+  const rig=asset.scene.clone(true);
+  const container=new THREE.Group();container.name='dust-trail-raider-v0.1';
+  container.add(rig);mob.root.add(container);mob.fallbackVisual.visible=false;
+  rig.traverse(part=>{if(part.isMesh){part.castShadow=true;part.receiveShadow=false;}});
+  const mixer=new THREE.AnimationMixer(rig);
+  const actions=Object.fromEntries(asset.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
+  mob.banditGltf={container,rig,mixer,actions,mode:null,action:null};
+  mob.deathAnimation=createMobDeath({THREE,entity:mob,visual:container,getRadius,heightAt,mixer});
+  banditAnimation(mob,0,0);
+ }
+ function banditAnimation(mob,dt,moved=0){
+  const gltf=mob.banditGltf;
+  if(!gltf)return mob.banditVisual?.animate(clock,moved,mob.attackWindup>0?1:0);
+  if(mob.corpse)return;
+  const mode=mob.hit>0?'Hurt':mob.attackWindup>0?'Attack':moved>.01?'Walk':'Idle';
+  if(mode!==gltf.mode){
+   if(gltf.action)gltf.action.fadeOut(.12);
+   gltf.action=gltf.actions[mode];gltf.action.reset().fadeIn(.12).play();gltf.mode=mode;
+  }
+  gltf.mixer.update(Math.min(Math.max(0,dt),.12));
+ }
  // Use the exact approved longstrider model and clips when the shared GLB loads.
  // Procedural fallback remains available if the CDN or asset fails.
  void (async()=>{
@@ -705,7 +745,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  // Smooth original NexGame GLB Idle, Walk, Peck and hit reactions.
  function birdAnimation(mob,dt,moved=0){
-  if(mob.banditVisual){mob.banditVisual.animate(clock,moved,mob.attackWindup>0?1:0);return;}
+  if(mob.banditVisual){banditAnimation(mob,dt,moved);return;}
   if(mob.birdVisual&&!mob.corpse)advancePlainstriderVisual(THREE,mob,dt,moved,false);
  }
  function player(){return toLocal(playerNormal(),getRadius());}
@@ -1657,7 +1697,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     mob.lootMarker.material.opacity=.86+.13*Math.pow(Math.sin(clock*2.6),2);
    }
    if(mob.contactShadow)mob.contactShadow.visible=mob.root.visible;
-   if(mob.banditVisual&&!mob.corpse&&!isOnline())mob.banditVisual.animate(clock,0,mob.attackWindup>0?1:0);
+   if(mob.banditVisual&&!mob.corpse&&!isOnline())banditAnimation(mob,dt,0);
    if(mob.nameTag){
     mob.nameTag.visible=mob.root.visible&&!mob.corpse;
     // Match the WoW-style relative-difficulty tint with target level.
@@ -1697,6 +1737,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      mob.deathAnimation.reset();
      if(mob.family!=='bandit')resetPlainstriderVisual(mob);
      if(mob.pendingBirdAsset){attachBirdVisual(mob,mob.pendingBirdAsset);mob.pendingBirdAsset=null;}
+     if(mob.pendingBanditAsset){attachBanditVisual(mob,mob.pendingBanditAsset);mob.pendingBanditAsset=null;}
      updateLootMarker(mob);setModelAt(mob);}
     continue;
    }
