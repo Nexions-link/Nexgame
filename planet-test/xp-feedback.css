@@ -36,6 +36,8 @@
  #xpFeedback{bottom:clamp(165px,31dvh,305px);width:min(94vw,340px)}
  #xpFeedback .ngw-xp-popup{padding:4px 9px;font-size:clamp(15px,4.2vw,19px)}
 }
+/* Still fires animationend, so reduced-motion feedback is removed as normal. */
+@keyframes ngw-xp-still{0%,74%{opacity:1}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){
- #xpFeedback .ngw-xp-popup{animation:none;opacity:1;transform:none}
+ #xpFeedback .ngw-xp-popup{animation:ngw-xp-still 2.05s linear both;transform:none}
 }
