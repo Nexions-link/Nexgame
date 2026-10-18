@@ -185,7 +185,9 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    const inventory=state.inventory.map(row=>row?{...row}:null);
    inventory[slot].qty--;
    if(!inventory[slot].qty)inventory[slot]=null;
-   const health=Math.min(maxHp,currentHp+55);
+   // Simulation HP may be fractional (out-of-combat regeneration), but the
+   // durable health column is INTEGER. Never pass fractional HP to PostgreSQL.
+   const health=Math.round(Math.min(maxHp,currentHp+55));
    return {progress:await save({...state,inventory,health})};
   });
  }

@@ -135,16 +135,29 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
   assert.equal(healed.progress.health,115);
   assert.equal(healed.progress.revision,2);
   assert.deepEqual(healed.progress.inventory[1],{id:'healingPotion',qty:2});
+  // Regression: the authoritative game loop regenerates fractional HP.
+  // PostgreSQL INTEGER health must store an integer, while the potion is
+  // consumed exactly once and survives a reload.
+  const afterRegen=await store.useHealingPotion({
+   accountId:a,characterId:starterId,expectedRevision:2,currentHp:39.375,maxHp:120
+  });
+  assert.equal(afterRegen.progress.health,94);
+  assert.equal(Number.isInteger(afterRegen.progress.health),true);
+  assert.equal(afterRegen.progress.revision,3);
+  assert.deepEqual(afterRegen.progress.inventory[1],{id:'healingPotion',qty:1});
+  const reloadedPotion=await store.load(a,starterId);
+  assert.equal(reloadedPotion.health,94);
+  assert.deepEqual(reloadedPotion.inventory[1],{id:'healingPotion',qty:1});
   await assert.rejects(()=>store.useHealingPotion({
-   accountId:a,characterId:starterId,expectedRevision:2,currentHp:120,maxHp:120
+   accountId:a,characterId:starterId,expectedRevision:3,currentHp:120,maxHp:120
   }),e=>e.code==='potion_not_needed');
   await assert.rejects(()=>store.useHealingPotion({
    accountId:a,characterId:starterId,expectedRevision:1,currentHp:30,maxHp:120
   }),e=>e.code==='stale_revision');
   await assert.rejects(()=>store.useHealingPotion({
-   accountId:b,characterId:starterId,expectedRevision:2,currentHp:30,maxHp:120
+   accountId:b,characterId:starterId,expectedRevision:3,currentHp:30,maxHp:120
   }),e=>e.status===404);
-  assert.equal((await store.load(a,starterId)).inventory[1].qty,2);
+  assert.equal((await store.load(a,starterId)).inventory[1].qty,1);
 
   // Render restarts reset mob.life to 1. A new process epoch must allow
   // a legitimately new kill without colliding with the old durable ledger.

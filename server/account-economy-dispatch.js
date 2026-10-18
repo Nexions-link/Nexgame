@@ -92,6 +92,10 @@ export function createAccountEconomyDispatcher({
   }catch(error){
    const code=typeof error?.code==='string'&&/^[a-z_]{3,48}$/.test(error.code)?
     error.code:'server_save_failed';
+   // Preserve safe, actionable DB error codes in server logs without exposing
+   // SQL details or character data to clients.
+   if(code==='server_save_failed')
+    console.error('NexGameWorld economy action failed:',kind,error?.code||error?.name||'unknown');
    send({type:kind.startsWith('chest')?'chestResult':'economyResult',
     kind,ok:false,requestId:message.requestId||null,reason:code});
   }
