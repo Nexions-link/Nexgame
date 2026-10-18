@@ -1,5 +1,6 @@
 // NexGameWorld spherical shared PvE. Authoritative mob AI, combat and corpse lifecycle.
 // The original flat-world spawning and combat code is NOT loaded by this module.
+import {MELEE_FACING_COSINE} from '../planet-test/melee-facing.js';
 import {canWalkCamp} from '../planet-test/sphere-physics.js';
 import {moveMobToward,mobSegmentClear} from '../planet-test/mob-navigation.js';
 import {rollCreatureLoot} from '../planet-test/loot-tables.js';
@@ -33,7 +34,7 @@ export function localDistance(mob,player,r){
  return arcDistance(localToNormal(mob.x,mob.z,r),player.normal,r);
 }
 // Hero heading is measured in the tangent East/North basis used in planet.js.
-export function facesMob(player,mob,r,cosLimit=Math.cos(.9)){
+export function facesMob(player,mob,r,cosLimit=MELEE_FACING_COSINE){
  const n=player.normal, other=localToNormal(mob.x,mob.z,r);
  const lon=Math.atan2(n[0],n[2]);
  const east=[Math.cos(lon),0,-Math.sin(lon)];
@@ -42,7 +43,7 @@ export function facesMob(player,mob,r,cosLimit=Math.cos(.9)){
  const dot=n[0]*other[0]+n[1]*other[1]+n[2]*other[2];
  const aim=other.map((v,i)=>v-dot*n[i]);
  const length=Math.hypot(...aim);
- return length>.000001&&fwd.reduce((s,v,i)=>s+v*aim[i],0)/length>=cosLimit;
+ return length<=.000001||fwd.reduce((s,v,i)=>s+v*aim[i],0)/length>=cosLimit;
 }
 const lakeWalkable=(x,z)=>{
  // Same submerged basin as the browser world, conservatively treated as non-walkable
