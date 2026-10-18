@@ -276,5 +276,29 @@ test('Postgres corpse loot: deferred grant, ownership, partial take-all, replay 
   assert.deepEqual(partial.loot,[{id:'batteredBuckler',qty:1}]);
   assert.equal(partial.progress.inventory[0].qty,2);
   assert.equal(partial.progress.experience,44);
+  // Future humanoids deposit money rows in the same corpse ledger.
+  // Simulate an authoritative server-created money row with a FULL bag.
+  const moneyCorpse={...corpse,life:2};
+  const priorCoins=partial.progress.gold;
+  await pool.query(
+   "UPDATE ngw_progress_events SET loot=$3::jsonb WHERE character_id=$1 AND event_key LIKE $2",
+   [hero,'%:dolgonog-0:2:corpse',JSON.stringify([{id:'coins',qty:13},{id:'batteredBuckler',qty:1}])]);
+  const beforeMoney=await store.readCorpseLoot({...args,corpse:moneyCorpse});
+  assert.deepEqual(beforeMoney.loot[0],{id:'coins',qty:13});
+  assert.equal((await progress.load(account,hero)).gold,priorCoins,'money not auto-collected');
+  const picked=await store.takeCorpseLoot({...args,corpse:moneyCorpse,
+   expectedRevision:partial.progress.revision,itemId:'coins',requestId:randomUUID()});
+  assert.equal(picked.applied,true);
+  assert.equal(picked.progress.gold,priorCoins+13);
+  assert.deepEqual(picked.taken,[{id:'coins',qty:13}]);
+  assert.deepEqual(picked.loot,[{id:'batteredBuckler',qty:1}]);
+  assert.deepEqual(picked.progress.inventory,partial.progress.inventory,'currency uses no bag slot');
+  const repeat=await store.takeCorpseLoot({...args,corpse:moneyCorpse,
+   expectedRevision:picked.progress.revision,itemId:'coins',requestId:randomUUID()});
+  assert.equal(repeat.applied,false);assert.equal(repeat.progress.gold,priorCoins+13);
+  const ledger=await pool.query(
+   "SELECT gold_granted FROM ngw_progress_events WHERE character_id=$1 AND event_key LIKE $2",
+   [hero,'%:dolgonog-0:2:corpse']);
+  assert.equal(Number(ledger.rows[0].gold_granted),13);
  }finally{await store.close();await progress.close();await pool.end()}
 });

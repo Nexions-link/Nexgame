@@ -93,3 +93,24 @@ test('server progress displays exact experience gained even across a level-up an
  h.rpg.applyServerProgress({...profile,level:6,experience:0,gold:30},'mob');
  assert.match(h.get('toast').textContent,/0 опыта, \+4 монет/);
 });
+
+test('server-approved coins appear as loot and are not added to wallet until collected',()=>{
+ const profile={nickname:'Воин',level:3,gold:30,inventory:[],equipment:{},health:110};
+ const h=harness({x:-9,z:-24,authenticatedProfile:profile}),sent=[];
+ h.rpg.setMultiplayer({connected:true,economy:(kind,params)=>{
+  sent.push({kind,...params});return true;
+ }});
+ h.rpg.onMobSnapshot([{index:0,phase:'corpse',life:25,hp:0,x:-9,z:-23}]);
+ h.rpg.onEconomyResult({ok:true,kind:'lootOpen',mobId:'dolgonog-0',life:25,
+  loot:[{id:'coins',qty:13}]});
+ assert.equal(h.rpg.state.gold,30);
+ assert.ok(descendants(h.get('mbody')).some(x=>x.textContent==='Монеты'));
+ descendants(h.get('mbody')).find(x=>x.className==='loot-item').click();
+ assert.deepEqual(sent.at(-1),{kind:'lootTake',mobId:'dolgonog-0',life:25,itemId:'coins'});
+ assert.equal(h.rpg.state.gold,30);
+ h.rpg.applyServerProgress({...profile,revision:2,gold:43},'lootTake');
+ assert.equal(h.rpg.state.gold,43);
+ h.rpg.onEconomyResult({ok:true,kind:'lootTake',mobId:'dolgonog-0',life:25,
+  loot:[],taken:[{id:'coins',qty:13}]});
+ assert.equal(h.get('modal').hidden,true);
+});
