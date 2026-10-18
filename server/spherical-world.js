@@ -128,6 +128,21 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     for(const mob of rooms.get(p.radius).mobs)if(mob.aggroId===p.id)mob.aggroId=null;
    }
   };
+  // Publish only occupancy (never item IDs) after the server confirms proximity.
+  // The same path serves explicit polls and automatic arrival notifications.
+  const sendNearbyChestStatus=p=>{
+   if(Math.hypot(p.x-CHEST_X,p.z-CHEST_Z)>12)return;
+   if(p.accountId){
+    if(economyStore?.readChestStatus)
+     void economyStore.readChestStatus().then(status=>{
+      if(connections.get(ws)===p)send(ws,{type:'chestStatus',...status});
+     }).catch(()=>{});
+   }else{
+    const snapshot=chest.state();
+    send(ws,{type:'chestStatus',occupied:snapshot.slots.filter(Boolean).length,
+     total:CHEST_SLOTS,revision:snapshot.revision});
+   }
+  };
   ws.on('message',raw=>{
    const messageNow=Date.now();
    messageBudget=Math.min(80,messageBudget+Math.max(0,messageNow-messageRefillAt)*.05);
@@ -242,20 +257,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    if(m.type==='partyRespond'){party.respond(current.id,m.fromId,m.accept===true);return}
    if(m.type==='partyLeave'){party.leave(current.id);return}
    if(m.type==='chatSend'){chat.handle(current.id,m);return}
-   if(m.type==='chestStatus'){
-    // Read-only count for nearby players; never leak item IDs.
-    if(Math.hypot(current.x-CHEST_X,current.z-CHEST_Z)>12)return;
-    if(trustedCharacter){
-     if(economyStore?.readChestStatus)
-      void economyStore.readChestStatus().then(status=>
-       send(ws,{type:'chestStatus',...status})).catch(()=>{});
-    }else{
-     const snapshot=chest.state();
-     send(ws,{type:'chestStatus',occupied:snapshot.slots.filter(Boolean).length,
-      total:CHEST_SLOTS,revision:snapshot.revision});
-    }
-    return;
-   }
+   if(m.type==='chestStatus'){sendNearbyChestStatus(current);return;}
    if(m.type==='chestOpen'){
     if(trustedCharacter){
      if(current.queueEconomy)void current.queueEconomy('chestOpen').catch(()=>{});
@@ -333,6 +335,10 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    current.updatedAt=now;
    const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
+   // The first accepted movement into range pushes the count without opening.
+   const chestNearby=Math.hypot(current.x-CHEST_X,current.z-CHEST_Z)<=12;
+   if(chestNearby&&!current.chestStatusNearby)sendNearbyChestStatus(current);
+   current.chestStatusNearby=chestNearby;
    if(sweep.blocked)counters.movementRejected++;
    if(sweep.blocked||capped&&arcDistance(current.normal,normal,current.radius)>1.5)
     correct(sweep.blocked?'collision':'speed_limit');
