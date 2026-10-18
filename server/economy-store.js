@@ -4,7 +4,9 @@
 import {createHash,randomUUID} from 'node:crypto';
 import pg from 'pg';
 import {createProgressStore} from './progress-store.js';
-import {acceptBanditQuest,turnInBanditQuest,acceptBanditChiefQuest,turnInBanditChiefQuest} from './bandit-quest.js';
+import {acceptBanditQuest,turnInBanditQuest,acceptBanditChiefQuest,turnInBanditChiefQuest,
+ acceptBanditWeaponsQuest,turnInBanditWeaponsQuest,requireBanditWeaponAvailable} from './bandit-quest.js';
+import {BANDIT_WEAPON_CAST_SECONDS,BANDIT_WEAPON_RESPAWN_SECONDS,banditWeaponNode} from '../planet-test/bandit-weapons.js';
 import {GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS} from '../planet-test/gather-world.js';
 import {assertCharacterId,validateKillCredit,ProgressError} from './progress-rules.js';
 import {creatureById,creatureKillReward} from '../planet-test/creature-registry.js';
@@ -273,6 +275,80 @@ export function createEconomyStore({pool:externalPool,
    return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
   });
  }
+ async function startBanditWeaponsQuest(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(acceptBanditWeaponsQuest(state,args.context))};
+  });
+ }
+ async function finishBanditWeaponsQuest(args){
+  return transaction(args,async({client,state,save})=>{
+   revision(state,args.expectedRevision);
+   const {next,event}=turnInBanditWeaponsQuest(state,args.context);
+   const already=await client.query(
+    'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,event.eventKey]);
+   if(already.rowCount)fail('bandit_weapons_quest_already_paid');
+   await client.query(
+    ["INSERT INTO ngw_progress_events",
+     "(character_id,event_key,event_kind,xp_granted,gold_granted,loot)",
+     "VALUES($1,$2,$3,$4,$5,'[]'::jsonb)"].join(' '),
+    [args.characterId,event.eventKey,event.eventKind,event.xp,event.gold]);
+   return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
+  });
+ }
+ // Uses the same persistent 1.5-second server cast and node-cooldown tables
+ // as the herbalist; browser clients cannot supply their own coordinates.
+ async function startBanditWeaponGather(args){
+  const {index,context}=args,node=banditWeaponNode(index);
+  if(!node)fail('unknown_bandit_weapon_node');
+  return transaction(args,async({client,state})=>{
+   revision(state,args.expectedRevision);
+   requireBanditWeaponAvailable(state,index,context);
+   await client.query(
+    'INSERT INTO ngw_gather_nodes(node_id) VALUES($1) ON CONFLICT DO NOTHING',
+    [node.nodeId]);
+   const ready=await client.query(
+    'SELECT ready_at<=now() AS ready FROM ngw_gather_nodes WHERE node_id=$1 FOR UPDATE',
+    [node.nodeId]);
+   if(!ready.rows[0]?.ready)fail('gather_node_respawning');
+   await client.query(
+    ["INSERT INTO ngw_gather_casts(character_id,node_id,started_at,expires_at)",
+     "VALUES($1,$2,now(),now()+INTERVAL '20 seconds')",
+     "ON CONFLICT(character_id) DO UPDATE SET node_id=$2,started_at=now(),",
+     "expires_at=now()+INTERVAL '20 seconds'"].join(' '),
+    [args.characterId,node.nodeId]);
+   return {started:true,nodeId:node.nodeId,castMs:BANDIT_WEAPON_CAST_SECONDS*1000};
+  });
+ }
+ async function finishBanditWeaponGather(args){
+  const {index,context}=args,node=banditWeaponNode(index);
+  if(!node)fail('unknown_bandit_weapon_node');
+  return transaction(args,async({client,state,save})=>{
+   revision(state,args.expectedRevision);
+   requireBanditWeaponAvailable(state,index,context);
+   const casting=await client.query(
+    ["SELECT node_id,now()>=started_at+($2::double precision * INTERVAL '1 second') AS finished,",
+     "expires_at>now() AS active FROM ngw_gather_casts",
+     "WHERE character_id=$1 FOR UPDATE"].join(' '),
+    [args.characterId,BANDIT_WEAPON_CAST_SECONDS]);
+   if(!casting.rowCount||casting.rows[0].node_id!==node.nodeId)
+    fail('gather_cast_not_started');
+   if(!casting.rows[0].active)fail('gather_cast_expired');
+   if(!casting.rows[0].finished)fail('gather_cast_in_progress');
+   const ready=await client.query(
+    'SELECT ready_at<=now() AS ready FROM ngw_gather_nodes WHERE node_id=$1 FOR UPDATE',
+    [node.nodeId]);
+   if(!ready.rows[0]?.ready)fail('gather_node_respawning');
+   const inventory=addOwnedStacks(state.inventory,[{id:node.itemId,qty:1}]);
+   await client.query(
+    "UPDATE ngw_gather_nodes SET ready_at=now()+($2::int*INTERVAL '1 second'),updated_at=now() WHERE node_id=$1",
+    [node.nodeId,BANDIT_WEAPON_RESPAWN_SECONDS]);
+   await client.query('DELETE FROM ngw_gather_casts WHERE character_id=$1',[args.characterId]);
+   const saved=await save({...state,inventory});
+   return {progress:saved,item:{id:node.itemId,qty:1},nodeId:node.nodeId};
+  });
+ }
  async function startBanditChiefQuest(args){
   return transaction(args,async({state,save})=>{
    revision(state,args.expectedRevision);
@@ -349,7 +425,9 @@ export function createEconomyStore({pool:externalPool,
   schemaReady:ready,buy,sell,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
-  startBanditQuest,finishBanditQuest,startBanditChiefQuest,finishBanditChiefQuest,
+  startBanditQuest,finishBanditQuest,
+   startBanditWeaponsQuest,finishBanditWeaponsQuest,startBanditWeaponGather,finishBanditWeaponGather,
+   startBanditChiefQuest,finishBanditChiefQuest,
   close:()=>externalPool?Promise.resolve():pool.end()
  };
 }
