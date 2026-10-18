@@ -40,6 +40,7 @@
 <link rel="stylesheet" href="./world-sheet.css?v=1">
 <link rel="stylesheet" href="./character-sheet.css?v=3">
 <link rel="stylesheet" href="./loot-sheet.css?v=1">
+<link rel="stylesheet" href="./target-hud.css?v=1">
 <style id="planet-native-adapter">
 /* The exact original HUD sizing and styling is sourced from ../style.css. */
 #viewport{position:fixed;inset:0;z-index:0;touch-action:none;outline:none}
@@ -213,7 +214,9 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 </header>
 <div id="targetFrame" class="frame" hidden>
  <button id="targetClear" aria-label="Снять цель" title="Снять цель">×</button>
- <span id="targetName"></span>
+ <div id="targetHeading" aria-label="Название и уровень цели">
+  <span id="targetName"></span><span id="targetLevel" hidden></span>
+ </div>
  <div class="bar health"><div id="targetFill"></div><span id="targetHp"></span></div>
  <div id="targetDistance" aria-live="off"></div>
  <div id="targetStatus" aria-live="off"></div>

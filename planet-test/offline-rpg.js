@@ -1027,9 +1027,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('targetFrame').hidden=!hostile;$('targetPlaceholder').hidden=!!hostile;
   if(hostile){
     const difficulty=target.kind==='mob'?monsterDifficulty(state.level,target.level):'yellow';
-    $('targetName').textContent=target.kind==='mob'?
-     target.boss?'Грозоклюв · ур. '+target.level+' · Элитный':
-      target.name+' · ур. '+target.level:target.name;
+    // Keep the full creature name readable. The level is a separate compact
+    // badge, so it never pushes the target name outside the fixed HUD slot.
+    $('targetName').textContent=target.name;
+    $('targetLevel').hidden=target.kind!=='mob';
+    if(target.kind==='mob'){
+     $('targetLevel').textContent='ур. '+target.level;
+     $('targetLevel').title='Уровень '+target.level+(target.boss?' · Элитный':'');
+    }
     $('targetName').style.color='#'+MONSTER_LEVEL_COLORS[difficulty].toString(16).padStart(6,'0');
     $('targetFill').style.width=clamp(target.hp/target.maxHp*100,0,100)+'%';
     $('targetHp').textContent=Math.ceil(target.hp)+' / '+target.maxHp;

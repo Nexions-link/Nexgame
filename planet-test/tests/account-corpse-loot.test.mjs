@@ -79,7 +79,9 @@ test('loot action appears at killing distance without stepping closer or waiting
 test('monster levels are visible in target frame and scale with hero difficulty',()=>{
  const h=harness({x:-9,z:-25,authenticatedProfile:{nickname:'Герой',level:1,experience:0,inventory:[],equipment:{}}});
  h.rpg.targetNearest();
- assert.match(h.get('targetName').textContent,/ур\. 1/);
+ assert.equal(h.get('targetName').textContent,'Равнинный долгоног');
+ assert.equal(h.get('targetLevel').textContent,'ур. 1');
+ assert.equal(h.get('targetLevel').hidden,false);
  assert.equal(h.get('targetName').style.color,'#f6d774');
 });
 
@@ -113,4 +115,13 @@ test('server-approved coins appear as loot and are not added to wallet until col
  h.rpg.onEconomyResult({ok:true,kind:'lootTake',mobId:'dolgonog-0',life:25,
   loot:[],taken:[{id:'coins',qty:13}]});
  assert.equal(h.get('modal').hidden,true);
+});
+
+test('level badge is separate, and a boss keeps the complete name inside a fixed size target slot',()=>{
+ const h=harness({x:39,z:43,authenticatedProfile:{nickname:'Герой',level:3,experience:0,inventory:[],equipment:{}}});
+ h.rpg.targetNearest();
+ assert.equal(h.get('targetName').textContent,'Грозоклюв');
+ assert.equal(h.get('targetLevel').textContent,'ур. 3');
+ assert.match(h.get('targetLevel').title,/Элитный/);
+ assert.equal(h.get('targetName').style.color,'#f6d774');
 });
