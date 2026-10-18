@@ -125,3 +125,48 @@ test('level badge is separate, and a boss keeps the complete name inside a fixed
  assert.match(h.get('targetLevel').title,/Элитный/);
  assert.equal(h.get('targetName').style.color,'#f6d774');
 });
+
+test('server XP after a killing blow rises on screen and deduplicates the same revision',()=>{
+ const profile={nickname:'Воин',level:1,experience:95,gold:30,health:120,
+  inventory:Array(12).fill(null),equipment:{},quests:{}};
+ const h=harness({authenticatedProfile:profile});
+ const xp=h.get('xpFeedback');
+ assert.equal(xp.children.length,0);
+ const event={...profile,revision:1,level:2,experience:17};
+ h.rpg.applyServerProgress(event,'mob');
+ assert.equal(xp.children.length,1);
+ assert.match(xp.children[0].textContent,/\+ 22 опыта.*Новый уровень!/);
+ assert.match(xp.children[0].className,/ngw-xp-positive/);
+ h.rpg.applyServerProgress(event,'mob');
+ assert.equal(xp.children.length,1,'same server revision must not produce another popup');
+ h.rpg.applyServerProgress({...event,revision:2,level:2,experience:43},'mob');
+ assert.equal(xp.children.length,2);
+ assert.equal(xp.children[1].textContent,'+ 26 опыта');
+});
+test('gray monster gives a muted 0 XP float and non-kill progress does not animate',()=>{
+ const profile={nickname:'Воин',level:6,experience:0,gold:30,health:120,
+  inventory:Array(12).fill(null),equipment:{},quests:{}};
+ const h=harness({authenticatedProfile:profile});
+ const xp=h.get('xpFeedback');
+ h.rpg.applyServerProgress({...profile,revision:1,experience:0},'welcome');
+ assert.equal(xp.children.length,0);
+ h.rpg.applyServerProgress({...profile,revision:2,experience:0},'mob');
+ assert.equal(xp.children.length,1);
+ assert.equal(xp.children[0].textContent,'0 опыта');
+ assert.match(xp.children[0].className,/ngw-xp-gray/);
+ h.rpg.applyServerProgress({...profile,revision:3,experience:0},'lootTake');
+ assert.equal(xp.children.length,1,'taking loot is not a kill');
+});
+test('the overlay never expands the target HUD or intercepts touch interactions',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const css=readFileSync(new URL('../xp-feedback.css',import.meta.url),'utf8');
+ const target=readFileSync(new URL('../target-hud.css',import.meta.url),'utf8');
+ const page=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.match(css,/#xpFeedback[\s\S]*?pointer-events:none/);
+ assert.match(css,/@keyframes ngw-xp-rise/);
+ assert.match(css, /prefers-reduced-motion:reduce/);
+ assert.match(target,/height:29px;min-height:29px/);
+ assert.doesNotMatch(target,/#targetFrame\{[^}]*width:/);
+ assert.match(page,/id="targetLevel"/);
+ assert.match(page,/id="xpFeedback"/);
+});

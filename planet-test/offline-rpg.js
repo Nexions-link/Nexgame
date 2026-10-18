@@ -18,6 +18,7 @@ import {createCampActions} from './camp-actions.js?v=12';
 import {OFFLINE_RPG_SAVE_KEY,clearOfflineProgress} from './progress-reset.js?v=1';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
+import {createXpFeedback} from './xp-feedback.js?v=1';
 import {createSphericalCombatVfx} from './sphere-combat-vfx.js?v=1';
 import {createQuestMarkerFactory} from './quest-markers.js?v=3';
 import {createCameraTargetFilter} from './camera-targeting.js?v=1';
@@ -372,9 +373,13 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   draw();
   if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','chest','spells'].includes(modal.dataset.kind))renderModal();
   if(source==='mob'){
+   // A saved revision can be rebroadcast during reconnect. Never animate it twice.
+   if(Number.isInteger(progress.revision)&&progress.revision===lastMobXpRevision)return;
+   if(Number.isInteger(progress.revision))lastMobXpRevision=progress.revision;
    let gained=state.xp-previousXp;
    for(let level=previousLevel;level<state.level&&level<60;level++)gained+=xpRequired(level);
    gained=Math.max(0,gained);
+   xpFeedback.show(gained,{levelUp:state.level>previousLevel});
    msg(gained>0?
     'Получено +'+gained+' опыта. Осмотри тело для получения добычи.':
     'Противник слишком слаб: 0 опыта. Добыча остаётся на теле.',2.6);
@@ -390,6 +395,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   mob.loot=Array.isArray(event.loot)?event.loot.filter(row=>row&&((ITEM_CATALOG[row.id]&&Number.isInteger(row.qty)&&row.qty>0)||isValidCorpseCoins(row))).map(row=>({...row})):[];
   const gainedXp=monsterKillExperience(state.level,mob.level,mobBaseExperience(mob.level,mob.boss));
   state.xp+=gainedXp; // Coins are never awarded by a kill event.
+  xpFeedback.show(gainedXp);
   mentorChain.killed(mob);levelCheck();persist();updateLootMarker(mob);draw();
   msg('Награда за '+mob.name+': опыт '+gainedXp);
  }
@@ -446,6 +452,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const feedbackLayer=$('combatFeedback');
  if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
  const combatFeedback=createSphereCombatFeedback({THREE,document,camera,layer:feedbackLayer});
+ const xpFeedback=createXpFeedback({document,layer:$('xpFeedback')});
+ let lastMobXpRevision=null;
   const combatVfx=createSphericalCombatVfx({THREE,parent:scene});
   const questMarkers=createQuestMarkerFactory(THREE,{document,camera});
  const nameEl=$('playerName'),objective=$('qtext');
@@ -946,6 +954,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    updateLootMarker(enemy);
    const gainedXp=monsterKillExperience(state.level,enemy.level,mobBaseExperience(enemy.level,enemy.boss));
    state.xp+=gainedXp; // Beasts drop no coins.
+   xpFeedback.show(gainedXp);
    levelCheck();mentorChain.killed(enemy);
    if(!enemy.boss)msg('Долгоног повержен · '+(gainedXp?'+'+gainedXp+' опыта · ':'0 опыта · ')+'доступна добыча');
    persist();

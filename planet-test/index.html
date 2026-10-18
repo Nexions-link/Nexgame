@@ -41,6 +41,7 @@
 <link rel="stylesheet" href="./character-sheet.css?v=3">
 <link rel="stylesheet" href="./loot-sheet.css?v=1">
 <link rel="stylesheet" href="./target-hud.css?v=1">
+<link rel="stylesheet" href="./xp-feedback.css?v=1">
 <style id="planet-native-adapter">
 /* The exact original HUD sizing and styling is sourced from ../style.css. */
 #viewport{position:fixed;inset:0;z-index:0;touch-action:none;outline:none}
@@ -206,6 +207,7 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 <body>
 <main id="viewport" aria-label="Сферический мир NexGameWorld"></main>
 <div id="combatFeedback" aria-hidden="true"></div>
+<div id="xpFeedback" aria-live="polite" aria-atomic="false" aria-label="Полученный опыт"></div>
 <div id="vignette"></div>
 <div id="hudTop" aria-label="Игровые панели персонажа цели и карты">
 <header id="playerFrame" class="frame">
