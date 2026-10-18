@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ITEM_CATALOG,deriveStats} from '../../items.js';
 import {equipFromBag,unequipToBag} from '../equipment-rules.js';
+import {harness,descendants} from './harness.mjs';
 const fresh=()=>({level:10,hp:60,equipment:{},inventory:[]});
 test('equipping stamina does not heal; unequipping clamps HP to new maximum',()=>{
  const id=Object.keys(ITEM_CATALOG).find(id=>ITEM_CATALOG[id].slot!=='weapon'&&ITEM_CATALOG[id].stamina>0);
