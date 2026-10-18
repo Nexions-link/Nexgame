@@ -13,6 +13,7 @@ import {
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
 import {resolveSphereWalk} from './world-movement.js';
+import {selectVisiblePlayers} from './world-interest.js';
 
 export const SPHERE_PROTOCOL=2;
 // Recover from dropped/throttled mobile movement packets without teleporting.
@@ -215,6 +216,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      id:p.id,radius:p.radius,tickMs:TICK_MS,players:[...players.values()]
       .filter(x=>x.radius===p.radius&&x.id!==p.id).map(publicPlayer),
      mobs:mobSnapshot(rooms.get(p.radius).mobs),hp:p.hp,maxHp:p.maxHp,resource:p.resource,
+     onlineCount:[...players.values()].filter(x=>x.radius===p.radius).length,
      ...(trustedCharacter?{characterId:p.characterId,
       progress:trustedCharacter.progress,authenticated:true}:{})});
     send(ws,party.state(p.id));
@@ -368,11 +370,19 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     p.hp=Math.min(p.maxHp,p.hp+3*dt);
     p.resource=Math.max(0,p.resource-5*dt);
    }
-   if(![...players.values()].some(p=>p.radius===room.radius))continue;
-   const snapshot={type:'snapshot',protocol:SPHERE_PROTOCOL,tick:room.tick,radius:room.radius,
-    players:[...players.values()].filter(p=>p.radius===room.radius).map(publicPlayer),
-    mobs:mobSnapshot(room.mobs)};
-   sendInRoom(room.radius,snapshot);
+   const roomPlayers=[...players.values()].filter(p=>p.radius===room.radius);
+   if(!roomPlayers.length||room.tick%2!==0)continue;
+   // Send 5Hz visual snapshots, but keep the world simulation at 10Hz.
+   const worldMobs=mobSnapshot(room.mobs);
+   const publicRows=roomPlayers.map(publicPlayer);
+   const byId=new Map(publicRows.map(p=>[p.id,p]));
+   for(const [ws,observer] of connections){
+    if(observer?.radius!==room.radius)continue;
+    const visible=selectVisiblePlayers(roomPlayers,observer,room.radius);
+    send(ws,{type:'snapshot',protocol:SPHERE_PROTOCOL,tick:room.tick,
+     radius:room.radius,onlineCount:roomPlayers.length,
+     players:visible.map(p=>byId.get(p.id)),mobs:worldMobs});
+   }
   }
  }
  timer=setInterval(()=>{
