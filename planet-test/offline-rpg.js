@@ -1160,8 +1160,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const banditGlyph=banditStage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'!':null):banditStage===2||chiefStage===2?'?':banditStage===1||chiefStage===1?'·':banditStage===3&&chiefStage===0&&state.level>=4?'!':null;
   for(const child of banditGuide.root.children)if(child.userData.questMarker)
    child.visible=child.userData.glyph===banditGlyph;
-  $('banditQuestTracker').hidden=!authenticatedProfile||banditStage!==1&&banditStage!==2;
-  if(authenticatedProfile&&banditStage>0&&banditStage<3)
+  const showChief=banditStage===3&&(chiefStage===1||chiefStage===2);
+  $('banditQuestTracker').hidden=!authenticatedProfile||!(showChief||banditStage===1||banditStage===2);
+  if(authenticatedProfile&&showChief)
+   $('banditQuestText').textContent=chiefStage===2?'Главарь повержен! Вернись к следопыту.':'Главарь: 0 / 1';
+  else if(authenticatedProfile&&banditStage>0&&banditStage<3)
    $('banditQuestText').textContent=banditStage===2?'Готово! Вернись к следопыту.':
     'Разбойники: '+(state.banditQuest?.kills??0)+' / '+BANDIT_QUEST_KILLS;
   const nearby=modal.hidden&&!camp.casting?nearestInteraction():null;
