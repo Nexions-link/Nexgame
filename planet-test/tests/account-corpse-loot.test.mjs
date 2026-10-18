@@ -88,10 +88,10 @@ test('server progress displays exact experience gained even across a level-up an
   inventory:Array(12).fill(null),equipment:{},quests:{}};
  const h=harness({authenticatedProfile:profile});
  h.rpg.applyServerProgress({...profile,level:2,experience:17,gold:30},'mob');
- assert.match(h.get('toast').textContent,/\+22 опыта, \+4 монет/);
+ assert.match(h.get('toast').textContent,/\+22 опыта\. Осмотри тело/);
  h.rpg.applyServerProgress({...profile,level:6,experience:0,gold:30},'welcome');
  h.rpg.applyServerProgress({...profile,level:6,experience:0,gold:30},'mob');
- assert.match(h.get('toast').textContent,/0 опыта, \+4 монет/);
+ assert.match(h.get('toast').textContent,/0 опыта\. Добыча остаётся на теле/);
 });
 
 test('server-approved coins appear as loot and are not added to wallet until collected',()=>{

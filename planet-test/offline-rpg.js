@@ -264,13 +264,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(event.ok&&['lootAvailable','lootOpen','lootInspect','lootTake'].includes(event.kind)){
    const mob=mobs.find(e=>'dolgonog-'+e.index===event.mobId);
    if(!mob||mob.life!==event.life)return;
-   mob.loot=(Array.isArray(event.loot)?event.loot:[]).filter(row=>ITEM_CATALOG[row?.id]&&Number.isInteger(row.qty)&&row.qty>0).map(row=>({...row}));
+   mob.loot=(Array.isArray(event.loot)?event.loot:[]).filter(row=>
+    (ITEM_CATALOG[row?.id]&&Number.isInteger(row.qty)&&row.qty>0)||
+    isValidCorpseCoins(row)).map(row=>({...row}));
    mob.lootKnown=true;updateLootMarker(mob);
    if(event.kind==='lootOpen'){pendingLoot=mob;openWindow('loot')}
    else if(event.kind==='lootTake'&&pendingLoot===mob&&!modal.hidden&&modal.dataset.kind==='loot'){
     if(!mob.loot.length)finishCorpseLoot(mob);else renderModal();
    }
-   if(event.taken?.length)msg('Получено: '+event.taken.map(row=>(ITEM_CATALOG[row.id]?.name||row.id)+(row.qty>1?' ×'+row.qty:'')).join(', '));
+   if(event.taken?.length)msg('Получено: '+event.taken.map(row=>row.id===CORPSE_COIN_ID?'Монеты +'+row.qty:(ITEM_CATALOG[row.id]?.name||row.id)+(row.qty>1?' ×'+row.qty:'')).join(', '));
    draw();return;
   }
   if(!event.ok){
@@ -385,7 +387,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const key=event.mobId+':'+event.life;
   if(receivedCredits.has(key))return;
   receivedCredits.add(key);
-  mob.loot=Array.isArray(event.loot)?event.loot.filter(row=>row&&ITEM_CATALOG[row.id]&&Number.isInteger(row.qty)&&row.qty>0).map(row=>({...row})):[];
+  mob.loot=Array.isArray(event.loot)?event.loot.filter(row=>row&&((ITEM_CATALOG[row.id]&&Number.isInteger(row.qty)&&row.qty>0)||isValidCorpseCoins(row))).map(row=>({...row})):[];
   const gainedXp=monsterKillExperience(state.level,mob.level,mobBaseExperience(mob.level,mob.boss));
   state.xp+=gainedXp; // Coins are never awarded by a kill event.
   mentorChain.killed(mob);levelCheck();persist();updateLootMarker(mob);draw();

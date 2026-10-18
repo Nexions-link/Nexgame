@@ -213,7 +213,7 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
   mentorRev=bossReward.progress.revision;
   const mentorFinished=await store.turnInMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
   assert.equal(mentorFinished.progress.quests.mentor.step,12);
-  assert.equal(mentorFinished.progress.gold,211);
+  assert.equal(mentorFinished.progress.gold,235); // Quest reward unchanged; no creature kill gold is paid in this test.
   assert.equal(mentorFinished.progress.level,4);
   assert.equal(mentorFinished.progress.experience,25);
   assert.equal((await pool.query(
