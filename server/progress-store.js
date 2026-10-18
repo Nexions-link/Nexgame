@@ -1,6 +1,7 @@
 // NexGameWorld 0.7.2: server-only, revisioned PostgreSQL character progress.
 // This module is deliberately NOT registered as an HTTP or WebSocket route.
 // Call it only from a future authenticated, authoritative world controller.
+import {creditBanditQuestKill} from './bandit-quest.js';
 import {monsterKillExperience,DOLGONOG_BOSS_INDEX} from '../planet-test/mob-levels.js';
 import {randomUUID} from 'node:crypto';
 import pg from 'pg';
@@ -133,11 +134,12 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
     return {applied:false,reason:'duplicate',progress:state};
    if(state.revision!==expectedRevision)throw conflict();
    let next=awardVerifiedKill(state,deferLoot?{...event,loot:[]}:event);
+   next=creditBanditQuestKill(next,serverCredit.mobId);
    // Quest kill objectives share the exact same transaction and world-run
    // identity as the reward: duplicate packets cannot advance objectives.
    const mentor=getMentorQuest(next);
    const boss=serverCredit.mobId==='dolgonog-'+DOLGONOG_BOSS_INDEX;
-   if((mentor.step===1&&!boss)||(mentor.step===10&&boss)){
+   if(serverCredit.mobId.startsWith('dolgonog-')&&((mentor.step===1&&!boss)||(mentor.step===10&&boss))){
     const credited=certifyMentorKill(next,serverCredit,worldRunId);
     await client.query(
      'INSERT INTO ngw_mentor_kill_evidence(character_id,event_key,quest_step) VALUES($1,$2,$3)',

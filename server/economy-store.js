@@ -4,9 +4,10 @@
 import {createHash,randomUUID} from 'node:crypto';
 import pg from 'pg';
 import {createProgressStore} from './progress-store.js';
+import {acceptBanditQuest,turnInBanditQuest} from './bandit-quest.js';
 import {GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS} from '../planet-test/gather-world.js';
 import {assertCharacterId,validateKillCredit,ProgressError} from './progress-rules.js';
-import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience} from '../planet-test/mob-levels.js';
+import {creatureById,creatureKillReward} from '../planet-test/creature-registry.js';
 import {CORPSE_COIN_ID,isValidCorpseCoins} from '../planet-test/creature-types.js';
 import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
 import {
@@ -70,10 +71,10 @@ export function createEconomyStore({pool:externalPool,
  // Corpse rewards live only for the current server-world epoch and mob life.
  // The :corpse suffix excludes older kills already auto-granted to inventory.
  function corpseKey({mobId,life,radius}){
-  const index=Number(String(mobId).split('-')[1]);
-  const level=mobLevelForIndex(index),boss=index===DOLGONOG_BOSS_INDEX;
+  const spec=creatureById(mobId);
+  if(!spec)fail('unknown_mob');
   return validateKillCredit({type:'killCredit',mobId,life,
-   xp:mobBaseExperience(level,boss),gold:0,loot:[]},radius,worldRunId).eventKey+':corpse';
+   xp:creatureKillReward(spec).xp,gold:0,loot:[]},radius,worldRunId).eventKey+':corpse';
  }
  function checkCorpse(state,args){
   const corpse=args.corpse;
@@ -250,6 +251,28 @@ export function createEconomyStore({pool:externalPool,
     nextStage:getGatherQuest(saved).stage};
   });
  }
+ async function startBanditQuest(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(acceptBanditQuest(state,args.context))};
+  });
+ }
+ async function finishBanditQuest(args){
+  return transaction(args,async({client,state,save})=>{
+   revision(state,args.expectedRevision);
+   const {next,event}=turnInBanditQuest(state,args.context);
+   const already=await client.query(
+    'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,event.eventKey]);
+   if(already.rowCount)fail('bandit_quest_already_paid');
+   await client.query(
+    ["INSERT INTO ngw_progress_events",
+     "(character_id,event_key,event_kind,xp_granted,gold_granted,loot)",
+     "VALUES($1,$2,$3,$4,$5,'[]'::jsonb)"].join(' '),
+    [args.characterId,event.eventKey,event.eventKind,event.xp,event.gold]);
+   return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
+  });
+ }
  async function startMentor(args){
   const {context}=args;
   return transaction(args,async({state,save})=>{
@@ -304,6 +327,7 @@ export function createEconomyStore({pool:externalPool,
   schemaReady:ready,buy,sell,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
+  startBanditQuest,finishBanditQuest,
   close:()=>externalPool?Promise.resolve():pool.end()
  };
 }

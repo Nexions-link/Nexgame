@@ -7,9 +7,10 @@ import {rollCreatureLoot} from '../planet-test/loot-tables.js';
 import {deriveStats,ITEM_CATALOG,armorReduction} from '../items.js';
 import {getAbilityDefinition} from '../skills.js';
 import {CREATURE_TYPE_BEAST,creatureTypeForMob,rollCreatureCoins} from '../planet-test/creature-types.js';
-import {DOLGONOG_LEVELS,DOLGONOG_SPAWNS,DOLGONOG_BOSS_INDEX,mobBaseExperience,monsterMaxHealth,monsterAttackDamage} from '../planet-test/mob-levels.js';
+import {monsterAttackDamage} from '../planet-test/mob-levels.js';
+import {CREATURE_SPAWNS,creatureSpawnHealth,creatureKillReward} from '../planet-test/creature-registry.js';
 
-export const SPHERE_MOB_SPAWNS=DOLGONOG_SPAWNS;
+export const SPHERE_MOB_SPAWNS=CREATURE_SPAWNS.map(({x,z})=>[x,z]);
 export const SPHERE_CORPSE_MS=30000;
 export const SPHERE_RESPAWN_MS=30000;
 export const SPHERE_LEASH_METRES=23;
@@ -78,20 +79,20 @@ function chooseRoamGoal(mob,now,rng){
  mob.roamState='rest';mob.roamUntil=now+1800;
 }
 export function createSphericalMobs(){
- return SPHERE_MOB_SPAWNS.map(([x,z],i)=>{
-  const boss=i===DOLGONOG_BOSS_INDEX;
-  return {id:'dolgonog-'+i,index:i,x,z,spawnX:x,spawnZ:z,yaw:0,
-   boss,level:DOLGONOG_LEVELS[i],creatureType:creatureTypeForMob(i),name:boss?'Грозоклюв':'Равнинный долгоног',
-   hp:monsterMaxHealth(DOLGONOG_LEVELS[i],boss),maxHp:monsterMaxHealth(DOLGONOG_LEVELS[i],boss),
+ return CREATURE_SPAWNS.map(spec=>{
+  const {x,z,index,boss}=spec,health=creatureSpawnHealth(spec);
+  return {id:spec.id,index,x,z,spawnX:x,spawnZ:z,yaw:0,
+   family:spec.family,boss,level:spec.level,creatureType:spec.type,name:spec.name,
+   hp:health,maxHp:health,
    phase:'alive',life:1,aggroId:null,contributors:new Set(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
-   roaming:i*1.73,navigation:null,returning:false,
-    roamState:'rest',roamUntil:0,roamGoalX:x,roamGoalZ:z};
+   roaming:index*1.73,navigation:null,returning:false,
+   roamState:'rest',roamUntil:0,roamGoalX:x,roamGoalZ:z};
  });
 }
 export function mobSnapshot(mobs){
  return mobs.map(m=>({id:m.id,index:m.index,x:m.x,z:m.z,yaw:m.yaw,
-  boss:m.boss,level:m.level,creatureType:m.creatureType,hp:m.hp,maxHp:m.maxHp,phase:m.phase,life:m.life,
+  family:m.family,boss:m.boss,level:m.level,creatureType:m.creatureType,hp:m.hp,maxHp:m.maxHp,phase:m.phase,life:m.life,
   aggro:!!m.aggroId,deathAt:m.deathAt,corpseUntil:m.corpseUntil,respawnAt:m.respawnAt,
   attackWindup:m.attackAt>0}));
 }
@@ -149,8 +150,8 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
    const recipients=[...target.contributors];
    for(const attackerId of recipients)credits.push({targetId:attackerId,
     event:{type:'killCredit',mobId:target.id,life:target.life,
-     xp:mobBaseExperience(target.level,target.boss),gold:0,
-     loot:[...rollCreatureLoot(target.boss?'stormbeak':'dolgonog',rng),
+     xp:creatureKillReward(target).xp,gold:0,
+     loot:[...rollCreatureLoot(target.family,rng),
       ...rollCreatureCoins(target.creatureType,target.level,rng)]}});
   }
  }
@@ -240,7 +241,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    if(error>.32){mob.attackAt=now+100;continue;}
    const stats=playerStats(target);
    const block=stats.blockChance>0&&rng()<stats.blockChance;
-   const reduction=armorReduction(stats.armor,mob.boss?5:1);
+   const reduction=armorReduction(stats.armor,mob.level);
    const raw=monsterAttackDamage(mob.level,mob.boss),absorbed=block?Math.max(0,stats.blockValue):0;
    const damage=Math.max(0,Math.round((raw-absorbed)*(1-reduction)));
    target.hp=Math.max(0,target.hp-damage);

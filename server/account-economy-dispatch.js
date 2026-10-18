@@ -72,6 +72,8 @@ export function createAccountEconomyDispatcher({
    else if(kind==='gatherFinish')result=await economyStore.finishGather({...params,context,
     stage:message.stage,index:message.index});
    else if(kind==='gatherTurnIn')result=await economyStore.turnInGather({...params,context});
+   else if(kind==='banditAccept')result=await economyStore.startBanditQuest({...params,context});
+   else if(kind==='banditTurnIn')result=await economyStore.finishBanditQuest({...params,context});
    else if(kind==='mentorAccept')result=await economyStore.startMentor({...params,context});
    else if(kind==='mentorInteract')result=await economyStore.mentorInteract({...params,context,
     kind:message.interaction});

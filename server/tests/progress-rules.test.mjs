@@ -35,7 +35,7 @@ test('server-verified kill credits enforce mob identity, radius, loot table and 
  assert.notEqual(valid.eventKey,validateKillCredit(mob(),261,'72f5c0a7-5dc7-4ddb-a635-f727ade18096').eventKey);
  assert.throws(()=>validateKillCredit(mob({xp:7000}),261,WORLD_RUN),/invalid_kill_reward/);
  assert.throws(()=>validateKillCredit(mob({gold:9999}),261,WORLD_RUN),/invalid_kill_reward/);
- assert.throws(()=>validateKillCredit(mob({mobId:'dolgonog-10'}),261,WORLD_RUN),/unverified_kill_event/);
+ assert.throws(()=>validateKillCredit(mob({mobId:'dolgonog-10'}),261,WORLD_RUN),/unknown_mob/);
  assert.throws(()=>validateKillCredit(mob({life:0}),261,WORLD_RUN),/unverified_kill_event/);
  assert.throws(()=>validateKillCredit(mob(),999,WORLD_RUN),/unverified_kill_event/);
  assert.throws(()=>validateKillCredit(mob({loot:[{id:'healingPotion',qty:10}]}),261,WORLD_RUN),/invalid_kill_loot/);
