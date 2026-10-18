@@ -1,0 +1,29 @@
+name: NexGameWorld live production watchdog
+
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ngw-production-watchdog
+  cancel-in-progress: false
+
+jobs:
+  production-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test watchdog offline without reaching production
+        run: node --test ops/audit-production.test.mjs
+      - name: Check Nexions.ru release, Render and Neon readiness (read-only)
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: node ops/audit-production.mjs
