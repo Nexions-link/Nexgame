@@ -2,6 +2,11 @@
 // The progression curve is NexGameWorld's own 22/26/70 baseline, so character
 // levelling remains balanced with our current quests (not Blizzard's XP totals).
 export const DOLGONOG_LEVELS=Object.freeze([1,1,1,1,1,2,2,2,2,3]);
+// Canonical positions must be identical in browser and authoritative server.
+export const DOLGONOG_SPAWNS=Object.freeze([
+ [-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],
+ [-28,29],[15,36],[48,9],[29,-25],[39,47]
+].map(row=>Object.freeze(row)));
 export const DOLGONOG_BOSS_INDEX=DOLGONOG_LEVELS.length-1;
 export const mobLevelForIndex=index=>DOLGONOG_LEVELS[index]??null;
 export const monsterMaxHealth=(mobLevel,elite=false)=>elite?108:54+(mobLevel-1)*12;

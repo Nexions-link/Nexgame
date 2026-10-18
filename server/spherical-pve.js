@@ -6,11 +6,9 @@ import {moveMobToward,mobSegmentClear} from '../planet-test/mob-navigation.js';
 import {rollCreatureLoot} from '../planet-test/loot-tables.js';
 import {deriveStats,ITEM_CATALOG,armorReduction} from '../items.js';
 import {getAbilityDefinition} from '../skills.js';
-import {DOLGONOG_LEVELS,DOLGONOG_BOSS_INDEX,mobBaseExperience,monsterMaxHealth,monsterAttackDamage} from '../planet-test/mob-levels.js';
+import {DOLGONOG_LEVELS,DOLGONOG_SPAWNS,DOLGONOG_BOSS_INDEX,mobBaseExperience,monsterMaxHealth,monsterAttackDamage} from '../planet-test/mob-levels.js';
 
-export const SPHERE_MOB_SPAWNS=Object.freeze([
- [-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9],[29,-25],[39,47]
-]);
+export const SPHERE_MOB_SPAWNS=DOLGONOG_SPAWNS;
 export const SPHERE_CORPSE_MS=30000;
 export const SPHERE_RESPAWN_MS=30000;
 export const SPHERE_LEASH_METRES=23;

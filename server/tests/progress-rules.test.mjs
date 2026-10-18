@@ -139,3 +139,28 @@ test('trusted XP reward depends on saved hero level and the canonical mob level,
  assert.equal(awardVerifiedKill({...normal,level:3},elite).experience,70);
  assert.equal(awardVerifiedKill({...normal,level:8},elite).experience,0);
 });
+
+test('classic gray-level and XP scaling threshold is stable at player levels 1-60',async()=>{
+ const {grayMonsterLevel,monsterDifficulty,monsterKillExperience}=await import('../../planet-test/mob-levels.js');
+ assert.equal(grayMonsterLevel(1),0);
+ assert.equal(grayMonsterLevel(5),0);
+ assert.equal(grayMonsterLevel(6),1);
+ assert.equal(grayMonsterLevel(10),4);
+ assert.equal(grayMonsterLevel(20),13);
+ assert.equal(grayMonsterLevel(40),31);
+ assert.equal(grayMonsterLevel(50),40);
+ assert.equal(grayMonsterLevel(60),51);
+ assert.equal(monsterDifficulty(6,1),'gray');
+ assert.equal(monsterDifficulty(5,1),'green');
+ assert.equal(monsterDifficulty(3,1),'yellow');
+ assert.equal(monsterDifficulty(1,2),'yellow');
+ assert.equal(monsterKillExperience(1,1,22),22);
+ assert.equal(monsterKillExperience(2,1,22),18);
+ assert.equal(monsterKillExperience(5,1,22),4);
+ assert.equal(monsterKillExperience(6,1,22),0);
+ assert.equal(monsterKillExperience(2,2,26),26);
+ assert.equal(monsterKillExperience(6,2,26)>0,true);
+ assert.equal(monsterKillExperience(7,2,26),0);
+ assert.equal(monsterKillExperience(3,3,70),70);
+ assert.equal(monsterKillExperience(8,3,70),0);
+});

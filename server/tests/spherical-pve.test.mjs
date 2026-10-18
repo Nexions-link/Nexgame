@@ -1,4 +1,7 @@
 import test from 'node:test';
+import {canWalkCamp} from '../../planet-test/sphere-physics.js';
+import {canWadeAtLocal} from '../../planet-test/start-zone.js';
+import {BOSS_POSITION} from '../../planet-test/mentor-chain.js';
 import assert from 'node:assert/strict';
 import {
  SPHERE_MOB_SPAWNS,SPHERE_CORPSE_MS,SPHERE_RESPAWN_MS,
@@ -134,6 +137,11 @@ test('server respawn moves interaction coordinates to the starting camp',()=>{
 test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite level 3 boss',()=>{
  const mobs=createSphericalMobs();
  assert.equal(mobs.length,10);
+ assert.deepEqual([mobs.at(-1).x,mobs.at(-1).z],[BOSS_POSITION.x,BOSS_POSITION.z]);
+ for(const m of mobs.slice(0,-1)){
+  assert.equal(canWalkCamp(m.spawnX,m.spawnZ),true,'mob spawn must not be inside a wall');
+  assert.equal(canWadeAtLocal(m.spawnX,m.spawnZ),true,'mob spawn must not be in deep water');
+ }
  assert.deepEqual(mobs.filter(m=>!m.boss).map(m=>m.level),[1,1,1,1,1,2,2,2,2]);
  const boss=mobs.at(-1);
  assert.equal(boss.id,'dolgonog-9');
