@@ -6,7 +6,7 @@ import {moveMobToward,mobSegmentClear} from '../planet-test/mob-navigation.js';
 import {rollCreatureLoot} from '../planet-test/loot-tables.js';
 import {deriveStats,ITEM_CATALOG,armorReduction} from '../items.js';
 import {getAbilityDefinition} from '../skills.js';
-import {DOLGONOG_LEVELS,DOLGONOG_BOSS_INDEX,mobBaseExperience} from '../planet-test/mob-levels.js';
+import {DOLGONOG_LEVELS,DOLGONOG_BOSS_INDEX,mobBaseExperience,monsterMaxHealth,monsterAttackDamage} from '../planet-test/mob-levels.js';
 
 export const SPHERE_MOB_SPAWNS=Object.freeze([
  [-9,-23],[1,-28],[13,-22],[21,-33],[-22,-35],[-28,29],[15,36],[48,9],[29,-25],[39,47]
@@ -82,7 +82,8 @@ export function createSphericalMobs(){
  return SPHERE_MOB_SPAWNS.map(([x,z],i)=>{
   const boss=i===DOLGONOG_BOSS_INDEX;
   return {id:'dolgonog-'+i,index:i,x,z,spawnX:x,spawnZ:z,yaw:0,
-   boss,level:DOLGONOG_LEVELS[i],name:boss?'Грозоклюв':'Равнинный долгоног',hp:boss?108:54,maxHp:boss?108:54,
+   boss,level:DOLGONOG_LEVELS[i],name:boss?'Грозоклюв':'Равнинный долгоног',
+   hp:monsterMaxHealth(DOLGONOG_LEVELS[i],boss),maxHp:monsterMaxHealth(DOLGONOG_LEVELS[i],boss),
    phase:'alive',life:1,aggroId:null,contributors:new Set(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
    roaming:i*1.73,navigation:null,returning:false,
@@ -240,7 +241,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    const stats=playerStats(target);
    const block=stats.blockChance>0&&rng()<stats.blockChance;
    const reduction=armorReduction(stats.armor,mob.boss?5:1);
-   const raw=mob.boss?14:9,absorbed=block?Math.max(0,stats.blockValue):0;
+   const raw=monsterAttackDamage(mob.level,mob.boss),absorbed=block?Math.max(0,stats.blockValue):0;
    const damage=Math.max(0,Math.round((raw-absorbed)*(1-reduction)));
    target.hp=Math.max(0,target.hp-damage);
    target.lastMobAttackAt=now;

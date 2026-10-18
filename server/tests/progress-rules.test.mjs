@@ -35,7 +35,7 @@ test('server-verified kill credits enforce mob identity, radius, loot table and 
  assert.notEqual(valid.eventKey,validateKillCredit(mob(),261,'72f5c0a7-5dc7-4ddb-a635-f727ade18096').eventKey);
  assert.throws(()=>validateKillCredit(mob({xp:7000}),261,WORLD_RUN),/invalid_kill_reward/);
  assert.throws(()=>validateKillCredit(mob({gold:9999}),261,WORLD_RUN),/invalid_kill_reward/);
- assert.throws(()=>validateKillCredit(mob({mobId:'dolgonog-9'}),261,WORLD_RUN),/unverified_kill_event/);
+ assert.throws(()=>validateKillCredit(mob({mobId:'dolgonog-10'}),261,WORLD_RUN),/unverified_kill_event/);
  assert.throws(()=>validateKillCredit(mob({life:0}),261,WORLD_RUN),/unverified_kill_event/);
  assert.throws(()=>validateKillCredit(mob(),999,WORLD_RUN),/unverified_kill_event/);
  assert.throws(()=>validateKillCredit(mob({loot:[{id:'healingPotion',qty:10}]}),261,WORLD_RUN),/invalid_kill_loot/);
@@ -44,9 +44,9 @@ test('server-verified kill credits enforce mob identity, radius, loot table and 
  assert.throws(()=>validateKillCredit(mob({loot:[{id:'feather',qty:1},{id:'feather',qty:1}]}),261,WORLD_RUN),/invalid_kill_loot/);
  assert.throws(()=>validateKillCredit(mob({loot:[{id:'batteredBuckler',qty:1},{id:'chainVest',qty:1}]}),261,WORLD_RUN),/invalid_kill_loot/);
  assert.throws(()=>validateKillCredit(mob({gold:4,level:60}),261,WORLD_RUN),/unverified_kill_event/);
- const boss=validateKillCredit(mob({mobId:'dolgonog-8',life:12,xp:70,gold:12,loot:[{id:'giantFeather',qty:1}]}),261,WORLD_RUN);
- assert.equal(boss.eventKey,'mob:'+WORLD_RUN+':261:dolgonog-8:12');
- assert.throws(()=>validateKillCredit(mob({mobId:'dolgonog-8'}),261,WORLD_RUN),/invalid_kill_reward/);
+ const boss=validateKillCredit(mob({mobId:'dolgonog-9',life:12,xp:70,gold:12,loot:[{id:'giantFeather',qty:1}]}),261,WORLD_RUN);
+ assert.equal(boss.eventKey,'mob:'+WORLD_RUN+':261:dolgonog-9:12');
+ assert.throws(()=>validateKillCredit(mob({mobId:'dolgonog-9'}),261,WORLD_RUN),/invalid_kill_reward/);
 });
 test('mob rewards level safely, stack into owned slots and never mutate the input',()=>{
  const s=readProgress({...rows(),experience:99});
@@ -119,4 +119,23 @@ test('trusted movement checkpoint verifies fractional combat vitals',async()=>{
   {health:100,resource:18});
  assert.throws(()=>validateServerVitals({health:-1,resource:2},state),/invalid_server_vitals/);
  assert.throws(()=>validateServerVitals({health:20,resource:300},state),/invalid_server_vitals/);
+});
+
+test('trusted XP reward depends on saved hero level and the canonical mob level, not client parameters',()=>{
+ const lvl2=validateKillCredit(mob({mobId:'dolgonog-8',xp:26}),261,WORLD_RUN);
+ assert.equal(lvl2.mobLevel,2);
+ assert.throws(()=>validateKillCredit(mob({mobId:'dolgonog-8',xp:22}),261,WORLD_RUN),/invalid_kill_reward/);
+ const lvl1=validateKillCredit(mob(),261,WORLD_RUN);
+ const normal={...readProgress(rows()),experience:0};
+ assert.equal(awardVerifiedKill(normal,lvl1).experience,22);
+ assert.equal(awardVerifiedKill(normal,lvl2).experience,27,'higher-level enemy grants a small bonus');
+ const second={...normal,level:2};
+ assert.equal(awardVerifiedKill(second,lvl1).experience,18);
+ assert.equal(awardVerifiedKill(second,lvl2).experience,26);
+ const gray={...normal,level:6};
+ assert.equal(awardVerifiedKill(gray,lvl1).experience,0);
+ assert.equal(awardVerifiedKill(gray,lvl1).gold,34,'coins remain available at gray level');
+ const elite=validateKillCredit(mob({mobId:'dolgonog-9',xp:70,gold:12,loot:[]}),261,WORLD_RUN);
+ assert.equal(awardVerifiedKill({...normal,level:3},elite).experience,70);
+ assert.equal(awardVerifiedKill({...normal,level:8},elite).experience,0);
 });

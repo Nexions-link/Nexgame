@@ -130,3 +130,16 @@ test('server respawn moves interaction coordinates to the starting camp',()=>{
  assert.deepEqual([hero.x,hero.z],[0,0]);
  assert.deepEqual(hero.normal,localToNormal(0,0,261));
 });
+
+test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite level 3 boss',()=>{
+ const mobs=createSphericalMobs();
+ assert.equal(mobs.length,10);
+ assert.deepEqual(mobs.filter(m=>!m.boss).map(m=>m.level),[1,1,1,1,1,2,2,2,2]);
+ const boss=mobs.at(-1);
+ assert.equal(boss.id,'dolgonog-9');
+ assert.equal(boss.level,3);assert.equal(boss.boss,true);
+ assert.equal(boss.hp,108);
+ assert.deepEqual(mobSnapshot(mobs).map(m=>m.level),mobs.map(m=>m.level));
+ assert.equal(mobs[5].maxHp,66,'level 2 mobs have slightly more health');
+ assert.equal(mobs[5].name,'Равнинный долгоног');
+});

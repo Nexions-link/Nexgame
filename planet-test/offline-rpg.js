@@ -40,7 +40,7 @@ import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
 import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,advanceRespawnTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=4';
 import {rollCreatureLoot} from './loot-tables.js?v=1';
-import {mobLevelForIndex,mobBaseExperience,monsterKillExperience,monsterDifficulty,MONSTER_LEVEL_COLORS} from './mob-levels.js?v=1';
+import {mobLevelForIndex,mobBaseExperience,monsterKillExperience,monsterDifficulty,MONSTER_LEVEL_COLORS,monsterMaxHealth,monsterAttackDamage} from './mob-levels.js?v=1';
 import {sellInventorySlot,buyBackFromMerchant,restoreBuyback} from './merchant-trade.js?v=1';
 
 const UP_AXIS=[0,1,0], TAU=Math.PI*2;
@@ -523,7 +523,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   beak.rotation.x=Math.PI/2;beak.position.set(0,2.17,1.1);fallback.add(beak);
   for(const side of [-1,1]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.08,.075,1.2,6),mat);leg.position.set(side*.25,.6,0);fallback.add(leg);}
   const entity={kind:'mob',index:i,level:mobLevelForIndex(i),name:'Равнинный долгоног',lootId:'dolgonog',root,x,z,yaw:.1,
-   spawnX:x,spawnZ:z,hp:54,maxHp:54,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
+   spawnX:x,spawnZ:z,hp:monsterMaxHealth(mobLevelForIndex(i)),maxHp:monsterMaxHealth(mobLevelForIndex(i)),aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
    respawn:0,returning:false,walk:0,visual:null,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,boss:false,contactShadow,roamTime:i*1.73,navigation:null};
   const tag=makeLabel(entity.name+' · ур. '+entity.level,'#f9df91',26);tag.position.y=4.25;root.add(tag);entity.nameTag=tag;
   const alertTag=makeLabel('!','#ffc978',78);
@@ -541,7 +541,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  // The original Narache elite uses the same GLB at 1.8× scale.
  const giant=createBird(BOSS_POSITION.x,BOSS_POSITION.z,mobs.length);
  giant.name='Грозоклюв — огромный долгоног';giant.boss=true;giant.lootId='stormbeak';
- giant.hp=giant.maxHp=108;giant.root.scale.setScalar(1.8);
+ giant.hp=giant.maxHp=monsterMaxHealth(giant.level,true);giant.root.scale.setScalar(1.8);
  const oldTag=giant.root.children.find(child=>child.isSprite&&child!==giant.alertTag);
  if(oldTag)oldTag.visible=false;
  const bossTag=makeLabel('Грозоклюв · ур. 3 · Элитный','#f9bd91',27);
@@ -1662,7 +1662,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       const result=incomingShieldHit({
        THREE,heroNormal:playerNormal(),heroRoot:hero.root,
        enemyNormal:toNormal(mob.x,mob.z,getRadius()),stats:stats(),
-       raw:mob.boss?14:9,attackerLevel:mob.boss?5:1
+       raw:monsterAttackDamage(mob.level,mob.boss),attackerLevel:mob.level
       });
       lastCombatAt=clock;state.hp=Math.max(0,state.hp-result.damage);
       if(result.blocked){

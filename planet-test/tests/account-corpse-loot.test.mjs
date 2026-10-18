@@ -75,3 +75,10 @@ test('loot action appears at killing distance without stepping closer or waiting
  h.position(-9,-27.8);h.rpg.draw();
  assert.equal(h.get('interact').hidden,true,'cannot search beyond authorized distance');
 });
+
+test('monster levels are visible in target frame and scale with hero difficulty',()=>{
+ const h=harness({x:-9,z:-25,authenticatedProfile:{nickname:'Герой',level:1,experience:0,inventory:[],equipment:{}}});
+ h.rpg.targetNearest();
+ assert.match(h.get('targetName').textContent,/ур\. 1/);
+ assert.equal(h.get('targetName').style.color,'#f6d774');
+});

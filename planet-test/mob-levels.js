@@ -4,6 +4,8 @@
 export const DOLGONOG_LEVELS=Object.freeze([1,1,1,1,1,2,2,2,2,3]);
 export const DOLGONOG_BOSS_INDEX=DOLGONOG_LEVELS.length-1;
 export const mobLevelForIndex=index=>DOLGONOG_LEVELS[index]??null;
+export const monsterMaxHealth=(mobLevel,elite=false)=>elite?108:54+(mobLevel-1)*12;
+export const monsterAttackDamage=(mobLevel,elite=false)=>elite?14:9+(mobLevel-1)*2;
 export const mobBaseExperience=(mobLevel,elite=false)=>elite?70:22+4*(mobLevel-1);
 export function grayMonsterLevel(playerLevel){
  if(playerLevel<=5)return 0;
