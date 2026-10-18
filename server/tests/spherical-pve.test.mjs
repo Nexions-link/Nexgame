@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
  SPHERE_MOB_SPAWNS,SPHERE_CORPSE_MS,SPHERE_RESPAWN_MS,
  createSphericalMobs,localToNormal,normalToLocal,arcDistance,
- facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment,sphericalMobYaw,SPHERE_ROAM_RADIUS
+ facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment,sphericalMobYaw,SPHERE_ROAM_RADIUS,startSphereEvade
 } from '../spherical-pve.js';
 
 const character=(id,x=-9,z=-24,radius=261)=>({
@@ -162,4 +162,76 @@ test('all ten monsters are beasts; none has a currency kill reward',()=>{
  const result=applySphereAttack(mobs,hero,'autoAttack',mob.id,4000,()=>.5);
  assert.equal(result.credits[0].event.gold,0);
  assert.ok(result.credits[0].event.loot.every(row=>row.id!=='coins'));
+});
+
+test('an idle player remains under real combat pressure until leash; evasion cannot grant rewards',()=>{
+ const mob=createSphericalMobs()[0],p=character('idle',mob.spawnX,mob.spawnZ+1);
+ const players=new Map([[p.id,p]]);
+ mob.hp=mob.maxHp-9;
+ mob.aggroId=p.id;mob.contributors.add(p.id);
+ mob.yaw=sphericalMobYaw(mob.x,mob.z,0,1,261);
+ const attacks=[];
+ for(let i=0;i<105;i++){
+  const events=tickSphericalMobs([mob],players,261,.1,10000+i*100,()=>.99);
+  attacks.push(...events.filter(e=>e.type==='mobAttack'));
+  if(attacks.length>=2)break;
+ }
+ assert.ok(attacks.length>=2,'the creature must continue hitting a stationary player');
+ assert.equal(mob.hp,mob.maxHp-9,'an active attacker must not silently heal');
+ // After the hero escapes, combat credit and queued attacks must be discarded.
+ mob.x=mob.spawnX+2;
+ p.normal=localToNormal(70,70,261);
+ tickSphericalMobs([mob],players,261,.1,22000,()=>.99);
+ assert.equal(mob.returning,true);
+ assert.equal(mob.aggroId,null);
+ assert.equal(mob.attackAt,0);
+ assert.equal(mob.contributors.size,0);
+ assert.equal(mob.hp,mob.maxHp-9,'the mob heals only once back at its spawn');
+ const other=character('opportunist',mob.x,mob.z);
+ const priorHp=mob.hp;
+ const rejected=applySphereAttack([mob],other,'autoAttack',mob.id,22200,()=>.5);
+ assert.equal(rejected.ok,false,'evading creatures should not be farmed');
+ assert.equal(mob.hp,priorHp);
+ for(let i=0;i<190&&mob.returning;i++)
+  tickSphericalMobs([mob],players,261,.1,22300+i*100,()=>.99);
+ assert.equal(mob.returning,false);
+ assert.equal(mob.hp,mob.maxHp);
+});
+
+test('a fatal hit disengages every pursuing creature before respawn and cancels old combat credit',()=>{
+ const [killer,other]=createSphericalMobs();
+ const hero=character('fallen',killer.x,killer.z+1);
+ hero.hp=1;hero.x=killer.x;hero.z=killer.z+1;
+ killer.yaw=sphericalMobYaw(killer.x,killer.z,0,1,261);
+ killer.aggroId=hero.id;killer.attackAt=1100;
+ other.x=other.spawnX+2;other.z=other.spawnZ;
+ other.hp=other.maxHp-8;other.aggroId=hero.id;other.attackAt=1100;
+ for(const mob of [killer,other])mob.contributors.add(hero.id);
+ const players=new Map([[hero.id,hero]]);
+ const events=tickSphericalMobs([killer,other],players,261,.1,1200,()=>.99);
+ assert.equal(events.filter(e=>e.type==='mobAttack').length,1);
+ assert.equal(events.filter(e=>e.type==='respawnAccepted').length,1);
+ assert.deepEqual(hero.normal,localToNormal(0,0,261));
+ assert.ok(hero.respawnShieldUntil>1200);
+ assert.ok([killer,other].every(m=>m.aggroId===null&&m.attackAt===0));
+ assert.equal(other.returning,true,'second creature must go home instead of resuming a phantom attack');
+ assert.equal(other.hp,other.maxHp-8);
+ assert.ok([killer,other].every(m=>m.contributors.size===0));
+ const more=tickSphericalMobs([killer,other],players,261,.1,1300,()=>.99);
+ assert.equal(more.some(e=>e.type==='mobAttack'||e.type==='mobTelegraph'),false);
+});
+
+test('evade helper is safe for corpses and clears stale windup, stun and navigation',()=>{
+ const mob=createSphericalMobs()[0];
+ mob.phase='corpse';mob.aggroId='ghost';
+ startSphereEvade(mob);
+ assert.equal(mob.aggroId,'ghost','corpse lifecycle must stay authoritative');
+ mob.phase='alive';mob.navigation={route:[]};mob.stunUntil=123;mob.attackAt=800;
+ mob.contributors.add('ghost');
+ startSphereEvade(mob);
+ assert.equal(mob.returning,true);
+ assert.equal(mob.stunUntil,0);
+ assert.equal(mob.attackAt,0);
+ assert.equal(mob.navigation,null);
+ assert.equal(mob.contributors.size,0);
 });
