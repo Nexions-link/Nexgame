@@ -31,6 +31,12 @@ test('WebSocket economy is bound to server-owned hero identity, location and pro
    saveCalls++;return {progress:saved()};
   },
   async recordMobKill(){throw Error('No mob kill expected')},
+  async saveActionBarSlot(args){
+   assert.equal(args.accountId,'server-owned-account');assert.equal(args.characterId,'server-owned-character');
+   assert.equal(args.expectedRevision,revision);assert.equal(args.slot,7);
+   const actionBar=Array(8).fill(null);actionBar[7]=args.entry;
+   persistent={...persistent,revision:++revision,actionBar};return {progress:saved()};
+  },
   async equipInventoryItem(){throw Error('No equip expected')},
   async unequipInventoryItem(){throw Error('No unequip expected')},
   async useHealingPotion(){throw Error('No potion expected')}
@@ -97,6 +103,10 @@ test('WebSocket economy is bound to server-owned hero identity, location and pro
   assert.deepEqual(chest.inventory[0],{id:'wornAxe',qty:1});
   assert.equal(readCalls,1);
   assert.equal(saveCalls,0);
+  auth.send(JSON.stringify({type:'economyAction',kind:'hotbarSet',slot:7,entry:{kind:'ability',id:'autoAttack'},accountId:'attacker',expectedRevision:999}));
+  const bar=await waitFor(events,m=>m.type==='progressSaved'&&m.source==='hotbarSet');
+  assert.deepEqual(bar.progress.actionBar[7],{kind:'ability',id:'autoAttack'});
+  assert.equal((await waitFor(events,m=>m.kind==='hotbarSet')).ok,true);
  }finally{
   auth.close();guest.close();wss.close();server.close();world.close();
  }
