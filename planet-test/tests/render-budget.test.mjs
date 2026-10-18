@@ -20,7 +20,7 @@ test('camera scratch ray returns exactly the same collision as allocation-based 
  assert.equal(second,pooled,'repeated camera sweeps reuse the same result vector');
 });
 test('camera scratch preserves an unobstructed line without fake collisions',()=>{
- const start=new THREE.Vector3(0,270,0),desired=new THREE.Vector3(0,270,5);
+ const start=new THREE.Vector3(0,500,0),desired=new THREE.Vector3(0,500,5);
  const options={start,desired,getRadius:()=>261,toLocal:()=>({x:0,z:120}),
   heightAt:()=>0,heroLocal:null,clearance:.8};
  assert.equal(cameraObstruction(THREE,options),null);
