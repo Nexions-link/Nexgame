@@ -190,7 +190,7 @@ export function certifyMentorKill(state,credit,worldRunId){
  const quest=getMentorQuest(state),radius=state.worldRadius;
  if(![1,10].includes(quest.step))invalid('mentor_kill_not_needed',409);
  const validated=validateKillCredit(credit,radius,worldRunId);
- const boss=credit.mobId==='dolgonog-8';
+ const boss=credit.mobId==='dolgonog-9';
  if((quest.step===1&&boss)||(quest.step===10&&!boss))
   invalid('wrong_mentor_target',409);
  const next=quest.step===1?

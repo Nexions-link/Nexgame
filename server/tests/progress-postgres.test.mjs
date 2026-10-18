@@ -206,3 +206,25 @@ test('PostgreSQL action bar persists through reconnect, checkpoints and inventor
   assert.deepEqual(kill.progress.actionBar,Array(8).fill(null));
  }finally{await store.close();await pool.end()}
 });
+
+// Do not grant XP for low-level mobs to characters past the classic gray threshold;
+// the immutable event ledger must still record the kill and its zero XP reward.
+test('real Postgres: gray monster grants zero XP but persists gold and the correct ledger amount',
+ {skip:!connectionString,timeout:55000},async()=>{
+ const pool=new pg.Pool({connectionString,max:3,ssl:false});
+ const store=createProgressStore({pool});
+ try{
+  for(const id of ['001_accounts_characters.sql','002_auth_rate_limits.sql','003_progress_event_ledger.sql'])
+   await pool.query(await readFile(new URL('../migrations/'+id,import.meta.url),'utf8'));
+  const account=(await pool.query("INSERT INTO ngw_accounts(username,password_hash) VALUES('graytester','test-hash') RETURNING id")).rows[0].id;
+  const char=(await pool.query("INSERT INTO ngw_characters(account_id,nickname) VALUES($1,'GrayTest') RETURNING id",[account])).rows[0].id;
+  await pool.query('INSERT INTO ngw_character_progress(character_id,level) VALUES($1,6)',[char]);
+  const initial=await store.load(account,char);
+  const result=await store.recordMobKill({accountId:account,characterId:char,expectedRevision:initial.revision,radius:261,serverCredit:credit(1,[])});
+  assert.equal(result.applied,true);
+  assert.equal(result.progress.level,6);assert.equal(result.progress.experience,0);
+  assert.equal(result.progress.gold,initial.gold+4);
+  const log=await pool.query("SELECT xp_granted,gold_granted FROM ngw_progress_events WHERE character_id=$1 AND event_kind='mob_kill'",[char]);
+  assert.equal(Number(log.rows[0].xp_granted),0);assert.equal(Number(log.rows[0].gold_granted),4);
+ }finally{await pool.end()}
+});

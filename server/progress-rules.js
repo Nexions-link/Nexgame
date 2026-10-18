@@ -6,6 +6,7 @@ import {ITEM_CATALOG,itemStackLimit,GEAR_LOOT,deriveStats} from '../items.js';
 import {DEFAULT_HOTBAR,normalizeHotbar,actionDefinition,assignHotbarSlot} from '../hotbar.js';
 import {CREATURE_LOOT_TABLES} from '../planet-test/loot-tables.js';
 import {SPHERE_MOB_SPAWNS} from './spherical-pve.js';
+import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience,monsterKillExperience} from '../planet-test/mob-levels.js';
 
 export const PROGRESS_SCHEMA=1;
 export const BASE_BAG_SLOTS=12,MAX_BAG_SLOTS=108,MAX_LEVEL=60;
@@ -133,13 +134,13 @@ export function validateKillCredit(event,radius,worldRunId){
  if(typeof worldRunId!=='string'||!UUID.test(worldRunId))invalid('invalid_world_epoch');
  if(!plain(event)||!RADII.has(radius)||
     Object.keys(event).some(key=>!['type','mobId','life','xp','gold','loot'].includes(key))||
-    event.type!=='killCredit'||!/^dolgonog-(0|[1-8])$/.test(event.mobId)||
+    event.type!=='killCredit'||!/^dolgonog-(0|[1-9])$/.test(event.mobId)||
     !integer(event.life,1,MAX_INT))invalid('unverified_kill_event');
  const index=Number(event.mobId.split('-')[1]);
  if(index>=SPHERE_MOB_SPAWNS.length)invalid('unknown_mob');
- const boss=index===SPHERE_MOB_SPAWNS.length-1;
+ const boss=index===DOLGONOG_BOSS_INDEX,mobLevel=mobLevelForIndex(index);
  const mobType=boss?'stormbeak':'dolgonog';
- if(event.xp!==(boss?70:22)||event.gold!==(boss?12:4)||
+ if(event.xp!==mobBaseExperience(mobLevel,boss)||event.gold!==(boss?12:4)||
     !Array.isArray(event.loot)||event.loot.length>8)
   invalid('invalid_kill_reward');
  const table=CREATURE_LOOT_TABLES[mobType];
@@ -160,13 +161,14 @@ export function validateKillCredit(event,radius,worldRunId){
   return {id:item.id,qty:item.qty};
  });
  return {eventKey:'mob:'+worldRunId+':'+radius+':'+event.mobId+':'+event.life,
-  eventKind:'mob_kill',xp:event.xp,gold:event.gold,loot};
+  eventKind:'mob_kill',xp:event.xp,mobLevel,gold:event.gold,loot};
 }
 export function awardVerifiedKill(state,verified){
  if(!plain(verified)||verified.eventKind!=='mob_kill'||
-    !integer(verified.xp,0,100000)||!integer(verified.gold,0,100000)||
+    !integer(verified.xp,0,100000)||!integer(verified.mobLevel,1,60)||!integer(verified.gold,0,100000)||
     !Array.isArray(verified.loot))invalid('unverified_kill_event');
- const xp=addExperience(state.level,state.experience,verified.xp);
+ const xp=addExperience(state.level,state.experience,
+  monsterKillExperience(state.level,verified.mobLevel,verified.xp));
  if(state.gold>MAX_INT-verified.gold)invalid('gold_overflow');
  const inventory=addStacks(state.inventory,verified.loot);
  return {...state,...xp,gold:state.gold+verified.gold,inventory};
