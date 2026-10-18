@@ -4,9 +4,12 @@ import {createSphericalMobs,applySphereAttack,localToNormal} from '../spherical-
 import {validateKillCredit,readProgress} from '../progress-rules.js';
 import {getBanditQuest,creditBanditQuestKill,acceptBanditQuest,turnInBanditQuest,
  BANDIT_QUEST_REWARD,BANDIT_QUEST_MIN_LEVEL,acceptBanditChiefQuest,creditBanditChiefKill,
- getBanditChiefQuest,turnInBanditChiefQuest,BANDIT_CHIEF_REWARD} from '../bandit-quest.js';
+ getBanditChiefQuest,turnInBanditChiefQuest,BANDIT_CHIEF_REWARD,
+ getBanditWeaponsQuest,acceptBanditWeaponsQuest,requireBanditWeaponAvailable,
+ turnInBanditWeaponsQuest,BANDIT_WEAPONS_REWARD} from '../bandit-quest.js';
 import {CREATURE_SPAWNS,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,creatureById} from '../../planet-test/creature-registry.js';
 import {canWalkCamp} from '../../planet-test/sphere-physics.js';
+import {BANDIT_WEAPON_ITEM,BANDIT_WEAPON_LOCATIONS,BANDIT_WEAPON_REQUIRED} from '../../planet-test/bandit-weapons.js';
 import {canWadeAtLocal} from '../../planet-test/start-zone.js';
 const EPOCH='0de0fdc8-5ea3-4b10-8931-6a3c2900f4a2';
 const context=at=>({normal:localToNormal(at.x,at.z,261),radius:261,inCombat:false});
@@ -70,7 +73,7 @@ test('scout mission requires proximity, exactly three real bandit kills and one 
 test('chief quest is locked until scout completion and level four, with single reward',()=>{
  const origin=state(),ctx=context(BANDIT_QUEST_GIVER);
  assert.throws(()=>acceptBanditChiefQuest(origin,ctx),/bandit_chief_quest_locked/);
- const completed={...origin,level:4,quests:{bandit:{stage:3,kills:3}}};
+ const completed={...origin,level:4,quests:{bandit:{stage:3,kills:3},banditWeapons:{stage:2}}};
  let q=acceptBanditChiefQuest(completed,ctx);
  assert.equal(getBanditChiefQuest(q).stage,1);
  assert.equal(getBanditChiefQuest(creditBanditChiefKill(q,'bandit-0')).stage,1);
@@ -82,4 +85,38 @@ test('chief quest is locked until scout completion and level four, with single r
  assert.equal(reward.next.gold,completed.gold+BANDIT_CHIEF_REWARD.gold);
  assert.equal(reward.event.eventKey,'bandit:chief:turnin:v1');
  assert.throws(()=>turnInBanditChiefQuest(reward.next,ctx),/bandit_chief_quest_not_ready/);
+});
+
+test('three part scout -> weapons -> chief chain accepts only in order and consumes quest daggers',()=>{
+ const origin=state(),guide=context(BANDIT_QUEST_GIVER);
+ const scoutDone={...origin,level:4,quests:{bandit:{stage:3,kills:3}}};
+ assert.deepEqual(getBanditWeaponsQuest(scoutDone),{stage:0});
+ assert.throws(()=>acceptBanditChiefQuest(scoutDone,guide),/bandit_chief_quest_locked/);
+ assert.throws(()=>acceptBanditWeaponsQuest(origin,guide),/bandit_weapons_quest_locked/);
+ assert.throws(()=>requireBanditWeaponAvailable(scoutDone,0,context({x:-62,z:-10})),/bandit_weapons_quest_not_active/);
+ let q=acceptBanditWeaponsQuest(scoutDone,guide);
+ assert.deepEqual(getBanditWeaponsQuest(q),{stage:1});
+ assert.throws(()=>acceptBanditWeaponsQuest(q,guide),/bandit_weapons_quest_unavailable/);
+ assert.throws(()=>requireBanditWeaponAvailable(q,99,guide),/unknown_bandit_weapon_node/);
+ assert.throws(()=>requireBanditWeaponAvailable(q,0,guide),/interaction_too_far/);
+ const point=BANDIT_WEAPON_LOCATIONS[0];
+ assert.equal(requireBanditWeaponAvailable(q,0,context({x:point[0],z:point[1]})).itemId,BANDIT_WEAPON_ITEM);
+ assert.throws(()=>turnInBanditWeaponsQuest(q,guide),/bandit_weapons_quest_not_ready/);
+ q={...q,inventory:[{id:BANDIT_WEAPON_ITEM,qty:BANDIT_WEAPON_REQUIRED},
+  ...Array(11).fill(null)]};
+ assert.throws(()=>requireBanditWeaponAvailable(q,1,context({x:-78,z:-4})),/bandit_weapons_already_collected/);
+ const reward=turnInBanditWeaponsQuest(q,guide);
+ assert.equal(getBanditWeaponsQuest(reward.next).stage,2);
+ assert.equal(reward.next.inventory.filter(Boolean).length,0);
+ assert.equal(reward.next.gold,scoutDone.gold+BANDIT_WEAPONS_REWARD.gold);
+ assert.equal(reward.event.eventKey,'bandit:weapons:turnin:v1');
+ assert.throws(()=>turnInBanditWeaponsQuest(reward.next,guide),/bandit_weapons_quest_not_ready/);
+ assert.equal(acceptBanditChiefQuest(reward.next,guide).quests.banditChief.stage,1);
+});
+test('legacy characters already working on chief retain access to existing objective',()=>{
+ const origin=state();
+ for(const stage of [1,2,3]){
+  const legacy={...origin,quests:{bandit:{stage:3,kills:3},banditChief:{stage}}};
+  assert.deepEqual(getBanditWeaponsQuest(legacy),{stage:2});
+ }
 });

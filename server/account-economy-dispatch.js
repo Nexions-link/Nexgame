@@ -74,6 +74,10 @@ export function createAccountEconomyDispatcher({
    else if(kind==='gatherTurnIn')result=await economyStore.turnInGather({...params,context});
    else if(kind==='banditAccept')result=await economyStore.startBanditQuest({...params,context});
    else if(kind==='banditTurnIn')result=await economyStore.finishBanditQuest({...params,context});
+   else if(kind==='banditWeaponsAccept')result=await economyStore.startBanditWeaponsQuest({...params,context});
+   else if(kind==='banditWeaponsTurnIn')result=await economyStore.finishBanditWeaponsQuest({...params,context});
+   else if(kind==='banditWeaponStart')result=await economyStore.startBanditWeaponGather({...params,context,index:message.index});
+   else if(kind==='banditWeaponFinish')result=await economyStore.finishBanditWeaponGather({...params,context,index:message.index});
    else if(kind==='banditChiefAccept')result=await economyStore.startBanditChiefQuest({...params,context});
    else if(kind==='banditChiefTurnIn')result=await economyStore.finishBanditChiefQuest({...params,context});
    else if(kind==='mentorAccept')result=await economyStore.startMentor({...params,context});
