@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createSphericalMobs,applySphereAttack,localToNormal} from '../spherical-pve.js';
 import {validateKillCredit,readProgress} from '../progress-rules.js';
 import {getBanditQuest,creditBanditQuestKill,acceptBanditQuest,turnInBanditQuest,
- BANDIT_QUEST_REWARD} from '../bandit-quest.js';
+ BANDIT_QUEST_REWARD,BANDIT_QUEST_MIN_LEVEL} from '../bandit-quest.js';
 import {CREATURE_SPAWNS,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,creatureById} from '../../planet-test/creature-registry.js';
 import {canWalkCamp} from '../../planet-test/sphere-physics.js';
 import {canWadeAtLocal} from '../../planet-test/start-zone.js';
@@ -45,7 +45,9 @@ test('scout mission requires proximity, exactly three real bandit kills and one 
  const s=state();
  assert.deepEqual(getBanditQuest(s),{stage:0,kills:0});
  assert.throws(()=>acceptBanditQuest(s,context({x:40,z:40})),/interaction_too_far/);
- let a=acceptBanditQuest(s,context(BANDIT_QUEST_GIVER));
+ assert.equal(BANDIT_QUEST_MIN_LEVEL,3);
+ assert.throws(()=>acceptBanditQuest(s,context(BANDIT_QUEST_GIVER)),/bandit_quest_level_too_low/);
+ let a=acceptBanditQuest({...s,level:3},context(BANDIT_QUEST_GIVER));
  assert.equal(getBanditQuest(a).stage,1);
  assert.throws(()=>acceptBanditQuest(a,context(BANDIT_QUEST_GIVER)),/bandit_quest_unavailable/);
  a=creditBanditQuestKill(a,'dolgonog-9');assert.equal(getBanditQuest(a).kills,0);

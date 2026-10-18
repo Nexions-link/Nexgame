@@ -41,7 +41,7 @@ import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
 import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,advanceRespawnTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=4';
 import {rollCreatureLoot} from './loot-tables.js?v=1';
-import {creatureByIndex,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,BANDIT_QUEST_KILLS} from './creature-registry.js?v=1';
+import {creatureByIndex,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,BANDIT_QUEST_KILLS,BANDIT_QUEST_MIN_LEVEL} from './creature-registry.js?v=2';
 import {createBanditVisual} from './bandit-visual.js?v=1';
 import {rollCreatureCoins} from './creature-types.js?v=1';
 import {creatureTypeForMob,CREATURE_TYPE_LABELS,CORPSE_COIN_ID,isValidCorpseCoins} from './creature-types.js?v=1';
@@ -293,6 +293,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    }
    const labels={
     interaction_too_far:'Подойди ближе к персонажу или предмету',
+    bandit_quest_level_too_low:'Задание на разбойников доступно с 3-го уровня.',
     untrusted_interaction_context:'Сейчас взаимодействовать нельзя',
     not_enough_gold:'Недостаточно монет',inventory_full:'Рюкзак заполнен',
     item_not_owned:'Предмет не найден в рюкзаке',item_not_sellable:'Предмет нельзя продать',
@@ -1098,7 +1099,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const glyph=mentorGlyph(state.quest);
   for(const child of mentor.root.children)if(child.userData.questMarker)child.visible=child.userData.glyph===glyph;
   const banditStage=state.banditQuest?.stage??0;
-  const banditGlyph=banditStage===0?'!':banditStage===2?'?':banditStage===1?'·':null;
+  const banditGlyph=banditStage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'!':null):banditStage===2?'?':banditStage===1?'·':null;
   for(const child of banditGuide.root.children)if(child.userData.questMarker)
    child.visible=child.userData.glyph===banditGlyph;
   $('banditQuestTracker').hidden=!authenticatedProfile||banditStage!==1&&banditStage!==2;
@@ -1223,7 +1224,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   if(authenticatedProfile&&kind==='banditQuest'){
    const q=state.banditQuest||{stage:0,kills:0};
-   if(q.stage===0)
+   if(q.stage===0&&state.level<BANDIT_QUEST_MIN_LEVEL)
+    line('Пока рано отправляться на тропу','Задание «Разбойники Пыльной тропы» доступно с 3-го уровня. Сейчас у тебя '+state.level+'-й уровень.');
+   else if(q.stage===0)
     line('Разбойники Пыльной тропы','Разбойники обосновались у западной тропы. Победи троих и возвращайся. Награда: 85 опыта и 18 монет.',
      [['Принять задание',()=>sendAccountAction('banditAccept')]]);
    else if(q.stage===1)
@@ -1384,7 +1387,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const entries=mentorJournalRows(state).map(item=>({...item,npc:'Наставник Каменный Рог'}));
    if(authenticatedProfile){
     const q=state.banditQuest||{stage:0,kills:0};
-    entries.push({id:'bandit-trail',status:q.stage===0?'available':q.stage===3?'completed':'current',
+    entries.push({id:'bandit-trail',status:q.stage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'available':'locked'):q.stage===3?'completed':'current',
      title:'Разбойники Пыльной тропы',objective:'Победить 3 разбойников',
      progress:q.stage===3?'Сдано':q.stage===2?'Готово к сдаче':q.kills+' / '+BANDIT_QUEST_KILLS,
      reward:'85 опыта · 18 монет',npc:'Следопыт Медная Стрела'});
@@ -1400,6 +1403,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      reward:quest.gold+' монет · '+quest.xp+' опыта',npc:'Травница Тихая Заря'});
    }
    const visible=entries.filter(entry=>entry.status===journalTab);
+   if(journalTab==='available'&&state.level<BANDIT_QUEST_MIN_LEVEL)
+    line('Разбойники Пыльной тропы · ур. 3','Откроется на 3-м уровне у Следопыта Медной Стрелы.');
    for(const entry of visible)line((entry.status==='completed'?'✓ ':entry.status==='available'?'! ':'• ')+entry.title,
     entry.objective+' · '+entry.progress+(entry.reward?' · '+entry.reward:'')+' · '+entry.npc);
    if(!visible.length)line('Пока пусто','В этом разделе заданий пока нет.');
