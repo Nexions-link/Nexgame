@@ -96,6 +96,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   safe.quest=row.quests?.mentor?.step||0;
   safe.gatherStage=row.quests?.gather?.stage||0;
    safe.banditQuest=row.quests?.bandit||{stage:0,kills:0};
+  safe.banditChiefQuest=row.quests?.banditChief||{stage:0};
   safe.hotbar=normalizeHotbar(row.actionBar?.length?row.actionBar:DEFAULT_HOTBAR,'warrior',safe.level);
   return safe;
  };
@@ -371,6 +372,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   if(progress.quests?.mentor?.kills!==undefined)state.kills=progress.quests.mentor.kills;
   if(progress.quests?.bandit)state.banditQuest={...progress.quests.bandit};
+  if(progress.quests?.banditChief)state.banditChiefQuest={...progress.quests.banditChief};
   if(source==='welcome'||source==='usePotion'){
    state.hp=progress.health;
    if(source==='welcome')state.resource=progress.resource;
@@ -1154,7 +1156,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const glyph=mentorGlyph(state.quest);
   for(const child of mentor.root.children)if(child.userData.questMarker)child.visible=child.userData.glyph===glyph;
   const banditStage=state.banditQuest?.stage??0;
-  const banditGlyph=banditStage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'!':null):banditStage===2?'?':banditStage===1?'·':null;
+  const chiefStage=state.banditChiefQuest?.stage??0;
+  const banditGlyph=banditStage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'!':null):banditStage===2||chiefStage===2?'?':banditStage===1||chiefStage===1?'·':banditStage===3&&chiefStage===0&&state.level>=4?'!':null;
   for(const child of banditGuide.root.children)if(child.userData.questMarker)
    child.visible=child.userData.glyph===banditGlyph;
   $('banditQuestTracker').hidden=!authenticatedProfile||banditStage!==1&&banditStage!==2;
@@ -1289,7 +1292,17 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    else if(q.stage===2)
     line('Разбойники Пыльной тропы','Трое разбойников побеждены. Награда: 85 опыта и 18 монет.',
      [['Сдать задание',()=>sendAccountAction('banditTurnIn')]]);
-   else line('Тропа снова безопасна','Ты уже помог следопыту. Благодарю за службу.');
+   else if((state.banditChiefQuest?.stage??0)===0&&state.level<4)
+    line('Последний противник','Ты справился с разбойниками. Вернись на 4-м уровне, чтобы получить задание на главаря.');
+   else if((state.banditChiefQuest?.stage??0)===0)
+    line('Главарь Пыльной тропы','В глубине лагеря находится главарь 5-го уровня. Победи его и возвращайся. Награда: 180 опыта и 35 монет.',
+     [['Принять задание',()=>sendAccountAction('banditChiefAccept')]]);
+   else if(state.banditChiefQuest.stage===1)
+    line('Главарь Пыльной тропы','Победи главаря разбойников в глубине лагеря.');
+   else if(state.banditChiefQuest.stage===2)
+    line('Главарь Пыльной тропы','Главарь повержен. Награда: 180 опыта и 35 монет.',
+     [['Сдать задание',()=>sendAccountAction('banditChiefTurnIn')]]);
+   else line('Тропа снова безопасна','Главарь повержен. Благодарю за службу.');
    return;
   }
   if(authenticatedProfile&&kind==='mentor'){
