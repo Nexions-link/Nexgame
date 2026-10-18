@@ -114,3 +114,18 @@ test('empty equipment SVG works with browser-like readonly SVGAnimatedString cla
  assert.ok(descendants(h.get('mbody')).some(e=>e.className?.baseVal==='character-empty-silhouette'));
  h.get('modalClose').click();
 });
+
+test('authenticated menu never offers resetting progress or false offline mode',()=>{
+ const h=harness({authenticatedProfile:{nickname:'Герой',level:10,health:80,inventory:[],equipment:{}}});
+ h.get('pause').click();
+ const lines=descendants(h.get('mbody')).map(e=>e.textContent);
+ assert.ok(lines.some(text=>text.includes('Нет соединения: прогресс временно недоступен')));
+ assert.equal(lines.includes('Сбросить прогресс'),false);
+ h.get('modalClose').click();
+});
+test('server-owned hero does not regenerate health when the socket is offline',()=>{
+ const h=harness({authenticatedProfile:{nickname:'Герой',level:10,health:80,inventory:[],equipment:{}}});
+ const before=h.rpg.state.hp;
+ for(let i=0;i<90;i++)h.rpg.update(.1);
+ assert.equal(h.rpg.state.hp,before);
+});

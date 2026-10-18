@@ -1159,10 +1159,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    return;
   }
   if(kind==='menu'){
-   line('Сферический мир','Меняй радиус планеты, вращай её свайпами и исследуй NexGameWorld.');
+   line('Сферический мир','Исследуй планету NexGameWorld, настраивай камеру и графику в меню.');
    for(const item of settingsControls)body.append(item);
-   line('Сетевая игра',isOnline()?'Общий мир: мобы, бой, награды и группы синхронизируются через Render.':'Сервер недоступен: персонаж продолжает играть локально.');
-   if(!preview){
+   line('Сетевая игра',isOnline()?'Общий мир: мобы, бой, награды и группы синхронизируются через Render.':
+     authenticatedProfile?'Нет соединения: прогресс временно недоступен. Переподключение произойдёт автоматически.':
+     'Локальный тестовый режим: прогресс сохраняется только на устройстве.');
+   if(!preview&&!authenticatedProfile){
     line('Тестирование заданий','Начать заново: уровень, все задания, вещи и сундук. Графика, масштаб и режим слежения камеры сохранятся.',[['Сбросить прогресс',resetProgress]]);
     body.lastElementChild?.querySelector('button')?.classList.add('reset-progress-action');
    }
@@ -1440,7 +1442,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   // Original NexGame regenerates +3 HP/s and loses 5 rage/s after five
   // seconds of peace. This local test does not depend on network snapshots.
   if(inCombat())lastCombatAt=clock;
-  else if(clock-lastCombatAt>5){
+  else if(!authenticatedProfile&&clock-lastCombatAt>5){
    const hpBefore=state.hp,rageBefore=state.resource;
    state.hp=Math.min(stats().maxHp,state.hp+3*dt);
    if(state.resource>0)state.resource=changeResource(state.resource,-WARRIOR_RAGE_DECAY*dt,'warrior');
@@ -1489,8 +1491,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     mob.alertTag.visible=mob.alertRemaining>0&&mob.root.visible&&!mob.corpse;
     if(mob.alertTag.visible)mob.alertTag.position.y=(mob.boss?4:4.95)+Math.sin(clock*7)*.1;
    }
-   if(isOnline()){
-    if(authenticatedProfile&&mob.corpse&&!mob.lootKnown&&distance(mob)<=3.1&&clock>=(mob.lootInspectAt||0)){
+   if(isOnline()||authenticatedProfile){
+    if(authenticatedProfile&&isOnline()&&mob.corpse&&!mob.lootKnown&&distance(mob)<=3.1&&clock>=(mob.lootInspectAt||0)){
      mob.lootInspectAt=clock+3;
      sendAccountAction('lootInspect',{mobId:'dolgonog-'+mob.index,life:mob.life});
     }
