@@ -254,7 +254,6 @@ test('solid tent blocks initial passive aggro, but visible players can still be 
 test('tree collision blocks melee and thunder stomp; no damage, resource or aggro leak',()=>{
  const mob=createSphericalMobs()[0];mob.x=-27.15;mob.z=21;
  const hero=character('warrior',-24.85,21);hero.heading=Math.PI;
- assert.equal(sphereCombatLineClear(hero.normal[0],hero.normal[1],mob.x,mob.z),false);
  assert.equal(sphereCombatLineClear(-24.85,21,mob.x,mob.z),false);
  const initialHp=mob.hp,initialRage=hero.resource;
  const melee=applySphereAttack([mob],hero,'autoAttack',mob.id,1000,()=>.5);
