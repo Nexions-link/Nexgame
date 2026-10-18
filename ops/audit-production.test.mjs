@@ -39,9 +39,8 @@ test('reject unavailable database and accidentally enabled guest world',async()=
  await assert.rejects(()=>auditProduction({fetchImpl:mock({db:'unavailable'}),expectedSha:SHA}),/not ready/);
  await assert.rejects(()=>auditProduction({fetchImpl:mock({guest:true}),expectedSha:SHA}),/Guest world/);
 });
-test('report save failure counter without assuming all-time zero',async()=>{
- const r=await auditProduction({fetchImpl:mock({failures:3}),expectedSha:SHA});
- assert.equal(r.progressSaveFailures,3);
+test('alert when server reports any progress-save failure',async()=>{
+ await assert.rejects(()=>auditProduction({fetchImpl:mock({failures:3}),expectedSha:SHA}),/progressSaveFailures is nonzero: 3/);
 });
 test('retry recovers a transient failure and never sends credentials',async()=>{
  let calls=0;
