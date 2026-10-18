@@ -7,9 +7,11 @@ export function createAccountEconomyDispatcher({
 }){
  if(!player.accountId||!player.characterId||!economyStore||!progressStore)
   throw Error('Authenticated player and both stores required');
- let chestOpen=false;
- const closeChest=()=>{chestOpen=false};
- const invoke=(kind,message={})=>queueSave(async()=>{
+ let chestOpen=false,chestEpoch=0;
+ const closeChest=()=>{chestEpoch++;chestOpen=false;player.accountChestOpen=false};
+ const invoke=(kind,message={})=>{
+  const requestedEpoch=chestEpoch;
+  return queueSave(async()=>{
   const params={accountId:player.accountId,characterId:player.characterId,
    expectedRevision:player.savedRevision};
   const context={normal:[...player.normal],radius:player.radius,
@@ -29,14 +31,17 @@ export function createAccountEconomyDispatcher({
     return;
    }
    if(kind==='chestOpen'){
+    if(requestedEpoch!==chestEpoch)return;
     const chest=await economyStore.readChest({...params,context});
+    if(requestedEpoch!==chestEpoch)return;
     chestOpen=true;
     player.accountChestOpen=true;
     send({type:'chestState',...chest,inventory:player.savedInventory});
     return;
    }
    if(kind==='chestMove'){
-    if(!chestOpen)throw Object.assign(Error('chest_not_open'),{code:'chest_not_open'});
+    if(!chestOpen||requestedEpoch!==chestEpoch)
+     throw Object.assign(Error('chest_not_open'),{code:'chest_not_open'});
     result=await economyStore.moveChest({...params,context,
      action:message.action,slot:message.slot,requestId:message.requestId});
    }else if(kind==='merchantBuy')result=await economyStore.buy({...params,context,
@@ -89,5 +94,6 @@ export function createAccountEconomyDispatcher({
     kind,ok:false,requestId:message.requestId||null,reason:code});
   }
  });
+ };
  return {invoke,closeChest,get chestOpen(){return chestOpen}};
 }
