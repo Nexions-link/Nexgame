@@ -12,6 +12,7 @@ import {
  sanitizeSphereEquipment,normalToLocal,arcDistance
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
+import {resolveSphereWalk} from './world-movement.js';
 
 export const SPHERE_PROTOCOL=2;
 // Recover from dropped/throttled mobile movement packets without teleporting.
@@ -156,7 +157,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      level,equipment,hp,maxHp:stats.maxHp,resource:saved?bound(saved.resource,0,100):0,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
      joined:true,x:local.x,z:local.z,abilityCooldowns:{},
-     savedRevision:saved?.revision??null};
+     savedRevision:saved?.revision??null,lastPositionCorrectionAt:0};
     if(trustedCharacter&&progressStore){
      p.queueVerifiedKill=credit=>queueSave(async()=>{
       const result=await progressStore.recordMobKill({
@@ -308,14 +309,27 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const now=Date.now(),dt=Math.min(1,(now-current.updatedAt)/1000);
    if(dt<.075)return;
    const delta=arcDistance(normal,current.normal,current.radius);
-   if(!Number.isFinite(delta)||delta>MAX_POSITION_RESYNC)return;
-   current.normal=delta>MAX_SPEED*dt+.8
-    ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt)
-    :normal;
-   current.heading=heading;current.moving=m.moving;
+   const correct=reason=>{
+    if(now-(current.lastPositionCorrectionAt||0)<500)return;
+    current.lastPositionCorrectionAt=now;
+    send(ws,{type:'positionCorrection',normal:[...current.normal],
+     heading:current.heading,reason});
+   };
+   if(!Number.isFinite(delta)||delta>MAX_POSITION_RESYNC){
+    correct('position_out_of_range');return;
+   }
+   const capped=delta>MAX_SPEED*dt+.8;
+   const desired=capped
+    ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt):normal;
+   const sweep=resolveSphereWalk(current.normal,desired,current.radius);
+   current.normal=sweep.normal;
+   current.heading=heading;
+   current.moving=m.moving&&!sweep.blocked;
    current.updatedAt=now;
    const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
+   if(sweep.blocked||capped&&arcDistance(current.normal,normal,current.radius)>1.5)
+    correct(sweep.blocked?'collision':'speed_limit');
    if(current.queueCheckpoint&&now-lastCheckpoint>=6000){
     lastCheckpoint=now;
     // Save only the movement actually accepted by the authoritative server,
