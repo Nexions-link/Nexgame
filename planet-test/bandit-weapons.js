@@ -13,7 +13,9 @@ export function banditWeaponNode(index){
  if(!Number.isSafeInteger(index)||index<0||index>=BANDIT_WEAPON_LOCATIONS.length)
   return null;
  const [x,z]=BANDIT_WEAPON_LOCATIONS[index];
- return {nodeId:'bandit:dagger:'+index,index,itemId:BANDIT_WEAPON_ITEM,x,z};
+ // SQL gather-node checks permit gather:<stage>:<index>. Reserve indices
+ // 100-104 outside the herbalist catalog so existing Neon tables require no migration.
+ return {nodeId:'gather:3:'+(100+index),index,itemId:BANDIT_WEAPON_ITEM,x,z};
 }
 
 export function createBanditWeaponWorld({THREE,parent,place}){
