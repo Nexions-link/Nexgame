@@ -113,3 +113,16 @@ test('world limits socket packet floods',{timeout:14000},async()=>{
   await until(()=>guest.socket.readyState===WebSocket.CLOSED);
  }finally{guest?.close();child.kill()}
 });
+
+test('health distinguishes liveness, performance counters and database readiness',{timeout:14000},async()=>{
+ const {p,child}=await start();
+ try{
+  const live=await (await fetch('http://127.0.0.1:'+p+'/health')).json();
+  assert.ok(live.worldMetrics);
+  assert.equal(typeof live.worldMetrics.movementRejected,'number');
+  assert.equal(typeof live.worldMetrics.progressSaveFailures,'number');
+  const ready=await fetch('http://127.0.0.1:'+p+'/ready');
+  assert.equal(ready.status,503);
+  assert.equal((await ready.json()).ready,false);
+ }finally{child.kill()}
+});

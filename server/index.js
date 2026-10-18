@@ -14,7 +14,7 @@ import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.17';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.18';
 const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
@@ -100,6 +100,23 @@ async function initializeAccounts(){
 }
 const accountsReady=initializeAccounts();
 const http=createServer((req,res)=>{
+ if(req.url?.split('?')[0]==='/ready'){
+  // Separate database readiness from WebSocket liveness for resilient deploys.
+  void (async()=>{
+   try{
+    await accountsReady;
+    if(!accountApi||!authenticatedWorldGate||!worldEconomyStore||!accountStore)
+     throw Error('world_dependencies_unavailable');
+    await accountStore.ping();
+    res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
+    res.end(JSON.stringify({ready:true,build:BUILD}));
+   }catch{
+    res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});
+    res.end(JSON.stringify({ready:false,build:BUILD}));
+   }
+  })();
+  return;
+ }
  if(req.url?.split('?')[0]==='/health'){
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
   res.end(JSON.stringify({ok:true,world:'nexgameworld',
@@ -109,7 +126,8 @@ const http=createServer((req,res)=>{
    databaseConfigured:Boolean(process.env.DATABASE_URL),
    accountDbStatus,accountApiEnabled:!!accountApi,
    authenticatedWorldEnabled:!!authenticatedWorldGate,
-   authenticatedEconomyEnabled:!!worldEconomyStore,guestWorldEnabled}));return;
+   authenticatedEconomyEnabled:!!worldEconomyStore,guestWorldEnabled,
+   uptimeSeconds:Math.floor(process.uptime()),worldMetrics:world.metrics()}));return;
  }
  if(req.url?.split('?')[0]?.startsWith('/api/ngw/')){
   if(accountApi){

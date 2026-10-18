@@ -63,6 +63,7 @@ const publicPlayer=p=>({
 });
 export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHEST_DATA_FILE||join(dirname(resolve(process.env.CHEST_DATA_FILE||'chest-data.json')),'nexgameworld-chest.json'))}={}){
  const players=new Map(),connections=new Map();
+ const counters={movementRejected:0,positionCorrections:0,progressSaveFailures:0,snapshotsSent:0};
  const rooms=new Map(RADII.map(radius=>[radius,{radius,mobs:createSphericalMobs(),tick:0}]));
  let clock=Date.now();
  const sendToId=(id,event)=>{for(const [ws,player] of connections)
@@ -89,6 +90,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    saveQueue=pending.catch(error=>{
     if(saveFailed)return;
     saveFailed=true;
+    counters.progressSaveFailures++;
     console.error('NexGameWorld authoritative progress save failed:',
      error?.code||error?.name||'unknown');
     send(ws,{type:'progressError',reason:'Не удалось сохранить прогресс. Переподключитесь.'});
@@ -314,6 +316,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const correct=reason=>{
     if(now-(current.lastPositionCorrectionAt||0)<500)return;
     current.lastPositionCorrectionAt=now;
+    counters.positionCorrections++;
     send(ws,{type:'positionCorrection',normal:[...current.normal],
      heading:current.heading,reason});
    };
@@ -330,6 +333,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    current.updatedAt=now;
    const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
+   if(sweep.blocked)counters.movementRejected++;
    if(sweep.blocked||capped&&arcDistance(current.normal,normal,current.radius)>1.5)
     correct(sweep.blocked?'collision':'speed_limit');
    if(current.queueCheckpoint&&now-lastCheckpoint>=6000){
@@ -379,6 +383,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    for(const [ws,observer] of connections){
     if(observer?.radius!==room.radius)continue;
     const visible=selectVisiblePlayers(roomPlayers,observer,room.radius);
+    counters.snapshotsSent++;
     send(ws,{type:'snapshot',protocol:SPHERE_PROTOCOL,tick:room.tick,
      radius:room.radius,onlineCount:roomPlayers.length,
      players:visible.map(p=>byId.get(p.id)),mobs:worldMobs});
@@ -391,5 +396,5 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  },TICK_MS);
  timer.unref?.();
  return {attach,population:()=>players.size,mobCount:()=>rooms.get(261).mobs.length,
-  close:()=>clearInterval(timer),tickOnce,rooms,players};
+  close:()=>clearInterval(timer),tickOnce,rooms,players,metrics:()=>({...counters})};
 }
