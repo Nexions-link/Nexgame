@@ -2,6 +2,7 @@
 import {createServer} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {WebSocketServer} from 'ws';
+import {createWorldHeartbeat} from './world-heartbeat.js';
 import {existsSync,unlinkSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {resolve,dirname,join} from 'node:path';
@@ -129,7 +130,9 @@ const http=createServer((req,res)=>{
 });
 const wss=new WebSocketServer({server:http,maxPayload:8192,
  verifyClient:({origin},done)=>done(!origin||origins.has(origin))});
+const heartbeat=createWorldHeartbeat({wss});
 wss.on('connection',(ws,req)=>{
+ heartbeat.track(ws);
  const path=req.url?.split('?')[0];
  if(path==='/ws/nexgameworld/auth'){
   if(!authenticatedWorldGate){
@@ -194,4 +197,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{heartbeat.close();if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});
