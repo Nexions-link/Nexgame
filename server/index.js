@@ -12,7 +12,8 @@ import {createWorldSessionGate} from './world-session-gate.js';
 import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.34';
+import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.9';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
  'https://www.nexions.ru','https://nexions-link.github.io']);
@@ -102,6 +103,7 @@ const http=createServer((req,res)=>{
   res.end(JSON.stringify({ok:true,world:'nexgameworld',
    players:world.population(),sphericalPlayers:world.population(),mobs:world.mobCount(),
    protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup,
+   geometry:{chest:{x:CHEST_X,z:CHEST_Z,range:CHEST_RANGE}},
    databaseConfigured:Boolean(process.env.DATABASE_URL),
    accountDbStatus,accountApiEnabled:!!accountApi,
    authenticatedWorldEnabled:!!authenticatedWorldGate,
