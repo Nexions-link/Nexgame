@@ -1,7 +1,7 @@
 // Server-owned first humanoid quest; state lives in the existing quests JSONB.
 // No browser-provided kill, reward, position, or quest-count claim is trusted.
 import {ProgressError,addExperience} from './progress-rules.js';
-import {BANDIT_QUEST_GIVER,BANDIT_QUEST_KILLS,creatureById} from '../planet-test/creature-registry.js';
+import {BANDIT_QUEST_GIVER,BANDIT_QUEST_KILLS,BANDIT_QUEST_MIN_LEVEL,creatureById} from '../planet-test/creature-registry.js';
 import {requireServerProximity} from './economy-rules.js';
 const reject=code=>{throw new ProgressError(code,409)};
 export const BANDIT_QUEST_REWARD=Object.freeze({xp:85,gold:18});
@@ -13,9 +13,11 @@ export function getBanditQuest(state){
   reject('corrupt_bandit_quest');
  return {stage:q.stage,kills:q.kills};
 }
+export {BANDIT_QUEST_MIN_LEVEL};
 const put=(state,bandit)=>({...state,quests:{...state.quests,bandit}});
 export function acceptBanditQuest(state,context){
  requireServerProximity(state,context,BANDIT_QUEST_GIVER,BANDIT_QUEST_GIVER.range);
+ if(state.level<BANDIT_QUEST_MIN_LEVEL)reject('bandit_quest_level_too_low');
  if(getBanditQuest(state).stage!==0)reject('bandit_quest_unavailable');
  return put(state,{stage:1,kills:0});
 }

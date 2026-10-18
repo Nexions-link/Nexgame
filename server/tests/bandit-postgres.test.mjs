@@ -24,7 +24,10 @@ test('Postgres: bandit XP, manual coin pickup and unique quest reward after relo
   const args=(rev,at,other={})=>({accountId,characterId,expectedRevision:rev,
    requestId:randomUUID(),context:context(at),...other});
   let state=await progress.load(accountId,characterId);
-  state=(await economy.startBanditQuest(args(state.revision,BANDIT_QUEST_GIVER))).progress;
+  await assert.rejects(()=>economy.startBanditQuest(args(state.revision,BANDIT_QUEST_GIVER)),e=>e.code==='bandit_quest_level_too_low');
+ await pool.query('UPDATE ngw_character_progress SET level=3 WHERE character_id=$1',[characterId]);
+ state=await progress.load(accountId,characterId);
+ state=(await economy.startBanditQuest(args(state.revision,BANDIT_QUEST_GIVER))).progress;
   assert.deepEqual(state.quests.bandit,{stage:1,kills:0});
   const credit=(id,loot=[])=>({type:'killCredit',mobId:id,life:1,xp:creatureKillReward(creatureById(id)).xp,gold:0,loot});
   const first=credit('bandit-0',[{id:'coins',qty:7}]);
