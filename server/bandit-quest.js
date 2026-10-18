@@ -23,7 +23,7 @@ export function acceptBanditQuest(state,context){
 }
 export function creditBanditQuestKill(state,mobId){
  const q=getBanditQuest(state),spec=creatureById(mobId);
- if(q.stage!==1||spec?.family!=='bandit')return state;
+ if(q.stage!==1||(spec?.family!=='bandit'||spec.boss))return state;
  const kills=Math.min(BANDIT_QUEST_KILLS,q.kills+1);
  return put(state,{stage:kills===BANDIT_QUEST_KILLS?2:1,kills});
 }
