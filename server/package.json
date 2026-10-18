@@ -15,8 +15,10 @@
     "check:progress": "node --check progress-rules.js && node --check progress-store.js && node --check tests/progress-rules.test.mjs && node --check tests/progress-postgres.test.mjs",
     "test:progress": "node --test tests/progress-rules.test.mjs tests/progress-postgres.test.mjs",
     "check:world-client": "node --check ../planet-test/account-session.js && node --check ../planet-test/sphere-online.js && node --check ../planet-test/planet.js && node --check ../planet-test/offline-rpg.js",
-    "check:economy": "node --check economy-rules.js && node --check economy-store.js && node --check tests/economy-rules.test.mjs && node --check tests/economy-postgres.test.mjs && node --check tests/world-economy-auth.test.mjs",
-    "test:economy": "node --test tests/economy-rules.test.mjs tests/economy-postgres.test.mjs tests/world-economy-auth.test.mjs"
+    "check:economy": "node --check economy-rules.js && node --check economy-store.js && node --check tests/economy-rules.test.mjs && node --check tests/economy-postgres.test.mjs && node --check tests/world-economy-auth.test.mjs && node --check bandit-quest.js && node --check account-economy-dispatch.js && node --check tests/bandit-quest.test.mjs && node --check tests/bandit-postgres.test.mjs",
+    "test:economy": "node --test tests/economy-rules.test.mjs tests/economy-postgres.test.mjs tests/world-economy-auth.test.mjs && node --test tests/bandit-quest.test.mjs",
+    "test:bandit:postgres": "node --test tests/bandit-postgres.test.mjs",
+    "test:release": "node --test tests/release-consistency.test.mjs"
   },
   "engines": {
     "node": ">=20"
