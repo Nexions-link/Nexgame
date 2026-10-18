@@ -43,6 +43,7 @@ export function createAccountEconomyDispatcher({
     itemId:message.itemId,qty:message.qty,requestId:message.requestId});
    else if(kind==='merchantSell')result=await economyStore.sell({...params,context,
     bagSlot:message.bagSlot,qty:message.qty,requestId:message.requestId});
+   else if(kind==='hotbarSet')result=await progressStore.saveActionBarSlot({...params,slot:message.slot,entry:message.entry});
    else if(kind==='usePotion'){
     const now=Date.now();
     if(now-(player.lastPotionUseAt||0)<1500)

@@ -3,6 +3,7 @@
 // Current PvE emits killCredit from server/spherical-pve.js; those credits
 // can be persisted only after the session is bound to an owned DB character.
 import {ITEM_CATALOG,itemStackLimit,GEAR_LOOT,deriveStats} from '../items.js';
+import {DEFAULT_HOTBAR,normalizeHotbar,actionDefinition,assignHotbarSlot} from '../hotbar.js';
 import {CREATURE_LOOT_TABLES} from '../planet-test/loot-tables.js';
 import {SPHERE_MOB_SPAWNS} from './spherical-pve.js';
 
@@ -212,4 +213,15 @@ export function unequipOwnedItem(state,slot,bagSlot){
  delete equipment[slot];
  const maxHP=deriveStats(state.level,equipment).maxHp;
  return {...state,inventory,equipment,health:Math.min(state.health,maxHP)};
+}
+
+// Only a slot and a known, level-appropriate action may be changed by the UI.
+export function setActionBarSlot(state,slot,entry){
+ if(!integer(slot,0,7))invalid('invalid_action_bar_slot');
+ if(entry!==null){
+  if(!plain(entry)||Object.keys(entry).some(k=>!['kind','id'].includes(k))||
+     !actionDefinition(entry,'warrior',state.level))invalid('invalid_action_bar_entry');
+ }
+ const base=state.actionBar.length?state.actionBar:DEFAULT_HOTBAR;
+ return {...state,actionBar:assignHotbarSlot(normalizeHotbar(base,'warrior',state.level),slot,entry,'warrior',state.level)};
 }

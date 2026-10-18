@@ -177,3 +177,32 @@ test('real Postgres: owner isolation, exactly-once rewards, concurrent retries, 
   await pool.end();
  }
 });
+
+test('PostgreSQL action bar persists through reconnect, checkpoints and inventory rewards',
+ {skip:!connectionString,timeout:30000},async()=>{
+ const pool=new pg.Pool({connectionString,max:3,ssl:false}),store=createProgressStore({pool});
+ try{
+  for(const name of ['001_accounts_characters.sql','002_auth_rate_limits.sql','003_progress_event_ledger.sql'])
+   await pool.query(await readFile(new URL('../migrations/'+name,import.meta.url),'utf8'));
+  const account=(await pool.query("INSERT INTO ngw_accounts(username,password_hash) VALUES($1,'test') RETURNING id",['bar'+Date.now()])).rows[0].id;
+  const createHero=async nickname=>{
+   const id=(await pool.query('INSERT INTO ngw_characters(account_id,nickname) VALUES($1,$2) RETURNING id',[account,nickname])).rows[0].id;
+   await pool.query('INSERT INTO ngw_character_progress(character_id) VALUES($1)',[id]);return id;
+  };
+  const hero=await createHero('Панель'),other=await createHero('Другой');
+  const args={accountId:account,characterId:hero,expectedRevision:0,slot:7,entry:{kind:'ability',id:'autoAttack'}};
+  const saved=await store.saveActionBarSlot(args);
+  assert.equal(saved.progress.revision,1);
+  const reconnected=createProgressStore({pool});
+  assert.deepEqual((await reconnected.load(account,hero)).actionBar[7],args.entry);
+  assert.deepEqual((await reconnected.load(account,other)).actionBar,[]);
+  await assert.rejects(()=>store.saveActionBarSlot({...args,expectedRevision:0,slot:0,entry:null}),e=>e.code==='stale_revision');
+  const checkpoint=await store.saveServerCheckpoint({accountId:account,characterId:hero,expectedRevision:1,checkpoint:{normal:[0,0,1],heading:0,radius:261}});
+  assert.deepEqual(checkpoint.progress.actionBar,saved.progress.actionBar);
+  let revision=2;
+  for(let slot=0;slot<8;slot++)await store.saveActionBarSlot({...args,expectedRevision:revision++,slot,entry:null});
+  assert.deepEqual((await reconnected.load(account,hero)).actionBar,Array(8).fill(null));
+  const kill=await store.recordMobKill({accountId:account,characterId:hero,expectedRevision:revision,radius:261,serverCredit:credit(1),deferLoot:true});
+  assert.deepEqual(kill.progress.actionBar,Array(8).fill(null));
+ }finally{await store.close();await pool.end()}
+});

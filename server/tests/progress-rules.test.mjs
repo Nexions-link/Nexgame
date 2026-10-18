@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
  ProgressError,requiredExperience,addExperience,readProgress,
  validateInventory,validateEquipment,validateKillCredit,
- awardVerifiedKill,validateServerCheckpoint,equipOwnedItem,unequipOwnedItem
+ awardVerifiedKill,validateServerCheckpoint,equipOwnedItem,unequipOwnedItem,setActionBarSlot
 } from '../progress-rules.js';
 
 const rows=()=>({
@@ -96,4 +96,18 @@ test('trusted checkpoints cannot write level, currency, gear, or move planets',(
  assert.throws(()=>validateServerCheckpoint({normal:[0,0,1],heading:1,radius:261,equipment:{}},261),/invalid_checkpoint/);
  assert.throws(()=>validateServerCheckpoint({normal:[0,0,1],heading:1,radius:87},261),/invalid_checkpoint/);
  assert.throws(()=>validateServerCheckpoint({normal:[0,0,2],heading:1,radius:261},261),/invalid_checkpoint/);
+});
+
+test('action bar edits validate slot, class, level and payload without changing game stats',()=>{
+ const state=readProgress(rows());
+ const saved=setActionBarSlot(state,7,{kind:'ability',id:'autoAttack'});
+ assert.equal(saved.actionBar.length,8);assert.deepEqual(saved.actionBar[7],{kind:'ability',id:'autoAttack'});
+ assert.equal(saved.gold,state.gold);assert.deepEqual(saved.inventory,state.inventory);
+ let cleared=saved;for(let slot=0;slot<8;slot++)cleared=setActionBarSlot(cleared,slot,null);
+ assert.deepEqual(cleared.actionBar,Array(8).fill(null));
+ assert.throws(()=>setActionBarSlot(state,8,null),/invalid_action_bar_slot/);
+ assert.throws(()=>setActionBarSlot(state,-1,null),/invalid_action_bar_slot/);
+ assert.throws(()=>setActionBarSlot(state,1,{kind:'ability',id:'unknown'}),/invalid_action_bar_entry/);
+ assert.throws(()=>setActionBarSlot(state,1,{kind:'ability',id:'autoAttack',damage:9999}),/invalid_action_bar_entry/);
+ assert.throws(()=>setActionBarSlot(state,1,undefined),/invalid_action_bar_entry/);
 });

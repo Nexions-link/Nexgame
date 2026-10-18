@@ -7,7 +7,7 @@ import {getMentorQuest,certifyMentorKill} from './economy-rules.js';
 import {
  assertCharacterId,parseRevision,readProgress,validateKillCredit,
  awardVerifiedKill,validateServerCheckpoint,equipOwnedItem,unequipOwnedItem,
- ProgressError
+ ProgressError,setActionBarSlot
 } from './progress-rules.js';
 const {Pool}=pg;
 
@@ -152,6 +152,12 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    return {applied:true,eventKey:event.eventKey,progress:await save(next)};
   });
  }
+ async function saveActionBarSlot({accountId,characterId,expectedRevision,slot,entry}){
+  return transaction(accountId,characterId,expectedRevision,async({state,save})=>{
+   if(state.revision!==expectedRevision)throw conflict();
+   return {progress:await save(setActionBarSlot(state,slot,entry))};
+  });
+ }
  // Call only AFTER server movement/speed/collision checks have passed.
  // This operation cannot change level, XP, gold, inventory or equipment.
  async function saveServerCheckpoint({accountId,characterId,expectedRevision,checkpoint}){
@@ -193,7 +199,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   });
  }
  return {
-  schemaReady,load,initializeStarterPack,recordMobKill,saveServerCheckpoint,
+  schemaReady,load,initializeStarterPack,recordMobKill,saveServerCheckpoint,saveActionBarSlot,
   equipInventoryItem,unequipInventoryItem,useHealingPotion,
   // Internal server-only transaction hook; never export via HTTP or WS.
   trustedTransaction:transaction,
