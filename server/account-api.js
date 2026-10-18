@@ -15,21 +15,23 @@ const json=(res,status,data)=>{
   'cache-control':'no-store','x-content-type-options':'nosniff'});
  res.end(JSON.stringify(data));
 };
-function readJson(req){
+export function readJson(req){
  return new Promise((resolve,reject)=>{
   if(!String(req.headers['content-type']||'').startsWith('application/json'))
    return reject(Object.assign(Error('Требуется JSON'),{status:415}));
-  let body='',length=0,tooLarge=false;
+  const chunks=[];let length=0,tooLarge=false;
   req.on('data',chunk=>{
    length+=chunk.length;
    if(length>MAX_BODY){tooLarge=true;return}
-   body+=chunk.toString('utf8');
+   chunks.push(chunk);
   });
   req.on('error',reject);
+  req.on('aborted',()=>reject(Object.assign(Error('Запрос прерван'),{status:400})));
   req.on('end',()=>{
    if(tooLarge)return reject(Object.assign(Error('Слишком большой запрос'),{status:413}));
    try{
-    const object=JSON.parse(body);
+    // Decode after joining TCP chunks, preserving UTF-8 multi-byte characters.
+    const object=JSON.parse(Buffer.concat(chunks,length).toString('utf8'));
     if(!object||typeof object!=='object'||Array.isArray(object))throw Error();
     resolve(object);
    }catch{reject(Object.assign(Error('Некорректный JSON'),{status:400}))}
