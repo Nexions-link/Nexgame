@@ -285,7 +285,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    draw();return;
   }
   if(!event.ok){
-   if(event.kind==='gatherStart'||event.kind==='gatherFinish')pendingServerGather=null;
+   if(['gatherStart','gatherFinish','banditWeaponStart','banditWeaponFinish'].includes(event.kind))
+    pendingServerGather=null;
    if(event.kind==='lootTake'&&!modal.hidden&&modal.dataset.kind==='loot'){
     renderModal();
     const reason=event.reason==='inventory_full'?'Рюкзак заполнен — вещи остались на теле.':
@@ -298,6 +299,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const labels={
     interaction_too_far:'Подойди ближе к персонажу или предмету',
     bandit_quest_level_too_low:'Задание на разбойников доступно с 3-го уровня.',
+    bandit_weapons_quest_locked:'Сначала заверши разведку лагеря.',
+    bandit_weapons_quest_unavailable:'Задание на оружие сейчас недоступно.',
+    bandit_weapons_quest_not_active:'Сначала прими задание «Оружие разбойников».',
+    bandit_weapons_already_collected:'Все три кинжала собраны. Вернись к следопыту.',
+    bandit_weapons_quest_not_ready:'Нужно собрать три кинжала.',
+    bandit_chief_quest_locked:'Заверши предыдущие задания и достигни 4-го уровня.',
     untrusted_interaction_context:'Сейчас взаимодействовать нельзя',
     not_enough_gold:'Недостаточно монет',inventory_full:'Рюкзак заполнен',
     item_not_owned:'Предмет не найден в рюкзаке',item_not_sellable:'Предмет нельзя продать',
@@ -316,22 +323,30 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    msg(labels[event.reason]||'Сервер отклонил действие: '+(event.reason||'ошибка'));
    return;
   }
-  if(event.kind==='gatherStart'&&pendingServerGather){
+  if((event.kind==='gatherStart'||event.kind==='banditWeaponStart')&&pendingServerGather){
    const job=pendingServerGather;
+   const matching=event.kind===(job.kind==='banditWeapon'?'banditWeaponStart':'gatherStart');
+   if(!matching)return;
    setTimeout(()=>{
     if(!isOnline()||pendingServerGather!==job)return;
-    sendAccountAction('gatherFinish',{stage:job.stage,index:job.index});
+    if(job.kind==='banditWeapon')sendAccountAction('banditWeaponFinish',{index:job.index});
+    else sendAccountAction('gatherFinish',{stage:job.stage,index:job.index});
    },Math.max(1500,event.castMs||1500)+120);
    return;
   }
-  if(event.kind==='gatherFinish'&&pendingServerGather){
+  if((event.kind==='gatherFinish'||event.kind==='banditWeaponFinish')&&pendingServerGather){
    const job=pendingServerGather;pendingServerGather=null;
-   const node=gathering.nodes.find(n=>n.stage===job.stage&&n.index===job.index);
-   if(node)node.readyAt=clock+GATHER_RESPAWN_SECONDS;
+   const node=job.kind==='banditWeapon'?banditWeapons.nodes.find(n=>n.index===job.index):
+    gathering.nodes.find(n=>n.stage===job.stage&&n.index===job.index);
+   if(node)node.readyAt=clock+(job.kind==='banditWeapon'?BANDIT_WEAPON_RESPAWN_SECONDS:GATHER_RESPAWN_SECONDS);
   }
   const labels={
    hotbarSet:'Панель умений сохранена',merchantBuy:'Покупка сохранена',merchantSell:'Продажа сохранена',
    gatherAccept:'Задание травницы принято',gatherFinish:'Ресурс собран и сохранён',
+   banditWeaponsAccept:'Задание «Оружие разбойников» принято',
+   banditWeaponFinish:'Кинжал разбойника собран',
+   banditWeaponsTurnIn:'Оружие сдано следопыту! Открывается задание на главаря.',
+   banditChiefAccept:'Задание на главаря принято',banditChiefTurnIn:'Главарь побеждён. Цепочка завершена!',
    gatherTurnIn:'Награда за сбор получена',mentorAccept:'Испытание принято',
    mentorInteract:'Цель задания выполнена',mentorTurnIn:'Награда наставника получена',
    equip:'Предмет экипирован',unequip:'Предмет снят',
