@@ -43,7 +43,7 @@ test('portrait character sheet exposes real slots beside model and weapon/shield
  h.get('character').click();
  assert.equal(h.get('modal').dataset.kind,'character');
  const children=descendants(h.get('mbody'));
- const slots=children.filter(e=>e.className.startsWith('character-socket'));
+ const slots=children.filter(e=>typeof e.dataset?.slot==='string');
  assert.equal(slots.length,9);
  assert.deepEqual(slots.map(e=>e.dataset.slot),['head','chest','hands','wrists','waist','legs','feet','weapon','shield']);
  assert.equal(children.filter(e=>e.className==='character-preview-viewport').length,1);
