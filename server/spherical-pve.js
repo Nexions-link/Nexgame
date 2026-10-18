@@ -9,6 +9,7 @@ import {getAbilityDefinition} from '../skills.js';
 import {CREATURE_TYPE_BEAST,creatureTypeForMob,rollCreatureCoins} from '../planet-test/creature-types.js';
 import {monsterAttackDamage} from '../planet-test/mob-levels.js';
 import {CREATURE_SPAWNS,creatureSpawnHealth,creatureKillReward} from '../planet-test/creature-registry.js';
+import {BANDIT_PATROLS,nextPatrolPoint} from '../planet-test/bandit-camp-data.js';
 
 export const SPHERE_MOB_SPAWNS=CREATURE_SPAWNS.map(({x,z})=>[x,z]);
 export const SPHERE_CORPSE_MS=30000;
@@ -75,7 +76,21 @@ export function sphericalMobYaw(x,z,dx,dz,radius){
  return Math.atan2(f[0]*localX[0]+f[1]*localX[1]+f[2]*localX[2],
    f[0]*localZ[0]+f[1]*localZ[1]+f[2]*localZ[2]);
 }
+const BANDIT_PATROL_BY_ID=new Map(BANDIT_PATROLS.map(p=>[p.id,p]));
 function chooseRoamGoal(mob,now,rng){
+ const patrol=BANDIT_PATROL_BY_ID.get(mob.id);
+ if(patrol){
+  const waypoint=nextPatrolPoint(patrol,mob,mob.patrolIndex||0);
+  if(waypoint){
+   const {x,z}=waypoint.target;
+   if(walkable(x,z,.52)&&mobSegmentClear(mob.x,mob.z,x,z,(px,pz)=>walkable(px,pz,.52))){
+    mob.patrolIndex=waypoint.index;mob.roamGoalX=x;mob.roamGoalZ=z;
+    mob.roamState='walking';mob.navigation=null;return;
+   }
+  }
+  mob.roamState='rest';mob.roamUntil=now+1800;return;
+ }
+
  const size=mob.boss?.94:.52,canWalk=(x,z)=>walkable(x,z,size);
  for(let attempt=0;attempt<12;attempt++){
   const angle=TAU*clamp(rng(),0,1),distance=1.15+(SPHERE_ROAM_RADIUS-1.15)*clamp(rng(),0,1);
@@ -94,7 +109,7 @@ export function createSphericalMobs(){
    phase:'alive',life:1,aggroId:null,contributors:new Set(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
    roaming:index*1.73,navigation:null,returning:false,
-   roamState:'rest',roamUntil:0,roamGoalX:x,roamGoalZ:z};
+   roamState:'rest',roamUntil:0,roamGoalX:x,roamGoalZ:z,patrolIndex:0};
  });
 }
 export function mobSnapshot(mobs){
@@ -197,7 +212,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    mob.contributors.clear();mob.navigation=null;mob.attackAt=0;mob.attackCooldownAt=0;
    mob.stunUntil=0;mob.roaming=mob.index*1.73;
    mob.returning=false;mob.roamState='rest';mob.roamUntil=now+1500;
-   mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;
+   mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;mob.patrolIndex=0;
   }
   if(mob.phase!=='alive')continue;
   const spawnNormal=localToNormal(mob.spawnX,mob.spawnZ,radius);
@@ -232,7 +247,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    }
   }else if(mob.roamState==='walking'){
    if(Math.hypot(mob.x-mob.roamGoalX,mob.z-mob.roamGoalZ)<.28){
-    mob.roamState='rest';mob.roamUntil=now+1400+Math.floor(clamp(rng(),0,1)*2200);
+    mob.roamState='rest';mob.roamUntil=now+(BANDIT_PATROL_BY_ID.has(mob.id)?400:1400+Math.floor(clamp(rng(),0,1)*2200));
     mob.navigation=null;
    }
   }else if(now>=mob.roamUntil){chooseRoamGoal(mob,now,rng);}
