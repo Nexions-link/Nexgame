@@ -1459,6 +1459,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      title:'Разбойники Пыльной тропы',objective:'Победить 3 разбойников',
      progress:q.stage===3?'Сдано':q.stage===2?'Готово к сдаче':q.kills+' / '+BANDIT_QUEST_KILLS,
      reward:'85 опыта · 18 монет',npc:'Следопыт Медная Стрела'});
+    const chief=state.banditChiefQuest||{stage:0};
+    if(q.stage===3)entries.push({id:'bandit-chief',
+     status:chief.stage===0?(state.level>=4?'available':'locked'):chief.stage===3?'completed':'current',
+     title:'Главарь Пыльной тропы',objective:'Победить главаря разбойников',
+     progress:chief.stage===3?'Сдано':chief.stage===2?'Готово к сдаче':chief.stage===1?'0 / 1':'Не принято',
+     reward:'180 опыта · 35 монет',npc:'Следопыт Медная Стрела'});
    }
    for(let i=1;i<=3;i++){
     const quest=GATHER_QUESTS[i],stage=state.gatherStage;
