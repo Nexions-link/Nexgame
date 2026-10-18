@@ -225,7 +225,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function onChestResult(event){
   chestSheet.result(event);
   if(event?.ok&&Array.isArray(event.inventory)){
-   syncServerBag(event.inventory);
+   if(!syncServerBag(event.inventory))
+    state.inventory=event.inventory.filter(Boolean).map(row=>({...row}));
    onlineChest={slots:event.slots,revision:event.revision,inventory:event.inventory};
    setChestUsed(event.slots,event.revision);
    persist();draw();
