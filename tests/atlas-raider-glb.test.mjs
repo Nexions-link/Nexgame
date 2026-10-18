@@ -4,15 +4,16 @@ import {readFileSync} from 'node:fs';
 import {ATLAS_ENTRIES,filterAtlasEntries} from '../bestiary/atlas-catalog.js';
 const asset=new URL('../bestiary/models/dust-trail-raider-v0.1.glb',import.meta.url);
 const previewAsset=new URL('../bestiary/models/dust-trail-raider-v0.2.glb',import.meta.url);
+const refinedAsset=new URL('../bestiary/models/dust-trail-raider-v0.3.glb',import.meta.url);
 const clips=['Idle','Walk','Attack','Hurt','Death'];
-test('C004 Atlas preview is v0.2 while live game retains reviewed v0.1',()=>{
+test('C004 Atlas preview is refined v0.3 while live game retains reviewed v0.1',()=>{
  const entry=ATLAS_ENTRIES.find(e=>e.id==='bandit');
  assert.ok(entry);
  assert.equal(entry.category,'creatures');
  assert.equal(entry.number,'C004');
- assert.equal(entry.asset,'./models/dust-trail-raider-v0.2.glb');
- assert.equal(entry.version,'0.2');
- assert.match(entry.description,/v0\.1 до утверждения/);
+ assert.equal(entry.asset,'./models/dust-trail-raider-v0.3.glb');
+ assert.equal(entry.version,'0.3');
+ assert.match(entry.description,/заменой игрового прототипа/);
  assert.deepEqual(entry.animations,clips);
  assert.equal(filterAtlasEntries('creatures','разбойник').length,1);
  const game=readFileSync(new URL('../planet-test/offline-rpg.js',import.meta.url),'utf8');
@@ -95,5 +96,46 @@ test('preview Raider v0.2 is an intact, higher-resolution humanoid with no orpha
  for(const clip of glb.animations){
   assert.ok(clip.channels.length>=3);
   assert.ok(clip.channels.every(ch=>ch.target.node<glb.nodes.length));
+ }
+});
+
+test('Raider v0.3 is a valid refined GLB with connected cape, recognizable face, belt kit and five clips',()=>{
+ const data=readFileSync(refinedAsset);
+ assert.ok(data.length>500000&&data.length<900000);
+ assert.equal(data.toString('ascii',0,4),'glTF');
+ assert.equal(data.readUInt32LE(4),2);
+ assert.equal(data.readUInt32LE(8),data.length);
+ const len=data.readUInt32LE(12),binAt=20+len;
+ assert.equal(data.toString('ascii',16,20),'JSON');
+ assert.equal(data.toString('ascii',binAt+4,binAt+8),'BIN\u0000');
+ const gltf=JSON.parse(data.toString('utf8',20,binAt));
+ assert.ok(gltf.buffers[0].byteLength<=data.readUInt32LE(binAt));
+ assert.ok(data.readUInt32LE(binAt)-gltf.buffers[0].byteLength<4);
+ assert.equal(data.length,binAt+8+data.readUInt32LE(binAt));
+ assert.equal(gltf.materials.length,22);
+ assert.ok(gltf.meshes.length>=80,'refined geometry includes new details');
+ const count=gltf.meshes.reduce((sum,m)=>sum+m.primitives.reduce((n,p)=>n+gltf.accessors[p.indices].count/3,0),0);
+ assert.ok(count>=6500&&count<9000,'mesh detail increased above 5,112 triangles');
+ assert.deepEqual(gltf.animations.map(x=>x.name),clips);
+ const byName=new Map(gltf.nodes.map((n,i)=>[n.name,{...n,index:i}]));
+ for(const name of ['Nose_bone_and_bridge','Chin_and_jaw','Belt_satchel','Satchel_brass_lock',
+     'Cape_continuous_mantle','Cape_inner_lining','Cape_fastener_L','Cape_fastener_R',
+     'Boot_outer_crossstrap_-1','Boot_outer_crossstrap_1','Dagger_honed_edge'])
+  assert.ok(byName.has(name),'missing sculpted detail: '+name);
+ const cape=byName.get('Cape');
+ assert.equal(cape.mesh,undefined,'old segmented cape removed');
+ for(const child of ['Cape_detail_50','Cape_detail_51'])
+  assert.equal(byName.get(child).mesh,undefined,'previous floating rear pieces are hidden: '+child);
+ for(const childName of ['Cape_continuous_mantle','Cape_inner_lining','Cape_fastener_L','Cape_fastener_R'])
+  assert.ok(cape.children.includes(byName.get(childName).index));
+ const root=gltf.scenes[gltf.scene].nodes;
+ assert.equal(root.length,1);
+ const reached=new Set();
+ const visit=index=>{assert.ok(index>=0&&index<gltf.nodes.length);assert.ok(!reached.has(index));reached.add(index);
+  for(const child of gltf.nodes[index].children||[])visit(child)};
+ visit(root[0]);assert.equal(reached.size,gltf.nodes.length);
+ for(const m of gltf.meshes)for(const primitive of m.primitives){
+  const p=gltf.accessors[primitive.attributes.POSITION],n=gltf.accessors[primitive.attributes.NORMAL],i=gltf.accessors[primitive.indices];
+  assert.equal(p.count,n.count);assert.ok(i.count>=3);
  }
 });
