@@ -1199,6 +1199,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     renderCharacterSheet({
      document,body,profile:authenticatedProfile,state,stats:stats(),items:ITEM_CATALOG,
      labels:LABEL,qualities:QUALITY_VISUALS,xpRequired,pretty,preview:characterPreview,
+     onOpenBag:()=>openWindow('bag'),
      onUnequip:(slot,def)=>{
       if(!def)return msg('Пустой слот. Надеть предмет можно из рюкзака.');
       if(authenticatedProfile){
