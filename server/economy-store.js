@@ -6,7 +6,7 @@ import pg from 'pg';
 import {createProgressStore} from './progress-store.js';
 import {GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS} from '../planet-test/gather-world.js';
 import {assertCharacterId,validateKillCredit,ProgressError} from './progress-rules.js';
-import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience} from '../planet-test/mob-levels.js';
+import {creatureById,creatureKillReward} from '../planet-test/creature-registry.js';
 import {CORPSE_COIN_ID,isValidCorpseCoins} from '../planet-test/creature-types.js';
 import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
 import {
@@ -70,10 +70,10 @@ export function createEconomyStore({pool:externalPool,
  // Corpse rewards live only for the current server-world epoch and mob life.
  // The :corpse suffix excludes older kills already auto-granted to inventory.
  function corpseKey({mobId,life,radius}){
-  const index=Number(String(mobId).split('-')[1]);
-  const level=mobLevelForIndex(index),boss=index===DOLGONOG_BOSS_INDEX;
+  const spec=creatureById(mobId);
+  if(!spec)fail('unknown_mob');
   return validateKillCredit({type:'killCredit',mobId,life,
-   xp:mobBaseExperience(level,boss),gold:0,loot:[]},radius,worldRunId).eventKey+':corpse';
+   xp:creatureKillReward(spec).xp,gold:0,loot:[]},radius,worldRunId).eventKey+':corpse';
  }
  function checkCorpse(state,args){
   const corpse=args.corpse;

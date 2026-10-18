@@ -5,7 +5,7 @@
 import {ITEM_CATALOG,itemStackLimit,GEAR_LOOT,deriveStats} from '../items.js';
 import {DEFAULT_HOTBAR,normalizeHotbar,actionDefinition,assignHotbarSlot} from '../hotbar.js';
 import {CREATURE_LOOT_TABLES} from '../planet-test/loot-tables.js';
-import {SPHERE_MOB_SPAWNS} from './spherical-pve.js';
+import {creatureById,creatureKillReward} from '../planet-test/creature-registry.js';
 import {CREATURE_TYPE_BEAST,creatureTypeForMob,CORPSE_COIN_ID} from '../planet-test/creature-types.js';
 import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience,monsterKillExperience} from '../planet-test/mob-levels.js';
 
@@ -135,28 +135,28 @@ export function validateKillCredit(event,radius,worldRunId){
  if(typeof worldRunId!=='string'||!UUID.test(worldRunId))invalid('invalid_world_epoch');
  if(!plain(event)||!RADII.has(radius)||
     Object.keys(event).some(key=>!['type','mobId','life','xp','gold','loot'].includes(key))||
-    event.type!=='killCredit'||!/^dolgonog-(0|[1-9])$/.test(event.mobId)||
+    event.type!=='killCredit'||typeof event.mobId!=='string'||
     !integer(event.life,1,MAX_INT))invalid('unverified_kill_event');
- const index=Number(event.mobId.split('-')[1]);
- if(index>=SPHERE_MOB_SPAWNS.length)invalid('unknown_mob');
- const boss=index===DOLGONOG_BOSS_INDEX,mobLevel=mobLevelForIndex(index);
- const mobType=boss?'stormbeak':'dolgonog';
- if(event.xp!==mobBaseExperience(mobLevel,boss)||event.gold!==0||
+ const spec=creatureById(event.mobId);
+ if(!spec)invalid('unknown_mob');
+ const reward=creatureKillReward(spec),mobLevel=spec.level;
+ if(event.xp!==reward.xp||event.gold!==0||
     !Array.isArray(event.loot)||event.loot.length>8)
   invalid('invalid_kill_reward');
- const table=CREATURE_LOOT_TABLES[mobType];
+ const table=CREATURE_LOOT_TABLES[spec.family];
  const rows=new Map(table.materials.map(row=>[row.id,row]));
  const unique=new Set();
  let equipmentCount=0;
  const loot=event.loot.map(item=>{
   if(!plain(item)||Object.keys(item).some(key=>!['id','qty'].includes(key))||
-     typeof item.id!=='string'||!integer(item.qty,1,20)||
+     typeof item.id!=='string'||!integer(item.qty,1,100000)||
      unique.has(item.id))invalid('invalid_kill_loot');
   unique.add(item.id);
   const row=rows.get(item.id);
-  if(item.id===CORPSE_COIN_ID&&creatureTypeForMob(index)===CREATURE_TYPE_BEAST)
-   invalid('invalid_kill_loot'); // Animals can never carry money.
-  if(row){
+  if(item.id===CORPSE_COIN_ID){
+   if(spec.type===CREATURE_TYPE_BEAST||
+      item.qty<1+2*spec.level||item.qty>3+3*spec.level)invalid('invalid_kill_loot');
+  }else if(row){
    if(item.qty<row.min||item.qty>row.max)invalid('invalid_kill_loot');
   }else if(GEAR_DROP_IDS.has(item.id)){
    if(item.qty!==1||++equipmentCount>1)invalid('invalid_kill_loot');
