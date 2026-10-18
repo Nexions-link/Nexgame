@@ -593,15 +593,16 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const root=new THREE.Group();group.add(root);
   const contactShadow=addContactShadow(root,.83),visual=createBanditVisual(THREE);
   root.add(visual.root);
-  const hp=64+(spec.level-2)*14;
+  const hp=(64+(spec.level-2)*14)*(spec.boss?2:1);
   const mob={kind:'mob',id:spec.id,index:spec.index,family:'bandit',level:spec.level,
    name:spec.name,lootId:'bandit',creatureType:spec.type,root,x,z,yaw:0,
    spawnX:x,spawnZ:z,hp,maxHp:hp,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
    respawn:0,returning:false,walk:0,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,
-   boss:false,contactShadow,roamTime:spec.index*1.73,navigation:null,banditVisual:visual};
+   boss:spec.boss,contactShadow,roamTime:spec.index*1.73,navigation:null,banditVisual:visual};
+  if(spec.boss){visual.root.scale.setScalar(1.35);contactShadow.scale.setScalar(1.35);contactShadow.position.y=.02;}
   const nameTag=makeLabel(spec.name+' · ур. '+spec.level,'#e4c68f',24);
-  nameTag.position.y=3.7;root.add(nameTag);mob.nameTag=nameTag;
-  const alertTag=makeLabel('!','#ffc978',78);alertTag.position.y=4.25;alertTag.scale.set(1.55,1.4,1);
+  nameTag.position.y=spec.boss?4.9:3.7;root.add(nameTag);mob.nameTag=nameTag;
+  const alertTag=makeLabel('!','#ffc978',78);alertTag.position.y=spec.boss?5.35:4.25;alertTag.scale.set(1.55,1.4,1);
   alertTag.visible=false;root.add(alertTag);mob.alertTag=alertTag;
   const lootMarker=makeLabel('◆','#fff7df',68);lootMarker.position.y=1.45;
   lootMarker.scale.set(1.3,1.06,1);lootMarker.visible=false;root.add(lootMarker);mob.lootMarker=lootMarker;
@@ -705,6 +706,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const rig=asset.scene.clone(true);
   const container=new THREE.Group();container.name='dust-trail-raider-v0.3';
   container.add(rig);mob.root.add(container);mob.fallbackVisual.visible=false;
+  if(mob.boss)container.scale.setScalar(1.35);
   rig.traverse(part=>{if(part.isMesh){part.castShadow=true;part.receiveShadow=false;}});
   const mixer=new THREE.AnimationMixer(rig);
   const actions=Object.fromEntries(asset.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
