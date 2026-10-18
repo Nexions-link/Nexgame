@@ -294,3 +294,35 @@ test('attack from a new player switches aggro and cancels a hit aimed at the old
  }
  assert.equal(telegraphed,true,'new target receives the authoritative telegraph');
 });
+
+test('western bandits acquire independently, never as an entire pack',()=>{
+ const specs=createSphericalMobs().filter(m=>m.family==='bandit');
+ assert.equal(specs.length,4);
+ for(const encounter of specs){
+  const mobs=createSphericalMobs().filter(m=>m.family==='bandit');
+  const player=character('solo',encounter.spawnX,encounter.spawnZ);
+  const map=new Map([[player.id,player]]);
+  tickSphericalMobs(mobs,map,261,.1,1000,()=>.5);
+  assert.deepEqual(mobs.filter(m=>m.aggroId===player.id).map(m=>m.id),
+   [encounter.id],'solo proximity pull at '+encounter.id+' must not wake other bandits');
+ }
+});
+test('patrols stay apart and elite chief holds his separate position when idle',()=>{
+ const mobs=createSphericalMobs().filter(m=>m.family==='bandit');
+ const chief=mobs.find(m=>m.boss),x=chief.x,z=chief.z;
+ const points=mobs.map(m=>({id:m.id,x:m.x,z:m.z}));
+ const pairDistance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+ let patrolMoved=false;
+ for(let i=0;i<250;i++){
+  tickSphericalMobs(mobs,new Map(),261,.1,5000+i*100,()=>.6);
+  for(const patrol of mobs.filter(m=>!m.boss)){
+   const origin=points.find(p=>p.id===patrol.id);
+   if(pairDistance(patrol,origin)>.8)patrolMoved=true;
+  }
+  for(let a=0;a<mobs.length;a++)for(let b=a+1;b<mobs.length;b++)
+   assert.ok(pairDistance(mobs[a],mobs[b])>12,'independent encounter spacing '+mobs[a].id+'/'+mobs[b].id);
+ }
+ assert.ok(patrolMoved,'patrols continue to roam independently');
+ assert.equal(chief.x,x);
+ assert.equal(chief.z,z);
+});
