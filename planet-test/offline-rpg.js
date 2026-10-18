@@ -1509,16 +1509,28 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const entries=mentorJournalRows(state).map(item=>({...item,npc:'Наставник Каменный Рог'}));
    if(authenticatedProfile){
     const q=state.banditQuest||{stage:0,kills:0};
-    entries.push({id:'bandit-trail',status:q.stage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'available':'locked'):q.stage===3?'completed':'current',
-     title:'Разбойники Пыльной тропы',objective:'Победить 3 разбойников',
+    entries.push({id:'bandit-trail',
+     status:q.stage===0?(state.level>=BANDIT_QUEST_MIN_LEVEL?'available':'locked'):q.stage===3?'completed':'current',
+     title:'1/3 · Разведка лагеря разбойников',objective:'Найти западный лагерь и победить 3 разбойников',
      progress:q.stage===3?'Сдано':q.stage===2?'Готово к сдаче':q.kills+' / '+BANDIT_QUEST_KILLS,
      reward:'85 опыта · 18 монет',npc:'Следопыт Медная Стрела'});
-    const chief=state.banditChiefQuest||{stage:0};
-    if(q.stage===3)entries.push({id:'bandit-chief',
-     status:chief.stage===0?(state.level>=4?'available':'locked'):chief.stage===3?'completed':'current',
-     title:'Главарь Пыльной тропы',objective:'Победить главаря разбойников',
-     progress:chief.stage===3?'Сдано':chief.stage===2?'Готово к сдаче':chief.stage===1?'0 / 1':'Не принято',
-     reward:'180 опыта · 35 монет',npc:'Следопыт Медная Стрела'});
+    if(q.stage===3){
+     const weaponStage=weaponsStage(),collected=itemCount(BANDIT_WEAPON_ITEM);
+     entries.push({id:'bandit-weapons',
+      status:weaponStage===0?'available':weaponStage===2?'completed':'current',
+      title:'2/3 · Оружие разбойников',objective:'Собрать 3 кинжала с земли у лагеря',
+      progress:weaponStage===2?'Сдано':weaponStage===0?'Доступно у следопыта':
+       collected>=BANDIT_WEAPON_REQUIRED?'Готово к сдаче':collected+' / '+BANDIT_WEAPON_REQUIRED,
+      reward:'90 опыта · 20 монет',npc:'Следопыт Медная Стрела'});
+     if(weaponStage===2){
+      const chief=state.banditChiefQuest||{stage:0};
+      entries.push({id:'bandit-chief',
+       status:chief.stage===0?(state.level>=4?'available':'locked'):chief.stage===3?'completed':'current',
+       title:'3/3 · Главарь Пыльной тропы',objective:'Победить главаря у отдельной стоянки',
+       progress:chief.stage===3?'Сдано':chief.stage===2?'Готово к сдаче':chief.stage===1?'0 / 1':'Не принято',
+       reward:'180 опыта · 35 монет',npc:'Следопыт Медная Стрела'});
+     }
+    }
    }
    for(let i=1;i<=3;i++){
     const quest=GATHER_QUESTS[i],stage=state.gatherStage;
