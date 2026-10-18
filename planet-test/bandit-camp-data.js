@@ -4,7 +4,7 @@ import {BANDIT_CAMP as LIVE_CAMP,BANDIT_QUEST_MIN_LEVEL,BANDIT_SPAWNS,BANDIT_BOS
 export const BANDIT_CAMP=Object.freeze({
  id:'dust-trail-camp',name:'Лагерь Пыльной тропы',
  center:Object.freeze({...LIVE_CAMP}),unlockLevel:BANDIT_QUEST_MIN_LEVEL,
- patrolRadius:7,leashRadius:19
+ patrolRadius:7,leashRadius:14,aggroRadius:5.75
 });
 export const BANDIT_PATROLS=Object.freeze([
  Object.freeze({id:'bandit-0',points:Object.freeze([[-50,-17],[-51,-23],[-47,-18]].map(Object.freeze))}),
