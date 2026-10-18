@@ -249,7 +249,8 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
     damage,blocked:block,absorbed,hp:target.hp,maxHp:target.maxHp});
    if(target.hp<=0){
     target.hp=target.maxHp;target.resource=0;target.normal=localToNormal(0,0,radius);
-    target.heading=0;target.updatedAt=now;target.respawnShieldUntil=now+3000;
+    target.heading=0;target.x=0;target.z=0;
+     target.updatedAt=now;target.respawnShieldUntil=now+3000;
     for(const other of mobs)if(other.aggroId===target.id){
      other.aggroId=null;other.attackAt=0;other.navigation=null;
     }
