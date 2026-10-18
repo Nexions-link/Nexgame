@@ -6,6 +6,7 @@ import {ITEM_CATALOG,itemStackLimit,GEAR_LOOT,deriveStats} from '../items.js';
 import {DEFAULT_HOTBAR,normalizeHotbar,actionDefinition,assignHotbarSlot} from '../hotbar.js';
 import {CREATURE_LOOT_TABLES} from '../planet-test/loot-tables.js';
 import {SPHERE_MOB_SPAWNS} from './spherical-pve.js';
+import {CREATURE_TYPE_BEAST,creatureTypeForMob,CORPSE_COIN_ID} from '../planet-test/creature-types.js';
 import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience,monsterKillExperience} from '../planet-test/mob-levels.js';
 
 export const PROGRESS_SCHEMA=1;
@@ -140,7 +141,7 @@ export function validateKillCredit(event,radius,worldRunId){
  if(index>=SPHERE_MOB_SPAWNS.length)invalid('unknown_mob');
  const boss=index===DOLGONOG_BOSS_INDEX,mobLevel=mobLevelForIndex(index);
  const mobType=boss?'stormbeak':'dolgonog';
- if(event.xp!==mobBaseExperience(mobLevel,boss)||event.gold!==(boss?12:4)||
+ if(event.xp!==mobBaseExperience(mobLevel,boss)||event.gold!==0||
     !Array.isArray(event.loot)||event.loot.length>8)
   invalid('invalid_kill_reward');
  const table=CREATURE_LOOT_TABLES[mobType];
@@ -153,6 +154,8 @@ export function validateKillCredit(event,radius,worldRunId){
      unique.has(item.id))invalid('invalid_kill_loot');
   unique.add(item.id);
   const row=rows.get(item.id);
+  if(item.id===CORPSE_COIN_ID&&creatureTypeForMob(index)===CREATURE_TYPE_BEAST)
+   invalid('invalid_kill_loot'); // Animals can never carry money.
   if(row){
    if(item.qty<row.min||item.qty>row.max)invalid('invalid_kill_loot');
   }else if(GEAR_DROP_IDS.has(item.id)){
@@ -169,9 +172,9 @@ export function awardVerifiedKill(state,verified){
     !Array.isArray(verified.loot))invalid('unverified_kill_event');
  const xp=addExperience(state.level,state.experience,
   monsterKillExperience(state.level,verified.mobLevel,verified.xp));
- if(state.gold>MAX_INT-verified.gold)invalid('gold_overflow');
+ if(verified.gold!==0)invalid('invalid_kill_reward');
  const inventory=addStacks(state.inventory,verified.loot);
- return {...state,...xp,gold:state.gold+verified.gold,inventory};
+ return {...state,...xp,inventory}; // Coins require an explicit corpse-loot transaction.
 }
 export function validateServerCheckpoint(raw,previousRadius){
  if(!plain(raw)||Object.keys(raw).some(k=>!['normal','heading','radius'].includes(k))||

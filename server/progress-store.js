@@ -149,7 +149,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
      '(character_id,event_key,event_kind,xp_granted,gold_granted,loot)',
      'VALUES($1,$2,$3,$4,$5,$6::jsonb)'].join(' '),
     [characterId,event.eventKey,event.eventKind,
-      monsterKillExperience(state.level,event.mobLevel,event.xp),event.gold,
+      monsterKillExperience(state.level,event.mobLevel,event.xp),0,
      JSON.stringify(event.loot)]);
    return {applied:true,eventKey:event.eventKey,progress:await save(next)};
   });

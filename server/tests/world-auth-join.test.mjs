@@ -76,7 +76,7 @@ test('authenticated mob kill commits progress before a verified reward is sent',
    assert.equal(args.expectedRevision,current.revision);
    assert.equal(args.serverCredit.type,'killCredit');
    assert.equal(args.deferLoot,true);
-   current={...current,revision:current.revision+1,experience:22,gold:34};
+   current={...current,revision:current.revision+1,experience:22,gold:30};
    return {applied:true,progress:current};
   },
   async saveServerCheckpoint(args){

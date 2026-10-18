@@ -120,7 +120,7 @@ test('corpse commands validate server life, distance and ownership before applyi
  let loot=[{id:'feather',qty:1}],takes=0;
  const progressStore={async recordMobKill(args){
   assert.equal(args.deferLoot,true);
-  persistent={...persistent,revision:2,experience:22,gold:34};
+  persistent={...persistent,revision:2,experience:22,gold:30};
   return {applied:true,progress:persistent};
  },async saveServerCheckpoint(){return {progress:persistent}}};
  const economyStore={

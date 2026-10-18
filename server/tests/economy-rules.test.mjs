@@ -99,11 +99,11 @@ test('mentor objectives require genuine server-shape kill credits and fixed prog
  let hero=acceptMentorQuest(state(),atMentor);
  assert.deepEqual(getMentorQuest(hero),{step:1,kills:0});
  const normal=life=>({
-  type:'killCredit',mobId:'dolgonog-0',life,xp:22,gold:4,loot:[{id:'feather',qty:1}]
+  type:'killCredit',mobId:'dolgonog-0',life,xp:22,gold:0,loot:[{id:'feather',qty:1}]
  });
  assert.throws(()=>certifyMentorKill(hero,{...normal(1),xp:999},runId),/invalid_kill_reward/);
  assert.throws(()=>certifyMentorKill(hero,{
-  type:'killCredit',mobId:'dolgonog-9',life:1,xp:70,gold:12,loot:[{id:'giantFeather',qty:1}]
+  type:'killCredit',mobId:'dolgonog-9',life:1,xp:70,gold:0,loot:[{id:'giantFeather',qty:1}]
  },runId),/wrong_mentor_target/);
  for(let life=1;life<=3;life++)hero=certifyMentorKill(hero,normal(life),runId).next;
  assert.deepEqual(getMentorQuest(hero),{step:2,kills:3});
@@ -124,7 +124,7 @@ test('mentor objectives require genuine server-shape kill credits and fixed prog
  hero=acceptMentorQuest(turnInMentorQuest(hero,atMentor).next,atMentor);
  assert.equal(getMentorQuest(hero).step,10);
  const boss={
-  type:'killCredit',mobId:'dolgonog-9',life:1,xp:70,gold:12,
+  type:'killCredit',mobId:'dolgonog-9',life:1,xp:70,gold:0,
   loot:[{id:'giantFeather',qty:1}]
  };
  assert.throws(()=>certifyMentorKill(hero,normal(5),runId),/wrong_mentor_target/);
