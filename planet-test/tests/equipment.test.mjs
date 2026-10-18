@@ -71,7 +71,8 @@ test('archived-style inspector selects first; requires explicit removal from bac
  remove.click();
  assert.equal(h.rpg.state.equipment.chest,undefined);
  assert.equal(h.rpg.state.inventory.some(e=>e.id==='chainVest'),true);
- assert.equal(descendants(h.get('mbody')).find(e=>e.dataset.slot==='chest').className,'character-socket');
+ assert.equal(descendants(h.get('mbody')).find(e=>e.dataset.slot==='chest').className,'character-socket active',
+  'inspector keeps the currently selected slot even after the item is removed');
  h.get('modalClose').click();
 });
 
