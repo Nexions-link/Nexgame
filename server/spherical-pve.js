@@ -6,6 +6,7 @@ import {moveMobToward,mobSegmentClear} from '../planet-test/mob-navigation.js';
 import {rollCreatureLoot} from '../planet-test/loot-tables.js';
 import {deriveStats,ITEM_CATALOG,armorReduction} from '../items.js';
 import {getAbilityDefinition} from '../skills.js';
+import {CREATURE_TYPE_BEAST,creatureTypeForMob,rollCreatureCoins} from '../planet-test/creature-types.js';
 import {DOLGONOG_LEVELS,DOLGONOG_SPAWNS,DOLGONOG_BOSS_INDEX,mobBaseExperience,monsterMaxHealth,monsterAttackDamage} from '../planet-test/mob-levels.js';
 
 export const SPHERE_MOB_SPAWNS=DOLGONOG_SPAWNS;
@@ -80,7 +81,7 @@ export function createSphericalMobs(){
  return SPHERE_MOB_SPAWNS.map(([x,z],i)=>{
   const boss=i===DOLGONOG_BOSS_INDEX;
   return {id:'dolgonog-'+i,index:i,x,z,spawnX:x,spawnZ:z,yaw:0,
-   boss,level:DOLGONOG_LEVELS[i],name:boss?'Грозоклюв':'Равнинный долгоног',
+   boss,level:DOLGONOG_LEVELS[i],creatureType:creatureTypeForMob(i),name:boss?'Грозоклюв':'Равнинный долгоног',
    hp:monsterMaxHealth(DOLGONOG_LEVELS[i],boss),maxHp:monsterMaxHealth(DOLGONOG_LEVELS[i],boss),
    phase:'alive',life:1,aggroId:null,contributors:new Set(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
@@ -90,7 +91,7 @@ export function createSphericalMobs(){
 }
 export function mobSnapshot(mobs){
  return mobs.map(m=>({id:m.id,index:m.index,x:m.x,z:m.z,yaw:m.yaw,
-  boss:m.boss,level:m.level,hp:m.hp,maxHp:m.maxHp,phase:m.phase,life:m.life,
+  boss:m.boss,level:m.level,creatureType:m.creatureType,hp:m.hp,maxHp:m.maxHp,phase:m.phase,life:m.life,
   aggro:!!m.aggroId,deathAt:m.deathAt,corpseUntil:m.corpseUntil,respawnAt:m.respawnAt,
   attackWindup:m.attackAt>0}));
 }
@@ -148,8 +149,9 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
    const recipients=[...target.contributors];
    for(const attackerId of recipients)credits.push({targetId:attackerId,
     event:{type:'killCredit',mobId:target.id,life:target.life,
-     xp:mobBaseExperience(target.level,target.boss),gold:target.boss?12:4,
-     loot:rollCreatureLoot(target.boss?'stormbeak':'dolgonog',rng)}});
+     xp:mobBaseExperience(target.level,target.boss),gold:0,
+     loot:[...rollCreatureLoot(target.boss?'stormbeak':'dolgonog',rng),
+      ...rollCreatureCoins(target.creatureType,target.level,rng)]}});
   }
  }
  return {ok:true,events,credits,resource:player.resource};

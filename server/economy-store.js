@@ -6,6 +6,9 @@ import pg from 'pg';
 import {createProgressStore} from './progress-store.js';
 import {GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS} from '../planet-test/gather-world.js';
 import {assertCharacterId,validateKillCredit,ProgressError} from './progress-rules.js';
+import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience} from '../planet-test/mob-levels.js';
+import {CORPSE_COIN_ID,isValidCorpseCoins} from '../planet-test/creature-types.js';
+import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
 import {
  ECONOMY_CHEST_ID,ECONOMY_CHEST,ECONOMY_HERBALIST,
  ECONOMY_VENDOR,
@@ -67,14 +70,15 @@ export function createEconomyStore({pool:externalPool,
  // Corpse rewards live only for the current server-world epoch and mob life.
  // The :corpse suffix excludes older kills already auto-granted to inventory.
  function corpseKey({mobId,life,radius}){
-  const boss=mobId==='dolgonog-8';
+  const index=Number(String(mobId).split('-')[1]);
+  const level=mobLevelForIndex(index),boss=index===DOLGONOG_BOSS_INDEX;
   return validateKillCredit({type:'killCredit',mobId,life,
-   xp:boss?70:22,gold:boss?12:4,loot:[]},radius,worldRunId).eventKey+':corpse';
+   xp:mobBaseExperience(level,boss),gold:0,loot:[]},radius,worldRunId).eventKey+':corpse';
  }
  function checkCorpse(state,args){
   const corpse=args.corpse;
   if(!corpse||corpse.radius!==state.worldRadius)fail('corpse_unavailable');
-  requireServerProximity(state,{...args.context,inCombat:false},corpse,3.1);
+  requireServerProximity(state,{...args.context,inCombat:false},corpse,CORPSE_LOOT_RANGE);
   return corpseKey(corpse);
  }
  async function readCorpseLoot(args){
@@ -99,17 +103,23 @@ export function createEconomyStore({pool:externalPool,
    if(!rows[0].loot.length||(itemId!==null&&!rows[0].loot.some(row=>row.id===itemId)))
     return {applied:false,progress:state,loot:rows[0].loot,taken:[]};
    revision(state,args.expectedRevision);
-   let inventory=state.inventory,remaining=[],taken=[];
+   let inventory=state.inventory,remaining=[],taken=[],gold=state.gold;
    for(const row of rows[0].loot){
     if(itemId!==null&&row.id!==itemId){remaining.push(row);continue;}
-    try{inventory=addOwnedStacks(inventory,[row]);taken.push(row)}
+    try{
+     if(row.id===CORPSE_COIN_ID){
+      if(!isValidCorpseCoins(row))fail('invalid_loot_item');
+      if(gold>2147483647-row.qty)fail('gold_overflow');
+      gold+=row.qty;taken.push(row);
+     }else{inventory=addOwnedStacks(inventory,[row]);taken.push(row)}
+    }
     catch(error){if(error.code!=='inventory_full')throw error;remaining.push(row)}
    }
    if(!taken.length)fail(rows[0].loot.length?'inventory_full':'corpse_empty');
    await client.query(
     'UPDATE ngw_progress_events SET loot=$3::jsonb WHERE character_id=$1 AND event_key=$2',
     [args.characterId,key,JSON.stringify(remaining)]);
-   return {applied:true,progress:await save({...state,inventory}),loot:remaining,taken};
+   return {applied:true,progress:await save({...state,inventory,gold}),loot:remaining,taken};
   });
  }
  async function buy(args){
