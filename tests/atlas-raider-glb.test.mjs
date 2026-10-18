@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {ATLAS_ENTRIES,filterAtlasEntries} from '../bestiary/atlas-catalog.js';
 const asset=new URL('../bestiary/models/dust-trail-raider-v0.1.glb',import.meta.url);
+const previewAsset=new URL('../bestiary/models/dust-trail-raider-v0.2.glb',import.meta.url);
 const clips=['Idle','Walk','Attack','Hurt','Death'];
-test('C004 bandit is indexed in Atlas as the same GLB used in game',()=>{
+test('C004 Atlas preview is v0.2 while live game retains reviewed v0.1',()=>{
  const entry=ATLAS_ENTRIES.find(e=>e.id==='bandit');
  assert.ok(entry);
  assert.equal(entry.category,'creatures');
  assert.equal(entry.number,'C004');
- assert.equal(entry.asset,'./models/dust-trail-raider-v0.1.glb');
+ assert.equal(entry.asset,'./models/dust-trail-raider-v0.2.glb');
+ assert.equal(entry.version,'0.2');
+ assert.match(entry.description,/v0\.1 до утверждения/);
  assert.deepEqual(entry.animations,clips);
  assert.equal(filterAtlasEntries('creatures','разбойник').length,1);
  const game=readFileSync(new URL('../planet-test/offline-rpg.js',import.meta.url),'utf8');
@@ -55,4 +58,42 @@ test('new scout quest is locked on levels 1 and 2, and requires the server-autho
  assert.match(server,/state\.level<BANDIT_QUEST_MIN_LEVEL/);
  assert.match(game,/state\.level<BANDIT_QUEST_MIN_LEVEL/);
  assert.match(game,/bandit_quest_level_too_low/);
+});
+
+test('preview Raider v0.2 is an intact, higher-resolution humanoid with no orphaned scene branches',()=>{
+ const data=readFileSync(previewAsset);
+ assert.ok(data.length>100000&&data.length<650000);
+ assert.equal(data.toString('ascii',0,4),'glTF');
+ assert.equal(data.readUInt32LE(4),2);
+ assert.equal(data.readUInt32LE(8),data.length);
+ const jsonLength=data.readUInt32LE(12);
+ assert.equal(data.toString('ascii',16,20),'JSON');
+ const end=20+jsonLength,glb=JSON.parse(data.toString('utf8',20,end));
+ assert.equal(glb.buffers[0].byteLength,data.readUInt32LE(end));
+ assert.equal(data.length,end+8+glb.buffers[0].byteLength);
+ assert.ok(glb.materials.length>=20);
+ assert.ok(glb.meshes.length>=40);
+ assert.deepEqual(glb.animations.map(a=>a.name),clips);
+ const named=new Set(glb.nodes.map(n=>n.name));
+ for(const part of ['DustTrailRaider','Body','Head','Arm_L','Arm_R','Forearm_L','Forearm_R',
+   'Leg_L','Leg_R','Shin_L','Shin_R','Cape','Dagger'])
+  assert.ok(named.has(part),'missing '+part);
+ const sceneRoots=glb.scenes[glb.scene].nodes;
+ assert.equal(sceneRoots.length,1);
+ const reached=new Set();
+ const walk=id=>{assert.ok(!reached.has(id),'duplicate node parent');reached.add(id);for(const c of glb.nodes[id].children||[])walk(c)};
+ walk(sceneRoots[0]);
+ assert.equal(reached.size,glb.nodes.length,'no detached parts in the GLB');
+ const count=glb.accessors.length;
+ let triangleCount=0;
+ for(const mesh of glb.meshes)for(const p of mesh.primitives){
+  assert.ok(p.attributes.POSITION<count&&p.attributes.NORMAL<count&&p.indices<count);
+  assert.ok(glb.accessors[p.indices].count>=3);
+  triangleCount+=glb.accessors[p.indices].count/3;
+ }
+ assert.ok(triangleCount>=4000&&triangleCount<=7000,'target detail comparable with longstrider');
+ for(const clip of glb.animations){
+  assert.ok(clip.channels.length>=3);
+  assert.ok(clip.channels.every(ch=>ch.target.node<glb.nodes.length));
+ }
 });
