@@ -87,8 +87,13 @@ test('spherical parties, room-scoped chat and server chest reuse existing rules'
   await until(()=>c.events.find(e=>e.type==='chat'&&e.text==='Привет, мир!'));
   assert.equal(d.events.some(e=>e.type==='chat'&&e.text==='Привет, мир!'),false);
   const inventory=[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3},...Array(10).fill(null)];
+  // A confirmed move into chest range pushes occupancy before any open/poll.
+  a.send({type:'move',radius:261,normal:localToNormal(CHEST_X,CHEST_Z,261),
+   heading:Math.PI/2,moving:false});
+  const pushedStatus=await until(()=>a.events.find(e=>e.type==='chestStatus'));
+  assert.equal(pushedStatus.occupied,0);
   a.send({type:'chestStatus'});
-  const emptyStatus=await until(()=>a.events.find(e=>e.type==='chestStatus'));
+  const emptyStatus=await until(()=>a.events.filter(e=>e.type==='chestStatus').at(-1));
   assert.equal(emptyStatus.total,18);
   assert.equal(emptyStatus.occupied,0);
   a.send({type:'chestOpen',inventory});
