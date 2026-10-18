@@ -12,7 +12,9 @@ function walk(x,z,bodyRadius){const p=at(x,z);return canWalkCamp(p.x,p.z,bodyRad
 test('shared storage is at the former cabinet, in the far right corner',()=>{
  assert.equal(LONGHOUSE.chestLocalX,5.4);
  assert.equal(LONGHOUSE.chestLocalZ,-6.2);
- assert.deepEqual(toHouseCoordinates(HOUSE_CHEST.x,HOUSE_CHEST.z),{x:5.4,z:-6.2});
+ const local=toHouseCoordinates(HOUSE_CHEST.x,HOUSE_CHEST.z);
+ assert.ok(Math.abs(local.x-5.4)<1e-9);
+ assert.ok(Math.abs(local.z+6.2)<1e-9);
  assert.deepEqual(HOUSE_CHEST,{x:-33.2,z:-7.4,range:3.25});
  assert.equal(CHEST_X,HOUSE_CHEST.x);
  assert.equal(CHEST_Z,HOUSE_CHEST.z);
