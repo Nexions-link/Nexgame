@@ -159,3 +159,26 @@ test('corpse commands validate server life, distance and ownership before applyi
   assert.equal(takes,1);assert.deepEqual(persistent.inventory[0],{id:'feather',qty:1});
  }finally{ws.close();wss.close();server.close();world.close()}
 });
+
+test('closing the shared chest during a delayed read cannot reopen its session',async()=>{
+ const {createAccountEconomyDispatcher}=await import('../account-economy-dispatch.js');
+ const player={accountId:'a',characterId:'c',savedRevision:1,
+  normal:[0,0,1],radius:261,hp:100,lastCombatAt:0,accountChestOpen:false};
+ const sent=[];
+ let releaseRead,signalRead;
+ const reading=new Promise(resolve=>{releaseRead=resolve});
+ const began=new Promise(resolve=>{signalRead=resolve});
+ const dispatcher=createAccountEconomyDispatcher({
+  player,progressStore:{},queueSave:fn=>Promise.resolve().then(fn),
+  publishProgress:()=>{},send:event=>sent.push(event),
+  economyStore:{readChest:async()=>{signalRead();return reading}}
+ });
+ const pending=dispatcher.invoke('chestOpen');
+ await began;
+ dispatcher.closeChest();
+ releaseRead({slots:Array(18).fill(null),revision:1});
+ await pending;
+ assert.equal(dispatcher.chestOpen,false);
+ assert.equal(player.accountChestOpen,false);
+ assert.equal(sent.some(event=>event.type==='chestState'),false);
+});

@@ -18,7 +18,7 @@ test('authenticated world joins use stored nickname, level, position and gear, n
  const world=createSphericalWorld();
  const wss=new WebSocketServer({server});
  const trusted={accountId:'account',characterId:'hero',nickname:'Молодой Воин',
-  progress:{level:1,health:120,resource:0,worldRadius:261,
+  progress:{level:1,health:120,resource:25,worldRadius:261,
    positionNormal:localToNormal(-9,-25,261),heading:0,
    equipment:{weapon:{id:'wornAxe'}},revision:0}};
  wss.on('connection',ws=>world.attach(ws,{trustedCharacter:trusted}));
@@ -32,10 +32,12 @@ test('authenticated world joins use stored nickname, level, position and gear, n
   const welcome=await until(events,'welcome');
   assert.equal(welcome.radius,261);
   assert.equal(welcome.hp,120);
+  assert.equal(welcome.resource,25);
   assert.equal(world.players.size,1);
   const hero=[...world.players.values()][0];
   assert.equal(hero.name,'Молодой Воин');
   assert.equal(hero.level,1);
+  assert.equal(hero.resource,25);
   assert.equal(hero.equipment.weapon.id,'wornAxe');
   assert.deepEqual(hero.normal,trusted.progress.positionNormal);
   assert.equal(hero.characterId,'hero');
