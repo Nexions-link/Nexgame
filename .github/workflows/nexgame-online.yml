@@ -12,6 +12,7 @@ on:
       - 'bestiary/**'
       - 'assets/**'
       - 'server/**'
+      - 'ops/**'
       - 'package.json'
       - '.github/workflows/nexgame-online.yml'
   pull_request:
@@ -22,6 +23,7 @@ on:
       - 'bestiary/**'
       - 'assets/**'
       - 'server/**'
+      - 'ops/**'
       - 'package.json'
   workflow_dispatch:
 
@@ -47,6 +49,8 @@ jobs:
         run: npm run check
       - name: Run spherical gameplay and visual regressions
         run: npm test
+      - name: Verify production watchdog logic without live requests
+        run: node --test ops/audit-production.test.mjs
 
   multiplayer-server:
     runs-on: ubuntu-latest
