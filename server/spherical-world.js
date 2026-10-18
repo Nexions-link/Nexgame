@@ -28,6 +28,9 @@ export function boundedSphereAdvance(from,to,radius,meters){
  return length>1e-8?next.map(v=>v/length):[...from];
 }
 const RADII=[87,174,261],TICK_MS=100,MAX_PLAYERS=100,MAX_SPEED=7;
+// Recover normal packet loss (up to a few dozen metres), never accept an
+// implausible half-planet destination as a path to glide toward.
+const MAX_POSITION_RESYNC=50;
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const bound=(v,min,max)=>Math.max(min,Math.min(max,v));
 const cleanName=name=>typeof name==='string'
@@ -278,6 +281,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const now=Date.now(),dt=Math.min(1,(now-current.updatedAt)/1000);
    if(dt<.075)return;
    const delta=arcDistance(normal,current.normal,current.radius);
+   if(!Number.isFinite(delta)||delta>MAX_POSITION_RESYNC)return;
    current.normal=delta>MAX_SPEED*dt+.8
     ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt)
     :normal;
