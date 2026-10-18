@@ -6,7 +6,7 @@ const asset=new URL('../bestiary/models/dust-trail-raider-v0.1.glb',import.meta.
 const previewAsset=new URL('../bestiary/models/dust-trail-raider-v0.2.glb',import.meta.url);
 const refinedAsset=new URL('../bestiary/models/dust-trail-raider-v0.3.glb',import.meta.url);
 const clips=['Idle','Walk','Attack','Hurt','Death'];
-test('C004 Atlas preview is refined v0.3 while live game retains reviewed v0.1',()=>{
+test('C004 Atlas and actual game both load the same reviewed refined GLB v0.3',()=>{
  const entry=ATLAS_ENTRIES.find(e=>e.id==='bandit');
  assert.ok(entry);
  assert.equal(entry.category,'creatures');
@@ -17,7 +17,9 @@ test('C004 Atlas preview is refined v0.3 while live game retains reviewed v0.1',
  assert.deepEqual(entry.animations,clips);
  assert.equal(filterAtlasEntries('creatures','разбойник').length,1);
  const game=readFileSync(new URL('../planet-test/offline-rpg.js',import.meta.url),'utf8');
- assert.match(game,/loader\.loadAsync\('\.\.\/bestiary\/models\/dust-trail-raider-v0\.1\.glb\?v=0\.1'\)/);
+ assert.match(game,/loader\.loadAsync\('\.\.\/bestiary\/models\/dust-trail-raider-v0\.3\.glb\?v=0\.3'\)/);
+ assert.match(game,/container\.name='dust-trail-raider-v0\.3'/);
+ assert.doesNotMatch(game,/dust-trail-raider-v0\.1\.glb/);
  assert.match(game,/attachBanditVisual\(mob,asset\)/);
  const atlas=readFileSync(new URL('../bestiary/atlas.js',import.meta.url),'utf8');
  assert.match(atlas,/atlas_refresh/);
