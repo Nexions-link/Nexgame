@@ -202,7 +202,7 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
   mentorRev=mentorReward3.progress.revision;
   const mentorStage10=await store.startMentor(base(c,charlie,mentorRev,ctx(ECONOMY_MENTOR)));
   mentorRev=mentorStage10.progress.revision;
-  const boss={type:'killCredit',mobId:'dolgonog-8',life:1,
+  const boss={type:'killCredit',mobId:'dolgonog-9',life:1,
    xp:70,gold:12,loot:[{id:'giantFeather',qty:1}]};
   await assert.rejects(()=>store.recordMentorKill(base(c,charlie,mentorRev,null,{
    serverCredit:normalKill(5)
