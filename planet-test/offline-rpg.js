@@ -345,6 +345,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function applyServerProgress(progress,source='checkpoint'){
   if(!authenticatedProfile||!progress||!Number.isInteger(progress.level))return;
+  const previousLevel=state.level,previousXp=state.xp,previousGold=state.gold;
   state.level=progress.level;
   state.xp=progress.experience;
   state.gold=progress.gold;
@@ -367,7 +368,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   void updateEquipmentVisuals();
   draw();
   if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','chest','spells'].includes(modal.dataset.kind))renderModal();
-  if(source==='mob')msg('Получены опыт и монеты. Предметы можно забрать с тела.',2.6);
+  if(source==='mob'){
+   let gained=state.xp-previousXp;
+   for(let level=previousLevel;level<state.level&&level<60;level++)gained+=xpRequired(level);
+   gained=Math.max(0,gained);
+   const gold=Math.max(0,state.gold-previousGold);
+   msg(gained>0?
+    'Получено +'+gained+' опыта, +'+gold+' монет. Добыча с тела.':
+    'Противник слишком слаб: 0 опыта, +'+gold+' монет. Добыча с тела.',2.6);
+  }
  }
  function onKillCredit(event){
   if(authenticatedProfile)return;

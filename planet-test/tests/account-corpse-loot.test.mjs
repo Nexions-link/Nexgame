@@ -82,3 +82,14 @@ test('monster levels are visible in target frame and scale with hero difficulty'
  assert.match(h.get('targetName').textContent,/ур\. 1/);
  assert.equal(h.get('targetName').style.color,'#f6d774');
 });
+
+test('server progress displays exact experience gained even across a level-up and warns for gray mobs',()=>{
+ const profile={nickname:'Воин',level:1,experience:95,gold:30,health:120,
+  inventory:Array(12).fill(null),equipment:{},quests:{}};
+ const h=harness({authenticatedProfile:profile});
+ h.rpg.applyServerProgress({...profile,level:2,experience:17,gold:34},'mob');
+ assert.match(h.get('toast').textContent,/\+22 опыта, \+4 монет/);
+ h.rpg.applyServerProgress({...profile,level:6,experience:0,gold:34},'welcome');
+ h.rpg.applyServerProgress({...profile,level:6,experience:0,gold:38},'mob');
+ assert.match(h.get('toast').textContent,/0 опыта, \+4 монет/);
+});
