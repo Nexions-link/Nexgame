@@ -118,3 +118,15 @@ test('server stops chase at leash, returns home and restores HP after return',()
  assert.equal(mob.returning,false,'evading creature reaches its home point');
  assert.equal(mob.hp,mob.maxHp,'health resets after return, not during the chase');
 });
+
+test('server respawn moves interaction coordinates to the starting camp',()=>{
+ const mobs=createSphericalMobs(),mob=mobs[0];
+ const hero=character('fallen',mob.x,mob.z+1);
+ hero.x=mob.x;hero.z=mob.z+1;hero.hp=1;
+ mob.aggroId=hero.id;mob.attackAt=1100;
+ mob.yaw=sphericalMobYaw(mob.x,mob.z,hero.x-mob.x,hero.z-mob.z,261);
+ const events=tickSphericalMobs(mobs,new Map([[hero.id,hero]]),261,.1,1200,()=>.99);
+ assert.ok(events.some(e=>e.type==='respawnAccepted'));
+ assert.deepEqual([hero.x,hero.z],[0,0]);
+ assert.deepEqual(hero.normal,localToNormal(0,0,261));
+});

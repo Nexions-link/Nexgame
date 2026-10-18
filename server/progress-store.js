@@ -6,7 +6,7 @@ import pg from 'pg';
 import {getMentorQuest,certifyMentorKill} from './economy-rules.js';
 import {
  assertCharacterId,parseRevision,readProgress,validateKillCredit,
- awardVerifiedKill,validateServerCheckpoint,equipOwnedItem,unequipOwnedItem,
+ awardVerifiedKill,validateServerCheckpoint,validateServerVitals,equipOwnedItem,unequipOwnedItem,
  ProgressError,setActionBarSlot
 } from './progress-rules.js';
 const {Pool}=pg;
@@ -160,11 +160,12 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
  }
  // Call only AFTER server movement/speed/collision checks have passed.
  // This operation cannot change level, XP, gold, inventory or equipment.
- async function saveServerCheckpoint({accountId,characterId,expectedRevision,checkpoint}){
+ async function saveServerCheckpoint({accountId,characterId,expectedRevision,checkpoint,serverVitals=null}){
   return transaction(accountId,characterId,expectedRevision,async({state,save})=>{
    if(state.revision!==expectedRevision)throw conflict();
    const pos=validateServerCheckpoint(checkpoint,state.worldRadius);
-   return {progress:await save({...state,...pos})};
+   const vitals=serverVitals===null?{}:validateServerVitals(serverVitals,state);
+   return {progress:await save({...state,...pos,...vitals})};
   });
  }
  // The item must actually exist in the server-side saved inventory.

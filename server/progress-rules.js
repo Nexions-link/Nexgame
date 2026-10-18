@@ -184,6 +184,16 @@ export function validateServerCheckpoint(raw,previousRadius){
  return {worldRadius:raw.radius,positionNormal:raw.normal.map(n=>n/len),
   heading:raw.heading};
 }
+// Values originate from the server simulation, never a browser checkpoint.
+export function validateServerVitals(raw,state){
+ if(!plain(raw)||Object.keys(raw).some(k=>!['health','resource'].includes(k))||
+    typeof raw.health!=='number'||!Number.isFinite(raw.health)||raw.health<0||
+    typeof raw.resource!=='number'||!Number.isFinite(raw.resource)||
+    raw.resource<0||raw.resource>100)invalid('invalid_server_vitals');
+ const maxHp=deriveStats(state.level,state.equipment).maxHp;
+ return {health:Math.round(Math.max(1,Math.min(maxHp,raw.health))),
+  resource:Math.round(raw.resource)};
+}
 export function equipOwnedItem(state,bagSlot,slot){
  if(!integer(bagSlot,0,state.inventory.length-1)||
     !EQUIPMENT_SLOTS.has(slot))invalid('invalid_equipment_slot');

@@ -75,3 +75,13 @@ test('same browser cannot bind twice without disconnect',async()=>{
  gate.leave(socket);
  assert.equal(gate.online(),0);
 });
+
+test('a connected character session is invalidated after logout or password reset',async()=>{
+ const {gate,expire}=createFixture(),socket={};
+ await gate.enter(socket,{sessionToken:token,characterId:mine});
+ assert.equal(await gate.validate(socket),true);
+ expire();
+ assert.equal(await gate.validate(socket),false);
+ gate.leave(socket);
+ assert.equal(await gate.validate(socket),false);
+});

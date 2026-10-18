@@ -41,14 +41,21 @@ export function createWorldSessionGate({accountStore,progressStore}){
   if(leases.has(session.characterId))
    throw new WorldAuthError('character_already_online',409);
   leases.set(session.characterId,socket);
-  bySocket.set(socket,session.characterId);
+  bySocket.set(socket,{characterId:session.characterId,accountId:session.accountId,
+   digest:tokenDigest(args.sessionToken)});
   return session;
  }
+ async function validate(socket){
+  const lease=bySocket.get(socket);
+  if(!lease||leases.get(lease.characterId)!==socket)return false;
+  const account=await accountStore.accountForSession(lease.digest);
+  return account?.id===lease.accountId;
+ }
  function leave(socket){
-  const characterId=bySocket.get(socket);
-  if(characterId&&leases.get(characterId)===socket)
-   leases.delete(characterId);
+  const lease=bySocket.get(socket);
+  if(lease&&leases.get(lease.characterId)===socket)
+   leases.delete(lease.characterId);
   bySocket.delete(socket);
  }
- return {resolve,enter,leave,online:()=>leases.size};
+ return {resolve,enter,validate,leave,online:()=>leases.size};
 }

@@ -11,10 +11,10 @@ async function port(){
  await new Promise(resolve=>s.close(resolve));
  return p;
 }
-async function start(){
+async function start({guests=true}={}){
  const p=await port();
  const child=spawn(process.execPath,['index.js'],{
-  cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(p)},stdio:['ignore','ignore','pipe']
+  cwd:new URL('../',import.meta.url),env:{...process.env,PORT:String(p),NGW_GUEST_WORLD_ENABLED:String(guests)},stdio:['ignore','ignore','pipe']
  });
  let stderr='';child.stderr?.on('data',chunk=>{stderr+=String(chunk)});
  for(let i=0;i<80;i++){
@@ -85,4 +85,31 @@ test('spherical movement validates coordinates, prevents teleportation, and repo
   a.close();
   await until(()=>b.events.find(e=>e.type==='leave'&&e.id===welcome.id));
  }finally{a?.close();b?.close();child.kill()}
+});
+
+test('production closes anonymous world sockets and refuses unknown browser origins',{timeout:14000},async()=>{
+ const {p,child}=await start({guests:false});
+ try{
+  const guest=await client(p);
+  await until(()=>guest.socket.readyState===WebSocket.CLOSED);
+  assert.equal(guest.events.some(e=>e.type==='welcome'),false);
+  const h=await (await fetch('http://127.0.0.1:'+p+'/health')).json();
+  assert.equal(h.guestWorldEnabled,false);
+  await assert.rejects(new Promise((resolve,reject)=>{
+   const bad=new WebSocket('ws://127.0.0.1:'+p+'/ws/nexgameworld',{
+    headers:{Origin:'https://untrusted.example'}});
+   bad.once('open',()=>{bad.close();resolve()});
+   bad.once('error',reject);
+  }));
+ }finally{child.kill()}
+});
+test('world limits socket packet floods',{timeout:14000},async()=>{
+ const {p,child}=await start();let guest;
+ try{
+  guest=await client(p);
+  guest.send({type:'join',radius:261,normal:[0,0,1],heading:0});
+  await until(()=>guest.events.find(e=>e.type==='welcome'));
+  for(let i=0;i<95;i++)guest.send({type:'move',radius:261,normal:[0,0,1],heading:0,moving:false});
+  await until(()=>guest.socket.readyState===WebSocket.CLOSED);
+ }finally{guest?.close();child.kill()}
 });

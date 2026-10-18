@@ -71,6 +71,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
   // Serialize all server-generated character saves for this connection.
   // A socket is not released for another login until its save queue drains.
   let saveQueue=Promise.resolve(),lastCheckpoint=0;
+  let messageBudget=80,messageRefillAt=Date.now();
   function queueSave(operation){
    const pending=saveQueue.then(operation);
    saveQueue=pending.catch(error=>{
@@ -107,6 +108,11 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    }
   };
   ws.on('message',raw=>{
+   const messageNow=Date.now();
+   messageBudget=Math.min(80,messageBudget+Math.max(0,messageNow-messageRefillAt)*.05);
+   messageRefillAt=messageNow;
+   if(messageBudget<1){ws.close(1008,'Message rate exceeded');return;}
+   messageBudget--;
    if(raw.length>8192)return;
    let m;try{m=JSON.parse(String(raw))}catch{return}
    if(!m||typeof m!=='object'||Array.isArray(m))return;
@@ -146,13 +152,17 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
         mobId:credit.mobId,life:credit.life,loot:credit.loot});
       }
      });
-     p.queueCheckpoint=(checkpoint,source='checkpoint')=>queueSave(async()=>{
-      const result=await progressStore.saveServerCheckpoint({
-       accountId:p.accountId,characterId:p.characterId,
-       expectedRevision:p.savedRevision,checkpoint
+     p.queueCheckpoint=(checkpoint,source='checkpoint')=>{
+      // Capture authoritative vitals alongside the accepted movement state.
+      const serverVitals={health:p.hp,resource:p.resource};
+      return queueSave(async()=>{
+       const result=await progressStore.saveServerCheckpoint({
+        accountId:p.accountId,characterId:p.characterId,
+        expectedRevision:p.savedRevision,checkpoint,serverVitals
+       });
+       publishProgress(p,result,source);
       });
-      publishProgress(p,result,source);
-     });
+     };
     }
     p.savedInventory=Array.isArray(saved?.inventory)?saved.inventory:null;
     if(trustedCharacter&&progressStore&&economyStore){

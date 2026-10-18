@@ -13,7 +13,8 @@ import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.12';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.16';
+const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
  'https://www.nexions.ru','https://nexions-link.github.io']);
@@ -107,7 +108,7 @@ const http=createServer((req,res)=>{
    databaseConfigured:Boolean(process.env.DATABASE_URL),
    accountDbStatus,accountApiEnabled:!!accountApi,
    authenticatedWorldEnabled:!!authenticatedWorldGate,
-   authenticatedEconomyEnabled:!!worldEconomyStore}));return;
+   authenticatedEconomyEnabled:!!worldEconomyStore,guestWorldEnabled}));return;
  }
  if(req.url?.split('?')[0]?.startsWith('/api/ngw/')){
   if(accountApi){
@@ -127,7 +128,7 @@ const http=createServer((req,res)=>{
  res.end('Archived NexGame server is retired. Use NexGameWorld.');
 });
 const wss=new WebSocketServer({server:http,maxPayload:8192,
- verifyClient:({origin},done)=>done(!origin||origins.has(origin)||(!configuredOrigins.length&&origin.startsWith('https://')))});
+ verifyClient:({origin},done)=>done(!origin||origins.has(origin))});
 wss.on('connection',(ws,req)=>{
  const path=req.url?.split('?')[0];
  if(path==='/ws/nexgameworld/auth'){
@@ -151,7 +152,17 @@ wss.on('connection',(ws,req)=>{
     if(ws.readyState!==1){authenticatedWorldGate.leave(ws);return}
     const attached=world.attach(ws,{trustedCharacter:trusted,
      progressStore:worldProgressStore,economyStore:worldEconomyStore});
+    const sessionCheck=setInterval(()=>{
+     void authenticatedWorldGate.validate(ws).then(valid=>{
+      if(!valid&&ws.readyState===1)ws.close(1008,'Account session expired');
+     }).catch(error=>{
+      console.error('World session verification failed:',error?.code||error?.name||'unknown');
+      if(ws.readyState===1)ws.close(1011,'Session verification unavailable');
+     });
+    },60000);
+    sessionCheck.unref?.();
     ws.once('close',()=>{
+     clearInterval(sessionCheck);
      // Keep a character lease while outstanding committed rewards/position
      // writes finish. Never allow concurrent reconnect to race the last save.
      Promise.resolve(attached.drain()).finally(()=>authenticatedWorldGate.leave(ws));
@@ -169,6 +180,7 @@ wss.on('connection',(ws,req)=>{
  if(path!=='/ws/nexgameworld'){
   ws.close(1008,'Flat NexGame is archived');return;
  }
+ if(!guestWorldEnabled){ws.close(1008,'Account login required');return;}
  world.attach(ws);
 });
 http.listen(PORT,'0.0.0.0',()=>{
