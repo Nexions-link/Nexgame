@@ -1159,7 +1159,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const difficulty=target.kind==='mob'?monsterDifficulty(state.level,target.level):'yellow';
     // Keep the full creature name readable. The level is a separate compact
     // badge, so it never pushes the target name outside the fixed HUD slot.
-    $('targetName').textContent=target.name;
+    $('targetName').textContent=target.boss&&target.family==='stormbeak'?'Грозоклюв':target.name;
     $('targetName').title=target.name;
     $('targetLevel').hidden=target.kind!=='mob';
     if(target.kind==='mob'){
