@@ -1,3 +1,5 @@
+import {resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 // Read-only public production checks. No player credentials or database connections.
 const VERSION=/^\d+\.\d+\.\d+(?:\.\d+)?$/;
 const SHA=/^[a-f0-9]{40}$/;
@@ -62,7 +64,7 @@ export async function auditWithRetry(options={},{
  throw last;
 }
 
-if(process.argv[1]&&new URL('file://'+process.argv[1]).href===import.meta.url){
+if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  const expectedSha=process.env.GITHUB_SHA||null;
  auditWithRetry({expectedSha}).then(report=>{
   console.log('NGW production OK:',JSON.stringify({...report,
