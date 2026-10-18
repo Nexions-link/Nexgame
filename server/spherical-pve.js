@@ -113,13 +113,15 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  if(!ability||!['autoAttack','heavyStrike','thunderStomp'].includes(abilityId))
   return {ok:false,reason:'Неизвестная боевая способность',events:[]};
  if(player.hp<=0)return {ok:false,reason:'Персонаж мёртв',events:[]};
+ if(abilityId!=='thunderStomp'&&mobs.some(m=>m.id===mobId&&m.phase==='alive'&&m.returning))
+  return {ok:false,reason:'Противник возвращается к месту появления',events:[]};
  const cooldown=player.abilityCooldowns??(player.abilityCooldowns={});
  if(now<(cooldown[abilityId]||0)||ability.gcd>0&&now<(cooldown.gcd||0))
   return {ok:false,reason:'Способность восстанавливается',events:[]};
  if((player.resource||0)<ability.resourceCost)
   return {ok:false,reason:'Недостаточно ярости',events:[]};
  const targets=abilityId==='thunderStomp'
-  ?mobs.filter(m=>m.phase==='alive'&&localDistance(m,player,player.radius)<=STOMP_RANGE)
+  ?mobs.filter(m=>m.phase==='alive'&&!m.returning&&localDistance(m,player,player.radius)<=STOMP_RANGE)
   :mobs.filter(m=>m.id===mobId&&m.phase==='alive');
  if(abilityId!=='thunderStomp'&&targets.length!==1)
   return {ok:false,reason:'Цель недоступна',events:[]};
@@ -157,10 +159,21 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  }
  return {ok:true,events,credits,resource:player.resource};
 }
+// A disengaged creature must return home before becoming attackable again.
+// Reset stale damage claims immediately: disconnected/dead attackers must never
+// receive loot for a subsequent life of the fight.
+export function startSphereEvade(mob){
+ if(!mob||mob.phase!=='alive')return;
+ mob.aggroId=null;mob.attackAt=0;mob.attackCooldownAt=0;
+ mob.stunUntil=0;mob.navigation=null;mob.returning=true;
+ mob.roamState='rest';mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;
+ mob.contributors.clear();
+}
+
 export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math.random){
  dt=clamp(dt,0,MAX_TICK);
  const events=[];
- const alive=[...players.values()].filter(p=>p.joined&&p.radius===radius&&p.hp>0);
+ const alive=[...players.values()].filter(p=>p.joined&&p.radius===radius&&p.hp>0&&!(p.respawnShieldUntil>now));
  for(const mob of mobs){
   if(mob.phase==='corpse'&&now>=mob.corpseUntil){mob.phase='hidden';mob.aggroId=null;}
   if(mob.phase==='hidden'&&now>=mob.respawnAt){
@@ -175,11 +188,11 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   const spawnNormal=localToNormal(mob.spawnX,mob.spawnZ,radius);
   let target=mob.aggroId?players.get(mob.aggroId):null;
   if(target&&(!target.joined||target.hp<=0||target.radius!==radius||
+    target.respawnShieldUntil>now||
     arcDistance(spawnNormal,target.normal,radius)>SPHERE_LEASH_METRES)){
-   mob.aggroId=null;mob.attackAt=0;mob.navigation=null;
-   mob.returning=true;target=null;
+   startSphereEvade(mob);target=null;
   }
-  if(!target&&mob.aggroId){mob.aggroId=null;mob.attackAt=0;mob.returning=true;mob.navigation=null;}
+  if(!target&&mob.aggroId)startSphereEvade(mob);
   // An evading creature must actually finish its return before reacquiring aggro.
   if(!target&&!mob.returning){
    let closest=Infinity;
@@ -254,9 +267,8 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
     target.hp=target.maxHp;target.resource=0;target.normal=localToNormal(0,0,radius);
     target.heading=0;target.x=0;target.z=0;
      target.updatedAt=now;target.respawnShieldUntil=now+3000;
-    for(const other of mobs)if(other.aggroId===target.id){
-     other.aggroId=null;other.attackAt=0;other.navigation=null;
-    }
+    for(const other of mobs)if(other.aggroId===target.id)
+     startSphereEvade(other);
     events.push({type:'respawnAccepted',targetId:target.id,
      normal:target.normal,heading:target.heading,hp:target.hp,maxHp:target.maxHp});
    }

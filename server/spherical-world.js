@@ -9,7 +9,7 @@ import {createChatManager} from './chat.js';
 import {createSharedChest,CHEST_X,CHEST_Z,CHEST_SLOTS} from './chest.js';
 import {
  createSphericalMobs,mobSnapshot,tickSphericalMobs,applySphereAttack,
- sanitizeSphereEquipment,normalToLocal,arcDistance,localDistance
+ sanitizeSphereEquipment,normalToLocal,arcDistance,localDistance,startSphereEvade
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
 import {resolveSphereWalk} from './world-movement.js';
@@ -126,7 +126,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     }
     party.disconnect(p.id);chat.disconnect(p.id);chest.disconnect(p.id);
     players.delete(p.id);sendInRoom(p.radius,{type:'leave',id:p.id});
-    for(const mob of rooms.get(p.radius).mobs)if(mob.aggroId===p.id)mob.aggroId=null;
+    for(const mob of rooms.get(p.radius).mobs)if(mob.aggroId===p.id)
+     startSphereEvade(mob);
    }
   };
   // Publish only occupancy (never item IDs) after the server confirms proximity.
