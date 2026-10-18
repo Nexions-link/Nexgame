@@ -136,14 +136,14 @@ test('server respawn moves interaction coordinates to the starting camp',()=>{
 
 test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite level 3 boss',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,10);
+ assert.equal(mobs.length,13);
  assert.deepEqual([mobs.at(-1).x,mobs.at(-1).z],[BOSS_POSITION.x,BOSS_POSITION.z]);
  for(const m of mobs.slice(0,-1)){
   assert.equal(canWalkCamp(m.spawnX,m.spawnZ),true,'mob spawn must not be inside a wall');
   assert.equal(canWadeAtLocal(m.spawnX,m.spawnZ),true,'mob spawn must not be in deep water');
  }
- assert.deepEqual(mobs.filter(m=>!m.boss).map(m=>m.level),[1,1,1,1,1,2,2,2,2]);
- const boss=mobs.at(-1);
+ assert.deepEqual(mobs.filter(m=>m.family==='dolgonog').map(m=>m.level),[1,1,1,1,1,2,2,2,2]);
+ const boss=mobs.find(m=>m.boss);
  assert.equal(boss.id,'dolgonog-9');
  assert.equal(boss.level,3);assert.equal(boss.boss,true);
  assert.equal(boss.hp,108);
@@ -154,9 +154,10 @@ test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite
 
 test('all ten monsters are beasts; none has a currency kill reward',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,10);
- assert.ok(mobs.every(m=>m.creatureType==='beast'));
- assert.ok(mobSnapshot(mobs).every(m=>m.creatureType==='beast'));
+ assert.equal(mobs.length,13);
+ assert.ok(mobs.filter(m=>m.family!=='bandit').every(m=>m.creatureType==='beast'));
+ assert.ok(mobs.filter(m=>m.family==='bandit').every(m=>m.creatureType==='humanoid'));
+ assert.ok(mobSnapshot(mobs).filter(m=>m.family!=='bandit').every(m=>m.creatureType==='beast'));
  const hero=character('hunter'),mob=mobs[0];mob.hp=1;
  const result=applySphereAttack(mobs,hero,'autoAttack',mob.id,4000,()=>.5);
  assert.equal(result.credits[0].event.gold,0);

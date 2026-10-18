@@ -428,7 +428,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const byIndex=new Map(rows.filter(x=>Number.isInteger(x.index)).map(x=>[x.index,x]));
   for(const mob of mobs){
    const remote=byIndex.get(mob.index);
-   if(!remote||remote.id!==mob.id||!['alive','corpse','hidden'].includes(remote.phase)||
+   if(!remote||(remote.id&&remote.id!==mob.id)||!['alive','corpse','hidden'].includes(remote.phase)||
     !Number.isFinite(remote.x)||!Number.isFinite(remote.z)||!Number.isFinite(remote.hp))continue;
    const wasCorpse=mob.corpse,wasHidden=!mob.root.visible,changedLife=mob.life!==remote.life;
    mob.x=remote.x;mob.z=remote.z;mob.yaw=Number.isFinite(remote.yaw)?remote.yaw:0;
