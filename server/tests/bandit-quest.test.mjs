@@ -22,7 +22,9 @@ test('13 uniquely identified PvE creatures have valid spawns and 3 distinct band
  assert.ok(bandits.every(x=>x.creatureType==='humanoid'));
  assert.ok(mobs.slice(0,10).every(x=>x.creatureType==='beast'));
  for(const spec of CREATURE_SPAWNS){
-  assert.ok(canWalkCamp(spec.x,spec.z,261),'solid ground for '+spec.id);
+  // canWalkCamp takes an entity collision radius, not the world's 261 m radius.
+  const collisionRadius=spec.boss?.94:.52;
+  assert.ok(canWalkCamp(spec.x,spec.z,collisionRadius),'solid ground for '+spec.id);
   assert.ok(canWadeAtLocal(spec.x,spec.z),'no spawns in lake: '+spec.id);
   assert.equal(creatureById(spec.id)?.index,spec.index);
  }

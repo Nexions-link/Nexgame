@@ -1,32 +1,47 @@
-# NexGameWorld online server
+# NexGameWorld · сервер активной онлайн-RPG
 
-**Active**: WebSocket `/ws/nexgameworld` (protocol 2), health at `/health`.
-The flat NexGame WebSocket and world tick are retired. Old server code and tests
-remain in Git history and `archive/flat-prototype-0.3.7.1`.
+По состоянию на Alpha 0.6.41.4 (18.10.2026) действует только сферический NexGameWorld.
 
-The server owns nine shared dolgonogs (including Stormbeak), damage, aggro,
-spherical mob movement, stuns, a 30-second corpse plus a 30-second respawn,
-personal kill credits, group invites (5 members), room-scoped world/party chat
-and the 18-slot shared chest.
+## Вход и состояние сервера
 
-The live chest uses `NGW_CHEST_DATA_FILE`. By default it is placed next to
-the old `CHEST_DATA_FILE` so an existing Render persistent disk may be reused.
-On startup, old `CHEST_DATA_FILE` is deleted if its path differs from the new
-file. `/health` exposes `legacyCleanup` with status `removed`, `not_found`,
-`error` or `skipped_same_storage_path`.
+- Основной WebSocket: `/ws/nexgameworld/auth` (только подтверждённый аккаунт и выбранный персонаж).
+- Гостевой `/ws/nexgameworld` доступен только при явном `NGW_GUEST_WORLD_ENABLED=true`; в штатной конфигурации отключён.
+- `GET /health` — жив ли игровой процесс, версия сервера и счётчики мира; успешный ответ **не** подтверждает готовность БД.
+- `GET /ready` — HTTP 200, только если доступны аккаунты, серверная экономика и PostgreSQL. HTTP 503 означает, что вход/сохранения сейчас не готовы.
+- Протокол сферического мира — 2. Клиентская версия сверяется с полем `BUILD` сервера тестом `test:release`.
 
-Current alpha limits: accounts are absent; browser-reported character level and
-equipped items are bounded but not authenticated. Personal inventory, currency,
-quests and loot collection are local; the shared chest data is stored server-side.
-Render free instances may sleep and non-persistent storage can be lost on deploy.
+## Авторитетная игровая логика
 
+Сервер управляет состоянием игроков, перемещением и столкновениями, PvE, агрессией и смертью существ, наградами, групповыми приглашениями, чатом и общим сундуком на 18 ячеек. Сейчас в стартовой зоне 10 долгоногов (включая Грозоклюва) и 3 разбойника.
 
-## Production health
-- `GET /health`: process liveness plus world metrics, independent of temporary DB outages.
-- `GET /ready`: returns HTTP 200 only when auth/economy services exist and PostgreSQL accepts a query. Alert on 503 without using it as Render's restart health check.
-- Alert when `worldMetrics.progressSaveFailures` increases; inspect `movementRejected` and `positionCorrections` for desynchronization.
-- WebSockets are checked every 30 seconds; three missed protocol pong replies evict a ghost session.
+В авторизованном режиме аккаунты, персонажи, опыт, предметы, задания, валюта и общий сундук сохраняются в PostgreSQL (Neon). Сервер проверяет расстояния для взаимодействий и присуждает добычу после подтверждённого убийства. Монеты из гуманоидов добавляются к балансу только после сбора из трупа; животные монет не оставляют.
 
-## Recovery and database backups
-Neon free-tier snapshots are at capacity and automatic schedules are unavailable (confirmed 2026-10-18). An isolated, no-compute copy-on-write branch `ngw-recovery-point-2026-10-18` was created instead. It is a point-in-time recovery source, NOT a regularly updated offsite backup.
-Never restore production directly without verifying the recovery point. First restore onto a separate branch, inspect character/economy consistency, and then plan a controlled cutover. To enable real daily backups, use a Neon plan that supports scheduled snapshots or send encrypted `pg_dump` archives to private external storage with tested restores. Never put player records or backup archives in public GitHub Actions artifacts.
+Некоторые локальные/гостевые реализации оставлены в коде для совместимости и тестовых сценариев. Их нельзя считать авторитетными для производственной онлайн-игры.
+
+## Безопасная эксплуатация
+
+1. Для сервера контролировать `/ready` отдельно от `/health`. Не использовать недоступность Neon как безусловную причину перезапускать весь игровой процесс.
+2. Следить за `worldMetrics.progressSaveFailures`, `movementRejected` и `positionCorrections`; увеличение ошибок сохранения — повод приостановить релизы.
+3. При обновлении сначала убедиться, что прошли серверные, PostgreSQL и клиентские CI, затем проверять сохранение после повторного входа в браузере.
+4. Все изменения структуры хранения проверять на временной базе. Не выполнять сброс данных, очистку таблиц или восстановление поверх production без отдельного подтверждения.
+
+## Копирование и восстановление прогресса
+
+На 18.10.2026 подтверждена отдельная копия ветки Neon `ngw-recovery-point-2026-10-18` без вычислительного узла — **разовый снимок**, а не регулярная независимая резервная копия. Сам по себе он не закрывает риск ошибки учётной записи Neon или удаления всего проекта.
+
+До внешнего тестирования альфы необходимо выбрать и протестировать стратегию регулярного копирования:
+
+- поддерживаемые Neon scheduled snapshots **или** зашифрованные `pg_dump` в отдельное приватное хранилище;
+- ограниченный доступ к резервным копиям и отсутствие данных игроков в публичных репозиториях/артефактах GitHub Actions;
+- проверка восстановления на новой временной ветке/базе и сравнение числа персонажей, прогресса, записей экономики и содержимого сундука;
+- фиксация даты последнего успешного бэкапа и восстановления в закрытом операционном журнале.
+
+Не считать задачу завершённой, пока нет *автоматического* резервирования и хотя бы одного подтверждённого теста восстановления.
+
+## CI
+
+- `npm test --prefix server`: PvE, сундук, сетевое состояние и обязательная согласованность версий клиента/сервера.
+- `npm run test:economy --prefix server`: экономика и серверная логика разбойников.
+- `npm run test:bandit:postgres --prefix server`: транзакции убийства, ручной сбор монет, запрет повторных наград и прогресс после перезахода; запускать с временным `NGW_PROGRESS_TEST_DATABASE`, **не с производственной БД**.
+
+Архивная плоская NexGame не обслуживается этим сервером.

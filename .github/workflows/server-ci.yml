@@ -99,5 +99,5 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Test durable economy transactions against disposable Postgres
-        run: npm run check:economy && npm run test:economy
+      - name: Test durable economy and humanoid quest transactions against disposable Postgres
+        run: npm run check:economy && npm run test:economy && npm run test:bandit:postgres
