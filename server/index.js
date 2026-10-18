@@ -2,6 +2,7 @@
 import {createServer} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {WebSocketServer} from 'ws';
+import {createWorldHeartbeat} from './world-heartbeat.js';
 import {existsSync,unlinkSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {resolve,dirname,join} from 'node:path';
@@ -13,7 +14,7 @@ import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.17';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.18';
 const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
@@ -99,6 +100,23 @@ async function initializeAccounts(){
 }
 const accountsReady=initializeAccounts();
 const http=createServer((req,res)=>{
+ if(req.url?.split('?')[0]==='/ready'){
+  // Separate database readiness from WebSocket liveness for resilient deploys.
+  void (async()=>{
+   try{
+    await accountsReady;
+    if(!accountApi||!authenticatedWorldGate||!worldEconomyStore||!accountStore)
+     throw Error('world_dependencies_unavailable');
+    await accountStore.ping();
+    res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
+    res.end(JSON.stringify({ready:true,build:BUILD}));
+   }catch{
+    res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});
+    res.end(JSON.stringify({ready:false,build:BUILD}));
+   }
+  })();
+  return;
+ }
  if(req.url?.split('?')[0]==='/health'){
   res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
   res.end(JSON.stringify({ok:true,world:'nexgameworld',
@@ -108,7 +126,8 @@ const http=createServer((req,res)=>{
    databaseConfigured:Boolean(process.env.DATABASE_URL),
    accountDbStatus,accountApiEnabled:!!accountApi,
    authenticatedWorldEnabled:!!authenticatedWorldGate,
-   authenticatedEconomyEnabled:!!worldEconomyStore,guestWorldEnabled}));return;
+   authenticatedEconomyEnabled:!!worldEconomyStore,guestWorldEnabled,
+   uptimeSeconds:Math.floor(process.uptime()),worldMetrics:world.metrics()}));return;
  }
  if(req.url?.split('?')[0]?.startsWith('/api/ngw/')){
   if(accountApi){
@@ -129,7 +148,9 @@ const http=createServer((req,res)=>{
 });
 const wss=new WebSocketServer({server:http,maxPayload:8192,
  verifyClient:({origin},done)=>done(!origin||origins.has(origin))});
+const heartbeat=createWorldHeartbeat({wss});
 wss.on('connection',(ws,req)=>{
+ heartbeat.track(ws);
  const path=req.url?.split('?')[0];
  if(path==='/ws/nexgameworld/auth'){
   if(!authenticatedWorldGate){
@@ -194,4 +215,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{heartbeat.close();if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});

@@ -12,6 +12,8 @@ import {
  sanitizeSphereEquipment,normalToLocal,arcDistance
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
+import {resolveSphereWalk} from './world-movement.js';
+import {selectVisiblePlayers} from './world-interest.js';
 
 export const SPHERE_PROTOCOL=2;
 // Recover from dropped/throttled mobile movement packets without teleporting.
@@ -61,6 +63,7 @@ const publicPlayer=p=>({
 });
 export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHEST_DATA_FILE||join(dirname(resolve(process.env.CHEST_DATA_FILE||'chest-data.json')),'nexgameworld-chest.json'))}={}){
  const players=new Map(),connections=new Map();
+ const counters={movementRejected:0,positionCorrections:0,progressSaveFailures:0,snapshotsSent:0};
  const rooms=new Map(RADII.map(radius=>[radius,{radius,mobs:createSphericalMobs(),tick:0}]));
  let clock=Date.now();
  const sendToId=(id,event)=>{for(const [ws,player] of connections)
@@ -87,6 +90,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    saveQueue=pending.catch(error=>{
     if(saveFailed)return;
     saveFailed=true;
+    counters.progressSaveFailures++;
     console.error('NexGameWorld authoritative progress save failed:',
      error?.code||error?.name||'unknown');
     send(ws,{type:'progressError',reason:'Не удалось сохранить прогресс. Переподключитесь.'});
@@ -156,7 +160,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      level,equipment,hp,maxHp:stats.maxHp,resource:saved?bound(saved.resource,0,100):0,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
      joined:true,x:local.x,z:local.z,abilityCooldowns:{},
-     savedRevision:saved?.revision??null};
+     savedRevision:saved?.revision??null,lastPositionCorrectionAt:0};
     if(trustedCharacter&&progressStore){
      p.queueVerifiedKill=credit=>queueSave(async()=>{
       const result=await progressStore.recordMobKill({
@@ -214,6 +218,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      id:p.id,radius:p.radius,tickMs:TICK_MS,players:[...players.values()]
       .filter(x=>x.radius===p.radius&&x.id!==p.id).map(publicPlayer),
      mobs:mobSnapshot(rooms.get(p.radius).mobs),hp:p.hp,maxHp:p.maxHp,resource:p.resource,
+     onlineCount:[...players.values()].filter(x=>x.radius===p.radius).length,
      ...(trustedCharacter?{characterId:p.characterId,
       progress:trustedCharacter.progress,authenticated:true}:{})});
     send(ws,party.state(p.id));
@@ -308,14 +313,29 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const now=Date.now(),dt=Math.min(1,(now-current.updatedAt)/1000);
    if(dt<.075)return;
    const delta=arcDistance(normal,current.normal,current.radius);
-   if(!Number.isFinite(delta)||delta>MAX_POSITION_RESYNC)return;
-   current.normal=delta>MAX_SPEED*dt+.8
-    ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt)
-    :normal;
-   current.heading=heading;current.moving=m.moving;
+   const correct=reason=>{
+    if(now-(current.lastPositionCorrectionAt||0)<500)return;
+    current.lastPositionCorrectionAt=now;
+    counters.positionCorrections++;
+    send(ws,{type:'positionCorrection',normal:[...current.normal],
+     heading:current.heading,reason});
+   };
+   if(!Number.isFinite(delta)||delta>MAX_POSITION_RESYNC){
+    correct('position_out_of_range');return;
+   }
+   const capped=delta>MAX_SPEED*dt+.8;
+   const desired=capped
+    ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt):normal;
+   const sweep=resolveSphereWalk(current.normal,desired,current.radius);
+   current.normal=sweep.normal;
+   current.heading=heading;
+   current.moving=m.moving&&!sweep.blocked;
    current.updatedAt=now;
    const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
+   if(sweep.blocked)counters.movementRejected++;
+   if(sweep.blocked||capped&&arcDistance(current.normal,normal,current.radius)>1.5)
+    correct(sweep.blocked?'collision':'speed_limit');
    if(current.queueCheckpoint&&now-lastCheckpoint>=6000){
     lastCheckpoint=now;
     // Save only the movement actually accepted by the authoritative server,
@@ -354,11 +374,20 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     p.hp=Math.min(p.maxHp,p.hp+3*dt);
     p.resource=Math.max(0,p.resource-5*dt);
    }
-   if(![...players.values()].some(p=>p.radius===room.radius))continue;
-   const snapshot={type:'snapshot',protocol:SPHERE_PROTOCOL,tick:room.tick,radius:room.radius,
-    players:[...players.values()].filter(p=>p.radius===room.radius).map(publicPlayer),
-    mobs:mobSnapshot(room.mobs)};
-   sendInRoom(room.radius,snapshot);
+   const roomPlayers=[...players.values()].filter(p=>p.radius===room.radius);
+   if(!roomPlayers.length||room.tick%2!==0)continue;
+   // Send 5Hz visual snapshots, but keep the world simulation at 10Hz.
+   const worldMobs=mobSnapshot(room.mobs);
+   const publicRows=roomPlayers.map(publicPlayer);
+   const byId=new Map(publicRows.map(p=>[p.id,p]));
+   for(const [ws,observer] of connections){
+    if(observer?.radius!==room.radius)continue;
+    const visible=selectVisiblePlayers(roomPlayers,observer,room.radius);
+    counters.snapshotsSent++;
+    send(ws,{type:'snapshot',protocol:SPHERE_PROTOCOL,tick:room.tick,
+     radius:room.radius,onlineCount:roomPlayers.length,
+     players:visible.map(p=>byId.get(p.id)),mobs:worldMobs});
+   }
   }
  }
  timer=setInterval(()=>{
@@ -367,5 +396,5 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  },TICK_MS);
  timer.unref?.();
  return {attach,population:()=>players.size,mobCount:()=>rooms.get(261).mobs.length,
-  close:()=>clearInterval(timer),tickOnce,rooms,players};
+  close:()=>clearInterval(timer),tickOnce,rooms,players,metrics:()=>({...counters})};
 }
