@@ -6,7 +6,7 @@ import {resolveSphereWalk,walkableSphereNormal} from '../world-movement.js';
 const R=261;
 const point=(x,z)=>localToNormal(x,z,R);
 test('server sweep blocks longhouse walls',()=>{
- const from=point(-27-12,0),to=point(-27-7,0);
+ const from=point(-14,-8),to=point(-21,-8);
  assert.equal(walkableSphereNormal(from,R),true);
  assert.equal(resolveSphereWalk(from,to,R).blocked,true);
 });
