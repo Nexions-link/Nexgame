@@ -55,7 +55,7 @@ test('Postgres journey: starter -> verified kill -> corpse loot -> equip -> ches
   const mobId='dolgonog-0',mob=creatureById(mobId);
   const serverCredit={type:'killCredit',mobId,life:1,
    xp:creatureKillReward(mob).xp,gold:0,
-   loot:[{id:'feather',qty:2},{id:'batteredBuckler',qty:1}]};
+   loot:[{id:'feather',qty:1},{id:'batteredBuckler',qty:1}]};
   const killArgs={accountId,characterId,expectedRevision:started.revision,
    radius:261,serverCredit,deferLoot:true};
   const killed=await progress.recordMobKill(killArgs);
@@ -73,7 +73,7 @@ test('Postgres journey: starter -> verified kill -> corpse loot -> equip -> ches
   assert.deepEqual((await economy.readCorpseLoot(lootContext)).loot,serverCredit.loot);
   const feather=await economy.takeCorpseLoot({...lootContext,
    expectedRevision:killed.progress.revision,itemId:'feather',requestId:randomUUID()});
-  assert.deepEqual(feather.taken,[{id:'feather',qty:2}]);
+  assert.deepEqual(feather.taken,[{id:'feather',qty:1}]);
   assert.equal(feather.progress.inventory.filter(x=>x?.id==='feather').length,1);
   const buckler=await economy.takeCorpseLoot({...lootContext,
    expectedRevision:feather.progress.revision,itemId:'batteredBuckler',requestId:randomUUID()});
@@ -104,7 +104,7 @@ test('Postgres journey: starter -> verified kill -> corpse loot -> equip -> ches
   assert.equal(deposited.progress.inventory[featherSlot],null);
   assert.equal(occupied(deposited.chest.slots),occupied(beforeChest.slots)+1);
   const newlyFilled=deposited.chest.slots.findIndex((row,index)=>
-   !beforeChest.slots[index]&&row?.id==='feather'&&row.qty===2);
+   !beforeChest.slots[index]&&row?.id==='feather'&&row.qty===1);
   assert.ok(newlyFilled>=0,'the deposited stack must occupy a single free chest slot');
   const dupDeposit=await economy.moveChest(depositArgs);
   assert.equal(dupDeposit.applied,false);
@@ -122,7 +122,7 @@ test('Postgres journey: starter -> verified kill -> corpse loot -> equip -> ches
   assert.equal(rejoined.inventory.some(x=>x?.id==='feather'),false);
   assert.deepEqual((await replayEconomy.readChest({
    accountId,characterId,context:chestContext
-  })).slots[newlyFilled],{id:'feather',qty:2});
+  })).slots[newlyFilled],{id:'feather',qty:1});
 
   const withdrawArgs={accountId,characterId,expectedRevision:rejoined.revision,
    context:chestContext,requestId:randomUUID(),action:'withdraw',slot:newlyFilled};
@@ -133,7 +133,7 @@ test('Postgres journey: starter -> verified kill -> corpse loot -> equip -> ches
   assert.equal(retry.applied,false,'network retry must not duplicate a chest transfer');
   const final=await progress.load(accountId,characterId);
   assert.equal(final.inventory.filter(x=>x?.id==='feather').length,1);
-  assert.equal(final.inventory.find(x=>x?.id==='feather')?.qty,2);
+  assert.equal(final.inventory.find(x=>x?.id==='feather')?.qty,1);
   assert.deepEqual(final.equipment.shield,{id:'batteredBuckler'});
   assert.equal(final.experience,killed.progress.experience);
   assert.equal(final.gold,started.gold);
