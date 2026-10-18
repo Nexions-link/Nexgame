@@ -166,3 +166,18 @@ test('account API requires safe origin and session; creates a character without 
   await new Promise(resolve=>server.close(resolve));
  }
 });
+
+test('JSON parser preserves Cyrillic when HTTP fragments split UTF-8 codepoints',async()=>{
+ const {EventEmitter}=await import('node:events');
+ const {readJson}=await import('../account-api.js');
+ const req=new EventEmitter();
+ req.headers={'content-type':'application/json'};
+ const body=Buffer.from(JSON.stringify({nickname:'Копытце'}));
+ const cut=body.indexOf(0xd0)+1;
+ assert.ok(cut>1);
+ const parsed=readJson(req);
+ req.emit('data',body.subarray(0,cut));
+ req.emit('data',body.subarray(cut));
+ req.emit('end');
+ assert.equal((await parsed).nickname,'Копытце');
+});
