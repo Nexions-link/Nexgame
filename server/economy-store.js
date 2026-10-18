@@ -117,8 +117,8 @@ export function createEconomyStore({pool:externalPool,
    }
    if(!taken.length)fail(rows[0].loot.length?'inventory_full':'corpse_empty');
    await client.query(
-    'UPDATE ngw_progress_events SET loot=$3::jsonb WHERE character_id=$1 AND event_key=$2',
-    [args.characterId,key,JSON.stringify(remaining)]);
+    'UPDATE ngw_progress_events SET loot=$3::jsonb,gold_granted=gold_granted+$4 WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,key,JSON.stringify(remaining),gold-state.gold]);
    return {applied:true,progress:await save({...state,inventory,gold}),loot:remaining,taken};
   });
  }
