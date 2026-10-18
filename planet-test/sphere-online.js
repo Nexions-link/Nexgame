@@ -206,7 +206,7 @@ export function createSphericalPresence({
   for(const [id,model] of visuals)if(!needed.has(id)){
    disposeActor(model.actor.root);visuals.delete(id);
   }
-  for(const {peer} of rows){
+  for(const {peer,distance} of rows){
    let visual=visuals.get(peer.id);
    if(!visual){
     const colors=[0x836144,0x75513d,0x967055,0x695042];
@@ -233,9 +233,7 @@ export function createSphericalPresence({
    visual.phase+=dt*(peer.moving?9.1:1.1);
    // Always interpolate the remote actor transform; throttle only the bone
    // pose for distant avatars that cannot be the local combatant.
-   const animationDt=consumeAnimationTime(visual,dt,
-    greatCircleDistance(own.normal,peer.normal,own.radius),
-    {urgent:false});
+   const animationDt=consumeAnimationTime(visual,dt,distance);
    if(animationDt>0)
     animateAvatar(visual.actor,{dt:animationDt,time,walk:peer.moving?1:0,phase:visual.phase});
   }
