@@ -92,8 +92,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   return safe;
  };
  const state=preview?initial():authenticatedProfile?serverInitial():restore(),runtime=createAbilityRuntime();
- let serverBagSlots=authenticatedProfile?.inventory?.length?
+ let serverBagSlots=Array.isArray(authenticatedProfile?.inventory)?
   authenticatedProfile.inventory.map(row=>row?{...row}:null):Array(12).fill(null);
+ // The UI compacts occupied cells, but mutations must keep real server slots.
+ function syncServerBag(rows){
+  if(!authenticatedProfile||!Array.isArray(rows))return false;
+  serverBagSlots=Array.from({length:12},(_,i)=>rows[i]?{...rows[i]}:null);
+  state.inventory=serverBagSlots.filter(Boolean).map(row=>({...row}));
+  return true;
+ }
  const isAccountHero=()=>!!authenticatedProfile;
  const serverBagSlot=(clientIndex)=>{
   const row=state.inventory[clientIndex];if(!row)return -1;
@@ -198,6 +205,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function onChat(event){if(event?.text)msg((event.channel==='party'?'[Группа] ':'[Мир] ')+(event.name||'Игрок')+': '+event.text,3.3);}
  function onChestState(event){
   onlineChest={...(onlineChest||{}),...event};
+  if(Array.isArray(event?.inventory))syncServerBag(event.inventory);
   if(Array.isArray(event?.slots)){setChestUsed(event.slots,event.revision);clearChestRetry();}
   if(!modal.hidden&&modal.dataset.kind==='chest'){
    if(Array.isArray(event?.slots)){gathering.setChestOpen(true);chestLabel.visible=false;}
@@ -217,7 +225,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function onChestResult(event){
   chestSheet.result(event);
   if(event?.ok&&Array.isArray(event.inventory)){
-   state.inventory=event.inventory.filter(Boolean).map(row=>({id:row.id,qty:row.qty}));
+   syncServerBag(event.inventory);
    onlineChest={slots:event.slots,revision:event.revision,inventory:event.inventory};
    setChestUsed(event.slots,event.revision);
    persist();draw();
@@ -328,10 +336,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.level=progress.level;
   state.xp=progress.experience;
   state.gold=progress.gold;
-  if(Array.isArray(progress.inventory)){
-   serverBagSlots=progress.inventory.map(row=>row?{...row}:null);
-   state.inventory=serverBagSlots.filter(Boolean).map(row=>({...row}));
-  }
+  if(Array.isArray(progress.inventory))syncServerBag(progress.inventory);
   if(progress.equipment&&typeof progress.equipment==='object')
    state.equipment=progress.equipment;
   if(progress.quests?.mentor?.step!==undefined)
