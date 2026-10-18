@@ -111,3 +111,12 @@ test('action bar edits validate slot, class, level and payload without changing 
  assert.throws(()=>setActionBarSlot(state,1,{kind:'ability',id:'autoAttack',damage:9999}),/invalid_action_bar_entry/);
  assert.throws(()=>setActionBarSlot(state,1,undefined),/invalid_action_bar_entry/);
 });
+
+test('trusted movement checkpoint verifies fractional combat vitals',async()=>{
+ const {validateServerVitals}=await import('../progress-rules.js');
+ const state={level:1,equipment:{}};
+ assert.deepEqual(validateServerVitals({health:99.6,resource:18.1},state),
+  {health:100,resource:18});
+ assert.throws(()=>validateServerVitals({health:-1,resource:2},state),/invalid_server_vitals/);
+ assert.throws(()=>validateServerVitals({health:20,resource:300},state),/invalid_server_vitals/);
+});
