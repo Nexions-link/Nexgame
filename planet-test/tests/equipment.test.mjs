@@ -148,7 +148,7 @@ test('3D inspector remains mounted and selection survives server progress refres
  h.get('modalClose').click();
 });
 
-test('portrait and loot CSS have compact vertical layouts with touch-accessible buttons',()=>{
+test('portrait and loot CSS have compact vertical layouts with touch-accessible buttons',async()=>{
  const {readFileSync}=await import('node:fs');
  const character=readFileSync(new URL('../character-sheet.css',import.meta.url),'utf8');
  const loot=readFileSync(new URL('../loot-sheet.css',import.meta.url),'utf8');
