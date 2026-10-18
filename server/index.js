@@ -14,7 +14,7 @@ import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.19';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.39.0';
 const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
