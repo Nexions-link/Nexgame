@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
  SPHERE_MOB_SPAWNS,SPHERE_CORPSE_MS,SPHERE_RESPAWN_MS,
  createSphericalMobs,localToNormal,normalToLocal,arcDistance,
- facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment,sphericalMobYaw,SPHERE_ROAM_RADIUS,startSphereEvade
+ facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment,sphericalMobYaw,SPHERE_ROAM_RADIUS,startSphereEvade,sphereCombatLineClear
 } from '../spherical-pve.js';
 
 const character=(id,x=-9,z=-24,radius=261)=>({
@@ -234,4 +234,63 @@ test('evade helper is safe for corpses and clears stale windup, stun and navigat
  assert.equal(mob.attackAt,0);
  assert.equal(mob.navigation,null);
  assert.equal(mob.contributors.size,0);
+});
+
+test('solid tent blocks initial passive aggro, but visible players can still be detected',()=>{
+ const mob=createSphericalMobs()[0];
+ // Small tent is centered at (-23,-15), both endpoints are outside its walls.
+ mob.spawnX=mob.x=-23;mob.spawnZ=mob.z=-18.25;mob.roamUntil=Infinity;
+ const hero=character('scout',-23,-11.75);
+ const players=new Map([[hero.id,hero]]);
+ assert.equal(sphereCombatLineClear(mob.x,mob.z,-23,-11.75),false);
+ const events=tickSphericalMobs([mob],players,261,.1,1000,()=>.5);
+ assert.equal(mob.aggroId,null,'no X-ray vision through a tent');
+ assert.equal(events.some(e=>e.type==='mobTelegraph'),false);
+ hero.normal=localToNormal(-23,-18.9,261);
+ tickSphericalMobs([mob],players,261,.1,1100,()=>.5);
+ assert.equal(mob.aggroId,hero.id,'an unobstructed target is still acquired');
+});
+
+test('tree collision blocks melee and thunder stomp; no damage, resource or aggro leak',()=>{
+ const mob=createSphericalMobs()[0];mob.spawnX=mob.x=-27.15;mob.spawnZ=mob.z=21;
+ const hero=character('warrior',-24.85,21);hero.heading=Math.PI;
+ assert.equal(sphereCombatLineClear(-24.85,21,mob.x,mob.z),false);
+ const initialHp=mob.hp,initialRage=hero.resource;
+ const melee=applySphereAttack([mob],hero,'autoAttack',mob.id,1000,()=>.5);
+ assert.equal(melee.ok,false);
+ assert.match(melee.reason,/препятствием/);
+ assert.equal(mob.hp,initialHp);
+ assert.equal(hero.resource,initialRage);
+ assert.equal(mob.aggroId,null);
+ const stomp=applySphereAttack([mob],hero,'thunderStomp',mob.id,2000,()=>.5);
+ assert.equal(stomp.ok,true,'an unobstructed empty AoE can be cast');
+ assert.equal(stomp.events.length,0,'walls must filter damaged AoE targets');
+ assert.equal(mob.hp,initialHp);
+ mob.aggroId=hero.id;mob.attackAt=2200;
+ const events=tickSphericalMobs([mob],new Map([[hero.id,hero]]),261,.1,2300,()=>.5);
+ assert.equal(events.some(e=>e.type==='mobAttack'),false,'mob cannot hit through tree');
+ assert.equal(mob.attackAt,0,'blocked attack windup must be cancelled');
+});
+
+test('attack from a new player switches aggro and cancels a hit aimed at the old target',()=>{
+ const mob=createSphericalMobs()[0];
+ const first=character('first',mob.x,mob.z-1);
+ const second=character('second',mob.x,mob.z-1);
+ mob.aggroId=first.id;mob.attackAt=1800;mob.attackCooldownAt=0;
+ mob.contributors.add(first.id);
+ const attack=applySphereAttack([mob],second,'autoAttack',mob.id,1500,()=>.5);
+ assert.equal(attack.ok,true);
+ assert.equal(mob.aggroId,second.id);
+ assert.equal(mob.attackAt,0,'old attack cannot land on the new aggro target');
+ assert.ok(mob.contributors.has(first.id));
+ assert.ok(mob.contributors.has(second.id));
+ const players=new Map([[first.id,first],[second.id,second]]);
+ let telegraphed=false;
+ for(let i=0;i<18;i++){
+  const now=2000+i*100;
+  const events=tickSphericalMobs([mob],players,261,.1,now,()=>.5);
+  if(events.some(e=>e.type==='mobTelegraph'&&e.targetId===second.id))telegraphed=true;
+  assert.ok(events.every(e=>e.type!=='mobTelegraph'||e.targetId===second.id));
+ }
+ assert.equal(telegraphed,true,'new target receives the authoritative telegraph');
 });

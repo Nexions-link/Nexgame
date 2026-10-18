@@ -55,6 +55,13 @@ const lakeWalkable=(x,z)=>{
  return Math.hypot(dx,dz)/shoreline>=.98;
 };
 const walkable=(x,z,r)=>canWalkCamp(x,z,r)&&lakeWalkable(x,z);
+// Server-side ground-level line of sight. Use the same obstacles for finding
+// a player, hitting a mob and resolving a mob's melee attack. A narrow
+// clearance allows a strike near an obstacle without passing through it.
+export function sphereCombatLineClear(ax,az,bx,bz){
+ return mobSegmentClear(ax,az,bx,bz,(x,z)=>walkable(x,z,.12),.3);
+}
+
 // The visual GLB points along tangent-local +Z, matching mob-facing.js.
 export function sphericalMobYaw(x,z,dx,dz,radius){
  const d=Math.hypot(dx,dz);if(d<1e-8)return null;
@@ -120,14 +127,20 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
   return {ok:false,reason:'Способность восстанавливается',events:[]};
  if((player.resource||0)<ability.resourceCost)
   return {ok:false,reason:'Недостаточно ярости',events:[]};
+ const pos=normalToLocal(player.normal,player.radius);
  const targets=abilityId==='thunderStomp'
-  ?mobs.filter(m=>m.phase==='alive'&&!m.returning&&localDistance(m,player,player.radius)<=STOMP_RANGE)
+  ?mobs.filter(m=>m.phase==='alive'&&!m.returning&&
+   localDistance(m,player,player.radius)<=STOMP_RANGE&&
+   pos&&sphereCombatLineClear(pos.x,pos.z,m.x,m.z))
   :mobs.filter(m=>m.id===mobId&&m.phase==='alive');
  if(abilityId!=='thunderStomp'&&targets.length!==1)
   return {ok:false,reason:'Цель недоступна',events:[]};
  if(abilityId!=='thunderStomp'&&
   (localDistance(targets[0],player,player.radius)>MELEE_RANGE+.35||!facesMob(player,targets[0],player.radius)))
   return {ok:false,reason:'Цель слишком далеко или не перед вами',events:[]};
+ if(abilityId!=='thunderStomp'&&(!pos||
+  !sphereCombatLineClear(pos.x,pos.z,targets[0].x,targets[0].z)))
+  return {ok:false,reason:'Цель за препятствием',events:[]};
  player.resource=clamp((player.resource||0)-ability.resourceCost,0,100);
  cooldown[abilityId]=now+(abilityId==='autoAttack'?Math.max(800,playerStats(player).speed*1000):ability.cooldown*1000);
  if(ability.gcd>0)cooldown.gcd=now+ability.gcd*1000;
@@ -138,6 +151,8 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
     (abilityId==='heavyStrike'?ability.damageBonus||0:0));
   target.hp=Math.max(0,target.hp-damage);
   target.contributors.add(player.id);
+  // New attacker: discard any windup aimed at the previous player.
+  if(target.aggroId!==player.id)target.attackAt=0;
   target.aggroId=player.id;target.returning=false;target.roamState='rest';
   target.navigation=null;
   target.lastHitAt=now;
@@ -199,6 +214,8 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    for(const p of alive){
     const spawnDistance=arcDistance(spawnNormal,p.normal,radius),distance=localDistance(mob,p,radius);
     if(spawnDistance<SPHERE_LEASH_METRES&&distance<(mob.boss?9:7)&&distance<closest){
+     const loc=normalToLocal(p.normal,radius);
+     if(!loc||!sphereCombatLineClear(mob.x,mob.z,loc.x,loc.z))continue;
      closest=distance;target=p;
     }
    }
@@ -241,8 +258,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    mob.yaw+=clamp(delta,-dt*(target?9:5),dt*(target?9:5));
   }
   if(!target){mob.attackAt=0;continue;}
-  const close=distance<(mob.boss?3:2.6)&&
-   mobSegmentClear(mob.x,mob.z,gx,gz,(x,z)=>walkable(x,z,.12));
+  const close=distance<(mob.boss?3:2.6)&&sphereCombatLineClear(mob.x,mob.z,gx,gz);
   if(now<mob.stunUntil||!close){mob.attackAt=0;continue;}
   if(mob.attackAt===0&&now>=mob.attackCooldownAt){
    mob.attackAt=now+(mob.boss?450:400);
