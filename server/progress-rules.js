@@ -155,7 +155,7 @@ export function validateKillCredit(event,radius,worldRunId){
   const row=rows.get(item.id);
   if(item.id===CORPSE_COIN_ID){
    if(spec.type===CREATURE_TYPE_BEAST||
-      item.qty<1+2*spec.level||item.qty>3+3*spec.level)invalid('invalid_kill_loot');
+      item.qty<1+2*spec.level||item.qty>4+3*spec.level)invalid('invalid_kill_loot');
   }else if(row){
    if(item.qty<row.min||item.qty>row.max)invalid('invalid_kill_loot');
   }else if(GEAR_DROP_IDS.has(item.id)){

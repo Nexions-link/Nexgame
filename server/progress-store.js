@@ -139,7 +139,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    // identity as the reward: duplicate packets cannot advance objectives.
    const mentor=getMentorQuest(next);
    const boss=serverCredit.mobId==='dolgonog-'+DOLGONOG_BOSS_INDEX;
-   if((mentor.step===1&&!boss)||(mentor.step===10&&boss)){
+   if(serverCredit.mobId.startsWith('dolgonog-')&&((mentor.step===1&&!boss)||(mentor.step===10&&boss))){
     const credited=certifyMentorKill(next,serverCredit,worldRunId);
     await client.query(
      'INSERT INTO ngw_mentor_kill_evidence(character_id,event_key,quest_step) VALUES($1,$2,$3)',

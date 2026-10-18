@@ -94,6 +94,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   safe.equipment=row.equipment||{};
   safe.quest=row.quests?.mentor?.step||0;
   safe.gatherStage=row.quests?.gather?.stage||0;
+   safe.banditQuest=row.quests?.bandit||{stage:0,kills:0};
   safe.hotbar=normalizeHotbar(row.actionBar?.length?row.actionBar:DEFAULT_HOTBAR,'warrior',safe.level);
   return safe;
  };
@@ -332,7 +333,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    usePotion:'Зелье использовано и сохранено'
   };
   if(labels[event.kind])msg(labels[event.kind],2.2);
-  if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','spells'].includes(modal.dataset.kind))
+  if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','spells','banditQuest'].includes(modal.dataset.kind))
    renderModal();
  }
  function onVitals(event){
@@ -367,6 +368,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     &&!progress.quests.gather.accepted;
   }
   if(progress.quests?.mentor?.kills!==undefined)state.kills=progress.quests.mentor.kills;
+  if(progress.quests?.bandit)state.banditQuest={...progress.quests.bandit};
   if(source==='welcome'||source==='usePotion'){
    state.hp=progress.health;
    if(source==='welcome')state.resource=progress.resource;
@@ -374,7 +376,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.hotbar=normalizeHotbar(progress.actionBar?.length?progress.actionBar:DEFAULT_HOTBAR,'warrior',state.level);
   void updateEquipmentVisuals();
   draw();
-  if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','chest','spells'].includes(modal.dataset.kind))renderModal();
+  if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','chest','spells','banditQuest'].includes(modal.dataset.kind))renderModal();
   if(source==='mob'){
    // A saved revision can be rebroadcast during reconnect. Never animate it twice.
    if(Number.isInteger(progress.revision)&&progress.revision===lastMobXpRevision)return;
@@ -937,6 +939,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    }
    if(nearby.kind==='mob')return showCorpseLoot(nearby);
    if(nearby.kind==='mentor'){openWindow('mentor');return}
+   if(nearby.kind==='banditQuest'){openWindow('banditQuest');return}
    if(nearby.kind==='vendor'){openWindow('merchant');return}
    if(nearby.kind==='herbalist'){openWindow('herbalist');return}
    if(nearby.kind==='chest'){openWindow('chest');return}
@@ -949,6 +952,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(!nearby)return msg('Подойди к жителю или предмету ближе');
   if(camp.interact(nearby)){draw();return;}
   if(nearby.kind==='mentor')openWindow('mentor');
+  else if(nearby.kind==='banditQuest')openWindow('banditQuest');
   else if(nearby.kind==='relic')mentorChain.pickedRelic();
   else if(nearby.kind==='vendor')openWindow('merchant');
   else if(nearby.kind==='mob'&&nearby.corpse)showCorpseLoot(nearby);
@@ -1093,6 +1097,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(stage===10)guidance.textContent='Красный пунктир ведёт к Грозоклюву · 108 HP';
   const glyph=mentorGlyph(state.quest);
   for(const child of mentor.root.children)if(child.userData.questMarker)child.visible=child.userData.glyph===glyph;
+  const banditStage=state.banditQuest?.stage??0;
+  const banditGlyph=banditStage===0?'!':banditStage===2?'?':banditStage===1?'·':null;
+  for(const child of banditGuide.root.children)if(child.userData.questMarker)
+   child.visible=child.userData.glyph===banditGlyph;
+  $('banditQuestTracker').hidden=!authenticatedProfile||banditStage!==1&&banditStage!==2;
+  if(authenticatedProfile&&banditStage>0&&banditStage<3)
+   $('banditQuestText').textContent=banditStage===2?'Готово! Вернись к следопыту.':
+    'Разбойники: '+(state.banditQuest?.kills??0)+' / '+BANDIT_QUEST_KILLS;
   const nearby=modal.hidden&&!camp.casting?nearestInteraction():null;
   $('interact').hidden=!nearby;
   if(nearby)$('interact').textContent=nearby.kind==='gather'?
@@ -1144,7 +1156,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    gesture:body.querySelector('.character-rotate')}:null;
   const characterScroll=kind==='character'?body.scrollTop:0;
   if(kind!=='character')characterPreview.release();
-  modal.classList.toggle('world-sheet',['chest','bag','loot','gatherLoot','merchant','mentor','herbalist','quests','spells'].includes(kind));
+  modal.classList.toggle('world-sheet',['chest','bag','loot','gatherLoot','merchant','mentor','herbalist','banditQuest','quests','spells'].includes(kind));
   $('panel').classList.toggle('chest-sheet',kind==='chest');
   $('panel').classList.toggle('character-modal',kind==='character');
   $('panel').classList.toggle('inventory-modal',kind==='bag');
@@ -1154,7 +1166,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   $('cameraControl').hidden=kind!=='menu';
   $('graphicsControl').hidden=kind!=='menu';
   title.textContent=({bag:'Рюкзак',character:'Персонаж',quests:'Журнал заданий',
-   merchant:'Торговец',spells:'Книга способностей',loot:'Обыск тела',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог',party:'Группа и чат'})[kind]||'NexGameWorld';
+   merchant:'Торговец',spells:'Книга способностей',loot:'Обыск тела',menu:'Меню',herbalist:'Травница Тихая Заря',chest:'Сундук',gatherLoot:'Собранный ресурс',mentor:'Наставник Каменный Рог',banditQuest:'Следопыт Медная Стрела',party:'Группа и чат'})[kind]||'NexGameWorld';
   body.replaceChildren();
   const line=(label,caption,actions=[])=>{
    const row=document.createElement('div');row.className='rpgRow';
@@ -1207,6 +1219,19 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     line(quest.title,'Собрано '+count+' / '+quest.count+'. '+quest.hint,
      count>=quest.count?[['Сдать',()=>sendAccountAction('gatherTurnIn')]]:[]);
    }
+   return;
+  }
+  if(authenticatedProfile&&kind==='banditQuest'){
+   const q=state.banditQuest||{stage:0,kills:0};
+   if(q.stage===0)
+    line('Разбойники Пыльной тропы','Разбойники обосновались у западной тропы. Победи троих и возвращайся. Награда: 85 опыта и 18 монет.',
+     [['Принять задание',()=>sendAccountAction('banditAccept')]]);
+   else if(q.stage===1)
+    line('Разбойники Пыльной тропы','Побеждено разбойников: '+q.kills+' / '+BANDIT_QUEST_KILLS+'. Ищи их к западу от лагеря.');
+   else if(q.stage===2)
+    line('Разбойники Пыльной тропы','Трое разбойников побеждены. Награда: 85 опыта и 18 монет.',
+     [['Сдать задание',()=>sendAccountAction('banditTurnIn')]]);
+   else line('Тропа снова безопасна','Ты уже помог следопыту. Благодарю за службу.');
    return;
   }
   if(authenticatedProfile&&kind==='mentor'){
@@ -1357,6 +1382,13 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    }
    body.append(tabs);
    const entries=mentorJournalRows(state).map(item=>({...item,npc:'Наставник Каменный Рог'}));
+   if(authenticatedProfile){
+    const q=state.banditQuest||{stage:0,kills:0};
+    entries.push({id:'bandit-trail',status:q.stage===0?'available':q.stage===3?'completed':'current',
+     title:'Разбойники Пыльной тропы',objective:'Победить 3 разбойников',
+     progress:q.stage===3?'Сдано':q.stage===2?'Готово к сдаче':q.kills+' / '+BANDIT_QUEST_KILLS,
+     reward:'85 опыта · 18 монет',npc:'Следопыт Медная Стрела'});
+   }
    for(let i=1;i<=3;i++){
     const quest=GATHER_QUESTS[i],stage=state.gatherStage;
     const status=stage>i?'completed':stage===i?(state.gatherAvailable?'available':'current'):i===1&&stage===0?'available':null;
