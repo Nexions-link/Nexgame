@@ -13,7 +13,7 @@ import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.16';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.38.17';
 const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
@@ -152,6 +152,7 @@ wss.on('connection',(ws,req)=>{
     if(ws.readyState!==1){authenticatedWorldGate.leave(ws);return}
     const attached=world.attach(ws,{trustedCharacter:trusted,
      progressStore:worldProgressStore,economyStore:worldEconomyStore});
+    if(!attached?.accepted){authenticatedWorldGate.leave(ws);return;}
     const sessionCheck=setInterval(()=>{
      void authenticatedWorldGate.validate(ws).then(valid=>{
       if(!valid&&ws.readyState===1)ws.close(1008,'Account session expired');

@@ -45,7 +45,13 @@ const normalFrom=raw=>{
 export const canonicalSphereHeading=h=>finite(h)&&Math.abs(h)<=1e6
  ?Math.atan2(Math.sin(h),Math.cos(h)):null;
 const headingOkay=h=>canonicalSphereHeading(h)!==null;
-const send=(ws,p)=>{if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(p))};
+const MAX_SNAPSHOT_BUFFER=512*1024;
+const send=(ws,p)=>{
+ if(ws.readyState!==WebSocket.OPEN)return;
+ // A disconnected mobile tab must not accumulate unlimited outdated snapshots.
+ if(p.type==='snapshot'&&ws.bufferedAmount>MAX_SNAPSHOT_BUFFER)return;
+ ws.send(JSON.stringify(p));
+};
 const publicPlayer=p=>({
  id:p.id,name:p.name,normal:p.normal,heading:p.heading,
  moving:p.moving,radius:p.radius,level:p.level,hp:p.hp,maxHp:p.maxHp,
@@ -70,14 +76,21 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  function attach(ws,{trustedCharacter=null,progressStore=null,economyStore=null}={}){
   // Serialize all server-generated character saves for this connection.
   // A socket is not released for another login until its save queue drains.
-  let saveQueue=Promise.resolve(),lastCheckpoint=0;
+  let saveQueue=Promise.resolve(),lastCheckpoint=0,saveFailed=false;
   let messageBudget=80,messageRefillAt=Date.now();
   function queueSave(operation){
-   const pending=saveQueue.then(operation);
+   if(saveFailed)return Promise.reject(Error('session_save_failed'));
+   const pending=saveQueue.then(()=>{
+    if(saveFailed)throw Error('session_save_failed');
+    return operation();
+   });
    saveQueue=pending.catch(error=>{
+    if(saveFailed)return;
+    saveFailed=true;
     console.error('NexGameWorld authoritative progress save failed:',
      error?.code||error?.name||'unknown');
     send(ws,{type:'progressError',reason:'Не удалось сохранить прогресс. Переподключитесь.'});
+    if(ws.readyState===WebSocket.OPEN)ws.close(1011,'Progress save failed');
    });
    return pending;
   }
@@ -91,13 +104,17 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    p.hp=Math.min(p.maxHp,p.hp);
    send(ws,{type:'progressSaved',source,progress});
   }
-  if(connections.size>=MAX_PLAYERS){ws.close(1013,'World is full');return}
+  if(connections.size>=MAX_PLAYERS){
+   ws.close(1013,'World is full');
+   return {accepted:false,drain:()=>saveQueue};
+  }
   connections.set(ws,null);
   const cleanup=()=>{
    if(!connections.has(ws))return;
    const p=connections.get(ws);
    connections.delete(ws);
    if(p){
+    p.closeAccountChest?.();
     if(p.queueCheckpoint){
      void p.queueCheckpoint({normal:[...p.normal],heading:p.heading,
       radius:p.radius},'exit').catch(()=>{});
@@ -136,7 +153,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      characterId:trustedCharacter?.characterId||null,
      accountId:trustedCharacter?.accountId||null,
      normal,heading,moving:false,radius,
-     level,equipment,hp,maxHp:stats.maxHp,resource:0,
+     level,equipment,hp,maxHp:stats.maxHp,resource:saved?bound(saved.resource,0,100):0,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
      joined:true,x:local.x,z:local.z,abilityCooldowns:{},
      savedRevision:saved?.revision??null};
@@ -314,7 +331,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    }
   });
   ws.on('close',cleanup);ws.on('error',cleanup);
-  return {drain:()=>saveQueue,requestCheckpoint:()=>{
+  return {accepted:true,drain:()=>saveQueue,requestCheckpoint:()=>{
    const p=connections.get(ws);
    if(!p?.queueCheckpoint)return saveQueue;
    return p.queueCheckpoint({normal:[...p.normal],
