@@ -49,6 +49,7 @@ export async function auditProduction({
  const failures=Number(health?.worldMetrics?.progressSaveFailures);
  if(!Number.isFinite(failures)||failures<0)
   throw Error('Save-failure metric is missing or invalid');
+ if(failures>0)throw Error('Production progressSaveFailures is nonzero: '+failures);
  return {version:latest,publishedSha,players:Number(health.players)||0,
   progressSaveFailures:failures,serverReady:true};
 }
