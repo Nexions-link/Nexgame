@@ -19,7 +19,7 @@ SELECT
  (SELECT COUNT(*)::int FROM ngw_character_progress
   WHERE jsonb_typeof(inventory)<>'array'
     OR CASE WHEN jsonb_typeof(inventory)='array'
-         THEN jsonb_array_length(inventory) NOT IN (0,12,18,24,30,36,42,48,54,60,66,72,78,84,90,96,102,108)
+         THEN (jsonb_array_length(inventory)<>0 AND jsonb_array_length(inventory) NOT BETWEEN 12 AND 108)
          ELSE true END
     OR jsonb_typeof(action_bar)<>'array'
     OR jsonb_typeof(quests)<>'object'
