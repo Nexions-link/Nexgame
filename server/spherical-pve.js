@@ -241,7 +241,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    if(error>.32){mob.attackAt=now+100;continue;}
    const stats=playerStats(target);
    const block=stats.blockChance>0&&rng()<stats.blockChance;
-   const reduction=armorReduction(stats.armor,mob.boss?5:1);
+   const reduction=armorReduction(stats.armor,mob.level);
    const raw=monsterAttackDamage(mob.level,mob.boss),absorbed=block?Math.max(0,stats.blockValue):0;
    const damage=Math.max(0,Math.round((raw-absorbed)*(1-reduction)));
    target.hp=Math.max(0,target.hp-damage);
