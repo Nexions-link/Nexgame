@@ -132,3 +132,36 @@ test('authenticated mob kill commits progress before a verified reward is sent',
   assert.equal(actor.equipment.weapon.id,'wornAxe');
  }finally{ws.close();wss.close();server.close();world.close()}
 });
+
+test('disconnecting during combat sends mobs into evasion without retaining old loot owners',
+ {timeout:8000},async()=>{
+ const server=createServer(),world=createSphericalWorld();
+ const wss=new WebSocketServer({server});
+ wss.on('connection',ws=>world.attach(ws));
+ await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
+ const client=new WebSocket('ws://127.0.0.1:'+server.address().port),events=[];
+ client.on('message',raw=>events.push(JSON.parse(String(raw))));
+ try{
+  await new Promise((ok,fail)=>{client.once('open',ok);client.once('error',fail)});
+  client.send(JSON.stringify({type:'join',name:'Отключившийся герой',radius:261,
+   normal:localToNormal(-9,-24,261),heading:Math.PI/2}));
+  const welcome=await until(events,'welcome');
+  const mob=world.rooms.get(261).mobs[0];
+  mob.x=mob.spawnX+2;mob.z=mob.spawnZ;
+  mob.hp=mob.maxHp-10;mob.aggroId=welcome.id;
+  mob.contributors.add(welcome.id);
+  mob.attackAt=Date.now()+800;
+  client.close();
+  const started=Date.now();
+  while(world.players.size&&Date.now()-started<3000)
+   await new Promise(ok=>setTimeout(ok,20));
+  assert.equal(world.players.size,0);
+  assert.equal(mob.aggroId,null);
+  assert.equal(mob.returning,true,'a disconnected target must trigger a full return');
+  assert.equal(mob.attackAt,0);
+  assert.equal(mob.contributors.size,0,'ghost player must not remain in loot ledger');
+  assert.equal(mob.hp,mob.maxHp-10,'HP resets at home, not on socket close');
+ }finally{
+  client.close();wss.close();server.close();world.close();
+ }
+});
