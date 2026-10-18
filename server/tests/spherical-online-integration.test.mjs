@@ -12,7 +12,7 @@ async function server(){
  });
  const processHandle=spawn(process.execPath,['index.js'],{
   cwd:new URL('../',import.meta.url),
-  env:{...process.env,PORT:String(port),NGW_CHEST_DATA_FILE:'/tmp/ngw-online-'+port+'.json'},
+  env:{...process.env,PORT:String(port),NGW_GUEST_WORLD_ENABLED:'true',NGW_CHEST_DATA_FILE:'/tmp/ngw-online-'+port+'.json'},
   stdio:['ignore','ignore','pipe']
  });
  let stderr='';processHandle.stderr.on('data',c=>{stderr+=c});
