@@ -571,6 +571,28 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const bossTag=makeLabel('Грозоклюв · ур. 3 · Элитный','#f9bd91',27);
  bossTag.position.y=3.4;bossTag.scale.set(4.7,.84,1);
  giant.root.add(bossTag);giant.nameTag=bossTag;giant.alertTag.position.y=4.0;
+ function createBandit(x,z,i){
+  const spec=creatureByIndex(DOLGONOG_SPAWNS.length+i);
+  const root=new THREE.Group();group.add(root);
+  const contactShadow=addContactShadow(root,.83),visual=createBanditVisual(THREE);
+  root.add(visual.root);
+  const hp=64+(spec.level-2)*14;
+  const mob={kind:'mob',id:spec.id,index:spec.index,family:'bandit',level:spec.level,
+   name:spec.name,lootId:'bandit',creatureType:spec.type,root,x,z,yaw:0,
+   spawnX:x,spawnZ:z,hp,maxHp:hp,aggro:false,attackCd:1.2,stun:0,dead:0,loot:null,corpse:false,
+   respawn:0,returning:false,walk:0,hit:0,attackWindup:0,alertRemaining:0,corpseAge:0,
+   boss:false,contactShadow,roamTime:spec.index*1.73,navigation:null,banditVisual:visual};
+  const nameTag=makeLabel(spec.name+' · ур. '+spec.level,'#e4c68f',24);
+  nameTag.position.y=3.7;root.add(nameTag);mob.nameTag=nameTag;
+  const alertTag=makeLabel('!','#ffc978',78);alertTag.position.y=4.25;alertTag.scale.set(1.55,1.4,1);
+  alertTag.visible=false;root.add(alertTag);mob.alertTag=alertTag;
+  const lootMarker=makeLabel('◆','#fff7df',68);lootMarker.position.y=1.45;
+  lootMarker.scale.set(1.3,1.06,1);lootMarker.visible=false;root.add(lootMarker);mob.lootMarker=lootMarker;
+  mob.fallbackVisual=visual.root;
+  mob.deathAnimation=createMobDeath({THREE,entity:mob,visual:visual.root,getRadius,heightAt});
+  mobs.push(mob);entities.push(mob);setModelAt(mob);return mob;
+ }
+ BANDIT_SPAWNS.forEach(([x,z],i)=>createBandit(x,z,i));
  const dummyRoot=new THREE.Group();group.add(dummyRoot);addContactShadow(dummyRoot,1.1);
  const straw=new THREE.MeshStandardMaterial({color:'#bb9665',roughness:1});
  const dummyBody=new THREE.Mesh(new THREE.CylinderGeometry(.56,.63,2.2,12),straw);
