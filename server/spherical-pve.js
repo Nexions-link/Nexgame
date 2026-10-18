@@ -9,7 +9,7 @@ import {getAbilityDefinition} from '../skills.js';
 import {CREATURE_TYPE_BEAST,creatureTypeForMob,rollCreatureCoins} from '../planet-test/creature-types.js';
 import {monsterAttackDamage} from '../planet-test/mob-levels.js';
 import {CREATURE_SPAWNS,creatureSpawnHealth,creatureKillReward} from '../planet-test/creature-registry.js';
-import {BANDIT_PATROLS,nextPatrolPoint} from '../planet-test/bandit-camp-data.js';
+import {BANDIT_CAMP,BANDIT_PATROLS,nextPatrolPoint} from '../planet-test/bandit-camp-data.js';
 
 export const SPHERE_MOB_SPAWNS=CREATURE_SPAWNS.map(({x,z})=>[x,z]);
 export const SPHERE_CORPSE_MS=30000;
@@ -78,6 +78,10 @@ export function sphericalMobYaw(x,z,dx,dz,radius){
 }
 const BANDIT_PATROL_BY_ID=new Map(BANDIT_PATROLS.map(p=>[p.id,p]));
 function chooseRoamGoal(mob,now,rng){
+ // The chief holds his isolated ground until engaged; he never roams into guards.
+ if(mob.family==='bandit'&&mob.boss){
+  mob.roamState='rest';mob.roamUntil=now+3000;return;
+ }
  const patrol=BANDIT_PATROL_BY_ID.get(mob.id);
  if(patrol){
   const waypoint=nextPatrolPoint(patrol,mob,mob.patrolIndex||0);
@@ -219,7 +223,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   let target=mob.aggroId?players.get(mob.aggroId):null;
   if(target&&(!target.joined||target.hp<=0||target.radius!==radius||
     target.respawnShieldUntil>now||
-    arcDistance(spawnNormal,target.normal,radius)>SPHERE_LEASH_METRES)){
+    arcDistance(spawnNormal,target.normal,radius)>(mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES))){
    startSphereEvade(mob);target=null;
   }
   if(!target&&mob.aggroId)startSphereEvade(mob);
@@ -228,7 +232,9 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    let closest=Infinity;
    for(const p of alive){
     const spawnDistance=arcDistance(spawnNormal,p.normal,radius),distance=localDistance(mob,p,radius);
-    if(spawnDistance<SPHERE_LEASH_METRES&&distance<(mob.boss?9:7)&&distance<closest){
+    const leash=mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES;
+    const aggro=mob.family==='bandit'?(mob.boss?7:BANDIT_CAMP.aggroRadius):(mob.boss?9:7);
+    if(spawnDistance<leash&&distance<aggro&&distance<closest){
      const loc=normalToLocal(p.normal,radius);
      if(!loc||!sphereCombatLineClear(mob.x,mob.z,loc.x,loc.z))continue;
      closest=distance;target=p;
