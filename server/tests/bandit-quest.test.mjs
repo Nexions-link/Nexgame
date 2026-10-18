@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {createSphericalMobs,applySphereAttack,localToNormal} from '../spherical-pve.js';
 import {validateKillCredit,readProgress} from '../progress-rules.js';
 import {getBanditQuest,creditBanditQuestKill,acceptBanditQuest,turnInBanditQuest,
- BANDIT_QUEST_REWARD,BANDIT_QUEST_MIN_LEVEL} from '../bandit-quest.js';
+ BANDIT_QUEST_REWARD,BANDIT_QUEST_MIN_LEVEL,acceptBanditChiefQuest,creditBanditChiefKill,
+ getBanditChiefQuest,turnInBanditChiefQuest,BANDIT_CHIEF_REWARD} from '../bandit-quest.js';
 import {CREATURE_SPAWNS,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,creatureById} from '../../planet-test/creature-registry.js';
 import {canWalkCamp} from '../../planet-test/sphere-physics.js';
 import {canWadeAtLocal} from '../../planet-test/start-zone.js';
@@ -64,4 +65,21 @@ test('scout mission requires proximity, exactly three real bandit kills and one 
  assert.equal(reward.next.gold,30+BANDIT_QUEST_REWARD.gold);
  assert.equal(reward.next.experience,BANDIT_QUEST_REWARD.xp);
  assert.throws(()=>turnInBanditQuest(reward.next,context(BANDIT_QUEST_GIVER)),/bandit_quest_not_ready/);
+});
+
+test('chief quest is locked until scout completion and level four, with single reward',()=>{
+ const origin=state(),ctx=context(BANDIT_QUEST_GIVER);
+ assert.throws(()=>acceptBanditChiefQuest(origin,ctx),/bandit_chief_quest_locked/);
+ const completed={...origin,level:4,quests:{bandit:{stage:3,kills:3}}};
+ let q=acceptBanditChiefQuest(completed,ctx);
+ assert.equal(getBanditChiefQuest(q).stage,1);
+ assert.equal(getBanditChiefQuest(creditBanditChiefKill(q,'bandit-0')).stage,1);
+ q=creditBanditChiefKill(q,'bandit-3');
+ assert.equal(getBanditChiefQuest(q).stage,2);
+ assert.throws(()=>turnInBanditChiefQuest(q,context({x:70,z:70})),/interaction_too_far/);
+ const reward=turnInBanditChiefQuest(q,ctx);
+ assert.equal(getBanditChiefQuest(reward.next).stage,3);
+ assert.equal(reward.next.gold,completed.gold+BANDIT_CHIEF_REWARD.gold);
+ assert.equal(reward.event.eventKey,'bandit:chief:turnin:v1');
+ assert.throws(()=>turnInBanditChiefQuest(reward.next,ctx),/bandit_chief_quest_not_ready/);
 });
