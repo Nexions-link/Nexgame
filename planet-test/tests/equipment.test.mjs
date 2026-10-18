@@ -129,3 +129,20 @@ test('server-owned hero does not regenerate health when the socket is offline',(
  for(let i=0;i<90;i++)h.rpg.update(.1);
  assert.equal(h.rpg.state.hp,before);
 });
+
+test('3D inspector remains mounted and selection survives server progress refresh',()=>{
+ const profile={nickname:'Герой',level:10,experience:10,gold:30,health:90,
+  inventory:Array(12).fill(null),equipment:{chest:{id:'chainVest'}},quests:{},actionBar:[]};
+ const h=harness({authenticatedProfile:profile});
+ h.get('character').click();
+ const old=descendants(h.get('mbody'));
+ const canvas=old.find(e=>e.className==='character-preview-viewport');
+ const turn=old.find(e=>e.className==='character-rotate');
+ old.find(e=>e.dataset.slot==='chest').click();
+ h.rpg.applyServerProgress({...profile,gold:35,revision:1},'checkpoint');
+ const next=descendants(h.get('mbody'));
+ assert.equal(next.find(e=>e.className==='character-preview-viewport'),canvas);
+ assert.equal(next.find(e=>e.className==='character-rotate'),turn);
+ assert.equal(next.find(e=>e.dataset.slot==='chest').attributes['aria-pressed'],'true');
+ h.get('modalClose').click();
+});

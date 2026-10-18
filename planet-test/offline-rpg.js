@@ -178,7 +178,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const preparingStomp=current?.skill==='thunderStomp'&&!current.impacted&&[...mobs,dummy].some(e=>isLivingHostile(e)&&distance(e)<4.5);
   return swinging||preparingStomp||mobs.some(m=>m.root.visible&&m.hp>0&&!m.corpse&&m.aggro);
  }
- let journalTab='current',merchantTab='buy';
+ let journalTab='current',merchantTab='buy',selectedEquipmentSlot=null;
  const group=new THREE.Group();scene.add(group);
  // The mesh is bent vertex-by-vertex onto the actual spherical terrain:
  // no texture intersection/z-fighting and a saturated red outline.
@@ -797,6 +797,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function openWindow(kind){
   if(!modal.hidden&&modal.dataset.kind==='chest'&&kind!=='chest')closeWindow();
   if(kind==='chest'){clearChestRetry();chestSheet.reset();}
+  if(kind==='character')selectedEquipmentSlot=null;
   if(kind!=='gatherLoot')camp.cancel();
   modal.hidden=false;modal.dataset.kind=kind;
   if(kind==='chest'&&!isOnline()&&!authenticatedProfile){gathering.setChestOpen(true);chestLabel.visible=false;}
@@ -1037,6 +1038,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  }
  function renderModal(){
   const kind=modal.dataset.kind,title=$('mtitle'),body=$('mbody');
+  const characterReuse=kind==='character'?{
+   viewport:body.querySelector('.character-preview-viewport'),
+   gesture:body.querySelector('.character-rotate')}:null;
+  const characterScroll=kind==='character'?body.scrollTop:0;
   if(kind!=='character')characterPreview.release();
   modal.classList.toggle('world-sheet',['chest','bag','loot','gatherLoot','merchant','mentor','herbalist','quests','spells'].includes(kind));
   $('panel').classList.toggle('chest-sheet',kind==='chest');
@@ -1209,6 +1214,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     renderCharacterSheet({
      document,body,profile:authenticatedProfile,state,stats:stats(),items:ITEM_CATALOG,
      labels:LABEL,qualities:QUALITY_VISUALS,xpRequired,pretty,preview:characterPreview,
+     reuse:characterReuse,selectedSlot:selectedEquipmentSlot,
+     onSelectSlot:slot=>{selectedEquipmentSlot=slot},
      onOpenBag:()=>openWindow('bag'),
      onUnequip:(slot,def)=>{
       if(!def)return msg('Пустой слот. Надеть предмет можно из рюкзака.');
@@ -1222,6 +1229,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       finishEquipmentChange(slot);
      }
     });
+    body.scrollTop=characterScroll;
   }else if(kind==='quests'){
    const tabs=document.createElement('div');tabs.className='planet-journal-tabs';tabs.setAttribute('role','tablist');
    const labels={current:'Текущие',available:'Доступные',completed:'Выполненные'};
