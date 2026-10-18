@@ -4,7 +4,7 @@ import {renderCharacterSheet} from './character-sheet.js?v=4';
 // Offline spherical NexGame systems. Use the unchanged production rules for items,
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT} from './native-hotbar-art.js?v=1';
-import {ITEM_CATALOG,MERCHANT_STOCK,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.17';
+import {ITEM_CATALOG,MERCHANT_STOCK,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.18';
 import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
@@ -14,6 +14,7 @@ import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
 import {DAGGER_TUNER_DEFAULTS} from '../dagger-tuner.js?v=0.3.7.0';
 import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 import {GATHER_QUESTS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=13';
+import {BANDIT_WEAPON_ITEM,BANDIT_WEAPON_REQUIRED,BANDIT_WEAPON_RESPAWN_SECONDS,createBanditWeaponWorld} from './bandit-weapons.js?v=1';
 import {createCampActions} from './camp-actions.js?v=12';
 import {OFFLINE_RPG_SAVE_KEY,clearOfflineProgress} from './progress-reset.js?v=1';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
@@ -22,7 +23,7 @@ import {createXpFeedback} from './xp-feedback.js?v=1';
 import {createSphericalCombatVfx} from './sphere-combat-vfx.js?v=2';
 import {createQuestMarkerFactory} from './quest-markers.js?v=3';
 import {createCameraTargetFilter} from './camera-targeting.js?v=1';
-import {createHostileTargetCycle,nearbyInteractable,CORPSE_LOOT_RANGE} from './interaction-targeting.js?v=14';
+import {createHostileTargetCycle,nearbyInteractable,CORPSE_LOOT_RANGE} from './interaction-targeting.js?v=15';
 import {sphereFacingYaw,turnSphereYaw,sphereFacingError} from './mob-facing.js?v=1';
 import {BOSS_POSITION,SCOUT_POSITION,RELIC_POSITION,QUEST_LINES,mentorChainNumber,mentorGlyph,mentorJournalRows,migrateMentorQuest,createMentorChain} from './mentor-chain.js?v=1';
 import {createMentorWorld} from './mentor-world.js?v=1';
@@ -97,6 +98,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   safe.gatherStage=row.quests?.gather?.stage||0;
    safe.banditQuest=row.quests?.bandit||{stage:0,kills:0};
   safe.banditChiefQuest=row.quests?.banditChief||{stage:0};
+  safe.banditWeaponsQuest=row.quests?.banditWeapons||{stage:row.quests?.banditChief?.stage>0?2:0};
   safe.hotbar=normalizeHotbar(row.actionBar?.length?row.actionBar:DEFAULT_HOTBAR,'warrior',safe.level);
   return safe;
  };
@@ -373,6 +375,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(progress.quests?.mentor?.kills!==undefined)state.kills=progress.quests.mentor.kills;
   if(progress.quests?.bandit)state.banditQuest={...progress.quests.bandit};
   if(progress.quests?.banditChief)state.banditChiefQuest={...progress.quests.banditChief};
+  state.banditWeaponsQuest=progress.quests?.banditWeapons?{...progress.quests.banditWeapons}:
+   {stage:progress.quests?.banditChief?.stage>0?2:0};
   if(source==='welcome'||source==='usePotion'){
    state.hp=progress.health;
    if(source==='welcome')state.resource=progress.resource;
@@ -625,6 +629,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  // Preserve original locations in metres and project every mesh onto the sphere.
  const gathering=createGatherWorld({THREE,parent:group,place:e=>{entities.push(e);setModelAt(e);}});
  const gatherNodes=gathering.nodes;
+ const banditWeapons=createBanditWeaponWorld({THREE,parent:group,place:e=>{entities.push(e);setModelAt(e);}});
  // Two-line live label; keep one canvas and update pixels without replacing meshes.
  const chestCanvas=document.createElement('canvas');
  chestCanvas.width=512;chestCanvas.height=160;
@@ -935,8 +940,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   else if(!target)msg('В кадре нет доступных противников в радиусе 40 м');
  }
 
+ const weaponsStage=()=>state.banditWeaponsQuest?.stage??(state.banditChiefQuest?.stage>0?2:0);
+ const weaponsAvailable=node=>!!authenticatedProfile&&weaponsStage()===1&&
+  itemCount(BANDIT_WEAPON_ITEM)<BANDIT_WEAPON_REQUIRED&&clock>=node.readyAt;
  function nearestInteraction(){
-  return nearbyInteractable(entities,distance,camp.available);
+  return nearbyInteractable(entities,distance,node=>
+   node.kind==='banditWeapon'?weaponsAvailable(node):camp.available(node));
  }
  const chestSheet=createChestSheet({items:ITEM_CATALOG,qualityColors:QUALITY_VISUALS,
   move:(...args)=>isOnline()?multiplayer.moveChest(...args):false,notify:msg});
@@ -985,8 +994,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(!isOnline())return msg('Нет связи с сервером');
    const nearby=nearestInteraction();
    if(!nearby)return msg('Подойди ближе к жителю или предмету');
+   if(nearby.kind==='banditWeapon'){
+    const job={kind:'banditWeapon',index:nearby.index};
+    if(sendAccountAction('banditWeaponStart',{index:job.index})){
+     pendingServerGather=job;msg('Собираем кинжал разбойника… 1,5 с');
+    }
+    return;
+   }
    if(nearby.kind==='gather'){
-    const job={stage:nearby.stage,index:nearby.index};
+    const job={kind:'gather',stage:nearby.stage,index:nearby.index};
     if(sendAccountAction('gatherStart',job)){
      pendingServerGather=job;msg('Сбор растения… 1,5 с');
     }
@@ -1128,7 +1144,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const difficulty=target.kind==='mob'?monsterDifficulty(state.level,target.level):'yellow';
     // Keep the full creature name readable. The level is a separate compact
     // badge, so it never pushes the target name outside the fixed HUD slot.
-    $('targetName').textContent=target.boss?'Грозоклюв':target.name;
+    $('targetName').textContent=target.name;
     $('targetName').title=target.name;
     $('targetLevel').hidden=target.kind!=='mob';
     if(target.kind==='mob'){
@@ -1168,8 +1184,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    $('banditQuestText').textContent=banditStage===2?'Готово! Вернись к следопыту.':
     'Разбойники: '+(state.banditQuest?.kills??0)+' / '+BANDIT_QUEST_KILLS;
   const nearby=modal.hidden&&!camp.casting?nearestInteraction():null;
-  $('interact').hidden=!nearby;
-  if(nearby)$('interact').textContent=nearby.kind==='gather'?
+  $('interact').hidden=!nearby||!!pendingServerGather;
+  if(nearby)$('interact').textContent=nearby.kind==='banditWeapon'?'Собрать кинжал':nearby.kind==='gather'?
     (nearby.pending?'Забрать':'Собрать'):nearby.kind==='relic'?'Взять перо':nearby.kind==='chest'?'Открыть сундук':
     nearby.kind==='mob'?'Обыскать':nearby.kind==='vendor'?'Торговец':'Поговорить';
   $('targetNext')?.classList.toggle('target-selected',!!target&&target.hp>0&&!target.dead);
@@ -1697,6 +1713,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if((state.hp!==hpBefore||state.resource!==rageBefore)&&Math.floor(clock/2)!==Math.floor((clock-dt)/2))persist();
   }
   camp.update(dt);
+  banditWeapons.update(clock,weaponsAvailable,distance);
   // The original inhabitants have subtle idle breathing instead of frozen T-poses.
   for(let i=0;i<citizens.length;i++){
    animateSphericalTauren(citizens[i].actor,{dt,time:clock+i*1.47,walk:0,phase:0});
