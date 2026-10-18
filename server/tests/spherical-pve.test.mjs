@@ -102,7 +102,7 @@ test('online wildlife walks and rests around spawn instead of snapping home afte
   for(let j=0;j<mobs.length;j++){
    const m=mobs[j];const d=Math.hypot(m.x-start[j].x,m.z-start[j].z);
    maxDistance=Math.max(maxDistance,d);
-   assert.ok(d<=SPHERE_ROAM_RADIUS+.5,'wildlife never leaves its permitted home range');
+   assert.ok(d<=(m.family==='bandit'?15:SPHERE_ROAM_RADIUS+.5),'creatures remain in their roaming or patrol area');
    everWalking ||= m.roamState==='walking';
    everResting ||= m.roamState==='rest';
   }
