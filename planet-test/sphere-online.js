@@ -52,10 +52,10 @@ export function createSphericalPresence({
  onPlayers,onMobs,onVitals,onCombat,onKillCredit,onMobAttack,onMobTelegraph,onRespawn,
  onPartyState,onPartyInvite,onPartyNotice,onChat,onChatRejected,
  onChestState,onChestStatus,onChestResult,onCombatRejected,onDisconnect,
- onVerifiedProgress,onAuthRejected,onEconomyResult,
+ onVerifiedProgress,onAuthRejected,onEconomyResult,onPositionCorrection,
  auth=null,url=WORLD_URL
 }){
- let socket=null,closed=false,selfId=null,joinedRadius=null,retry=null,sendLoop=null,pendingChestOpen=null;
+ let socket=null,closed=false,selfId=null,joinedRadius=null,retry=null,sendLoop=null,pendingChestOpen=null,lastCorrection=0;
  const peers=new Map(),visuals=new Map();
  const east=new THREE.Vector3(),north=new THREE.Vector3(),fwd=new THREE.Vector3(),
   right=new THREE.Vector3(),matrix=new THREE.Matrix4();
@@ -138,7 +138,17 @@ export function createSphericalPresence({
     onSnapshot(m.players);
     if(Array.isArray(m.mobs))onMobs?.(m.mobs);
     const own=m.players?.find(player=>player.id===selfId);
-    if(own)onVitals?.(own);
+    if(own){
+     onVitals?.(own);
+     const deviation=greatCircleDistance(p.normal,own.normal,p.radius);
+     if(validNormal(own.normal)&&deviation>2.2&&Date.now()-lastCorrection>800){
+      lastCorrection=Date.now();
+      onPositionCorrection?.({normal:own.normal,heading:own.heading,reason:'snapshot'});
+     }
+    }
+    }else if(m.type==='positionCorrection'&&validNormal(m.normal)){
+    lastCorrection=Date.now();
+    onPositionCorrection?.(m);
    }else if(m.type==='leave'&&typeof m.id==='string'){
     peers.delete(m.id);
     const visual=visuals.get(m.id);
