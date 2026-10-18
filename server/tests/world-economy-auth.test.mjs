@@ -145,13 +145,25 @@ test('corpse commands validate server life, distance and ownership before applyi
   send({type:'attack',abilityId:'autoAttack',mobId:mob.id});
   await waitFor(events,e=>e.kind==='lootAvailable');
   assert.equal(persistent.inventory.some(Boolean),false);
+  // Server must permit looting at the position of the final melee blow.
+  const actor=[...world.players.values()][0];
+  actor.x=-9;actor.z=-27.2;actor.normal=localToNormal(actor.x,actor.z,261);
+  send({type:'economyAction',kind:'lootOpen',mobId:mob.id,life:mob.life});
+  assert.equal((await waitFor(events,e=>e.kind==='lootOpen'&&e.ok===true)).loot.length,1);
+  events.length=0;
+  // But do not allow looting beyond the shared 4.5m range.
+  actor.z=-27.65;actor.normal=localToNormal(actor.x,actor.z,261);
+  send({type:'economyAction',kind:'lootOpen',mobId:mob.id,life:mob.life});
+  assert.equal((await waitFor(events,e=>e.kind==='lootOpen')).reason,'interaction_too_far');
+  events.length=0;
+  actor.z=-24;actor.normal=normal;
   send({type:'economyAction',kind:'lootOpen',mobId:mob.id,life:mob.life+1});
   assert.equal((await waitFor(events,e=>e.kind==='lootOpen')).reason,'corpse_unavailable');
   events.length=0;
-  const actor=[...world.players.values()][0];actor.x=50;actor.z=50;
+  actor.x=50;actor.z=50;actor.normal=localToNormal(50,50,261);
   send({type:'economyAction',kind:'lootTake',mobId:mob.id,life:mob.life});
   assert.equal((await waitFor(events,e=>e.kind==='lootTake')).reason,'interaction_too_far');assert.equal(takes,0);
-  events.length=0;actor.x=-9;actor.z=-24;
+  events.length=0;actor.x=-9;actor.z=-24;actor.normal=normal;
   send({type:'economyAction',kind:'lootOpen',mobId:mob.id,life:mob.life});
   assert.deepEqual((await waitFor(events,e=>e.kind==='lootOpen')).loot,loot);
   send({type:'economyAction',kind:'lootTake',mobId:mob.id,life:mob.life,accountId:'attacker',characterId:'attacker',loot:[{id:'fake',qty:999}],requestId:'f3e39735-c79a-48fc-85ce-688626355184'});
