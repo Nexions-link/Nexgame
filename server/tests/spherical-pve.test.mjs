@@ -102,7 +102,7 @@ test('online wildlife walks and rests around spawn instead of snapping home afte
   for(let j=0;j<mobs.length;j++){
    const m=mobs[j];const d=Math.hypot(m.x-start[j].x,m.z-start[j].z);
    maxDistance=Math.max(maxDistance,d);
-   assert.ok(d<=SPHERE_ROAM_RADIUS+.5,'wildlife never leaves its permitted home range');
+   assert.ok(d<=(m.family==='bandit'?15:SPHERE_ROAM_RADIUS+.5),'creatures remain in their roaming or patrol area');
    everWalking ||= m.roamState==='walking';
    everResting ||= m.roamState==='rest';
   }
@@ -136,7 +136,7 @@ test('server respawn moves interaction coordinates to the starting camp',()=>{
 
 test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite level 3 boss',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,13);
+ assert.equal(mobs.length,14);
  assert.deepEqual([mobs.find(m=>m.boss).x,mobs.find(m=>m.boss).z],[BOSS_POSITION.x,BOSS_POSITION.z]);
  for(const m of mobs.slice(0,-1)){
   assert.equal(canWalkCamp(m.spawnX,m.spawnZ),true,'mob spawn must not be inside a wall');
@@ -154,7 +154,7 @@ test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite
 
 test('all ten monsters are beasts; none has a currency kill reward',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,13);
+ assert.equal(mobs.length,14);
  assert.ok(mobs.filter(m=>m.family!=='bandit').every(m=>m.creatureType==='beast'));
  assert.ok(mobs.filter(m=>m.family==='bandit').every(m=>m.creatureType==='humanoid'));
  assert.ok(mobSnapshot(mobs).filter(m=>m.family!=='bandit').every(m=>m.creatureType==='beast'));

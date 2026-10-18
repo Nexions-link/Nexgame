@@ -4,7 +4,7 @@
 import {createHash,randomUUID} from 'node:crypto';
 import pg from 'pg';
 import {createProgressStore} from './progress-store.js';
-import {acceptBanditQuest,turnInBanditQuest} from './bandit-quest.js';
+import {acceptBanditQuest,turnInBanditQuest,acceptBanditChiefQuest,turnInBanditChiefQuest} from './bandit-quest.js';
 import {GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS} from '../planet-test/gather-world.js';
 import {assertCharacterId,validateKillCredit,ProgressError} from './progress-rules.js';
 import {creatureById,creatureKillReward} from '../planet-test/creature-registry.js';
@@ -273,6 +273,28 @@ export function createEconomyStore({pool:externalPool,
    return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
   });
  }
+ async function startBanditChiefQuest(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(acceptBanditChiefQuest(state,args.context))};
+  });
+ }
+ async function finishBanditChiefQuest(args){
+  return transaction(args,async({client,state,save})=>{
+   revision(state,args.expectedRevision);
+   const {next,event}=turnInBanditChiefQuest(state,args.context);
+   const already=await client.query(
+    'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,event.eventKey]);
+   if(already.rowCount)fail('bandit_chief_quest_already_paid');
+   await client.query(
+    ["INSERT INTO ngw_progress_events",
+     "(character_id,event_key,event_kind,xp_granted,gold_granted,loot)",
+     "VALUES($1,$2,$3,$4,$5,'[]'::jsonb)"].join(' '),
+    [args.characterId,event.eventKey,event.eventKind,event.xp,event.gold]);
+   return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
+  });
+ }
  async function startMentor(args){
   const {context}=args;
   return transaction(args,async({state,save})=>{
@@ -327,7 +349,7 @@ export function createEconomyStore({pool:externalPool,
   schemaReady:ready,buy,sell,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
-  startBanditQuest,finishBanditQuest,
+  startBanditQuest,finishBanditQuest,startBanditChiefQuest,finishBanditChiefQuest,
   close:()=>externalPool?Promise.resolve():pool.end()
  };
 }

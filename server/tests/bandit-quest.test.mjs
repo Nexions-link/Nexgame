@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {createSphericalMobs,applySphereAttack,localToNormal} from '../spherical-pve.js';
 import {validateKillCredit,readProgress} from '../progress-rules.js';
 import {getBanditQuest,creditBanditQuestKill,acceptBanditQuest,turnInBanditQuest,
- BANDIT_QUEST_REWARD,BANDIT_QUEST_MIN_LEVEL} from '../bandit-quest.js';
+ BANDIT_QUEST_REWARD,BANDIT_QUEST_MIN_LEVEL,acceptBanditChiefQuest,creditBanditChiefKill,
+ getBanditChiefQuest,turnInBanditChiefQuest,BANDIT_CHIEF_REWARD} from '../bandit-quest.js';
 import {CREATURE_SPAWNS,BANDIT_SPAWNS,BANDIT_QUEST_GIVER,creatureById} from '../../planet-test/creature-registry.js';
 import {canWalkCamp} from '../../planet-test/sphere-physics.js';
 import {canWadeAtLocal} from '../../planet-test/start-zone.js';
@@ -12,14 +13,15 @@ const context=at=>({normal:localToNormal(at.x,at.z,261),radius:261,inCombat:fals
 const state=()=>readProgress({schemaVersion:1,revision:'0',level:2,experience:0,
  gold:30,health:120,resource:0,worldRadius:261,positionNormal:[0,0,1],heading:0,
  inventory:Array(12).fill(null),equipment:{},quests:{},actionBar:[]});
-test('13 uniquely identified PvE creatures have valid spawns and 3 distinct bandits',()=>{
+test('14 uniquely identified PvE creatures have valid spawns and 4 distinct bandits',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,13);
- assert.equal(new Set(mobs.map(x=>x.id)).size,13);
+ assert.equal(mobs.length,14);
+ assert.equal(new Set(mobs.map(x=>x.id)).size,14);
  const bandits=mobs.filter(x=>x.family==='bandit');
- assert.deepEqual(bandits.map(x=>x.id),['bandit-0','bandit-1','bandit-2']);
- assert.deepEqual(bandits.map(x=>x.level),[2,2,3]);
+ assert.deepEqual(bandits.map(x=>x.id),['bandit-0','bandit-1','bandit-2','bandit-3']);
+ assert.deepEqual(bandits.map(x=>x.level),[2,2,3,5]);
  assert.ok(bandits.every(x=>x.creatureType==='humanoid'));
+ assert.equal(bandits[3].boss,true);
  assert.ok(mobs.slice(0,10).every(x=>x.creatureType==='beast'));
  for(const spec of CREATURE_SPAWNS){
   // canWalkCamp takes an entity collision radius, not the world's 261 m radius.
@@ -53,6 +55,7 @@ test('scout mission requires proximity, exactly three real bandit kills and one 
  assert.equal(getBanditQuest(a).stage,1);
  assert.throws(()=>acceptBanditQuest(a,context(BANDIT_QUEST_GIVER)),/bandit_quest_unavailable/);
  a=creditBanditQuestKill(a,'dolgonog-9');assert.equal(getBanditQuest(a).kills,0);
+ a=creditBanditQuestKill(a,'bandit-3');assert.equal(getBanditQuest(a).kills,0);
  for(let i=0;i<3;i++)a=creditBanditQuestKill(a,'bandit-'+i);
  assert.deepEqual(getBanditQuest(a),{stage:2,kills:3});
  assert.deepEqual(getBanditQuest(creditBanditQuestKill(a,'bandit-0')),{stage:2,kills:3});
@@ -62,4 +65,21 @@ test('scout mission requires proximity, exactly three real bandit kills and one 
  assert.equal(reward.next.gold,30+BANDIT_QUEST_REWARD.gold);
  assert.equal(reward.next.experience,BANDIT_QUEST_REWARD.xp);
  assert.throws(()=>turnInBanditQuest(reward.next,context(BANDIT_QUEST_GIVER)),/bandit_quest_not_ready/);
+});
+
+test('chief quest is locked until scout completion and level four, with single reward',()=>{
+ const origin=state(),ctx=context(BANDIT_QUEST_GIVER);
+ assert.throws(()=>acceptBanditChiefQuest(origin,ctx),/bandit_chief_quest_locked/);
+ const completed={...origin,level:4,quests:{bandit:{stage:3,kills:3}}};
+ let q=acceptBanditChiefQuest(completed,ctx);
+ assert.equal(getBanditChiefQuest(q).stage,1);
+ assert.equal(getBanditChiefQuest(creditBanditChiefKill(q,'bandit-0')).stage,1);
+ q=creditBanditChiefKill(q,'bandit-3');
+ assert.equal(getBanditChiefQuest(q).stage,2);
+ assert.throws(()=>turnInBanditChiefQuest(q,context({x:70,z:70})),/interaction_too_far/);
+ const reward=turnInBanditChiefQuest(q,ctx);
+ assert.equal(getBanditChiefQuest(reward.next).stage,3);
+ assert.equal(reward.next.gold,completed.gold+BANDIT_CHIEF_REWARD.gold);
+ assert.equal(reward.event.eventKey,'bandit:chief:turnin:v1');
+ assert.throws(()=>turnInBanditChiefQuest(reward.next,ctx),/bandit_chief_quest_not_ready/);
 });

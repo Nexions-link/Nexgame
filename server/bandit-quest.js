@@ -23,7 +23,7 @@ export function acceptBanditQuest(state,context){
 }
 export function creditBanditQuestKill(state,mobId){
  const q=getBanditQuest(state),spec=creatureById(mobId);
- if(q.stage!==1||spec?.family!=='bandit')return state;
+ if(q.stage!==1||(spec?.family!=='bandit'||spec.boss))return state;
  const kills=Math.min(BANDIT_QUEST_KILLS,q.kills+1);
  return put(state,{stage:kills===BANDIT_QUEST_KILLS?2:1,kills});
 }
@@ -37,4 +37,32 @@ export function turnInBanditQuest(state,context){
     {stage:3,kills:BANDIT_QUEST_KILLS}),
   event:{eventKey:'bandit:quest:turnin:v1',eventKind:'quest_reward',
    xp:BANDIT_QUEST_REWARD.xp,gold:BANDIT_QUEST_REWARD.gold}};
+}
+
+export const BANDIT_CHIEF_REWARD=Object.freeze({xp:180,gold:35});
+export function getBanditChiefQuest(state){
+ const q=state.quests?.banditChief;
+ if(q===undefined)return {stage:0};
+ if(!q||!Number.isInteger(q.stage)||q.stage<0||q.stage>3)reject('corrupt_bandit_chief_quest');
+ return {stage:q.stage};
+}
+const putChief=(state,stage)=>({...state,quests:{...state.quests,banditChief:{stage}}});
+export function acceptBanditChiefQuest(state,context){
+ requireServerProximity(state,context,BANDIT_QUEST_GIVER,BANDIT_QUEST_GIVER.range);
+ if(getBanditQuest(state).stage!==3||state.level<4)reject('bandit_chief_quest_locked');
+ if(getBanditChiefQuest(state).stage!==0)reject('bandit_chief_quest_unavailable');
+ return putChief(state,1);
+}
+export function creditBanditChiefKill(state,mobId){
+ if(getBanditChiefQuest(state).stage!==1||mobId!=='bandit-3')return state;
+ return putChief(state,2);
+}
+export function turnInBanditChiefQuest(state,context){
+ requireServerProximity(state,context,BANDIT_QUEST_GIVER,BANDIT_QUEST_GIVER.range);
+ if(getBanditChiefQuest(state).stage!==2)reject('bandit_chief_quest_not_ready');
+ if(state.gold>2147483647-BANDIT_CHIEF_REWARD.gold)reject('gold_overflow');
+ const xp=addExperience(state.level,state.experience,BANDIT_CHIEF_REWARD.xp);
+ return {next:putChief({...state,...xp,gold:state.gold+BANDIT_CHIEF_REWARD.gold},3),
+  event:{eventKey:'bandit:chief:turnin:v1',eventKind:'quest_reward',
+   xp:BANDIT_CHIEF_REWARD.xp,gold:BANDIT_CHIEF_REWARD.gold}};
 }
