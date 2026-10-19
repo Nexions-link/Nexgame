@@ -281,6 +281,7 @@ export function createSphericalPresence({
   economy:(kind,params={})=>auth&&send({type:'economyAction',kind,...params}),
   closeChest:()=>{pendingChestOpen=null;return send({type:'chestClose'});},
   get players(){return [...peers.values()]},
+  get selfId(){return selfId},
   get connected(){return socket?.readyState===WebSocket.OPEN&&!!selfId}
  };
 }
