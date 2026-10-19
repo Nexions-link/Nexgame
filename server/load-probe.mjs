@@ -3,8 +3,9 @@
 import {WebSocket} from 'ws';
 import {performance} from 'node:perf_hooks';
 const target=process.env.NGW_LOAD_URL||'ws://127.0.0.1:3000/ws/nexgameworld';
-if(!/^ws:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(target))
- throw Error('Refusing to load-test a non-local server');
+if(!/^ws:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//.test(target)&&
+ target!=='wss://ngw-capacity-test-20261019.onrender.com/ws/nexgameworld')
+ throw Error('Refusing to load-test an unapproved target');
 const stages=[5,10,20,30,50,75,100];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function runStage(count){
