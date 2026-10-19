@@ -19,7 +19,7 @@ jobs:
           node-version: '22'
       - name: Install load client dependency
         working-directory: server
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Probe staging server
         working-directory: server
         env:
