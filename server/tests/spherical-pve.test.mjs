@@ -326,3 +326,15 @@ test('patrols stay apart and elite chief holds his separate position when idle',
  assert.equal(chief.x,x);
  assert.equal(chief.z,z);
 });
+
+
+test('exclusive Battlefury kills in one verified melee hit, never for impostors',()=>{
+ const mobs=createSphericalMobs(),mob=mobs[0];
+ const owner=character('nexions');owner.characterId='ccfdf7dc-fdbf-4857-9d9f-5b8b0301fd98';owner.accountId='4aadebea-72c0-4987-839d-de5059a75f38';owner.equipment={weapon:{id:'adminBattlefury'}};
+ const hit=applySphereAttack(mobs,owner,'autoAttack',mob.id,1000,()=>0);
+ assert.equal(hit.ok,true);assert.equal(hit.events[0].damage,mob.maxHp);assert.equal(mob.phase,'corpse');
+ const faker=character('impostor');faker.equipment={weapon:{id:'adminBattlefury'}};
+ const alive=createSphericalMobs()[0];
+ const hit2=applySphereAttack([alive],faker,'autoAttack',alive.id,1000,()=>0);
+ assert.equal(hit2.ok,true);assert.ok(alive.hp>0);
+});

@@ -81,7 +81,7 @@ export function addOwnedStacks(inventory,drops){
  for(const row of drops){
   if(!obj(row)||typeof row.id!=='string'||!int(row.qty,1,100))
    invalid('invalid_item_grant');
-  if(!ITEM_CATALOG[row.id]&&row.id!=='healingPotion')
+  if(ITEM_CATALOG[row.id]?.adminOnly||!ITEM_CATALOG[row.id]&&row.id!=='healingPotion')
    invalid('unknown_item');
   let remaining=row.qty;
   const limit=ITEM_CATALOG[row.id]?itemStackLimit(row.id):20;
@@ -129,7 +129,7 @@ export function sellToMerchant(state,{bagSlot,qty},context){
  if(!int(bagSlot,0,state.inventory.length-1)||!int(qty,1,20))
   invalid('invalid_sale');
  const row=state.inventory[bagSlot],def=row&&ITEM_CATALOG[row.id];
- if(!row||!def||def.quest||!int(def.sell,1,100000)||qty>row.qty)
+ if(!row||!def||def.quest||def.adminOnly||!int(def.sell,1,100000)||qty>row.qty)
   invalid('item_not_sellable',409);
  const gold=state.gold+def.sell*qty;
  if(!int(gold,0,MAX_GOLD))invalid('gold_overflow',409);

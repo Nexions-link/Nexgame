@@ -17,7 +17,7 @@ const copy=row=>row?{id:row.id,qty:row.qty}:null;
 export function cleanStack(row){
  if(!row||typeof row!=='object'||Array.isArray(row))return null;
  const id=row.id,def=typeof id==='string'&&Object.hasOwn(ITEM_CATALOG,id)?ITEM_CATALOG[id]:null;
- if(!def||def.quest||!Number.isInteger(row.qty)||row.qty<1||row.qty>itemStackLimit(id))return null;
+ if(!def||def.quest||def.adminOnly||!Number.isInteger(row.qty)||row.qty<1||row.qty>itemStackLimit(id))return null;
  return {id,qty:row.qty};
 }
 export function cleanInventory(value){

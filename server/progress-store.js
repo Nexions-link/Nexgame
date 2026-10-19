@@ -196,6 +196,9 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   bagSlot,equipmentSlot}){
   return transaction(accountId,characterId,expectedRevision,async({state,save})=>{
    if(state.revision!==expectedRevision)throw conflict();
+   if(state.inventory?.[bagSlot]?.id==='adminBattlefury'&&
+     (characterId!=='ccfdf7dc-fdbf-4857-9d9f-5b8b0301fd98'||accountId!=='4aadebea-72c0-4987-839d-de5059a75f38'))
+    throw new ProgressError('item_not_owned',403);
    return {progress:await save(equipOwnedItem(state,bagSlot,equipmentSlot))};
   });
  }

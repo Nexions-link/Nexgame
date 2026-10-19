@@ -5,6 +5,7 @@ import {canWalkCamp} from '../planet-test/sphere-physics.js';
 import {moveMobToward,mobSegmentClear} from '../planet-test/mob-navigation.js';
 import {rollCreatureLoot} from '../planet-test/loot-tables.js';
 import {deriveStats,ITEM_CATALOG,armorReduction} from '../items.js';
+import {isAuthorizedBattlefuryEquipped} from './admin-battlefury.js';
 import {getAbilityDefinition} from '../skills.js';
 import {CREATURE_TYPE_BEAST,creatureTypeForMob,rollCreatureCoins} from '../planet-test/creature-types.js';
 import {monsterAttackDamage} from '../planet-test/mob-levels.js';
@@ -165,7 +166,8 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  if(ability.gcd>0)cooldown.gcd=now+ability.gcd*1000;
  const stats=playerStats(player),events=[],credits=[];
  for(const target of targets){
-  const damage=abilityId==='thunderStomp'?6:
+  const damage=abilityId!=='thunderStomp'&&isAuthorizedBattlefuryEquipped(player)?target.hp:
+   abilityId==='thunderStomp'?6:
    Math.max(1,Math.round(stats.damageMin+clamp(rng(),0,1)*(stats.damageMax-stats.damageMin))+
     (abilityId==='heavyStrike'?ability.damageBonus||0:0));
   target.hp=Math.max(0,target.hp-damage);

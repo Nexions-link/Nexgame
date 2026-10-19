@@ -73,3 +73,10 @@ test('relocated authoritative chest accepts new midpoint, rejects old corner wit
  assert.ok(chest.state().slots.every(slot=>slot===null));
  assert.equal(events.at(-1).event.type,'chestState');
 });
+
+
+test('unique epic Battlefury cannot be stored in a shared chest',()=>{
+ const inv=Array(12).fill(null);inv[0]={id:'adminBattlefury',qty:1};
+ assert.equal(transferChest(empty(),inv,'deposit',0).ok,false);
+ assert.equal(cleanInventory(inv),null);
+});
