@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {advanceCreatureSecondary,applyCreatureSecondary,resetCreatureSecondary} from '../creature-secondary.js?v=1';
+import {advanceCreatureSecondary,applyCreatureSecondary,resetCreatureSecondary,shouldReplayCreatureHurt} from '../creature-secondary.js?v=2';
 import {advanceMobImpact} from '../mob-impact.js';
 import {advanceCreatureGait} from '../creature-gait.js';
 import {transitionPlainstriderAnimation,advancePlainstriderVisual} from '../../plainstrider-model.js';
@@ -88,4 +88,15 @@ test('dolgonog GLB transitions prioritize a short, readable Peck then a soft rec
  const enemy={birdVisual:model,attackCd:0,hit:.2};
  advancePlainstriderVisual(THREE_STUB,enemy,.016,0);
  assert.equal(model.container.position.z,0,'new impact pivot owns recoil; no duplicate offset');
+});
+
+test('consecutive raider damage does not snap GLB hurt clip back to first frame',()=>{
+ const make=(time,duration=.7)=>({time,getClip:()=>({duration})});
+ assert.equal(shouldReplayCreatureHurt(make(.18),true),false,
+  'keep authored pose during first half of hurt');
+ assert.equal(shouldReplayCreatureHurt(make(.64),true),true,
+  'allow the next hit to replay a nearly completed flinch');
+ assert.equal(shouldReplayCreatureHurt(make(.64),false),false);
+ assert.equal(shouldReplayCreatureHurt(null,true),false);
+ assert.equal(shouldReplayCreatureHurt(make(0,0),true),true);
 });
