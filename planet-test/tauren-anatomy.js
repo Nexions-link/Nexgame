@@ -8,9 +8,14 @@ export function createTaurenAnatomy(THREE,actor,{fur=0x836144,remote=false}={}){
   throw Error('NexGameWorld anatomy v2 requires the original animated joint hierarchy');
  const noop=()=>{},parts=[],meshes=[],dummy=new THREE.Object3D();
  const base=new THREE.Color(fur);
- const skin=make(base.clone().multiplyScalar(1.05));
+ // Reuse the living character's existing fur and muzzle textures so the
+ // new anatomical volumes share its hand-painted hide rather than appearing
+ // as untextured plastic patches against the original skinned rig.
+ const skin=chest.children.find(o=>o.isMesh&&o.material?.map)?.material||
+  make(base.clone().multiplyScalar(1.05));
  const shade=make(base.clone().multiplyScalar(.82));
- const muzzle=make(0xc3a27d);
+ const muzzle=head.children.find(o=>o.isMesh&&o.material?.color?.getHex()===0xc5a47b)?.material||
+  make(0xc3a27d);
  const lip=make(0x705143);
  const nose=make(0x33241e);
  const bone=make(0xe8d5ad);
