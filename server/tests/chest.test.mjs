@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createSharedChest,transferChest,cleanInventory,CHEST_SLOTS,CHEST_X,CHEST_Z} from '../chest.js';
+import {createSharedChest,transferChest,cleanInventory,CHEST_SLOTS,CHEST_X,CHEST_Z,CHEST_RANGE} from '../chest.js';
+import {LONGHOUSE,HOUSE_CHEST,fromHouseCoordinates} from '../../planet-test/hearth-house.js';
 const empty=()=>Array(CHEST_SLOTS).fill(null);
 test('chest uses exactly 18 slots, accepts equipment and stacks loot',()=>{
  const backpack=Array(12).fill(null);backpack[0]={id:'chainVest',qty:1};
@@ -54,4 +55,21 @@ test('two clients see the same item and only one may withdraw it; file survives 
   players.get('b').x=100;
   assert.equal(revived.open('b',b),false);
  }finally{rmSync(folder,{force:true,recursive:true})}
+});
+
+test('relocated authoritative chest accepts new midpoint, rejects old corner without losing slots',()=>{
+ assert.equal(CHEST_X,HOUSE_CHEST.x);
+ assert.equal(CHEST_Z,HOUSE_CHEST.z);
+ assert.equal(CHEST_RANGE,3.25);
+ assert.equal(LONGHOUSE.chestLocalX,0);
+ const oldCorner=fromHouseCoordinates(5.4,-6.2);
+ assert.ok(Math.hypot(oldCorner.x-CHEST_X,oldCorner.z-CHEST_Z)>CHEST_RANGE);
+ const events=[],players=new Map([['current',{x:CHEST_X,z:CHEST_Z}],['stale',oldCorner]]);
+ const chest=createSharedChest({send:(id,event)=>events.push({id,event}),broadcast:()=>{},players});
+ const emptyInventory=Array(12).fill(null);
+ assert.equal(chest.open('stale',emptyInventory),false,'old corner no longer grants access');
+ assert.equal(chest.open('current',emptyInventory),true);
+ assert.equal(chest.state().slots.length,CHEST_SLOTS);
+ assert.ok(chest.state().slots.every(slot=>slot===null));
+ assert.equal(events.at(-1).event.type,'chestState');
 });
