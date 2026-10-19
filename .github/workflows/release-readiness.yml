@@ -1,0 +1,63 @@
+name: Verify NexGameWorld production release
+# This check must be green before calling a release ready.
+# Source CI success and Nexgame GitHub Pages alone do not prove nexions.ru is updated.
+on:
+  workflow_run:
+    workflows: ['NexGameWorld Spherical and Server CI']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ngw-production-release
+  cancel-in-progress: true
+
+jobs:
+  live-release:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout game production audit from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test production audit without network
+        run: node --test ops/audit-production.test.mjs
+      - name: Request immediate Nexions.ru mirror sync when cross-repo token is configured
+        env:
+          PORTAL_DISPATCH_TOKEN: ${{ secrets.NEXIONS_PORTAL_DISPATCH_TOKEN }}
+          TARGET_REPO: Nexions-link/Nexions-portal
+        shell: bash
+        run: |
+          if [ -z "$PORTAL_DISPATCH_TOKEN" ]; then
+            echo "::notice::NEXIONS_PORTAL_DISPATCH_TOKEN not configured. Portal cron sync remains available but can be delayed."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --retry 3 --retry-all-errors \
+            --request POST \
+            --header "Authorization: Bearer $PORTAL_DISPATCH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --data '{"ref":"main"}' \
+            "https://api.github.com/repos/$TARGET_REPO/actions/workflows/sync-nexgame.yml/dispatches"
+      - name: Verify public site, mirrored commit, full game and Render after all deploys
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          node --input-type=module <<'JS'
+          import {auditWithRetry} from './ops/audit-production.mjs';
+          try {
+            const report=await auditWithRetry({expectedSha:process.env.EXPECTED_SOURCE_SHA,
+              timeoutMs:55000},{attempts:24,delayMs:30000});
+            console.log('RELEASE READY: '+JSON.stringify(report));
+          }catch(error){
+            console.error('NOT READY: Nexions.ru / mirror / modules / Render not synchronized: '+error.message);
+            process.exitCode=1;
+          }
+          JS
