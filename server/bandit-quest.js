@@ -83,6 +83,7 @@ export function turnInBanditWeaponsQuest(state,context){
 }
 
 export const BANDIT_CHIEF_REWARD=Object.freeze({xp:180,gold:35});
+export const BANDIT_CHIEF_REWARD_ITEMS=Object.freeze(['trailbreakerAxe','trailwardenShield']);
 export function getBanditChiefQuest(state){
  const q=state.quests?.banditChief;
  if(q===undefined)return {stage:0};
@@ -101,7 +102,8 @@ export function creditBanditChiefKill(state,mobId){
  if(getBanditChiefQuest(state).stage!==1||mobId!=='bandit-3')return state;
  return putChief(state,2);
 }
-export function turnInBanditChiefQuest(state,context){
+export function turnInBanditChiefQuest(state,context,rewardItemId){
+ if(!BANDIT_CHIEF_REWARD_ITEMS.includes(rewardItemId))reject('invalid_quest_reward_choice');
  requireServerProximity(state,context,BANDIT_QUEST_GIVER,BANDIT_QUEST_GIVER.range);
  if(getBanditChiefQuest(state).stage!==2)reject('bandit_chief_quest_not_ready');
  if(state.gold>2147483647-BANDIT_CHIEF_REWARD.gold)reject('gold_overflow');
