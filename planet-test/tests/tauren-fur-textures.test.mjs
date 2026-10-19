@@ -81,3 +81,15 @@ test('fur refinement does not change eyes, joint hierarchy, equipment grip or ad
  assert.equal(actor.legs.length,2);
  assert.ok(actor.arms.every(a=>a.hand&&a.elbow&&a.shoulder));
 });
+
+test('a second online avatar does not allocate another fur, muzzle or horn canvas',()=>{
+ const library={CanvasTexture:THREE.CanvasTexture,SRGBColorSpace:THREE.SRGBColorSpace,
+  RepeatWrapping:THREE.RepeatWrapping};
+ let canvases=0;
+ const create=()=>{canvases++;return createCanvas(16,16)};
+ const maps=getTaurenSurfaceMaps(library,{createCanvas:create});
+ assert.equal(canvases,3,'one atlas each for fur, muzzle and horns');
+ const next=getTaurenSurfaceMaps(library,{createCanvas:()=>{throw Error('Cache miss on second avatar')}});
+ assert.strictEqual(next,maps);
+ assert.equal(canvases,3,'new avatar must reuse all three GPU uploads');
+});
