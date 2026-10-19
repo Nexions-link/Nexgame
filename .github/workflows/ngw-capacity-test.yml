@@ -1,0 +1,32 @@
+name: Isolated NGW capacity test
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'server/load-probe.mjs'
+      - '.github/workflows/ngw-capacity-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install load client dependency
+        working-directory: server
+        run: npm ci --ignore-scripts
+      - name: Probe staging server
+        working-directory: server
+        env:
+          NGW_LOAD_URL: wss://ngw-capacity-test-20261019.onrender.com/ws/nexgameworld
+        run: node load-probe.mjs | tee load-results.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ngw-load-results
+          path: server/load-results.jsonl
