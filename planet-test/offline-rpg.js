@@ -11,7 +11,7 @@ import {ITEM_CATALOG,MERCHANT_STOCK,deriveStats,itemStackLimit} from '../items.j
 import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
-import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual,PLAINSTRIDER_VISUAL_SCALE} from '../plainstrider-model.js?v=0.3.7.0';
+import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual,PLAINSTRIDER_VISUAL_SCALE} from '../plainstrider-model.js?v=0.6.43.32';
 import {AXE_TUNER_DEFAULTS} from '../axe-tuner.js?v=0.3.7.0';
 import {BATTLEFURY_ITEM_ID,BATTLEFURY_TUNER_DEFAULTS,BATTLEFURY_TUNER_FIELDS,BATTLEFURY_TUNER_GROUPS,readBattlefuryTuning,saveBattlefuryTuning,applyBattlefuryPose} from './battlefury-tuner.js?v=2';
 import {SWORD_TUNER_DEFAULTS} from '../sword-tuner.js?v=0.3.7.0';
@@ -1022,7 +1022,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   bird.traverse(obj=>{if(obj.isMesh){obj.castShadow=/^(Body|Head|Neck|Wing)/.test(obj.name);obj.receiveShadow=false;}});
   const mixer=new THREE.AnimationMixer(bird);
   const actions=Object.fromEntries(PLAINSTRIDER_REQUIRED_CLIPS.map(k=>[k,mixer.clipAction(asset.animations.find(a=>a.name===k))]));
-  mob.birdVisual={container,bird,impactPivot,motionPivot,secondary:{},mixer,actions,mode:null,walkGrace:0,attackRemaining:0,
+  mob.birdVisual={container,bird,impactPivot,motionPivot,secondary:{},spherical:true,mixer,actions,mode:null,walkGrace:0,attackRemaining:0,
    lastAttackCd:mob.attackCd,impact:{seen:mob.visualHitSequence||0,wasHit:false}};
   mob.deathAnimation=createMobDeath({THREE,entity:mob,visual:container,getRadius,heightAt,mixer});
   advancePlainstriderVisual(THREE,mob,1/60,0,false);
