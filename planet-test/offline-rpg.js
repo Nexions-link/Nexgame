@@ -265,8 +265,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const next=Array.isArray(rows)?rows:[];
   const changed=rosterKey(next)!==rosterKey(onlinePlayers);
   onlinePlayers=next;
-  if(selectedAllyId&&!next.some(peer=>peer.id===selectedAllyId))selectedAllyId=null;
+  const lostSelection=!!selectedAllyId&&!next.some(peer=>peer.id===selectedAllyId);
+  if(lostSelection)selectedAllyId=null;
   paintAllyTarget();
+  if(lostSelection)draw(false);
   if(changed&&!modal.hidden&&modal.dataset.kind==='party')renderModal();
  }
  function onPartyState(event){
@@ -1497,7 +1499,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    line('Группа',partyState.groupId?'Участников: '+partyState.members.length+' / 5':'Вы пока не в группе',
     partyState.groupId?[['Покинуть',()=>multiplayer.leaveParty()]]:[]);
    for(const member of partyState.members)
-    line(member.name||'Игрок',(member.id===partyState.leaderId?'Лидер · ':'')+'Уровень '+(member.level||1));
+    line(member.name||'Игрок',(member.id===partyState.leaderId?'Лидер · ':'')+'Уровень '+(member.level||1),
+     onlinePlayers.some(peer=>peer.id===member.id)?[['Выбрать',()=>{selectAlly(member.id);closeWindow()}]]:[]);
    if(!partyState.groupId||partyState.members.length<5){
     line('Игроки в мире','Выбери игрока для приглашения.');
     for(const peer of onlinePlayers)if(!partyState.members.some(x=>x.id===peer.id))
