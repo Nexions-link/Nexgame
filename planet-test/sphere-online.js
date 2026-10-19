@@ -60,14 +60,14 @@ export function createSphericalPresence({
  let socket=null,closed=false,selfId=null,joinedRadius=null,retry=null,sendLoop=null,pendingChestOpen=null,lastCorrection=0,onlineCount=1;
  const peers=new Map(),visuals=new Map();
  let weaponLoaderPromise=null;
- const fetchWeaponScene=loadBattlefuryScene||async()=>{
+ const fetchWeaponScene=loadBattlefuryScene||(async()=>{
   if(!weaponLoaderPromise)weaponLoaderPromise=import(
    'https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js'
   ).then(({GLTFLoader})=>new GLTFLoader());
   const loader=await weaponLoaderPromise;
   const gltf=await loader.loadAsync('../assets/weapons/admin-battlefury.glb');
   return gltf.scene;
- };
+ });
  function clearWeapon(visual){
   const mesh=visual.weaponMesh;
   if(mesh)disposeActor(mesh);
