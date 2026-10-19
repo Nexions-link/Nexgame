@@ -783,7 +783,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   rig.traverse(part=>{if(part.isMesh){part.castShadow=true;part.receiveShadow=false;}});
   const mixer=new THREE.AnimationMixer(rig);
   const actions=Object.fromEntries(asset.animations.map(clip=>[clip.name,mixer.clipAction(clip)]));
-  mob.banditGltf={container,rig,mixer,actions,mode:null,action:null};
+  mob.banditGltf={container,rig,mixer,actions,mode:null,action:null,walkBlend:0,walkGrace:0};
   mob.deathAnimation=createMobDeath({THREE,entity:mob,visual:container,getRadius,heightAt,mixer});
   banditAnimation(mob,0,0);
  }
@@ -791,12 +791,20 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const gltf=mob.banditGltf;
   if(!gltf)return mob.banditVisual?.animate(clock,moved,mob.attackWindup>0?1:0);
   if(mob.corpse)return;
-  const mode=mob.hit>0?'Hurt':mob.attackWindup>0?'Attack':moved>.01?'Walk':'Idle';
+  const delta=Math.min(Math.max(0,dt),.12);
+  // Ignore tiny pathfinding jitters: retain the walk for a brief grace period.
+  gltf.walkBlend+=((moved>.015?1:0)-gltf.walkBlend)*(1-Math.exp(-delta*9));
+  gltf.walkGrace=moved>.015?.16:Math.max(0,gltf.walkGrace-delta);
+  const walking=gltf.walkGrace>0||gltf.walkBlend>.32;
+  const mode=mob.hit>0?'Hurt':mob.attackWindup>0?'Attack':walking?'Walk':'Idle';
   if(mode!==gltf.mode){
-   if(gltf.action)gltf.action.fadeOut(.12);
-   gltf.action=gltf.actions[mode];gltf.action.reset().fadeIn(.12).play();gltf.mode=mode;
+   const fade=mode==='Attack'?.085:mode==='Hurt'?.10:.22;
+   if(gltf.action)gltf.action.fadeOut(fade);
+   gltf.action=gltf.actions[mode];
+   gltf.action.reset().fadeIn(fade).play();
+   gltf.mode=mode;
   }
-  gltf.mixer.update(Math.min(Math.max(0,dt),.12));
+  gltf.mixer.update(delta);
  }
  // Use the exact approved longstrider model and clips when the shared GLB loads.
  // Procedural fallback remains available if the CDN or asset fails.
