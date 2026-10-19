@@ -65,7 +65,7 @@ test('bag selection follows item until removed, then clears safely',()=>{
  const bag=()=>h.get('mbody');
  descendants(bag()).find(x=>x.className?.includes('inventory-slot')&&x.className.includes('occupied')).click();
  assert.ok(descendants(bag()).some(x=>x.className?.includes('ngw-gear-compare')));
- h.rpg.state.inventory[0]=null;
+ h.rpg.state.inventory.splice(0,1);
  h.rpg.draw();
  assert.equal(descendants(bag()).some(x=>x.className?.includes('ngw-gear-compare')),false);
  assert.ok(descendants(bag()).some(x=>x.className==='inventory-detail'&&x.textContent.includes('Нажми')));
