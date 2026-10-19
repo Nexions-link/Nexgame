@@ -276,6 +276,7 @@ export function createSphericalPresence({
   for(const [id,model] of visuals)if(!needed.has(id)){
    disposeActor(model.actor.root);visuals.delete(id);
   }
+  let detailedAvatarSlots=0,simpleAvatarSlots=0;
   for(const {peer,distance} of rows){
    let visual=visuals.get(peer.id);
    if(!visual){
@@ -288,7 +289,14 @@ export function createSphericalPresence({
    }
    // Keep the face and main silhouette near the camera, but avoid the
    // additional sculpt batches for distant peers on mobile Safari.
-   const modelDetail=distance<12?0.68:distance<22?0.34:0;
+   // Cap additional draw calls even if sixteen players crowd onto a
+   // single phone screen. Nearest peers win the cosmetic quality slots.
+   let modelDetail=0;
+   if(distance<12&&detailedAvatarSlots<4){
+    modelDetail=.68;detailedAvatarSlots++;
+   }else if(distance<22&&simpleAvatarSlots<8){
+    modelDetail=.24;simpleAvatarSlots++;
+   }
    if(visual.actor.anatomy&&visual.actor.anatomy.quality!==modelDetail)
     visual.actor.anatomy.setQuality(modelDetail);
    syncBattlefury(visual,peer);
