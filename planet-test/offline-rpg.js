@@ -1450,9 +1450,15 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      [['Принять задание',()=>sendAccountAction('banditChiefAccept')]]);
    else if(state.banditChiefQuest.stage===1)
     line('Главарь Пыльной тропы','Победи главаря разбойников у отдельной стоянки в конце тропы.');
-   else if(state.banditChiefQuest.stage===2)
-    line('Главарь Пыльной тропы','Главарь повержен. Награда: 180 опыта и 35 монет.',
-     [['Сдать задание',()=>sendAccountAction('banditChiefTurnIn')]]);
+   else if(state.banditChiefQuest.stage===2){
+    line('Главарь Пыльной тропы','Главарь повержен! Получи 180 опыта, 35 монет и выбери ОДНУ зелёную награду 5-го уровня.');
+    for(const id of ['trailbreakerAxe','trailwardenShield']){
+     const item=ITEM_CATALOG[id];
+     const statLine=id==='trailbreakerAxe'?'Урон 6–11 · Сила +1':'Броня 65 · Блок 2 · Выносливость +1';
+     line(item.name+' · ур. 5',statLine+' · Необычный предмет',
+      [['Выбрать награду',()=>sendAccountAction('banditChiefTurnIn',{rewardItemId:id})]]);
+    }
+   }
    else line('Тропа снова безопасна','Главарь повержен. Благодарю за службу.');
    return;
   }
