@@ -3,7 +3,7 @@ import {createCharacterPreview} from './character-preview.js?v=3';
 import {renderCharacterSheet} from './character-sheet.js?v=4';
 // Offline spherical NexGame systems. Use the unchanged production rules for items,
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
-import {HOTBAR_ART,HOTBAR_SHORT} from './native-hotbar-art.js?v=1';
+import {HOTBAR_ART,HOTBAR_SHORT,HOTBAR_AUTO_ACTIVE} from './native-hotbar-art.js?v=2';
 import {compareEquipment,itemStatRows} from './equipment-comparison.js?v=1';
 import {ITEM_CATALOG,MERCHANT_STOCK,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.18';
 import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
@@ -1153,6 +1153,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    hasConsumable:itemCount('healingPotion')>0,needsHealing:state.hp<stats().maxHp};
  }
  function castAction(id){
+  if(id==='healingPotion'&&itemCount('healingPotion')===0){msg('Лечебных настоев нет в рюкзаке');return false;}
   if(authenticatedProfile&&id==='healingPotion')return sendAccountAction('usePotion');
   if(authenticatedProfile&&!isOnline()){
    msg('Связь с сервером отсутствует. Боевые действия приостановлены.');
@@ -1275,14 +1276,17 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    const button=document.createElement('button');button.type='button';button.dataset.slot=String(i);
    button.className='ability';button.title=entry?.id||'Назначить умение';
    const key=document.createElement('kbd');key.textContent=String(i+1);
-   const icon=document.createElement('span');icon.className='planetAbilityIcon';if(entry&&HOTBAR_ART[entry.id])icon.innerHTML=HOTBAR_ART[entry.id];else icon.textContent='＋';
+   const icon=document.createElement('span');icon.className='planetAbilityIcon';if(entry&&HOTBAR_ART[entry.id])icon.innerHTML=entry.id==='autoAttack'&&autoplay?HOTBAR_AUTO_ACTIVE:HOTBAR_ART[entry.id];else icon.textContent='＋';
    const caption=document.createElement('span');caption.className='planetAbilityName';
    const entryDef=entry?actionDefinition(entry,'warrior',state.level):null;
    caption.textContent=entry?HOTBAR_SHORT[entry.id]||entryDef?.name||'Умение':'Пусто';
    const cooldownShade=document.createElement('span');cooldownShade.className='planetCooldownShade';
    const gcdShade=document.createElement('span');gcdShade.className='planetGcdShade';
    const cooldownText=document.createElement('span');cooldownText.className='planetCooldownText';
-   button.append(key,icon,caption,cooldownShade,gcdShade,cooldownText);
+   const quantity=document.createElement('span');quantity.className='planetItemQuantity';
+   quantity.hidden=entry?.id!=='healingPotion';
+   quantity.textContent=entry?.id==='healingPotion'?String(itemCount('healingPotion')):'';
+   button.append(key,icon,caption,cooldownShade,gcdShade,cooldownText,quantity);
    button.classList.toggle('is-empty',!entry);
    if(entry?.id==='autoAttack'&&autoplay)button.classList.add('is-active');
    const ability=entry?getAbilityDefinition(entry.id==='healingPotion'?'healingPotion':entry.id):null;
@@ -1304,7 +1308,22 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(cd)cd.textContent=remain>0?remain>=10?String(Math.ceil(remain)):remain.toFixed(1):'';
    if(gcd)gcd.style.transform='scaleY('+(def?.gcd?clamp(runtime.gcd/1.5,0,1):0)+')';
    button.classList.toggle('is-cooldown',remain>0);
-   button.classList.toggle('is-active',entry?.id==='autoAttack'&&autoplay);
+   const autoActive=entry?.id==='autoAttack'&&autoplay;
+   button.classList.toggle('is-active',autoActive);
+   if(entry?.id==='autoAttack'){
+    const art=button.querySelector('.planetAbilityIcon');
+    if(art&&button.dataset.autoActive!==String(autoActive)){
+     art.innerHTML=autoActive?HOTBAR_AUTO_ACTIVE:HOTBAR_ART.autoAttack;
+     button.dataset.autoActive=String(autoActive);
+    }
+    button.setAttribute('aria-pressed',String(autoActive));
+    button.title=autoActive?'Автоатака включена':'Автоатака выключена';
+   }
+   const isPotion=entry?.id==='healingPotion',count=isPotion?itemCount('healingPotion'):0;
+   const quantity=button.querySelector('.planetItemQuantity');
+   if(quantity){quantity.hidden=!isPotion;quantity.textContent=isPotion?String(count):'';}
+   button.classList.toggle('is-unavailable',isPotion&&count===0);
+   if(isPotion){button.setAttribute('aria-disabled',String(count===0));button.title=count>0?'Лечебных настоев: '+count:'Лечебных настоев нет';}
   }
  }
  function renderModal(){
