@@ -106,7 +106,7 @@ test('Postgres: bandit XP, manual coin pickup and unique quest reward after relo
    radius:261,serverCredit:credit('bandit-3'),deferLoot:true});
   state=bossKilled.progress;
   assert.equal(state.quests.banditChief.stage,2);
-  state=(await economy.finishBanditChiefQuest(args(state.revision,BANDIT_QUEST_GIVER))).progress;
+  state=(await economy.finishBanditChiefQuest(args(state.revision,BANDIT_QUEST_GIVER,{rewardItemId:'trailbreakerAxe'}))).progress;
   assert.equal(state.quests.banditChief.stage,3);
   const chiefEvents=await pool.query(
    "SELECT gold_granted FROM ngw_progress_events WHERE character_id=$1 AND event_key='bandit:chief:turnin:v1'",
