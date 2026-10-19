@@ -15,6 +15,8 @@ import {deriveStats} from '../items.js';
 import {resolveSphereWalk} from './world-movement.js';
 import {selectVisiblePlayers} from './world-interest.js';
 import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
+import {isAuthorizedBattlefuryEquipped,ADMIN_BATTLEFURY_ID} from './admin-battlefury.js';
+import {BATTLEFURY_TUNER_DEFAULTS,BATTLEFURY_TUNER_FIELDS,normalizeBattlefuryTuning} from '../planet-test/battlefury-tuner.js';
 
 export const SPHERE_PROTOCOL=2;
 // Recover from dropped/throttled mobile movement packets without teleporting.
@@ -55,13 +57,27 @@ const send=(ws,p)=>{
  if(p.type==='snapshot'&&ws.bufferedAmount>MAX_SNAPSHOT_BUFFER)return;
  ws.send(JSON.stringify(p));
 };
-const publicPlayer=p=>({
+// Cosmetic appearance is only certified from a stored, authenticated character.
+// Never trust a client-provided weapon ID or character ID for other players.
+export const publicPlayer=p=>({
  id:p.id,name:p.name,normal:p.normal,heading:p.heading,
  moving:p.moving,radius:p.radius,level:p.level,hp:p.hp,maxHp:p.maxHp,
  resource:p.resource,equipment:{
   weapon:p.equipment.weapon?.id||null,shieldId:p.equipment.shield?.id||null
- }
+ },
+ ...(isAuthorizedBattlefuryEquipped(p)?{
+  battlefury:{itemId:ADMIN_BATTLEFURY_ID,pose:p.battlefuryPose||BATTLEFURY_TUNER_DEFAULTS}
+ }:{})
 });
+// All ten finite numeric fields must be present. Other packets cannot remove or
+// forge an item: rejected cosmetic packets leave the last good pose intact.
+export function sanitizeBattlefuryPresence(raw){
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+ for(const key of Object.keys(BATTLEFURY_TUNER_DEFAULTS)){
+  if(typeof raw[key]!=='number'||!Number.isFinite(raw[key]))return null;
+ }
+ return normalizeBattlefuryTuning(raw);
+}
 export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHEST_DATA_FILE||join(dirname(resolve(process.env.CHEST_DATA_FILE||'chest-data.json')),'nexgameworld-chest.json'))}={}){
  const players=new Map(),connections=new Map();
  const counters={movementRejected:0,positionCorrections:0,progressSaveFailures:0,snapshotsSent:0};
@@ -175,6 +191,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      accountId:trustedCharacter?.accountId||null,
      normal,heading,moving:false,radius,
      level,equipment,hp,maxHp:stats.maxHp,resource:saved?bound(saved.resource,0,100):0,
+     battlefuryPose:BATTLEFURY_TUNER_DEFAULTS,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
      joined:true,x:local.x,z:local.z,abilityCooldowns:{},
      savedRevision:saved?.revision??null,lastPositionCorrectionAt:0};
@@ -335,6 +352,12 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    current.heading=heading;
    current.moving=m.moving&&!sweep.blocked;
    current.updatedAt=now;
+   // Accept only cosmetic transforms from the authenticated, uniquely
+   // equipped owner; never from guests or from arbitrary gear IDs.
+   if(trustedCharacter&&isAuthorizedBattlefuryEquipped(current)){
+    const pose=sanitizeBattlefuryPresence(m.battlefuryPose);
+    if(pose)current.battlefuryPose=pose;
+   }
    const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
    // The first accepted movement into range pushes the count without opening.
