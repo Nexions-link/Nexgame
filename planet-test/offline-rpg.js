@@ -4,6 +4,7 @@ import {renderCharacterSheet} from './character-sheet.js?v=4';
 // Offline spherical NexGame systems. Use the unchanged production rules for items,
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT} from './native-hotbar-art.js?v=1';
+import {compareEquipment,itemStatRows} from './equipment-comparison.js?v=1';
 import {ITEM_CATALOG,MERCHANT_STOCK,deriveStats,itemStackLimit} from '../items.js?v=0.3.5.18';
 import {getAbilityDefinition,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.3.5';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=0.3.5.3';
@@ -1515,7 +1516,52 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
           const name=document.createElement('strong');name.textContent=def?.name||'Лечебный настой';
      if(def)name.style.color=QUALITY_VISUALS[itemRarity(def.rarity)].color;
           const description=document.createElement('p');description.textContent=def?.description||'Восстанавливает здоровье';
-          detail.append(name,description);
+          detail.append(name);
+          if(def?.slot){
+           const comparison=compareEquipment(item.id,state.level,state.equipment);
+           const equipped=document.createElement('div');
+           equipped.className='ngw-item-equipped';
+           equipped.textContent='Сравнение с '+(comparison.current?.name||'пустой ячейкой')+
+            ' · '+(LABEL[comparison.slot]||comparison.slot);
+           detail.append(equipped);
+           const stats=document.createElement('div');stats.className='ngw-item-stats';
+           for(const stat of itemStatRows(item.id)){
+            const row=document.createElement('div');row.className='ngw-item-stat';
+            row.textContent=stat.label+': '+stat.value;
+            stats.append(row);
+           }
+           if(stats.children.length)detail.append(stats);
+           const box=document.createElement('div');
+           box.className='ngw-gear-compare '+comparison.overall;
+           const headline=document.createElement('strong');
+           headline.textContent=comparison.overall==='better'?'Улучшение характеристик':
+            comparison.overall==='worse'?'Характеристики ухудшатся':
+            comparison.overall==='mixed'?'Есть улучшения и ухудшения':
+            'Характеристики не изменятся';
+           box.append(headline);
+           if(comparison.meaningful.length){
+            for(const stat of comparison.meaningful){
+             const row=document.createElement('div');row.className='ngw-compare-row '+stat.trend;
+             const label=document.createElement('span');label.textContent=stat.label;
+             const values=document.createElement('span');
+             const sign=stat.trend==='better'?'▲ ':stat.trend==='worse'?'▼ ':'';
+             values.textContent=sign+stat.deltaText+' ('+
+              Number(stat.before.toFixed(2)).toLocaleString('ru-RU')+' → '+
+              Number(stat.after.toFixed(2)).toLocaleString('ru-RU')+')';
+             row.append(label,values);box.append(row);
+            }
+           }else{
+            const note=document.createElement('p');note.textContent='Бонусы и итоговые характеристики не изменятся.';
+            box.append(note);
+           }
+           if(!comparison.requirementsMet){
+            const levelNote=document.createElement('div');levelNote.className='ngw-compare-level';
+            levelNote.textContent='Требуется уровень '+def.requiredLevel;
+            box.append(levelNote);
+           }
+           detail.append(box);
+          }
+          detail.append(description);
           const commands=[...(def?.slot?[['Надеть',()=>equip(item.id)]]:[]),
             ...(authenticatedProfile?[]:[['🗑 Удалить',()=>{takeItem(item.id,1);draw();}]])];
           for(const [label,action] of commands){
