@@ -85,7 +85,7 @@ test('dolgonog GLB transitions prioritize a short, readable Peck then a soft rec
  assert.ok(attackFade?.[3]<=.1,'the beak strike must not fade in over most of the clip');
  transitionPlainstriderAnimation(THREE_STUB,model,'Idle');
  assert.ok(events.some(x=>x[0]==='crossfade'&&x[1]==='Idle'&&x[2]==='Peck'));
- const enemy={birdVisual:model,attackCd:1.1,hit:.2};
+ const enemy={birdVisual:model,attackCd:0,hit:.2};
  advancePlainstriderVisual(THREE_STUB,enemy,.016,0);
  assert.equal(model.container.position.z,0,'new impact pivot owns recoil; no duplicate offset');
 });
