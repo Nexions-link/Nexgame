@@ -21,7 +21,6 @@ export function createTaurenAnatomy(THREE,actor,{fur=0x836144,remote=false}={}){
  const sphere=new THREE.SphereGeometry(1,16,12);
  const fineSphere=new THREE.SphereGeometry(1,12,9);
  const cone=new THREE.ConeGeometry(1,1,9,1);
- const tube=new THREE.CylinderGeometry(1,1,1,10);
  function make(color,settings={}){
   return new THREE.MeshStandardMaterial({color,roughness:.96,metalness:0,...settings});
  }
@@ -132,13 +131,13 @@ export function createTaurenAnatomy(THREE,actor,{fur=0x836144,remote=false}={}){
   row([-.085,-1.09,-.46],[.085,.25,.077],.14),
   row([.085,-1.09,-.46],[.085,.25,.077],-.14)
  ],'enhanced');
- let quality=remote?.35:.68;
+ let quality=remote?0.35:0.68;
  function setQuality(value){
   quality=Math.max(0,Math.min(1,Number.isFinite(value)?value:0));
   for(const part of parts){
-   part.item.visible=part.quality==='base'||
+   part.item.visible=!(remote&&quality<.1)&&(part.quality==='base'||
     (part.quality==='enhanced'&&quality>=.36)||
-    (part.quality==='high'&&quality>=.78);
+    (part.quality==='high'&&quality>=.78));
   }
  }
  setQuality(quality);
