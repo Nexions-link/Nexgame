@@ -225,7 +225,7 @@ test('textured elder lodge keeps procedural materials lightweight and platform i
  });
 });
 
-test('elder's interior is permanent solid-looking decor, not part of fading roof or walls',()=>{
+test("elder's interior is permanent solid-looking decor, not part of fading roof or walls",()=>{
  const root=new THREE.Group();
  const model=buildHearthHouse(THREE,{root,villageVisuals:{addRoof(){}}});
  assert.deepEqual(root.children.map(x=>x.name),[

@@ -483,6 +483,8 @@ export function buildHearthHouse(THREE,{root,villageVisuals}){
   for(const s of [-1,1]){
    carvedBeams.push([[s*(hw-.90),7.68,z],
     [s*(hw-2.55),8.62,z],.17]);
+   carvedBeams.push([[s*(hw-2.55),8.62,z],
+    [s*(hw-4.18),7.68,z],.115]);
   }
  }
  for(const s of [-1,1]){
@@ -583,12 +585,12 @@ export function buildHearthHouse(THREE,{root,villageVisuals}){
   glow.position.set(x,5.19,z);interior.add(glow);
  }
  // Hand-braided ceiling charms are safely above the player's reach.
- const charms=[];
+ const interiorCharms=[];
  for(const z of [-7.65,5.9])for(const x of [-3.15,0,3.15]){
-  charms.push([[x,7.60,z],[x,6.70,z],.049]);
-  charms.push([[x-.21,6.70,z],[x,6.35,z],.051]);
-  charms.push([[x,6.35,z],[x+.21,6.70,z],.051]);
+  interiorCharms.push([[x,7.60,z],[x,6.70,z],.049]);
+  interiorCharms.push([[x-.21,6.70,z],[x,6.35,z],.051]);
+  interiorCharms.push([[x,6.35,z],[x+.21,6.70,z],.051]);
  }
- beams(interior,'hearth-house-interior-bone-charms',charms,M.bone);
+ beams(interior,'hearth-house-interior-bone-charms',interiorCharms,M.bone);
  return {roof,roofPlanes,walls,floor,accents,interior};
 }
