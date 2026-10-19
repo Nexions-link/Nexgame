@@ -56,3 +56,16 @@ export function resetCreatureSecondary(state,pivot){
  if(state){state.turn=0;state.motion=0;state.attack=0;state.time=0;state.lastYaw=undefined;}
  if(pivot){pivot.position.set(0,0,0);pivot.rotation.set(0,0,0);}
 }
+
+/**
+ * A second sword blow can arrive while Hurt is still playing. Keep its
+ * existing GLB pose if the clip is still in the first half, and restart
+ * only near the tail. The separate impact envelope still retriggers on
+ * *every* authoritative hit, so repeated damage is never visually lost.
+ */
+export function shouldReplayCreatureHurt(action,newHit){
+ if(!newHit||!action)return false;
+ const duration=action.getClip?.()?.duration;
+ if(!Number.isFinite(duration)||duration<=0)return true;
+ return Number.isFinite(action.time)&&action.time>=duration*.70;
+}
