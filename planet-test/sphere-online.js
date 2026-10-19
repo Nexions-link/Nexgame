@@ -116,6 +116,7 @@ export function createSphericalPresence({
     const latest=peers.get(peer.id);
     const latestPose=normalizeBattlefuryTuning(latest.battlefury.pose);
     visual.weaponKey=JSON.stringify(latestPose);
+    visual.actor.root.userData.equipmentGrip??={};
     visual.actor.root.userData.equipmentGrip.weapon=applyBattlefuryPose(group,hand,latestPose);
    }catch(err){
     visual.weaponFailed=true;
