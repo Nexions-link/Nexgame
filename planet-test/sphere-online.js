@@ -288,7 +288,7 @@ export function createSphericalPresence({
    }
    // Keep the face and main silhouette near the camera, but avoid the
    // additional sculpt batches for distant peers on mobile Safari.
-   const modelDetail=distance<12?.68:distance<22?.34:0;
+   const modelDetail=distance<12?0.68:distance<22?0.34:0;
    if(visual.actor.anatomy&&visual.actor.anatomy.quality!==modelDetail)
     visual.actor.anatomy.setQuality(modelDetail);
    syncBattlefury(visual,peer);
