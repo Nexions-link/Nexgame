@@ -1342,6 +1342,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(bagRenderSnapshot===snapshot&&body.querySelector('.inventory-grid'))return;
    bagRenderSnapshot=snapshot;
   }
+  // Save the scroll offset before clearing DOM. On iOS the old contents
+  // may be removed by a server refresh while the player is comparing gear.
+  const previousBagScroll=kind==='bag'?body.scrollTop:0;
   const characterReuse=kind==='character'?{
    viewport:body.querySelector('.character-preview-viewport'),
    gesture:body.querySelector('.character-rotate')}:null;
@@ -1530,7 +1533,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }else if(kind==='bag'){
     // Periodic HUD and server inventory updates rebuild this panel. Keep the
     // inspected item selected, and preserve scroll position across redraws.
-    const bagScroll=body.scrollTop;
+    const bagScroll=previousBagScroll;
     const summary=document.createElement('div');summary.className='inventory-summary';
     summary.textContent='Ячейки '+state.inventory.length+' / 12 · Монеты '+pretty(state.gold)+' · Настои '+itemCount('healingPotion');
     const grid=document.createElement('div');grid.className='inventory-grid';
@@ -1617,6 +1620,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      grid.children[selectedBagSlot]?.click();
     else{selectedBagSlot=-1;selectedBagItemId=null;}
     body.scrollTop=bagScroll;
+    // Safari may perform scroll anchoring during the next layout pass.
+    // Restore only if this is still the same open bag, not after a user closes it.
+    requestAnimationFrame(()=>{
+      if(!modal.hidden&&modal.dataset.kind==='bag'&&Math.abs(body.scrollTop-bagScroll)>1)
+       body.scrollTop=bagScroll;
+    });
   }else if(kind==='character'){
     renderCharacterSheet({
      document,body,profile:authenticatedProfile,state,stats:stats(),items:ITEM_CATALOG,
