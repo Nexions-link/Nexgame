@@ -358,7 +358,8 @@ export function createEconomyStore({pool:externalPool,
  async function finishBanditChiefQuest(args){
   return transaction(args,async({client,state,save})=>{
    revision(state,args.expectedRevision);
-   const {next,event}=turnInBanditChiefQuest(state,args.context);
+   const {next,event}=turnInBanditChiefQuest(state,args.context,args.rewardItemId);
+   const inventory=addOwnedStacks(next.inventory,[{id:args.rewardItemId,qty:1}]);
    const already=await client.query(
     'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
     [args.characterId,event.eventKey]);
@@ -368,7 +369,7 @@ export function createEconomyStore({pool:externalPool,
      "(character_id,event_key,event_kind,xp_granted,gold_granted,loot)",
      "VALUES($1,$2,$3,$4,$5,'[]'::jsonb)"].join(' '),
     [args.characterId,event.eventKey,event.eventKind,event.xp,event.gold]);
-   return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
+   return {progress:await save({...next,inventory}),reward:{xp:event.xp,gold:event.gold,itemId:args.rewardItemId}};
   });
  }
  async function startMentor(args){
