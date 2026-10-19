@@ -1,0 +1,46 @@
+name: Notify Nexions.ru of NexGameWorld updates
+# Any committed change on the canonical game main branch requests an immediate
+# same-origin site mirror. The separate production audit remains the release gate.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ngw-notify-nexions-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  request-site-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check release metadata before any mirror request
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          const version=JSON.parse(readFileSync('planet-test/version.json','utf8')).version;
+          const html=readFileSync('planet-test/index.html','utf8');
+          const server=readFileSync('server/index.js','utf8');
+          if(!html.includes('data-build="'+version+'"'))throw Error('Client HTML release mismatch: '+version);
+          if(!server.includes("BUILD='"+version+"'"))throw Error('Server release mismatch: '+version);
+          console.log('NGW release matched:',version);
+          JS
+      - name: Request immediate sync on the public Nexions.ru repository
+        env:
+          NEXIONS_PORTAL_DISPATCH_TOKEN: ${{ secrets.NEXIONS_PORTAL_DISPATCH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$NEXIONS_PORTAL_DISPATCH_TOKEN" ]; then
+            echo "::warning::Cross-repository dispatch not configured: set NEXIONS_PORTAL_DISPATCH_TOKEN with Actions:write for Nexions-link/Nexions-portal. The portal's own five-minute scheduled sync still applies."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --retry 3 --retry-all-errors             --request POST             --header "Authorization: Bearer $NEXIONS_PORTAL_DISPATCH_TOKEN"             --header "Accept: application/vnd.github+json"             --header "X-GitHub-Api-Version: 2022-11-28"             --data '{"ref":"main"}'             "https://api.github.com/repos/Nexions-link/Nexions-portal/actions/workflows/sync-nexgame.yml/dispatches"
+          echo "Nexions.ru mirror workflow dispatched. Site only serves the release after Pages deployment succeeds."
