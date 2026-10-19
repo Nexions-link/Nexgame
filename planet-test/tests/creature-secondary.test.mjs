@@ -76,7 +76,7 @@ test('dolgonog GLB transitions prioritize a short, readable Peck then a soft rec
    crossFadeFrom(old,t){events.push(['crossfade',name,old.name,t]);return this}}]));
  const model={actions,mode:null,mixer:{update(){},stopAllAction(){}},
   container:{rotation:{x:0,z:0},position:{z:0}},
-  attackRemaining:0,walkGrace:0,lastAttackCd:0,impactPivot:{},secondary:{}};
+  attackRemaining:0,walkGrace:0,lastAttackCd:0,impactPivot:{},secondary:{},spherical:true};
  const THREE_STUB={LoopOnce:1,LoopRepeat:2};
  transitionPlainstriderAnimation(THREE_STUB,model,'Idle');
  transitionPlainstriderAnimation(THREE_STUB,model,'Walk');
