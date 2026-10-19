@@ -388,8 +388,7 @@ try {
     onPositionCorrection:correction=>{
       if(!Array.isArray(correction?.normal)||correction.normal.length!==3||
          !correction.normal.every(Number.isFinite))return;
-      travelled=move.travelled;
-        const oldLon=Math.atan2(state.normal.x,state.normal.z);
+      const oldLon=Math.atan2(state.normal.x,state.normal.z);
       state.normal.set(...correction.normal).normalize();
       state.lonUnwrapped+=angleDelta(Math.atan2(state.normal.x,state.normal.z),oldLon);
       if(Number.isFinite(correction.heading))state.heading=angleDelta(correction.heading,0);
@@ -775,6 +774,7 @@ try {
         if(approach)rpg.stopAutoApproach();
         power=0;
       }else{
+        travelled=move.travelled;
         const oldLon=Math.atan2(state.normal.x,state.normal.z);
         state.normal.copy(move.normal);
         const newLon=Math.atan2(state.normal.x,state.normal.z);
