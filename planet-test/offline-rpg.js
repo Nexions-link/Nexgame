@@ -1067,7 +1067,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    }
    if(nearby.kind==='gather'){
     const job={kind:'gather',stage:nearby.stage,index:nearby.index,phase:'request'};
-    if(sendAccountAction('gatherStart',job)){
+    // Never forward the local job.kind: it would override economyAction.kind
+    // and turn the authenticated gatherStart request into an unsupported action.
+    if(sendAccountAction('gatherStart',{stage:job.stage,index:job.index})){
      pendingServerGather=job;msg('Сбор растения… 1,5 с');
     }
     return;
