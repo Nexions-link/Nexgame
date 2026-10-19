@@ -76,7 +76,7 @@ export function buildHearthHouse(THREE,{root,villageVisuals}){
  
  // Hide panels and lashed poles echo the smaller canvas tents in this village.
  // The roof, doorway and chest remain in precisely their former coordinates.
- const accents=new THREE.Group();accents.name='hearth-house-tribal-exterior';root.add(accents);
+ const accents=new THREE.Group();accents.name='hearth-house-tribal-exterior';walls.add(accents);
  const hidePanels=[
   ...[-1,1].flatMap(s=>[-7.4,-3.7,0,3.7,7.4].map((z,i)=>({
    x:s*(hw+.045),y:4.5,z,w:.085,h:7.2,d:3.5,color:(i+s+8)%3
