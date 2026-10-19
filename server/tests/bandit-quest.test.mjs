@@ -22,7 +22,7 @@ test('14 uniquely identified PvE creatures have valid spawns and 4 distinct band
  assert.equal(new Set(mobs.map(x=>x.id)).size,14);
  const bandits=mobs.filter(x=>x.family==='bandit');
  assert.deepEqual(bandits.map(x=>x.id),['bandit-0','bandit-1','bandit-2','bandit-3']);
- assert.deepEqual(bandits.map(x=>x.level),[2,2,3,5]);
+ assert.deepEqual(bandits.map(x=>x.level),[3,3,4,5]);
  assert.ok(bandits.every(x=>x.creatureType==='humanoid'));
  assert.equal(bandits[3].boss,true);
  assert.ok(mobs.slice(0,10).every(x=>x.creatureType==='beast'));
@@ -42,9 +42,9 @@ test('bandit kills have independent XP/items and server-validated coin loot',()=
  assert.equal(hit.ok,true);assert.equal(bandit.phase,'corpse');
  const credit=hit.credits[0].event;
  assert.equal(credit.mobId,'bandit-0');
- assert.equal(credit.xp,26);assert.equal(credit.gold,0);
+ assert.equal(credit.xp,30);assert.equal(credit.gold,0);
  assert.ok(credit.loot.some(x=>x.id==='coins'));
- assert.equal(validateKillCredit(credit,261,EPOCH).mobLevel,2);
+ assert.equal(validateKillCredit(credit,261,EPOCH).mobLevel,3);
  assert.throws(()=>validateKillCredit({...credit,loot:[{id:'coins',qty:999}]},261,EPOCH),/invalid_kill_loot/);
  assert.throws(()=>validateKillCredit({...credit,mobId:'dolgonog-0'},261,EPOCH),/invalid_kill_reward/);
 });
@@ -79,12 +79,13 @@ test('chief quest is locked until scout completion and level four, with single r
  assert.equal(getBanditChiefQuest(creditBanditChiefKill(q,'bandit-0')).stage,1);
  q=creditBanditChiefKill(q,'bandit-3');
  assert.equal(getBanditChiefQuest(q).stage,2);
- assert.throws(()=>turnInBanditChiefQuest(q,context({x:70,z:70})),/interaction_too_far/);
- const reward=turnInBanditChiefQuest(q,ctx);
+ assert.throws(()=>turnInBanditChiefQuest(q,context({x:70,z:70}),'trailbreakerAxe'),/interaction_too_far/);
+ assert.throws(()=>turnInBanditChiefQuest(q,ctx,'invalid-item'),/invalid_quest_reward_choice/);
+ const reward=turnInBanditChiefQuest(q,ctx,'trailbreakerAxe');
  assert.equal(getBanditChiefQuest(reward.next).stage,3);
  assert.equal(reward.next.gold,completed.gold+BANDIT_CHIEF_REWARD.gold);
  assert.equal(reward.event.eventKey,'bandit:chief:turnin:v1');
- assert.throws(()=>turnInBanditChiefQuest(reward.next,ctx),/bandit_chief_quest_not_ready/);
+ assert.throws(()=>turnInBanditChiefQuest(reward.next,ctx,'trailbreakerAxe'),/bandit_chief_quest_not_ready/);
 });
 
 test('three part scout -> weapons -> chief chain accepts only in order and consumes quest daggers',()=>{
