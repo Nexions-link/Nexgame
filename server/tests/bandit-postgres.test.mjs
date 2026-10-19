@@ -106,8 +106,19 @@ test('Postgres: bandit XP, manual coin pickup and unique quest reward after relo
    radius:261,serverCredit:credit('bandit-3'),deferLoot:true});
   state=bossKilled.progress;
   assert.equal(state.quests.banditChief.stage,2);
-  state=(await economy.finishBanditChiefQuest(args(state.revision,BANDIT_QUEST_GIVER,{rewardItemId:'trailbreakerAxe'}))).progress;
+  await assert.rejects(()=>economy.finishBanditChiefQuest(
+   args(state.revision,BANDIT_QUEST_GIVER,{rewardItemId:'wrongItem'})),
+   error=>error.code==='invalid_quest_reward_choice');
+  state=(await economy.finishBanditChiefQuest(
+   args(state.revision,BANDIT_QUEST_GIVER,{rewardItemId:'trailbreakerAxe'}))).progress;
   assert.equal(state.quests.banditChief.stage,3);
+  assert.equal(state.inventory.filter(item=>item?.id==='trailbreakerAxe').length,1);
+  assert.equal(state.inventory.some(item=>item?.id==='trailwardenShield'),false);
+  const reloaded=await progress.load(accountId,characterId);
+  assert.equal(reloaded.inventory.filter(item=>item?.id==='trailbreakerAxe').length,1);
+  await assert.rejects(()=>economy.finishBanditChiefQuest(
+   args(reloaded.revision,BANDIT_QUEST_GIVER,{rewardItemId:'trailwardenShield'})),
+   error=>error.code==='bandit_chief_quest_not_ready');
   const chiefEvents=await pool.query(
    "SELECT gold_granted FROM ngw_progress_events WHERE character_id=$1 AND event_key='bandit:chief:turnin:v1'",
    [characterId]);
