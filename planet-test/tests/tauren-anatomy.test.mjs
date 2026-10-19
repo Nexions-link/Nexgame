@@ -36,8 +36,12 @@ test('hero anatomy v2 retains original animation skeleton, weapon and shield anc
   dt:1/60,time:i/60,walk:.7,phase:i*.15,attack:i/23,weaponKind:'axe',
   blockRemaining:.4
  });
- assert.equal(hero.arms[1].hand.rotation.x,-1.17);
- assert.equal(hero.arms[0].hand.rotation.x,1.91);
+ assert.ok(Math.abs(hero.arms[1].hand.rotation.x-(-1.17))<.5,
+  'attack pose rotates wrist temporarily around fixed weapon grip');
+ assert.ok(Math.abs(hero.arms[0].hand.rotation.x-1.91)<.3,
+  'shield block rotates wrist temporarily around fixed shield grip');
+ assert.deepEqual(hero.root.userData.equipmentGrip.weapon,{x:-1.17,y:.23,z:.15});
+ assert.deepEqual(hero.root.userData.equipmentGrip.shield,{x:1.91,y:0,z:-.13});
  assert.equal(weapon.parent,hero.arms[1].hand);
  assert.equal(shield.parent,hero.arms[0].hand);
  assert.ok(hero.root.position.distanceTo(oldRoot)<1e-9);
