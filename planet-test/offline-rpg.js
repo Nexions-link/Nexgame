@@ -45,7 +45,7 @@ import {moveMobToward,mobSegmentClear} from './mob-navigation.js?v=1';
 import {consumeAnimationTime} from './animation-budget.js?v=1';
 import {advanceCreatureGait} from './creature-gait.js?v=1';
 import {advanceMobImpact,mobVisualMode} from './mob-impact.js?v=1';
-import {advanceCreatureSecondary,applyCreatureSecondary,resetCreatureSecondary} from './creature-secondary.js?v=1';
+import {advanceCreatureSecondary,applyCreatureSecondary,resetCreatureSecondary,shouldReplayCreatureHurt} from './creature-secondary.js?v=2';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
 import {NORMAL_MOB_RESPAWN_SECONDS,advanceCorpseTimer,advanceRespawnTimer,canStoreCorpseRow,takeCorpseRow,takeAllCorpseRows} from './corpse-loot.js?v=4';
@@ -961,7 +961,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const mode=mobVisualMode({hit:impact.active&&!!gltf.actions.Hurt,
    attack:attacking,walking:gait.walking});
   // A second hit during Hurt restarts its clip instead of freezing on its last frame.
-  if(mode!==gltf.mode||(impact.started&&mode==='Hurt')){
+  if(mode!==gltf.mode||(mode==='Hurt'&&shouldReplayCreatureHurt(gltf.action,impact.started))){
    const fade=mode==='Attack'?.085:mode==='Hurt'?.10:.22;
    const nextAction=gltf.actions[mode]||gltf.actions.Idle;
    const replay=gltf.action===nextAction;
