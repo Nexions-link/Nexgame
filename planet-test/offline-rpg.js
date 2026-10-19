@@ -1636,7 +1636,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     body.scrollTop=bagScroll;
     // Safari may perform scroll anchoring during the next layout pass.
     // Restore only if this is still the same open bag, not after a user closes it.
-    requestAnimationFrame(()=>{
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>{
       if(!modal.hidden&&modal.dataset.kind==='bag'&&Math.abs(body.scrollTop-bagScroll)>1)
        body.scrollTop=bagScroll;
     });
