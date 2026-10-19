@@ -2,9 +2,9 @@
 // Do not invoke these with untrusted HTTP/WebSocket payloads.
 // Current PvE emits killCredit from server/spherical-pve.js; those credits
 // can be persisted only after the session is bound to an owned DB character.
-import {ITEM_CATALOG,itemStackLimit,GEAR_LOOT,deriveStats} from '../items.js';
+import {ITEM_CATALOG,itemStackLimit,deriveStats} from '../items.js';
 import {DEFAULT_HOTBAR,normalizeHotbar,actionDefinition,assignHotbarSlot} from '../hotbar.js';
-import {CREATURE_LOOT_TABLES} from '../planet-test/loot-tables.js';
+import {CREATURE_LOOT_TABLES,creatureGearPool} from '../planet-test/loot-tables.js';
 import {creatureById,creatureKillReward} from '../planet-test/creature-registry.js';
 import {CREATURE_TYPE_BEAST,creatureTypeForMob,CORPSE_COIN_ID} from '../planet-test/creature-types.js';
 import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience,monsterKillExperience} from '../planet-test/mob-levels.js';
@@ -15,9 +15,7 @@ const MAX_INT=2147483647, RADII=new Set([87,174,261]);
 const EQUIPMENT_SLOTS=new Set(['weapon','shield','head','chest','legs',
  'hands','waist','wrists','feet']);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const GEAR_DROP_IDS=new Set([
- ...GEAR_LOOT.poor,...GEAR_LOOT.uncommon,'scalpingStamina'
-]);
+
 
 export class ProgressError extends Error {
  constructor(code,status=400){
@@ -145,6 +143,8 @@ export function validateKillCredit(event,radius,worldRunId){
   invalid('invalid_kill_reward');
  const table=CREATURE_LOOT_TABLES[spec.family];
  const rows=new Map(table.materials.map(row=>[row.id,row]));
+ const allowedGear=new Set([...creatureGearPool(spec.family,'poor'),
+  ...creatureGearPool(spec.family,'uncommon')]);
  const unique=new Set();
  let equipmentCount=0;
  const loot=event.loot.map(item=>{
@@ -158,7 +158,7 @@ export function validateKillCredit(event,radius,worldRunId){
       item.qty<1+2*spec.level||item.qty>4+3*spec.level)invalid('invalid_kill_loot');
   }else if(row){
    if(item.qty<row.min||item.qty>row.max)invalid('invalid_kill_loot');
-  }else if(GEAR_DROP_IDS.has(item.id)){
+  }else if(allowedGear.has(item.id)){
    if(item.qty!==1||++equipmentCount>1)invalid('invalid_kill_loot');
   }else invalid('invalid_kill_loot');
   return {id:item.id,qty:item.qty};
