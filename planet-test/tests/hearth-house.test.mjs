@@ -13,7 +13,7 @@ test('shared chest is centered opposite the longhouse doorway, against its far w
  assert.equal(LONGHOUSE.chestLocalX,0);
  assert.equal(LONGHOUSE.chestLocalZ,-8.6);
  const local=toHouseCoordinates(HOUSE_CHEST.x,HOUSE_CHEST.z);
- assert.equal(local.x,0);
+ assert.ok(Math.abs(local.x)<1e-9,'door and chest share the same x-axis');
  assert.ok(Math.abs(local.z+8.6)<1e-9);
  assert.deepEqual(HOUSE_CHEST,{x:-35.6,z:-2,range:3.25});
  assert.equal(LONGHOUSE.doorWidth,6.8);
