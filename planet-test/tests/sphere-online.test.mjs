@@ -30,7 +30,7 @@ test('chest opening follows the next position packet and closing cancels a queue
  let presence;
  try{
   presence=createSphericalPresence({THREE,scene:new THREE.Scene(),getPosition:()=>({normal:[0,0,1],radius:261,heading:20*Math.PI+.4,moving:false}),auth:{sessionToken:'test',characterId:'test'}});
-  socket.onopen();socket.onmessage({data:JSON.stringify({type:'welcome',protocol:2,world:'nexgameworld',radius:261,id:'hero',players:[]})});
+  socket.onopen();socket.onmessage({data:JSON.stringify({type:'welcome',protocol:2,world:'nexgameworld',radius:261,id:'hero',authenticated:true,progress:{revision:1,level:1,positionNormal:[0,0,1],heading:0},players:[]})});
   socket.sent=[];assert.equal(presence.openChest([]),true);assert.equal(socket.sent.length,0);
   interval();assert.deepEqual(socket.sent.map(row=>row.type),['move','chestOpen']);
   assert.ok(Math.abs(socket.sent[0].heading-.4)<1e-8,'movement yaw is normalized before network send');
