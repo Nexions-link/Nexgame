@@ -59,7 +59,7 @@ test('five online heroes retain consistent snapshots, party, chat and rejoin sta
   const welcome=await Promise.all(clients.map(c=>until(()=>c.events.find(e=>e.type==='welcome'))));
   const ids=new Set(welcome.map(x=>x.id));
   assert.equal(ids.size,5,'each simultaneous join must receive a unique server identity');
-  assert.equal(welcome.at(-1).onlineCount,5,'fifth join sees all online players');
+  // Concurrent joins can arrive in any order; eventual snapshots must agree.
   const leader=clients[0],leaderId=welcome[0].id;
   const firstSnap=await until(()=>leader.events.find(e=>e.type==='snapshot'
     &&e.onlineCount===5&&e.players.length===5));
