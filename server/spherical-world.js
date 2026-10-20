@@ -253,8 +253,12 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     }
     players.set(p.id,p);connections.set(ws,p);
     send(ws,{type:'welcome',world:'nexgameworld',protocol:SPHERE_PROTOCOL,
-     id:p.id,radius:p.radius,tickMs:TICK_MS,players:[...players.values()]
-      .filter(x=>x.radius===p.radius&&x.id!==p.id).map(publicPlayer),
+     id:p.id,radius:p.radius,tickMs:TICK_MS,
+     // Join uses the same proximity/16-peer budget as 5Hz snapshots.
+     // Otherwise a new browser briefly receives every avatar in a busy room.
+     players:selectVisiblePlayers([...players.values()]
+      .filter(x=>x.radius===p.radius),p,p.radius)
+      .filter(x=>x.id!==p.id).map(publicPlayer),
      mobs:mobSnapshot(rooms.get(p.radius).mobs),hp:p.hp,maxHp:p.maxHp,resource:p.resource,
      onlineCount:[...players.values()].filter(x=>x.radius===p.radius).length,
      ...(trustedCharacter?{characterId:p.characterId,
