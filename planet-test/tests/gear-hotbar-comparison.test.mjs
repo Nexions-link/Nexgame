@@ -36,7 +36,7 @@ test('bag detail lists DPS and short signed replacement deltas',()=>{
  cells[0].click();
  const d=descendants(h.get('mbody'));
  assert.ok(d.some(x=>x.className.includes('ngw-item-stat')&&x.textContent.startsWith('ДПС:')));
- assert.ok(d.some(x=>x.className.includes('ngw-compare-row')&&/^[+−][\\d,]+ ДПС$/.test(x.textContent)));
+ assert.ok(d.some(x=>x.className.includes('ngw-compare-row')&&/^[+−][0-9]+(?:,[0-9]+)? ДПС$/.test(x.textContent)));
  assert.ok(!d.some(x=>x.className==='ngw-item-equipped'||/Урон от|Урон до|Скорость оружия|Сравнение с/.test(x.textContent)));
 });
 test('bag comparison survives periodic HUD rerenders and server progress without collapsing',()=>{
