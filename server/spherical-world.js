@@ -8,7 +8,7 @@ import {createPartyManager} from './groups.js';
 import {createChatManager} from './chat.js';
 import {createSharedChest,CHEST_X,CHEST_Z,CHEST_SLOTS} from './chest.js';
 import {
- createSphericalMobs,mobSnapshot,tickSphericalMobs,applySphereAttack,
+ createSphericalMobs,mobSnapshot,tickSphericalMobs,applySphereAttack,reassignSphereAggroOnLeave,
  sanitizeSphereEquipment,normalToLocal,arcDistance,localDistance,startSphereEvade
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
@@ -146,8 +146,10 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     }
     party.disconnect(p.id);chat.disconnect(p.id);chest.disconnect(p.id);
     players.delete(p.id);sendInRoom(p.radius,{type:'leave',id:p.id});
-    for(const mob of rooms.get(p.radius).mobs)if(mob.aggroId===p.id)
-     startSphereEvade(mob);
+    // Remove departed ownership, but keep the shared battle active
+    // when another living contributor can still hold aggro.
+    for(const mob of rooms.get(p.radius).mobs)
+     reassignSphereAggroOnLeave(mob,p.id,players,p.radius);
    }
   };
   // Publish only occupancy (never item IDs) after the server confirms proximity.
