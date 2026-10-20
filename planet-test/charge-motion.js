@@ -11,7 +11,7 @@ export function sampleChargeMotion(elapsed,duration){
  else if(t<BRAKE)distanceFraction=SPEED*(ACCEL/2+t-ACCEL);
  else{const d=t-BRAKE,w=1-BRAKE;distanceFraction=SPEED*(ACCEL/2+BRAKE-ACCEL+d-d*d/(2*w));}
  const drive=smooth(t/.13)*(1-smooth((t-.82)/.18));
- const landing=smooth((t-.77)/.16)*(1-smooth((t-.96)/.04));
+ const landing=smooth((t-.77)/.16)*(1-.48*smooth((t-.96)/.04));
  return {t,distanceFraction:clamp(distanceFraction,0,1),drive,landing,finished:t>=1};
 }
 export function chargeTravelHeading(from,to){
