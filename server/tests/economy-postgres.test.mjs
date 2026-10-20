@@ -302,3 +302,65 @@ test('Postgres corpse loot: deferred grant, ownership, partial take-all, replay 
   assert.equal(Number(ledger.rows[0].gold_granted),13);
  }finally{await store.close();await progress.close();await pool.end()}
 });
+
+test('PostgreSQL: lost COMMIT acknowledgment cannot duplicate merchant item or charge',
+ {skip:!connectionString,timeout:45000},async()=>{
+ const pool=new pg.Pool({connectionString,max:4,ssl:false});
+ let dropCommitAck=true;
+ // The SQL COMMIT actually succeeds, but the caller receives a fake network
+ // error. This models losing Neon connectivity after commit and before ACK.
+ const wrappedPool={
+  query:(...args)=>pool.query(...args),
+  connect:async()=>{
+   const client=await pool.connect();
+   return {
+    query:async (...args)=>{
+     const result=await client.query(...args);
+     if(args[0]==='COMMIT'&&dropCommitAck){
+      dropCommitAck=false;
+      throw Object.assign(Error('Connection terminated unexpectedly'),{code:'08006'});
+     }
+     return result;
+    },
+    release:()=>client.release()
+   };
+  }
+ };
+ const store=createEconomyStore({pool:wrappedPool});
+ const progress=createProgressStore({pool});
+ try{
+  for(const file of ['001_accounts_characters.sql','002_auth_rate_limits.sql',
+   '003_progress_event_ledger.sql','004_economy_quests.sql',
+   '005_mentor_evidence.sql']){
+   await pool.query(await readFile(new URL('../migrations/'+file,import.meta.url),'utf8'));
+  }
+  const suffix=randomUUID().replaceAll('-','').slice(0,11);
+  const account=(await pool.query(
+   "INSERT INTO ngw_accounts(username,password_hash) VALUES($1,'test-only') RETURNING id",
+   ['a'+suffix])).rows[0].id;
+  const character=(await pool.query(
+   "INSERT INTO ngw_characters(account_id,nickname) VALUES($1,$2) RETURNING id",
+   [account,'Hero'+suffix])).rows[0].id;
+  await pool.query('INSERT INTO ngw_character_progress(character_id) VALUES($1)',[character]);
+  const request={accountId:account,characterId:character,expectedRevision:0,
+   context:ctx(ECONOMY_VENDOR),requestId:randomUUID(),itemId:'wornAxe',qty:1};
+  await assert.rejects(()=>store.buy(request),e=>e.code==='08006');
+  const committed=await progress.load(account,character);
+  assert.equal(committed.revision,1,'transaction was COMMITTED before ACK disappeared');
+  assert.equal(committed.gold,22);
+  assert.deepEqual(committed.inventory[0],{id:'wornAxe',qty:1});
+  const replay=await store.buy(request);
+  assert.equal(replay.applied,false,'the same receipt must not grant loot again');
+  assert.equal(replay.progress.revision,1);
+  assert.equal(replay.progress.gold,22);
+  assert.deepEqual(replay.progress.inventory[0],{id:'wornAxe',qty:1});
+  await assert.rejects(()=>store.buy({...request,qty:2}),
+   e=>e.code==='idempotency_key_conflict');
+  await assert.rejects(()=>store.buy({...request,requestId:randomUUID()}),
+   e=>e.code==='stale_revision');
+  const receipt=await pool.query(
+   'SELECT count(*)::int AS n FROM ngw_economy_receipts WHERE character_id=$1',
+   [character]);
+  assert.equal(receipt.rows[0].n,1,'only the single committed purchase is recorded');
+ }finally{await store.close();await progress.close();await pool.end()}
+});

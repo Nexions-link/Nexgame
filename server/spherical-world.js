@@ -98,6 +98,9 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
   // Serialize all server-generated character saves for this connection.
   // A socket is not released for another login until its save queue drains.
   let saveQueue=Promise.resolve(),lastCheckpoint=0,saveFailed=false;
+  const drain=()=>saveQueue.then(()=>{
+   if(saveFailed)throw Error('session_save_failed');
+  });
   let messageBudget=80,messageRefillAt=Date.now();
   function queueSave(operation){
    if(saveFailed)return Promise.reject(Error('session_save_failed'));
@@ -128,7 +131,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
   }
   if(connections.size>=MAX_PLAYERS){
    ws.close(1013,'World is full');
-   return {accepted:false,drain:()=>saveQueue};
+   return {accepted:false,drain};
   }
   connections.set(ws,null);
   const cleanup=()=>{
@@ -398,7 +401,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    }
   });
   ws.on('close',cleanup);ws.on('error',cleanup);
-  return {accepted:true,drain:()=>saveQueue,requestCheckpoint:()=>{
+  return {accepted:true,drain,requestCheckpoint:()=>{
    const p=connections.get(ws);
    if(!p?.queueCheckpoint)return saveQueue;
    return p.queueCheckpoint({normal:[...p.normal],

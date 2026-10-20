@@ -194,3 +194,58 @@ test('closing the shared chest during a delayed read cannot reopen its session',
  assert.equal(player.accountChestOpen,false);
  assert.equal(sent.some(event=>event.type==='chestState'),false);
 });
+
+test('Neon connection loss fails closed without acknowledging an uncertain purchase',
+ {timeout:10000},async()=>{
+ const world=createSphericalWorld(),server=createServer(),wss=new WebSocketServer({server});
+ const normal=localToNormal(-9,-25,261);
+ const initial={revision:4,level:1,experience:10,gold:30,health:120,resource:0,
+  worldRadius:261,positionNormal:normal,heading:0,inventory:Array(12).fill(null),
+  equipment:{},quests:{},actionBar:[]};
+ let writes=0,attached=null;
+ const economyStore={async buy(){
+  writes++;
+  throw Object.assign(Error('Connection terminated unexpectedly'),{code:'08006'});
+ }};
+ const progressStore={async saveServerCheckpoint(){throw Error('must not save after DB failure')}};
+ wss.on('connection',ws=>{
+  attached=world.attach(ws,{trustedCharacter:{accountId:'account',characterId:'hero',
+   nickname:'Сохранённый',progress:initial},progressStore,economyStore});
+ });
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const ws=new WebSocket('ws://127.0.0.1:'+server.address().port),events=[];
+ ws.on('message',raw=>events.push(JSON.parse(String(raw))));
+ try{
+  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
+  ws.send(JSON.stringify({type:'join'}));
+  await waitFor(events,e=>e.type==='welcome');
+  const closed=new Promise(resolve=>ws.once('close',code=>resolve(code)));
+  ws.send(JSON.stringify({type:'economyAction',kind:'merchantBuy',
+   itemId:'wornAxe',qty:1,requestId:'abcdabcd-aaaa-4abc-8def-123456789012'}));
+  const code=await closed;
+  assert.equal(code,1011,'lost DB acknowledgment must disconnect the stale session');
+  assert.equal(writes,1);
+  assert.equal(events.some(e=>e.type==='economyResult'&&e.kind==='merchantBuy'),false,
+   'never claim the transaction definitely failed or succeeded');
+  assert.equal(world.metrics().progressSaveFailures,1);
+  await assert.rejects(attached.drain(),/session_save_failed/,
+   'shutdown must not incorrectly report the failed save queue as successful');
+ }finally{
+  ws.close();wss.close();server.close();world.close();
+ }
+});
+
+test('ordinary invalid economy operation is rejected without killing a healthy session',async()=>{
+ const {createAccountEconomyDispatcher}=await import('../account-economy-dispatch.js');
+ const player={accountId:'a',characterId:'c',savedRevision:1,
+  normal:[0,0,1],radius:261,hp:100,lastCombatAt:0};
+ const events=[];
+ const dispatcher=createAccountEconomyDispatcher({player,
+  economyStore:{async buy(){
+   throw Object.assign(Error('inventory full'),{code:'inventory_full'});
+  }},progressStore:{},queueSave:fn=>Promise.resolve().then(fn),
+  publishProgress:()=>{},send:e=>events.push(e)});
+ await dispatcher.invoke('merchantBuy',{itemId:'wornAxe',qty:1,
+  requestId:'bbbbbbbb-aaaa-4abc-8def-123456789012'});
+ assert.deepEqual(events.map(x=>[x.ok,x.reason]),[[false,'inventory_full']]);
+});

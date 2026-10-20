@@ -1,4 +1,5 @@
 // NexGameWorld authenticated-only action dispatcher.
+import {isUnsafeDatabaseFailure} from './database-failures.js';
 // This module never accepts client-supplied ownership, position or revisions.
 export function createAccountEconomyDispatcher({
  player,economyStore,progressStore,queueSave,publishProgress,send,
@@ -96,6 +97,10 @@ export function createAccountEconomyDispatcher({
    }else send({type:'economyResult',ok:true,kind,requestId:message.requestId||null,
     applied:result?.applied!==false,castMs:result?.castMs||null});
   }catch(error){
+   // A lost PostgreSQL connection may mean the transaction committed but its
+   // response was lost. The save queue must fail closed and re-read Neon on
+   // reconnect; do not acknowledge a possibly committed purchase as failed.
+   if(isUnsafeDatabaseFailure(error))throw error;
    const code=typeof error?.code==='string'&&/^[a-z_]{3,48}$/.test(error.code)?
     error.code:'server_save_failed';
    // Preserve safe, actionable DB error codes in server logs without exposing

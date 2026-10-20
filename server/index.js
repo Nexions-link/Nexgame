@@ -18,7 +18,7 @@ import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
 // Render builds from server/; keep a server-scoped release marker so corrected
 // client modules receive the same validated server deployment as Alpha 0.6.43.14.
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.43.55';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.43.56';
 const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
@@ -214,7 +214,9 @@ wss.on('connection',(ws,req)=>{
      clearInterval(sessionCheck);
      // Keep a character lease while outstanding committed rewards/position
      // writes finish. Never allow concurrent reconnect to race the last save.
-     Promise.resolve(attached.drain()).finally(()=>{
+     Promise.resolve(attached.drain()).catch(()=>{
+      // QueueSave already logs and counts failures; still release this lease.
+     }).finally(()=>{
       activeWorldSessions.delete(attached);
       authenticatedWorldGate.leave(ws);
      });
