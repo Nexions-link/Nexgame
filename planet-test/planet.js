@@ -9,9 +9,9 @@ import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from 
 import {installDraggableHudButton,SPELLBOOK_POSITION_KEY} from './target-button-drag.js?v=2';
 import {createKeyboardMovement,isEditableTarget} from './keyboard-movement.js?v=1';
 import {createOfflineRpg} from './offline-rpg.js?v=128';
-import {createSphericalPresence} from './sphere-online.js?v=15';
+import {createSphericalPresence} from './sphere-online.js?v=16';
 import {getAccountLaunch,fetchAuthenticatedProfile,AUTH_WORLD_URL} from './account-session.js?v=1';
-import {animateSphericalTauren} from './tauren-animation.js?v=10';
+import {animateSphericalTauren} from './tauren-animation.js?v=11';
 import {advanceStridePhase,movementStrength,turnStrength} from './locomotion.js?v=1';
 import {sampleChargeMotion,chargeTravelHeading,easeChargeHeading} from './charge-motion.js?v=1';
 import {sampleSphericalFooting} from './foot-placement.js?v=2';
