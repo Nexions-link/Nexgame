@@ -2,7 +2,7 @@
 // The controlling world server must authenticate/resolve the character and
 // supply a validated live position, combat state and gather interaction.
 import {createHash,randomUUID} from 'node:crypto';
-import pg from 'pg';
+import {createResilientPgPool} from './postgres-pool.js';
 import {createProgressStore} from './progress-store.js';
 import {acceptBanditQuest,turnInBanditQuest,acceptBanditChiefQuest,turnInBanditChiefQuest,
  acceptBanditWeaponsQuest,turnInBanditWeaponsQuest,requireBanditWeaponAvailable} from './bandit-quest.js';
@@ -20,7 +20,6 @@ import {
  requireServerProximity,addOwnedStacks,buyFromMerchant,sellToMerchant,
  turnInGatherQuest,moveSharedChest
 } from './economy-rules.js';
-const {Pool}=pg;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail=(code,status=409)=>{throw new ProgressError(code,status)};
 const revision= (state,expected)=>{
@@ -29,10 +28,10 @@ const revision= (state,expected)=>{
 export function createEconomyStore({pool:externalPool,
  connectionString=process.env.DATABASE_URL,worldRunId=randomUUID()}={}){
  if(!externalPool&&!connectionString)throw Error('Economy store requires DATABASE_URL');
- const pool=externalPool||new Pool({
+ const pool=externalPool||createResilientPgPool({
   connectionString,connectionTimeoutMillis:6000,idleTimeoutMillis:30000,
   max:3,ssl:{rejectUnauthorized:true}
- });
+ },{label:'economy'});
  const progress=createProgressStore({pool});
  const transaction=(args,handler)=>progress.trustedTransaction(
   args.accountId,args.characterId,args.expectedRevision,handler);

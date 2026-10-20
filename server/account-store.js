@@ -1,20 +1,20 @@
 // NexGameWorld Alpha 0.7: durable account/character persistence.
 // A database URL is read from Render only. Never send it to the browser.
 // Do not enable routes in production before the schema migration is applied.
-import pg from 'pg';
-const {Pool}=pg;
+import {createResilientPgPool} from './postgres-pool.js';
 import {normalizeUsername,validateCharacterOptions,CHARACTER_SLOT_LIMIT} from './account-rules.js';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function dbError(error){
  if(error?.code==='23505')throw Object.assign(Error('Этот логин или ник уже занят'),{status:409});
  throw error;
 }
-export function createAccountStore({connectionString=process.env.DATABASE_URL,pool:providedPool=null}={}){
+export function createAccountStore({connectionString=process.env.DATABASE_URL,
+ pool:providedPool=null,onPoolError=()=>{}}={}){
  if(!providedPool&&!connectionString)throw Error('DATABASE_URL is required');
- const pool=providedPool||new Pool({
+ const pool=providedPool||createResilientPgPool({
   connectionString,connectionTimeoutMillis:6000,idleTimeoutMillis:30000,
   max:5,ssl:{rejectUnauthorized:true}
- });
+ },{label:'account',onIdleError:onPoolError});
  const query=(sql,params=[])=>pool.query(sql,params);
  async function ping(){await query('SELECT 1 AS ok');return true}
  async function schemaReady(){

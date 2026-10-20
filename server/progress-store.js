@@ -4,14 +4,13 @@
 import {creditBanditQuestKill,creditBanditChiefKill} from './bandit-quest.js';
 import {monsterKillExperience,DOLGONOG_BOSS_INDEX} from '../planet-test/mob-levels.js';
 import {randomUUID} from 'node:crypto';
-import pg from 'pg';
+import {createResilientPgPool} from './postgres-pool.js';
 import {getMentorQuest,certifyMentorKill} from './economy-rules.js';
 import {
  assertCharacterId,parseRevision,readProgress,validateKillCredit,
  awardVerifiedKill,validateServerCheckpoint,validateServerVitals,equipOwnedItem,unequipOwnedItem,
  ProgressError,setActionBarSlot
 } from './progress-rules.js';
-const {Pool}=pg;
 
 const FIELDS=[
  'SELECT p.schema_version AS "schemaVersion",p.revision,p.level,p.experience,',
@@ -30,9 +29,9 @@ const conflict=()=>new ProgressError('stale_revision',409);
 export function createProgressStore({connectionString=process.env.DATABASE_URL,
  pool:externalPool=null,worldRunId=randomUUID()}={}){
  if(!externalPool&&!connectionString)throw Error('Progress store requires DATABASE_URL');
- const pool=externalPool||new Pool({connectionString,
+ const pool=externalPool||createResilientPgPool({connectionString,
   connectionTimeoutMillis:6000,idleTimeoutMillis:30000,max:3,
-  ssl:{rejectUnauthorized:true}});
+  ssl:{rejectUnauthorized:true}},{label:'progress'});
  const ownsPool=!externalPool;
  const validateIds=(accountId,characterId)=>{
   assertCharacterId(accountId);assertCharacterId(characterId);

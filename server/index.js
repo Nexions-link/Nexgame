@@ -8,6 +8,7 @@ import {readFile} from 'node:fs/promises';
 import {resolve,dirname,join} from 'node:path';
 import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
 import {createAccountStore} from './account-store.js';
+import {createResilientPgPool} from './postgres-pool.js';
 import {createAccountApi} from './account-api.js';
 import {createWorldSessionGate} from './world-session-gate.js';
 import {createProgressStore} from './progress-store.js';
@@ -16,7 +17,7 @@ import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
 // Render builds from server/; keep a server-scoped release marker so corrected
 // client modules receive the same validated server deployment as Alpha 0.6.43.14.
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.43.37';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.43.38';
 const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
@@ -36,9 +37,9 @@ async function verifyNeonConnection(){
  if(!process.env.DATABASE_URL)return;
  let pool;
  try{
-  const {default:pg}=await import('pg');
-  pool=new pg.Pool({connectionString:process.env.DATABASE_URL,
-   ssl:{rejectUnauthorized:true},connectionTimeoutMillis:12000,max:1});
+  pool=createResilientPgPool({connectionString:process.env.DATABASE_URL,
+   ssl:{rejectUnauthorized:true},connectionTimeoutMillis:12000,max:1},
+   {label:'startup-check'});
   await pool.query('SELECT 1 AS healthy');
   console.log('NexGameWorld Neon connection: ok');
   const schemaPresent=async()=>{
@@ -64,43 +65,60 @@ let authenticatedWorldGate=null,worldProgressStore=null,worldEconomyStore=null;
 const worldRunId=randomUUID();
 let accountCleanupTimer=null;
 let accountDbStatus=process.env.DATABASE_URL?'checking':'not_configured';
+let initComplete=false,initRunning=false;
 async function initializeAccounts(){
- if(!process.env.DATABASE_URL)return;
+ if(!process.env.DATABASE_URL||initRunning||initComplete)return;
+ initRunning=true;
+ let nextAccount=null,nextProgress=null,nextEconomy=null;
  try{
-  accountStore=createAccountStore();
-  await accountStore.ping();
-  const ready=await accountStore.schemaReady();
+  nextAccount=createAccountStore({onPoolError:()=>{accountDbStatus='unavailable'}});
+  await nextAccount.ping();
+  const ready=await nextAccount.schemaReady();
   accountDbStatus=ready?'ready':'schema_missing';
-  if(ready){
-   accountCleanupTimer=setInterval(async()=>{
-    try{await accountStore.pruneAuthData()}
-    catch(error){console.error('NexGameWorld auth cleanup error:',error?.code||error?.name||'unknown')}
-   },60*60*1000);
-   accountCleanupTimer.unref?.();
-  }
-  if(ready&&process.env.NGW_ACCOUNTS_ENABLED==='true'){
-   accountApi=createAccountApi({store:accountStore});
-   console.log('NexGameWorld account API enabled');
-   // The new authenticated route is opt-in until durable game progression
-   // and authoritative chest/quest integrations have passed full tests.
+  if(!ready)return;
+  let nextApi=null,nextGate=null;
+  if(process.env.NGW_ACCOUNTS_ENABLED==='true'){
+   nextApi=createAccountApi({store:nextAccount});
    if(process.env.NGW_AUTH_WORLD_ENABLED==='true'){
-    worldProgressStore=createProgressStore({worldRunId});
-    if(!await worldProgressStore.schemaReady())throw Error('Progress event ledger is not ready');
-    authenticatedWorldGate=createWorldSessionGate({accountStore,progressStore:worldProgressStore});
+    nextProgress=createProgressStore({worldRunId});
+    if(!await nextProgress.schemaReady())throw Error('Progress event ledger is not ready');
+    nextGate=createWorldSessionGate({accountStore:nextAccount,progressStore:nextProgress});
     if(process.env.NGW_ECONOMY_ENABLED==='true'){
-     worldEconomyStore=createEconomyStore({worldRunId});
-     if(!await worldEconomyStore.schemaReady())throw Error('Economy schema missing');
-     console.log('NexGameWorld authenticated economy enabled');
+     nextEconomy=createEconomyStore({worldRunId});
+     if(!await nextEconomy.schemaReady())throw Error('Economy schema missing');
     }
-    console.log('NexGameWorld authenticated world gateway enabled');
    }
   }
+  // Make all dependencies visible only after ALL required schemas pass.
+  accountStore=nextAccount;nextAccount=null;
+  worldProgressStore=nextProgress;nextProgress=null;
+  worldEconomyStore=nextEconomy;nextEconomy=null;
+  accountApi=nextApi;authenticatedWorldGate=nextGate;
+  initComplete=true;
+  if(accountApi)console.log('NexGameWorld account API enabled');
+  if(authenticatedWorldGate)console.log('NexGameWorld authenticated world gateway enabled');
+  if(worldEconomyStore)console.log('NexGameWorld authenticated economy enabled');
+  accountCleanupTimer=setInterval(async()=>{
+   try{await accountStore.pruneAuthData()}
+   catch(error){console.error('NexGameWorld auth cleanup error:',error?.code||error?.name||'unknown')}
+  },60*60*1000);
+  accountCleanupTimer.unref?.();
  }catch(error){
   accountDbStatus='unavailable';
   console.error('NexGameWorld account API unavailable:',error?.code||error?.name||'unknown');
+ }finally{
+  // On unsuccessful startup, dispose just the incomplete stores; next retry
+  // gets fresh pools and does not change any saved character transactions.
+  await Promise.allSettled([nextAccount?.close(),nextProgress?.close(),
+   nextEconomy?.close()].filter(Boolean));
+  initRunning=false;
  }
 }
 const accountsReady=initializeAccounts();
+const initRetry=setInterval(()=>{
+ if(!initComplete)void initializeAccounts();
+},15000);
+initRetry.unref?.();
 const http=createServer((req,res)=>{
  if(req.url?.split('?')[0]==='/ready'){
   // Separate database readiness from WebSocket liveness for resilient deploys.
@@ -110,9 +128,11 @@ const http=createServer((req,res)=>{
     if(!accountApi||!authenticatedWorldGate||!worldEconomyStore||!accountStore)
      throw Error('world_dependencies_unavailable');
     await accountStore.ping();
+    accountDbStatus='ready';
     res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
     res.end(JSON.stringify({ready:true,build:BUILD}));
    }catch{
+    if(initComplete)accountDbStatus='unavailable';
     res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});
     res.end(JSON.stringify({ready:false,build:BUILD}));
    }
@@ -217,4 +237,4 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{heartbeat.close();if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});
+process.on('SIGTERM',()=>{heartbeat.close();clearInterval(initRetry);if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});
