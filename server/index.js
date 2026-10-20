@@ -10,7 +10,8 @@ import {createSphericalWorld,SPHERE_PROTOCOL} from './spherical-world.js';
 import {createAccountStore} from './account-store.js';
 import {createResilientPgPool} from './postgres-pool.js';
 import {createAccountApi} from './account-api.js';
-import {createWorldSessionGate} from './world-session-gate.js';
+import {createWorldSessionGate,worldJoinCloseInfo} from './world-session-gate.js';
+import {flushWorldOnShutdown} from './world-shutdown.js';
 import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
@@ -171,7 +172,10 @@ const http=createServer((req,res)=>{
 const wss=new WebSocketServer({server:http,maxPayload:8192,
  verifyClient:({origin},done)=>done(!origin||origins.has(origin))});
 const heartbeat=createWorldHeartbeat({wss});
+const activeWorldSessions=new Set();
+let stopping=false;
 wss.on('connection',(ws,req)=>{
+ if(stopping){ws.close(1013,'Server restarting');return;}
  heartbeat.track(ws);
  const path=req.url?.split('?')[0];
  if(path==='/ws/nexgameworld/auth'){
@@ -196,6 +200,7 @@ wss.on('connection',(ws,req)=>{
     const attached=world.attach(ws,{trustedCharacter:trusted,
      progressStore:worldProgressStore,economyStore:worldEconomyStore});
     if(!attached?.accepted){authenticatedWorldGate.leave(ws);return;}
+    activeWorldSessions.add(attached);
     const sessionCheck=setInterval(()=>{
      void authenticatedWorldGate.validate(ws).then(valid=>{
       if(!valid&&ws.readyState===1)ws.close(1008,'Account session expired');
@@ -209,13 +214,17 @@ wss.on('connection',(ws,req)=>{
      clearInterval(sessionCheck);
      // Keep a character lease while outstanding committed rewards/position
      // writes finish. Never allow concurrent reconnect to race the last save.
-     Promise.resolve(attached.drain()).finally(()=>authenticatedWorldGate.leave(ws));
+     Promise.resolve(attached.drain()).finally(()=>{
+      activeWorldSessions.delete(attached);
+      authenticatedWorldGate.leave(ws);
+     });
     });
     // Synthetic join is generated from trusted Neon state only.
     ws.emit('message',Buffer.from(JSON.stringify({type:'join'})));
    }catch(error){
     authenticatedWorldGate.leave(ws);
-    ws.close(1008,'Account or character authorization failed');
+    const failure=worldJoinCloseInfo(error);
+    ws.close(failure.code,failure.reason);
    }
   });
   ws.once('close',()=>clearTimeout(deadline));
@@ -237,4 +246,29 @@ http.listen(PORT,'0.0.0.0',()=>{
   }).catch(error=>console.error('NexGameWorld account smoke: FAILED:',error.message));
  }
 });
-process.on('SIGTERM',()=>{heartbeat.close();clearInterval(initRetry);if(accountCleanupTimer)clearInterval(accountCleanupTimer);world.close();wss.close();http.close();void worldProgressStore?.close();void worldEconomyStore?.close();void accountStore?.close()});
+// Render SIGTERM: drain queued rewards, inventory writes and final position
+// checkpoints BEFORE closing PostgreSQL pools. Otherwise an in-flight save
+// can be dropped by a deployment while the client believes it is committed.
+process.on('SIGTERM',()=>{
+ if(stopping)return;
+ stopping=true;
+ heartbeat.close();clearInterval(initRetry);
+ if(accountCleanupTimer)clearInterval(accountCleanupTimer);
+ wss.close();http.close();
+ void (async()=>{
+  try{
+   const status=await flushWorldOnShutdown({
+    world,wss,sessions:activeWorldSessions,timeoutMs:12000
+   });
+   console.log('NexGameWorld shutdown saves drained:',status.drainedSessions);
+  }catch(error){
+   console.error('NexGameWorld shutdown save drain failed:',error?.message||'unknown');
+   process.exitCode=1;
+  }finally{
+   const results=await Promise.allSettled([
+    worldProgressStore?.close(),worldEconomyStore?.close(),accountStore?.close()
+   ].filter(Boolean));
+   if(results.some(row=>row.status==='rejected'))process.exitCode=1;
+  }
+ })();
+});

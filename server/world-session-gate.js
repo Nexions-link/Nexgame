@@ -6,6 +6,15 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export class WorldAuthError extends Error{
  constructor(code,status=401){super(code);this.code=code;this.status=status}
 }
+// A previous WebSocket may still be flushing its final saved checkpoint.
+// This is transient, not an invalid password/session: mobile Safari must retry.
+export function worldJoinCloseInfo(error){
+ if(error?.code==='character_already_online')
+  return {code:1013,reason:'Previous character session is still saving'};
+ if(error instanceof WorldAuthError)
+  return {code:1008,reason:'Account or character authorization failed'};
+ return {code:1011,reason:'Character data temporarily unavailable'};
+}
 export function createWorldSessionGate({accountStore,progressStore}){
  if(!accountStore)throw Error('Account store required');
  const leases=new Map();

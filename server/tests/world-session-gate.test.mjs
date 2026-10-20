@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {newSessionToken,tokenDigest} from '../auth-crypto.js';
-import {createWorldSessionGate} from '../world-session-gate.js';
+import {createWorldSessionGate,worldJoinCloseInfo,WorldAuthError} from '../world-session-gate.js';
 const account='3be1ac10-23de-4631-8a55-3f11e36a2c54';
 const mine='46de3e24-6ec2-4301-9345-61c554b55c82';
 const foreign='4aadebea-72c0-4987-839d-de5059a75f38';
@@ -84,4 +84,27 @@ test('a connected character session is invalidated after logout or password rese
  assert.equal(await gate.validate(socket),false);
  gate.leave(socket);
  assert.equal(await gate.validate(socket),false);
+});
+
+test('pending save lease uses retryable WebSocket close, invalid token remains fatal',()=>{
+ assert.deepEqual(worldJoinCloseInfo(new WorldAuthError('character_already_online',409)),
+  {code:1013,reason:'Previous character session is still saving'});
+ assert.equal(worldJoinCloseInfo(new WorldAuthError('session_expired')).code,1008);
+ assert.equal(worldJoinCloseInfo(new WorldAuthError('character_not_owned',403)).code,1008);
+ assert.equal(worldJoinCloseInfo(Error('database temporarily unavailable')).code,1011);
+});
+test('reconnect must wait for saved checkpoint lease to finish',async()=>{
+ const {gate}=createFixture(),first={},second={};
+ await gate.enter(first,{sessionToken:token,characterId:mine});
+ let finish;
+ const saving=new Promise(resolve=>{finish=resolve});
+ void saving.then(()=>gate.leave(first));
+ await assert.rejects(()=>gate.enter(second,{sessionToken:token,characterId:mine}),
+  error=>worldJoinCloseInfo(error).code===1013);
+ finish();
+ await saving;
+ // Allow the drain callback to release the original character lease.
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal((await gate.enter(second,{sessionToken:token,characterId:mine})).characterId,mine);
+ gate.leave(second);
 });
