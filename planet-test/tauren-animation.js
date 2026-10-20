@@ -96,7 +96,7 @@ export function animateSphericalTauren(actor,{
   const planted=1-clamp(lift/.22,0,1)*.65;
   leg.foot.rotation.x=-leg.hip.rotation.x-knee+foot.pitch*planted
    +hoofToeFlex(phase,i)*w*(1-bend);
-  leg.foot.rotation.y=((i===0?-1:1)*.032*pivot+
+  leg.foot.rotation.y=((i===0?-1:1)*.048*pivot+
    .018*pivot*turnFeet)*planted;
   leg.foot.rotation.z=foot.roll*planted;
  }
