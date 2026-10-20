@@ -13,6 +13,7 @@ import {
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
 import {resolveSphereWalk} from './world-movement.js';
+import {applySphereCharge} from './sphere-charge.js';
 import {selectVisiblePlayers} from './world-interest.js';
 import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
 import {isAuthorizedBattlefuryEquipped,ADMIN_BATTLEFURY_ID} from './admin-battlefury.js';
@@ -193,7 +194,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      level,equipment,hp,maxHp:stats.maxHp,resource:saved?bound(saved.resource,0,100):0,
      battlefuryPose:BATTLEFURY_TUNER_DEFAULTS,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
-     joined:true,x:local.x,z:local.z,abilityCooldowns:{},
+     joined:true,x:local.x,z:local.z,abilityCooldowns:{},chargeBonus:null,chargeUntil:0,
      savedRevision:saved?.revision??null,lastPositionCorrectionAt:0};
     if(trustedCharacter&&progressStore){
      p.queueVerifiedKill=credit=>queueSave(async()=>{
@@ -302,6 +303,17 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      void current.queueEconomy(m.kind,m).catch(()=>{});
     return;
    }
+   if(m.type==='charge'){
+    const now=Date.now();
+    const result=applySphereCharge(rooms.get(current.radius).mobs,current,m.mobId,now);
+    if(!result.ok){
+     send(ws,{type:'combatRejected',abilityId:'charge',reason:result.reason});return;
+    }
+    current.updatedAt=now;current.moving=true;
+    send(ws,{type:'chargeAccepted',abilityId:'charge',mobId:m.mobId,
+     normal:[...current.normal],heading:current.heading,durationMs:result.durationMs});
+    return;
+   }
    if(m.type==='attack'){
     if(current.respawnShieldUntil>Date.now())return;
     const res=applySphereAttack(rooms.get(current.radius).mobs,current,m.abilityId,m.mobId);
@@ -331,6 +343,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const heading=canonicalSphereHeading(m.heading);
    const normal=normalFrom(m.normal);
    if(!normal||heading===null)return;
+   if(Date.now()<(current.chargeUntil||0))return;
    const now=Date.now(),dt=Math.min(1,(now-current.updatedAt)/1000);
    if(dt<.075)return;
    const delta=arcDistance(normal,current.normal,current.radius);
