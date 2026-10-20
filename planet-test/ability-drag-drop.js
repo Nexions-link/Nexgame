@@ -3,7 +3,7 @@
 export function hotbarSlotAtPoint(buttons,x,y){
  if(!Number.isFinite(x)||!Number.isFinite(y))return -1;
  for(const [index,button] of Array.from(buttons).entries()){
-  if(!button)return;
+  if(!button)continue;
   const r=button.getBoundingClientRect();
   if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom)return index;
  }
@@ -44,7 +44,7 @@ export function attachAbilityDrag(source,{
     else if(withinRect(trash,event.clientX,event.clientY))onDiscard?.();
    }
    press.ghost?.remove?.();
-   for(const button of hotbar.children)button.classList.remove('ngw-drop-target');
+   for(const button of hotbar.children)button.classList.remove('ngw-drop-target','ngw-drop-eligible');
    trash?.classList.remove('ngw-drop-target');
   }
   source.classList.remove('ngw-source-dragging');
