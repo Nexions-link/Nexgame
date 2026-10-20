@@ -12,13 +12,14 @@ import {createResilientPgPool} from './postgres-pool.js';
 import {createAccountApi} from './account-api.js';
 import {createWorldSessionGate,worldJoinCloseInfo} from './world-session-gate.js';
 import {flushWorldOnShutdown} from './world-shutdown.js';
+import {assertWorldReady} from './server-readiness.js';
 import {createProgressStore} from './progress-store.js';
 import {createEconomyStore} from './economy-store.js';
 import {runAccountSmoke} from './account-smoke.js';
 import {CHEST_X,CHEST_Z,CHEST_RANGE} from './chest.js';
 // Render builds from server/; keep a server-scoped release marker so corrected
 // client modules receive the same validated server deployment as Alpha 0.6.43.14.
-const PORT=Number(process.env.PORT||3000),BUILD='0.6.43.57';
+const PORT=Number(process.env.PORT||3000),BUILD='0.6.43.58';
 const guestWorldEnabled=process.env.NGW_GUEST_WORLD_ENABLED==='true';
 const configuredOrigins=(process.env.ALLOWED_ORIGINS||'').split(',').map(x=>x.trim()).filter(Boolean);
 const origins=new Set([...configuredOrigins,'https://nexions.ru',
@@ -126,9 +127,10 @@ const http=createServer((req,res)=>{
   void (async()=>{
    try{
     await accountsReady;
-    if(!accountApi||!authenticatedWorldGate||!worldEconomyStore||!accountStore)
-     throw Error('world_dependencies_unavailable');
-    await accountStore.ping();
+    await assertWorldReady({
+     accountApi,authenticatedWorldGate,accountStore,worldProgressStore,
+     worldEconomyStore,stopping
+    });
     accountDbStatus='ready';
     res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
     res.end(JSON.stringify({ready:true,build:BUILD}));
@@ -145,6 +147,7 @@ const http=createServer((req,res)=>{
   res.end(JSON.stringify({ok:true,world:'nexgameworld',
    players:world.population(),sphericalPlayers:world.population(),mobs:world.mobCount(),
    protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup,
+   websocketHealth:heartbeat.stats(),
    geometry:{chest:{x:CHEST_X,z:CHEST_Z,range:CHEST_RANGE}},
    databaseConfigured:Boolean(process.env.DATABASE_URL),
    accountDbStatus,accountApiEnabled:!!accountApi,
