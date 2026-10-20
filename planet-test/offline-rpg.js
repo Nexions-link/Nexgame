@@ -1614,7 +1614,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    else if(def&&entry?.id!=='autoAttack'){
     const problems=[];
     if(resourceIndicator.insufficient){
-     const resourceName=getClassDefinition(state.classId||'warrior').resourceName.toLowerCase();
+     const resourceType=getClassDefinition(state.classId||'warrior').resource;
+     const resourceName=resourceType==='rage'?'ярости':resourceType==='mana'?'маны':'ресурса';
      problems.push('Недостаточно '+resourceName+': '+pretty(resourceIndicator.available)+' / '+pretty(resourceIndicator.required));
     }
     if(rangeIndicator.outOfRange)problems.push(def.requiresTarget&&!selectedHostile?
