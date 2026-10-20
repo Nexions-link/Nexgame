@@ -2208,8 +2208,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function placeSpellbook(){
   if(spellbook.hidden)return;
   const rect=hotbar.getBoundingClientRect();
-  const vw=document.documentElement.clientWidth||window.innerWidth;
-  const vh=document.documentElement.clientHeight||window.innerHeight;
+  const vw=document.documentElement.clientWidth||globalThis.window?.innerWidth||844;
+  const vh=document.documentElement.clientHeight||globalThis.window?.innerHeight||390;
   const width=Math.min(460,Math.max(220,vw-16));
   const left=Math.max(8,Math.min(vw-width-8,rect.left+(rect.width-width)/2));
   const height=Math.max(104,Math.min(360,rect.top-12));
@@ -2280,8 +2280,8 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    $('spellbookButton').contains(event.target))return;
   closeSpellbook();
  },true);
- window.addEventListener('resize',placeSpellbook);
- window.addEventListener('orientationchange',placeSpellbook);
+ globalThis.window?.addEventListener('resize',placeSpellbook);
+ globalThis.window?.addEventListener('orientationchange',placeSpellbook);
 
  const actions=[
   ['targetNext',()=>targetNearest(1)],['interact',interact],
