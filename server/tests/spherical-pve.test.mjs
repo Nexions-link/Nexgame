@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
  SPHERE_MOB_SPAWNS,SPHERE_CORPSE_MS,SPHERE_RESPAWN_MS,
  createSphericalMobs,localToNormal,normalToLocal,arcDistance,
- facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment,sphericalMobYaw,SPHERE_ROAM_RADIUS,startSphereEvade,sphereCombatLineClear
+ facesMob,applySphereAttack,tickSphericalMobs,mobSnapshot,sanitizeSphereEquipment,sphericalMobYaw,SPHERE_ROAM_RADIUS,startSphereEvade,sphereCombatLineClear,reassignSphereAggroOnLeave
 } from '../spherical-pve.js';
 
 const character=(id,x=-9,z=-24,radius=261)=>({
@@ -337,4 +337,40 @@ test('exclusive Battlefury kills in one verified melee hit, never for impostors'
  const alive=createSphericalMobs()[0];
  const hit2=applySphereAttack([alive],faker,'autoAttack',alive.id,1000,()=>0);
  assert.equal(hit2.ok,true);assert.ok(alive.hp>0);
+});
+
+test('disconnected tank transfers aggro to a living PvE contributor instead of resetting the fight',()=>{
+ const mob=createSphericalMobs()[0],tank=character('tank'),ally=character('ally');
+ mob.hp=mob.maxHp-9;mob.aggroId=tank.id;mob.contributors=new Set([tank.id,ally.id]);
+ mob.attackAt=2300;mob.attackCooldownAt=2500;
+ const players=new Map([[ally.id,ally]]);
+ assert.equal(reassignSphereAggroOnLeave(mob,tank.id,players,261),true);
+ assert.equal(mob.aggroId,ally.id);
+ assert.equal(mob.hp,mob.maxHp-9,'existing group damage must be retained');
+ assert.equal(mob.returning,false);
+ assert.equal(mob.attackAt,0,'old windup aimed at disconnected tank is cancelled');
+ assert.deepEqual([...mob.contributors],[ally.id]);
+ mob.hp=1;
+ const kill=applySphereAttack([mob],ally,'autoAttack',mob.id,4000,()=>.5);
+ assert.equal(kill.ok,true);
+ assert.deepEqual(kill.credits.map(c=>c.targetId),[ally.id],
+  'disconnected tank must not receive a future reward');
+});
+test('disconnecting a non-aggro contributor clears their credit without resetting the mob',()=>{
+ const mob=createSphericalMobs()[0],tank=character('tank'),ally=character('ally');
+ mob.aggroId=tank.id;mob.contributors=new Set([tank.id,ally.id]);
+ const hp=mob.hp;
+ const players=new Map([[tank.id,tank]]);
+ assert.equal(reassignSphereAggroOnLeave(mob,ally.id,players,261),false);
+ assert.equal(mob.aggroId,tank.id);
+ assert.equal(mob.hp,hp);
+ assert.deepEqual([...mob.contributors],[tank.id]);
+});
+test('disconnected tank with no remaining contributor causes clean PvE evade',()=>{
+ const mob=createSphericalMobs()[0],tank=character('tank');
+ mob.aggroId=tank.id;mob.contributors.add(tank.id);
+ assert.equal(reassignSphereAggroOnLeave(mob,tank.id,new Map(),261),false);
+ assert.equal(mob.aggroId,null);
+ assert.equal(mob.returning,true);
+ assert.equal(mob.contributors.size,0);
 });
