@@ -10,7 +10,7 @@ export const ABILITY_DEFINITIONS=Object.freeze({
  thunderStomp:Object.freeze({id:'thunderStomp',classId:'warrior',name:'Громовая поступь',description:'Оглушает ближайших врагов и наносит урон по области.',kind:'area',level:1,hotkey:'2',cooldown:8,gcd:1.5,resourceCost:0,range:4.5,requiresTarget:false,requiresFacing:false}),
  healingPotion:Object.freeze({id:'healingPotion',classId:'all',name:'Лечебный настой',description:'Восстанавливает 55 здоровья. Между применениями требуется отдых.',kind:'consumable',level:1,hotkey:'3',cooldown:0,gcd:0,resourceCost:0,range:0,requiresTarget:false,requiresFacing:false}),
  charge:Object.freeze({id:'charge',classId:'warrior',name:'Рывок',
-  description:'Быстро сближает с выбранным противником на расстоянии до 30 м и включает автоатаку. Первое попадание после рывка даёт дополнительно 20 ярости.',
+  description:'Быстро сближает с выбранным противником на расстоянии до 30 м и включает автоатаку. Первое успешное попадание после рывка даёт 20 ярости вместо обычного количества.',
   kind:'charge',level:8,cooldown:15,gcd:1.5,resourceCost:0,range:30,requiresTarget:true,requiresFacing:false}),
  heavyStrike:Object.freeze({id:'heavyStrike',classId:'warrior',name:'Рубящий удар',description:'Сильный удар оружием. Требует 20 ярости и наносит дополнительный урон.',kind:'melee',level:1,hotkey:'4',cooldown:3,gcd:1.5,resourceCost:20,damageBonus:8,range:3.45,requiresTarget:true,requiresFacing:true})
 });

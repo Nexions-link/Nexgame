@@ -14,7 +14,7 @@ test('charge is unlocked at level 8 and assignable to hotbar',()=>{
  assert.equal(normalizeHotbar([{kind:'ability',id:'charge'}],'warrior',7)[0],null);
  assert.deepEqual(normalizeHotbar([{kind:'ability',id:'charge'}],'warrior',8)[0],{kind:'ability',id:'charge'});
 });
-test('charge moves to melee and first validated auto-hit adds exactly 20 rage',()=>{
+test('charge moves to melee and first validated auto-hit awards exactly 20 rage',()=>{
  const mobs=createSphericalMobs(),mob=mobs[0],p=character();
  const now=10000,initial=arcDistance(p.normal,localToNormal(mob.x,mob.z,261),261);
  const result=applySphereCharge(mobs,p,mob.id,now);
@@ -24,12 +24,12 @@ test('charge moves to melee and first validated auto-hit adds exactly 20 rage',(
  assert.ok(initial>=arcDistance(p.normal,localToNormal(mob.x,mob.z,261),261));
  const hit=applySphereAttack(mobs,p,'autoAttack',mob.id,now+600,()=>.2);
  assert.equal(hit.ok,true,hit.reason);
- assert.equal(p.resource,32,'normal 12 plus charge bonus 20');
+ assert.equal(p.resource,20,'first successful strike after charge awards 20 total');
  assert.equal(p.chargeBonus,null,'bonus applied only once');
  assert.equal(applySphereCharge(mobs,p,mob.id,now+700).ok,false,'cooldown prevents duplicate dash');
  const next=applySphereAttack(mobs,p,'autoAttack',mob.id,now+2900,()=>.2);
  assert.equal(next.ok,true,next.reason);
- assert.equal(p.resource,44,'second strike awards only baseline rage');
+ assert.equal(p.resource,32,'second strike awards only baseline 12 rage');
 });
 test('low level, missing target and excessive distance are rejected without relocating',()=>{
  const mobs=createSphericalMobs(),mob=mobs[0],low=character(7),start=[...low.normal];
