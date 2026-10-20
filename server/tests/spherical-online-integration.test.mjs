@@ -157,3 +157,22 @@ test('multiple full turns never strand an online hero outside the chest', {timeo
   assert.equal(hero.events.some(e=>e.type==='chestResult'&&e.ok===false),false);
  }finally{clearInterval(timer);hero?.close();peer?.close();child.kill()}
 });
+
+test('warrior charge visual is shared with nearby observers without client-supplied endpoints',{timeout:9000},async()=>{
+ const {port,child}=await server();let warrior,observer;
+ try{
+  warrior=await join(port,'Воин',-9,-24,8,261,{weapon:{id:'wornAxe'}});
+  observer=await join(port,'Свидетель',-9,-24,1,261);
+  const player=await until(()=>warrior.events.find(e=>e.type==='welcome'));
+  await until(()=>observer.events.find(e=>e.type==='welcome'));
+  warrior.send({type:'charge',mobId:'dolgonog-0'});
+  const confirmed=await until(()=>warrior.events.find(e=>e.type==='chargeAccepted'));
+  assert.equal(confirmed.mobId,'dolgonog-0');
+  const effect=await until(()=>observer.events.find(e=>e.type==='chargeVisual'&&e.id===player.id));
+  assert.deepEqual(effect.normal,confirmed.normal);
+  assert.equal(effect.durationMs,confirmed.durationMs);
+  assert.equal(effect.fromNormal.length,3);
+  assert.ok(effect.fromNormal.every(Number.isFinite));
+  assert.ok(!observer.events.some(e=>e.type==='chargeAccepted'));
+ }finally{warrior?.close();observer?.close();child.kill();}
+});
