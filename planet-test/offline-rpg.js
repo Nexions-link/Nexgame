@@ -598,9 +598,11 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   // End the visual windup on the server-confirmed hit, not on client guesswork.
   const attacker=mobs.find(m=>m.id===event?.mobId);
   if(attacker){
+   // A late hit from the mob's previous life may still arrive after respawn.
+   // Never cancel the NEW life's windup or animate a phantom strike.
+   if(Number.isInteger(event.life)&&event.life!==attacker.life)return;
    attacker.attackWindup=0;
-   if(!Number.isInteger(event.life)||event.life===attacker.life)
-    attacker.visualStrikeHitSequence=(attacker.visualStrikeHitSequence||0)+1;
+   attacker.visualStrikeHitSequence=(attacker.visualStrikeHitSequence||0)+1;
   }
   if(Number.isFinite(event.hp))state.hp=Math.max(0,event.hp);
   if(event.blocked){blockRemaining=.65;hero.root.userData.blockRecoil=.65;combatVfx.trigger({root:hero.root},'block');}
