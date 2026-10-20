@@ -13,7 +13,7 @@ const phase=(prepare,drive,recover)=>({
 // Small amplitudes sit *on top of* approved weaponSwingProfile/daggerThrustPose.
 const profiles=Object.freeze({
  axe:phase([-.14,.015,.035],[-.085,-.095,.075],[.047,-.042,.080]),
- sword:phase([-.075,-.095,-.075],[-.055,-.050,.155],[.026,.022,.063]),
+ sword:phase([-.075,-.095,-.075],[-.055,-.050,.205],[.026,.022,.063]),
  dagger:phase([-.035,.015,.008],[.055,-.020,-.023],[.019,.012,.105]),
  none:phase([-.055,0,.015],[-.015,-.035,.035],[.021,0,.04])
 });
@@ -36,7 +36,7 @@ export function weaponActionDetail({weaponKind='none',attack=-1,walk=0,guard=0,b
   prepare,drive,recover,
   // Independent shoulder axes make axe/side-cut/stab silhouettes readable.
   mainShoulderX:config.mainX*prepare+
-   (weaponKind==='dagger'?-.10:.11)*drive-.055*recover,
+   (weaponKind==='axe'?.19:weaponKind==='dagger'?-.10:.11)*drive-.055*recover,
   mainShoulderY:config.mainY*prepare+config.yaw*.75*drive-config.yaw*.24*recover,
   mainShoulderZ:config.mainZ*prepare+(weaponKind==='sword'?-.145:.025)*drive+
    (weaponKind==='sword'?.045:0)*recover,
