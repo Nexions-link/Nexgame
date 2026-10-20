@@ -304,12 +304,15 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     return;
    }
    if(m.type==='charge'){
-    const now=Date.now();
+    const now=Date.now(),fromNormal=[...current.normal];
     const result=applySphereCharge(rooms.get(current.radius).mobs,current,m.mobId,now);
     if(!result.ok){
      send(ws,{type:'combatRejected',abilityId:'charge',reason:result.reason});return;
     }
     current.updatedAt=now;current.moving=true;
+    // Cosmetic motion for nearby clients; relocation and collisions remain server-owned.
+    sendInRoom(current.radius,{type:'chargeVisual',id:current.id,fromNormal,
+     normal:[...current.normal],heading:current.heading,durationMs:result.durationMs});
     send(ws,{type:'chargeAccepted',abilityId:'charge',mobId:m.mobId,
      normal:[...current.normal],heading:current.heading,durationMs:result.durationMs});
     return;
