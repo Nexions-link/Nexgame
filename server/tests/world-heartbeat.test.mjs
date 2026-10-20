@@ -16,5 +16,26 @@ test('missed browser pong responses release stale sockets',()=>{
   assert.equal(socket.readyState,1);
   heartbeat.sweep();
   assert.equal(socket.readyState,3);
+  assert.deepEqual(heartbeat.stats(),{pingsSent:4,staleTerminations:1,pingFailures:0});
+ }finally{heartbeat.close()}
+});
+
+test('broken ping terminates only the failed WebSocket, not healthy players',()=>{
+ const broken=new EventEmitter(),healthy=new EventEmitter();
+ broken.readyState=healthy.readyState=1;
+ broken.ping=()=>{throw Error('socket transport failed')};
+ broken.terminate=()=>{broken.readyState=3};
+ let healthyPings=0;
+ healthy.ping=()=>{healthyPings++};
+ healthy.terminate=()=>{healthy.readyState=3};
+ const heartbeat=createWorldHeartbeat({
+  wss:{clients:new Set([broken,healthy])},intervalMs:60000,maxMissed:3
+ });
+ try{
+  heartbeat.track(broken);heartbeat.track(healthy);heartbeat.sweep();
+  assert.equal(broken.readyState,3);
+  assert.equal(healthy.readyState,1);
+  assert.equal(healthyPings,1);
+  assert.deepEqual(heartbeat.stats(),{pingsSent:1,staleTerminations:0,pingFailures:1});
  }finally{heartbeat.close()}
 });
