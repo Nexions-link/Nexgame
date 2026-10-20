@@ -178,7 +178,12 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
   target.navigation=null;
   target.lastHitAt=now;
   if(abilityId==='thunderStomp')target.stunUntil=Math.max(target.stunUntil,now+2500);
-  player.resource=clamp(player.resource+(abilityId==='autoAttack'?12:abilityId==='heavyStrike'?8:3),0,100);
+  const bonus=player.chargeBonus;
+  const firstChargeHit=abilityId!=='thunderStomp'&&bonus&&
+   bonus.mobId===target.id&&bonus.life===target.life&&now<=bonus.expiresAt;
+  if(firstChargeHit)player.chargeBonus=null;
+  player.resource=clamp(player.resource+
+   (abilityId==='autoAttack'?12:abilityId==='heavyStrike'?8:3)+(firstChargeHit?20:0),0,100);
   events.push({type:'combat',mobId:target.id,life:target.life,abilityId,
    fromId:player.id,damage,hp:target.hp,maxHp:target.maxHp});
   if(target.hp===0){
