@@ -35,6 +35,7 @@ export function createEconomyStore({pool:externalPool,
  const progress=createProgressStore({pool});
  const transaction=(args,handler)=>progress.trustedTransaction(
   args.accountId,args.characterId,args.expectedRevision,handler);
+ async function ping(){await pool.query('SELECT 1 AS ok');return true}
  async function ready(){
   const {rows}=await pool.query(
    "SELECT to_regclass('public.ngw_shared_chests') IS NOT NULL AS chest,"+
@@ -422,7 +423,7 @@ export function createEconomyStore({pool:externalPool,
   });
  }
  return {
-  schemaReady:ready,buy,sell,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
+  ping,schemaReady:ready,buy,sell,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
   startBanditQuest,finishBanditQuest,
