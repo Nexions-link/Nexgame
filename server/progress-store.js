@@ -77,6 +77,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    throw error;
   }finally{client.release()}
  }
+ async function ping(){await pool.query('SELECT 1 AS ok');return true}
  async function schemaReady(){
   const {rows}=await pool.query(
    "SELECT to_regclass('public.ngw_character_progress') IS NOT NULL AS progress,"+
@@ -209,7 +210,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   });
  }
  return {
-  schemaReady,load,initializeStarterPack,recordMobKill,saveServerCheckpoint,saveActionBarSlot,
+  ping,schemaReady,load,initializeStarterPack,recordMobKill,saveServerCheckpoint,saveActionBarSlot,
   equipInventoryItem,unequipInventoryItem,useHealingPotion,
   // Internal server-only transaction hook; never export via HTTP or WS.
   trustedTransaction:transaction,
