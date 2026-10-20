@@ -37,7 +37,9 @@ test('authenticated world joins use stored nickname, level, position and gear, n
   const hero=[...world.players.values()][0];
   assert.equal(hero.name,'Молодой Воин');
   assert.equal(hero.level,1);
-  assert.equal(hero.resource,25);
+  // The live world tick may naturally decay rage after the welcome packet.
+  assert.ok(hero.resource<=25&&hero.resource>=0);
+  assert.equal(welcome.resource,25,'the initial resource came from persisted Neon state');
   assert.equal(hero.equipment.weapon.id,'wornAxe');
   assert.deepEqual(hero.normal,trusted.progress.positionNormal);
   assert.equal(hero.characterId,'hero');
