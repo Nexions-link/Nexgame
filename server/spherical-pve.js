@@ -211,6 +211,26 @@ export function startSphereEvade(mob){
  mob.contributors.clear();
 }
 
+// A disconnected tank must NOT reset a jointly fought enemy while other
+// living contributors are still in the same leash area. Remove ownership from
+// the departing player, then transfer aggro to an eligible remaining attacker.
+export function reassignSphereAggroOnLeave(mob,departingId,players,radius){
+ if(!mob||mob.phase!=='alive')return false;
+ mob.contributors.delete(departingId);
+ if(mob.aggroId!==departingId)return false;
+ const leash=mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES;
+ const spawn=localToNormal(mob.spawnX,mob.spawnZ,radius);
+ const remaining=[...mob.contributors].map(id=>players.get(id)).filter(p=>
+  p?.joined&&p.hp>0&&p.radius===radius&&
+  arcDistance(spawn,p.normal,radius)<=leash&&localDistance(mob,p,radius)<=leash);
+ if(!remaining.length){startSphereEvade(mob);return false}
+ remaining.sort((a,b)=>localDistance(mob,a,radius)-localDistance(mob,b,radius));
+ mob.aggroId=remaining[0].id;
+ mob.attackAt=0;mob.attackCooldownAt=0;mob.navigation=null;
+ mob.returning=false;
+ return true;
+}
+
 export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math.random){
  dt=clamp(dt,0,MAX_TICK);
  const events=[];
