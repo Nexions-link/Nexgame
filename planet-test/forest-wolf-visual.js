@@ -36,7 +36,7 @@ export function createForestWolfVisual(THREE,variant=0){
   for(let i=0;i<legs.length;i++)legs[i].rotation.x=Math.sin(phase+(i===0||i===3?0:Math.PI))*.43*moving;
   // Visible warning: neck/head tilt upward, ears flare, howl before attack.
   const voice=Math.min(1,Math.max(0,howl));
-  head.rotation.x=voice?-.62*voice:threat?-.24:.07*Math.sin(time*.8+variant);
+  head.rotation.x=voice?-.62*voice:threat?-.20:.07*Math.sin(time*.8+variant);
   head.position.y=voice?1.48+.16*voice:1.48;
   head.rotation.z=hit>0?.085*Math.sin(time*19+variant):0;
   head.rotation.y=threat?0:Math.sin(time*.67+variant*.9)*.11*idle;
