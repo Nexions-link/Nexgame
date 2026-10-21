@@ -214,12 +214,12 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    hand.add(mesh);
    modelSlots[slot]=mesh;
    hero.root.userData.equipmentGrip[slot]=grip;
+   old?.removeFromParent();
    if(slot==='weapon'){
     hero.root.userData.weaponKind=kind;
     applyWeaponQuality(THREE,hero.root,kind,def?.rarity);
    }
    if(slot==='shield')styleShieldGlb(THREE,mesh,def?.rarity);
-   old?.removeFromParent();
    characterPreview.refresh();
   },
   onError:(slot,error)=>console.warn('Planet equipment model unavailable',slot,error)
