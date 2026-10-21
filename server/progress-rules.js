@@ -3,6 +3,7 @@
 // Current PvE emits killCredit from server/spherical-pve.js; those credits
 // can be persisted only after the session is bound to an owned DB character.
 import {ITEM_CATALOG,itemStackLimit,deriveStats} from '../items.js';
+import {levelExperienceRequirement,MAX_CHARACTER_LEVEL} from '../planet-test/level-progression.js';
 import {DEFAULT_HOTBAR,normalizeHotbar,actionDefinition,assignHotbarSlot} from '../hotbar.js';
 import {CREATURE_LOOT_TABLES,creatureGearPool} from '../planet-test/loot-tables.js';
 import {creatureById,creatureKillReward} from '../planet-test/creature-registry.js';
@@ -10,7 +11,7 @@ import {CREATURE_TYPE_BEAST,creatureTypeForMob,CORPSE_COIN_ID} from '../planet-t
 import {DOLGONOG_BOSS_INDEX,mobLevelForIndex,mobBaseExperience,monsterKillExperience} from '../planet-test/mob-levels.js';
 
 export const PROGRESS_SCHEMA=1;
-export const BASE_BAG_SLOTS=12,MAX_BAG_SLOTS=108,MAX_LEVEL=60;
+export const BASE_BAG_SLOTS=12,MAX_BAG_SLOTS=108,MAX_LEVEL=MAX_CHARACTER_LEVEL;
 const MAX_INT=2147483647, RADII=new Set([87,174,261]);
 const EQUIPMENT_SLOTS=new Set(['weapon','shield','head','chest','legs',
  'hands','waist','wrists','feet']);
@@ -38,7 +39,7 @@ export function parseRevision(raw){
 }
 export function requiredExperience(level){
  if(!integer(level,1,MAX_LEVEL))invalid('invalid_level');
- return 100+(level-1)*50;
+ return levelExperienceRequirement(level);
 }
 export function addExperience(level,experience,gain){
  if(!integer(level,1,MAX_LEVEL)||!integer(experience,0,MAX_INT)||
@@ -51,6 +52,13 @@ export function addExperience(level,experience,gain){
  if(nextLevel===MAX_LEVEL)remaining=0;
  if(!integer(remaining,0,MAX_INT))invalid('experience_overflow');
  return {level:nextLevel,experience:remaining};
+}
+// Level-up restores health once, in the same durable transaction as XP.
+ // Returning no health field on ordinary XP preserves existing combat wounds.
+export function applyExperienceReward(state,gain){
+ const advanced=addExperience(state.level,state.experience,gain);
+ return {...advanced,...(advanced.level>state.level?
+  {health:deriveStats(advanced.level,state.equipment).maxHp}:{})};
 }
 export function validateInventory(input){
  if(!Array.isArray(input)||input.length>MAX_BAG_SLOTS||
@@ -170,7 +178,7 @@ export function awardVerifiedKill(state,verified){
  if(!plain(verified)||verified.eventKind!=='mob_kill'||
     !integer(verified.xp,0,100000)||!integer(verified.mobLevel,1,60)||!integer(verified.gold,0,100000)||
     !Array.isArray(verified.loot))invalid('unverified_kill_event');
- const xp=addExperience(state.level,state.experience,
+ const xp=applyExperienceReward(state,
   monsterKillExperience(state.level,verified.mobLevel,verified.xp));
  if(verified.gold!==0)invalid('invalid_kill_reward');
  const inventory=addStacks(state.inventory,verified.loot);

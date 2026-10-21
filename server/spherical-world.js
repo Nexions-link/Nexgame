@@ -123,11 +123,13 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const progress=result.progress;
    p.savedRevision=progress.revision;
    p.savedInventory=progress.inventory;
+   const levelUp=progress.level>p.level;
    p.level=progress.level;
    p.equipment=sanitizeSphereEquipment(progress.equipment,progress.level);
    p.maxHp=deriveStats(progress.level,p.equipment).maxHp;
-   p.hp=Math.min(p.maxHp,p.hp);
+   p.hp=levelUp?p.maxHp:Math.min(p.maxHp,p.hp);
    send(ws,{type:'progressSaved',source,progress});
+   if(levelUp)send(ws,{type:'playerVitals',hp:p.hp,maxHp:p.maxHp,resource:p.resource});
   }
   if(connections.size>=MAX_PLAYERS){
    ws.close(1013,'World is full');
@@ -214,9 +216,10 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
       }
      });
      p.queueCheckpoint=(checkpoint,source='checkpoint')=>{
-      // Capture authoritative vitals alongside the accepted movement state.
-      const serverVitals={health:p.hp,resource:p.resource};
+      // Capture vitals WHEN the checkpoint executes, after any preceding
+      // queued level-up reward. Earlier stale HP must not overwrite the heal.
       return queueSave(async()=>{
+       const serverVitals={health:p.hp,resource:p.resource};
        const result=await progressStore.saveServerCheckpoint({
         accountId:p.accountId,characterId:p.characterId,
         expectedRevision:p.savedRevision,checkpoint,serverVitals

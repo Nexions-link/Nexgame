@@ -6,7 +6,7 @@ import {GATHER_QUESTS,GATHER_INTERACT_RANGE,
 import {lakeRadius} from '../planet-test/start-zone.js';
 import {arcDistance,localToNormal} from './spherical-pve.js';
 import {transferChest,cleanStack,CHEST_SLOTS} from './chest.js';
-import {addExperience,validateKillCredit,ProgressError} from './progress-rules.js';
+import {applyExperienceReward,validateKillCredit,ProgressError} from './progress-rules.js';
 import {RELIC_POSITION,SCOUT_POSITION} from '../planet-test/mentor-chain.js';
 
 export const ECONOMY_CHEST_ID='hearth-house';
@@ -161,7 +161,7 @@ export function turnInGatherQuest(state,context){
  const inventory=consumeOwnedStacks(state.inventory,row.item,row.count);
  const gold=state.gold+row.gold;
  if(!int(gold,0,MAX_GOLD))invalid('gold_overflow',409);
- const experience=addExperience(state.level,state.experience,row.xp);
+ const experience=applyExperienceReward(state,row.xp);
  return {next:{...state,...experience,gold,inventory,
    quests:{...state.quests,gather:{stage:quest.stage+1,accepted:false}}},
   event:{eventKey:'gather:turnin:'+quest.stage,eventKind:'quest_reward',
@@ -229,7 +229,7 @@ export function turnInMentorQuest(state,context){
  const quest=getMentorQuest(state),reward=MENTOR_REWARD[quest.step];
  if(!reward)invalid('mentor_reward_not_ready',409);
  if(state.gold+reward.gold>MAX_GOLD)invalid('gold_overflow',409);
- const gain=addExperience(state.level,state.experience,reward.xp);
+ const gain=applyExperienceReward(state,reward.xp);
  return {next:mentorState({...state,...gain,gold:state.gold+reward.gold},
   {step:reward.next,kills:quest.kills}),
  event:{eventKey:'mentor:turnin:'+quest.step,eventKind:'quest_reward',
