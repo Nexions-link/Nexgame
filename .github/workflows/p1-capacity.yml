@@ -1,0 +1,54 @@
+name: NexGameWorld 5-10 player load gate
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ngw-load-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  simulated-players:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated load dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Run 5-player and 10-player world load with WebSocket jitter
+        env:
+          # No credentials or production endpoints are used by the simulator.
+          NGW_LOAD_REPORT: p1-load-results.json
+        run: node scripts/p1-load.mjs
+      - name: Publish measured values in GitHub run summary
+        if: success()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          import {readFileSync} from 'node:fs';
+          const result=JSON.parse(readFileSync('p1-load-results.json','utf8'));
+          console.log('## P1.4 — Disposable multiplayer load results');
+          console.log('Simulated players only; **not** a production Render capacity claim.');
+          console.log('| Players | Snapshot Hz/client | WS ping p95 | Peak heap (MiB) | Rejoins | Unexpected closes |');
+          console.log('|---:|---:|---:|---:|---:|---:|');
+          for(const r of result.results)
+           console.log('|'+[r.players,r.snapshotsPerClientSecond,r.pingP95Ms,
+            r.heapPeakMiB,r.reconnects,r.unexpectedClosures].join('|')+'|');
+          NODE
+      - name: Upload synthetic multiplayer load report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ngw-p1-4-load-results
+          path: server/p1-load-results.json
+          retention-days: 14
+          if-no-files-found: warn
