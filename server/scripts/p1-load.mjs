@@ -65,7 +65,8 @@ async function runCohort(size,durationMs){
  const open=async(index)=>{
   const socket=new WebSocket('ws://127.0.0.1:'+p+'/ws/nexgameworld');
   const state={index,socket,id:null,expectedClose:false,snapshots:0,
-   chat:0,attacks:0,chatRejected:0,lastSnapshot:null,disconnects:0,
+   chat:0,attacks:0,combatAccepted:0,chatRejected:0,partyState:null,
+   partyInvites:[],lastSnapshot:null,disconnects:0,
    latestSnapshotAt:0,startedAt:Date.now(),pending:new Map()};
   allClients.push(state);
   socket.on('message',raw=>{
@@ -75,7 +76,11 @@ async function runCohort(size,durationMs){
     state.snapshots++;state.lastSnapshot=event;
     state.latestSnapshotAt=Date.now();
    }else if(event.type==='chat'&&event.text?.startsWith(chatId))state.chat++;
-   else if(event.type==='combat'||event.type==='combatRejected')state.attacks++;
+   else if(event.type==='combat'||event.type==='combatRejected'){
+    state.attacks++;
+    if(event.type==='combat')state.combatAccepted++;
+   }else if(event.type==='partyInvite')state.partyInvites.push(event);
+   else if(event.type==='partyState')state.partyState=event;
    else if(event.type==='chatRejected')state.chatRejected++;
   });
   socket.on('pong',buffer=>{
@@ -132,9 +137,22 @@ async function runCohort(size,durationMs){
   // Exercise one party and its server validation while the world is occupied.
   for(let i=1;i<Math.min(size,5);i++){
    send(leader,{type:'partyInvite',targetId:clients[i].id});
-   await wait(35);
+   await until(()=>clients[i].partyInvites.some(v=>v.fromId===leader.id),
+    2500,'group invitation');
    send(clients[i],{type:'partyRespond',fromId:leader.id,accept:true});
-   await wait(35);
+   await until(()=>leader.partyState?.members?.length===i+1,
+    2500,'group roster update');
+  }
+  assert.equal(leader.partyState.members.length,5);
+  for(const member of clients.slice(0,5))
+   await until(()=>member.partyState?.members?.length===5,2500,
+    'consistent five-person group');
+  send(leader,{type:'chatSend',channel:'party',text:chatId+'party'});
+  await until(()=>clients.slice(0,5).every(c=>c.chat>=1),2500,'party channel delivery');
+  if(size===10){
+   await wait(100);
+   assert.ok(clients.slice(5).every(c=>c.chat===0),
+    'outsiders must not receive party chat under load');
   }
   const start=performance.now();let lastPing=0,lastChat=0,lastAttack=0,lastHeal=0;
   let round=0,doneReconnect=false,oldIds=[];
@@ -211,6 +229,8 @@ async function runCohort(size,durationMs){
   assert.ok(receivedChats>=size,'world chat broadcasts stopped under load');
   assert.ok(allClients.reduce((sum,c)=>sum+c.attacks,0)>0,
    'combat commands produced no server response');
+  assert.ok(allClients.reduce((sum,c)=>sum+c.combatAccepted,0)>0,
+   'combat exercise never produced an authoritative hit');
   for(const oldId of oldIds){
    assert.ok(clients.every(c=>c.id!==oldId));
    assert.ok(clients.every(c=>c.lastSnapshot
@@ -221,6 +241,7 @@ async function runCohort(size,durationMs){
    'snapshots disagree about current population');
   const report={players:size,durationMs,generatedMoves,generatedAttacks,generatedHeals,
    generatedChats,receivedChats,reconnects,unexpectedClosures,
+   combatAccepted:allClients.reduce((sum,c)=>sum+c.combatAccepted,0),
    snapshots:snapshotTotal,snapshotsPerClientSecond:pct(snapshotsPerClientSecond),
    pingSamples:latencies.length,pingP95Ms:percentile95(latencies),
    heapPeakMiB:pct(maxHeap),serverHealth:final.worldPerformance,
