@@ -7,7 +7,7 @@ import {arcDistance,normalToLocal} from './spherical-pve.js';
 export function walkableSphereNormal(normal,radius,actorRadius=.42){
  const p=normalToLocal(normal,radius);
  return !!p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&
-  canWalkCamp(p.x,p.z,actorRadius)&&(p.d>=82||canWadeAtLocal(p.x,p.z));
+  canWalkCamp(p.x,p.z,actorRadius,radius)&&(p.d>=82||canWadeAtLocal(p.x,p.z));
 }
 export function sphericalArcPoint(from,to,t,radius){
  const distance=arcDistance(from,to,radius);
