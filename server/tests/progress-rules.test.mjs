@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
- ProgressError,requiredExperience,addExperience,readProgress,
+ ProgressError,requiredExperience,addExperience,applyExperienceReward,readProgress,
  validateInventory,validateEquipment,validateKillCredit,
  awardVerifiedKill,validateServerCheckpoint,equipOwnedItem,unequipOwnedItem,setActionBarSlot
 } from '../progress-rules.js';
@@ -171,4 +171,26 @@ test('kill credits reject money on beasts, including the elite and fake coin inv
  assert.throws(()=>validateKillCredit({...base,loot:[{id:'coins',qty:9}]},261,WORLD_RUN),/invalid_kill_loot/);
  assert.throws(()=>validateKillCredit({...base,mobId:'dolgonog-9',xp:70,gold:12},261,WORLD_RUN),/invalid_kill_reward/);
  assert.equal(awardVerifiedKill(readProgress(rows()),validateKillCredit(base,261,WORLD_RUN)).gold,30);
+});
+
+// P2.3.1: XP, health recovery and item gates must remain server owned.
+test('level-up refills health in the persisted reward, but ordinary XP does not heal',()=>{
+ const near={...readProgress(rows()),level:1,experience:95,health:17};
+ const advanced=applyExperienceReward(near,10);
+ assert.deepEqual(advanced,{level:2,experience:5,health:140});
+ assert.equal(near.health,17,'input is immutable');
+ const normal=applyExperienceReward({...near,level:2,experience:0},22);
+ assert.deepEqual(normal,{level:2,experience:22});
+ const twice=applyExperienceReward({...near,level:2,experience:145,health:9},610);
+ assert.equal(twice.level,5);
+ assert.equal(twice.health,200);
+ assert.equal(addExperience(8,440,15).level,9);
+});
+test('XP from verified mob kills uses same health restore as quest rewards',()=>{
+ const state=readProgress({...rows(),experience:99,health:5});
+ const enemy=validateKillCredit(mob(),261,WORLD_RUN);
+ const after=awardVerifiedKill(state,enemy);
+ assert.equal(after.level,2);assert.equal(after.health,140);
+ assert.equal(after.experience,21);
+ assert.equal(state.health,5);
 });
