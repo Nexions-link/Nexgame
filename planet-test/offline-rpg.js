@@ -116,6 +116,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   safe.inventory=Array.isArray(row.inventory)?row.inventory.filter(Boolean).map(item=>({...item})):[];
   safe.equipment=row.equipment||{};
   safe.quest=row.quests?.mentor?.step||0;
+  safe.kills=row.quests?.mentor?.kills||0;
   safe.gatherStage=row.quests?.gather?.stage||0;
   safe.gatherAvailable=safe.gatherStage>=1&&safe.gatherStage<=3&&
    row.quests?.gather?.accepted===false;
