@@ -1695,22 +1695,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      (CREATURE_TYPE_LABELS[target.creatureType]||'Существо')+' · '+status:status;
     $('dummyStats').hidden=target.kind!=='dummy';
   }
-  const stage=state.quest,lines=QUEST_LINES[stage]||QUEST_LINES[12];
-  // An untracked task never fills the player's world view; the global
-  // journal button stays available even when this whole HUD section is hidden.
-  if(trackedQuestId&&!isAcceptedQuest(trackedQuestId,state))setTrackedQuest(null);
-  const navigation=$('trackedQuestHint');
-  const waypoint=trackedQuestId?questWaypoint(trackedQuestId,state,state.inventory,player()):null;
-  const route=questDirection(waypoint,player());
-  $('quest').hidden=!route;
+  // The minimap is the only navigation UI. Never overlay distance on the world.
+  questTracking.sync();
+  $('quest').hidden=true;
   $('mainQuestTracker').hidden=true;
   $('gatherQuestTracker').hidden=true;
   $('banditQuestTracker').hidden=true;
-  navigation.hidden=!route;
-  if(route)$('trackedQuestText').textContent=route.description;
-  navigation.classList.toggle('is-pinned',!!route);
-  const guidance=$('questGuidance');
-  guidance.hidden=true;
+  $('trackedQuestHint').hidden=true;
+  $('questGuidance').hidden=true;
   const glyph=mentorGlyph(state.quest);
   for(const child of mentor.root.children)if(child.userData.questMarker)child.visible=child.userData.glyph===glyph;
   const banditStage=state.banditQuest?.stage??0;
@@ -2276,7 +2268,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    body.append(tabs);
    if(journalTab!=='completed'){
     const note=document.createElement('p');note.className='ngw-journal-help';
-    note.textContent='Отслеживание включается только для принятого задания. На миникарте появятся точки противников или область поиска; отключи его в журнале или на экране.';
+    note.textContent='Принятое задание отслеживается автоматически. Здесь можно выбрать другое или выключить отслеживание. Мечи — обитание противников, подсвеченная область — поиск предметов.';
     body.append(note);
    }
    const entries=mentorJournalRows(state).map(item=>({...item,routeId:'mentor',npc:'Наставник Каменный Рог'}));
@@ -2336,7 +2328,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
       }]]:[];
     line((entry.status==='completed'?'✓ ':entry.status==='available'?'! ':'• ')+entry.title,
      entry.objective+' · '+entry.progress+(entry.reward?' · '+entry.reward:'')+
-     ' · '+entry.npc+(waypoint?' · Цель: '+waypoint.title:''),actions);
+     ' · '+entry.npc,actions);
    }
    if(!visible.length&&!hasHint)line('Пока пусто','В этом разделе заданий пока нет.');
    body.scrollTop=previousJournalScroll;
