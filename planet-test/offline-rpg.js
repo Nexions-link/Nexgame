@@ -1254,7 +1254,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(!loader)throw Error('GLTFLoader unavailable');
    const asset=await loader.loadAsync('../bestiary/models/dolgonog-v0.1.glb?v=0.3.5.43');
    if(!validatePlainstriderGltf(asset))throw Error('Unexpected Dolgonog clips');
-   for(const mob of mobs.filter(m=>m.family!=='bandit')){
+   for(const mob of mobs.filter(m=>m.family==='dolgonog'||m.family==='stormbeak')){
     // Never swap an already falling/settled corpse to a freshly loaded rig.
     if(mob.corpse)mob.pendingBirdAsset=asset;
     else attachBirdVisual(mob,asset);
