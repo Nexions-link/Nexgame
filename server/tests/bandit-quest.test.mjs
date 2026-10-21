@@ -16,10 +16,11 @@ const context=at=>({normal:localToNormal(at.x,at.z,261),radius:261,inCombat:fals
 const state=()=>readProgress({schemaVersion:1,revision:'0',level:2,experience:0,
  gold:30,health:120,resource:0,worldRadius:261,positionNormal:[0,0,1],heading:0,
  inventory:Array(12).fill(null),equipment:{},quests:{},actionBar:[]});
-test('14 uniquely identified PvE creatures have valid spawns and 4 distinct bandits',()=>{
+test('20 uniquely identified PvE creatures include 4 original bandits and six forest wolves',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,14);
- assert.equal(new Set(mobs.map(x=>x.id)).size,14);
+ assert.equal(mobs.length,20);
+ assert.equal(new Set(mobs.map(x=>x.id)).size,20);
+ assert.deepEqual(mobs.filter(x=>x.family==='forestWolf').map(x=>x.level),[5,5,6,6,7,7]);
  const bandits=mobs.filter(x=>x.family==='bandit');
  assert.deepEqual(bandits.map(x=>x.id),['bandit-0','bandit-1','bandit-2','bandit-3']);
  assert.deepEqual(bandits.map(x=>x.level),[3,3,4,5]);

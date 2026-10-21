@@ -66,7 +66,7 @@ test('P2.3.1: quest reward ceiling and level bands expose content gaps honestly'
  assert.equal(baseRewards.reduce((a,b)=>a+b,0),475);
  assert.equal(gather,180);assert.equal(bandit,355);
  assert.equal(gather+bandit+475,1010);
- assert.equal(Math.max(...CREATURE_SPAWNS.map(m=>m.level)),5);
+ assert.equal(Math.max(...CREATURE_SPAWNS.map(m=>m.level)),7);
  const late=CREATURE_SPAWNS.filter(m=>monsterKillExperience(10,m.level,mobBaseExperience(m.level,m.boss))>0);
  assert.ok(late.length<CREATURE_SPAWNS.length,'levels 9–10 need higher-level future enemy content');
  assert.equal(grayMonsterLevel(10),4);

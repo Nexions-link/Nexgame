@@ -46,7 +46,7 @@ test('two browsers share authoritative dolgonog health, kill credit and quest re
   const aw=await until(()=>a.events.find(e=>e.type==='welcome'));
   const bw=await until(()=>b.events.find(e=>e.type==='welcome'));
   assert.equal(aw.protocol,2);
-  assert.equal(aw.mobs.length,14);
+  assert.equal(aw.mobs.length,20);
   a.send({type:'attack',abilityId:'autoAttack',mobId:'dolgonog-0'});
   await until(()=>a.events.find(e=>e.type==='combat'&&e.mobId==='dolgonog-0'));
   b.send({type:'attack',abilityId:'autoAttack',mobId:'dolgonog-0'});

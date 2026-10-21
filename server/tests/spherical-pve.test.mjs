@@ -17,6 +17,9 @@ const character=(id,x=-9,z=-24,radius=261)=>({
 test('spherical geometry round-trips local camp positions at all radii',()=>{
  for(const radius of [87,174,261]){
   for(const [x,z] of SPHERE_MOB_SPAWNS){
+   // The 87m and 174m legacy test planets cannot represent the new far-forest
+   // spawns outside their unique geodesic chart; production radius is 261m.
+   if(Math.hypot(x,z)>=Math.PI*radius-1e-6)continue;
    const p=normalToLocal(localToNormal(x,z,radius),radius);
    assert.ok(Math.abs(p.x-x)<1e-8);
    assert.ok(Math.abs(p.z-z)<1e-8);
@@ -136,7 +139,7 @@ test('server respawn moves interaction coordinates to the starting camp',()=>{
 
 test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite level 3 boss',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,14);
+ assert.equal(mobs.length,20);
  assert.deepEqual([mobs.find(m=>m.boss).x,mobs.find(m=>m.boss).z],[BOSS_POSITION.x,BOSS_POSITION.z]);
  for(const m of mobs.slice(0,-1)){
   assert.equal(canWalkCamp(m.spawnX,m.spawnZ),true,'mob spawn must not be inside a wall');
@@ -154,7 +157,7 @@ test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite
 
 test('all ten monsters are beasts; none has a currency kill reward',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,14);
+ assert.equal(mobs.length,20);
  assert.ok(mobs.filter(m=>m.family!=='bandit').every(m=>m.creatureType==='beast'));
  assert.ok(mobs.filter(m=>m.family==='bandit').every(m=>m.creatureType==='humanoid'));
  assert.ok(mobSnapshot(mobs).filter(m=>m.family!=='bandit').every(m=>m.creatureType==='beast'));
