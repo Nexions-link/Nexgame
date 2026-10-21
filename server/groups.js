@@ -63,6 +63,30 @@ export function createPartyManager({players,send,now=Date.now}){
   send(target,{type:'partyNotice',message:'Ты вступил в группу'});
   return true;
  }
+ // Leaders may transfer control to an EXISTING connected member. Never
+ // accept a caller-provided group ID or let outsiders seize a party.
+ function promote(from,target){
+  if(!online(from)||!online(target))return fail(from,'Игрок недоступен');
+  const party=groups.get(membership.get(from));
+  if(!party||party.leaderId!==from)return fail(from,'Назначить лидера может только лидер группы');
+  if(from===target)return fail(from,'Вы уже лидер группы');
+  if(membership.get(target)!==party.id||!party.members.includes(target))
+   return fail(from,'Игрок не состоит в вашей группе');
+  // Invitations issued by the old leader must not silently stay valid;
+  // invalidating them immediately lets the new leader invite another player.
+  for(const [recipient,invitation] of pending){
+   if(invitation.from!==from)continue;
+   pending.delete(recipient);
+   if(online(recipient))send(recipient,{type:'partyNotice',error:true,
+    message:'Приглашение отменено: лидер группы сменился'});
+  }
+  party.leaderId=target;
+  const title=players.get(target)?.name||'Странник';
+  for(const id of party.members)if(online(id))send(id,{type:'partyNotice',
+   message:'Новый лидер группы: '+title});
+  notify(party);
+  return true;
+ }
  function leave(id,{disconnected=false}={}){
   clearPending(id);
   const party=groups.get(membership.get(id));
@@ -97,7 +121,7 @@ export function createPartyManager({players,send,now=Date.now}){
   const party=groups.get(membership.get(id));
   notify(party);
  }
- return {invite,respond,leave,disconnect:id=>leave(id,{disconnected:true}),
+ return {invite,respond,promote,leave,disconnect:id=>leave(id,{disconnected:true}),
   renamed,state,getPartyId:id=>membership.get(id)||null,getMemberIds,
   info:()=>({groups:groups.size,pending:pending.size})};
 }
