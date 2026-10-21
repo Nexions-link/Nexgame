@@ -136,7 +136,7 @@ export function sanitizeSphereEquipment(raw,level){
 }
 const playerStats=p=>deriveStats(p.level||1,p.equipment||{});
 const notice=(id,reason)=>({targetId:id,event:{type:'combatRejected',reason}});
-export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng=Math.random){
+export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng=Math.random,{chargeImpact=false}={}){
  const ability=getAbilityDefinition(abilityId);
  if(!ability||!['autoAttack','heavyStrike','thunderStomp'].includes(abilityId))
   return {ok:false,reason:'Неизвестная боевая способность',events:[]};
@@ -146,7 +146,10 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  if(abilityId!=='thunderStomp'&&mobs.some(m=>m.id===mobId&&m.phase==='alive'&&m.returning))
   return {ok:false,reason:'Противник возвращается к месту появления',events:[]};
  const cooldown=player.abilityCooldowns??(player.abilityCooldowns={});
- if(now<(cooldown[abilityId]||0)||ability.gcd>0&&now<(cooldown.gcd||0))
+ // Weapon autoattacks have no GCD. A server-owned charge landing also
+ // bypasses the previous swing cooldown and consumes the next swing timer.
+ if((!chargeImpact&&now<(cooldown[abilityId]||0))||
+   (ability.gcd>0&&now<(cooldown.gcd||0)))
   return {ok:false,reason:'Способность восстанавливается',events:[]};
  if((player.resource||0)<ability.resourceCost)
   return {ok:false,reason:'Недостаточно ярости',events:[]};

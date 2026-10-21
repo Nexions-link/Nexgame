@@ -13,7 +13,7 @@ import {
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
 import {resolveSphereWalk} from './world-movement.js';
-import {applySphereCharge} from './sphere-charge.js';
+import {applySphereCharge,completeSphereCharge} from './sphere-charge.js';
 import {selectVisiblePlayers} from './world-interest.js';
 import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
 import {isAuthorizedBattlefuryEquipped,ADMIN_BATTLEFURY_ID} from './admin-battlefury.js';
@@ -418,6 +418,24 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  function tickOnce(dt=.1,now=Date.now()){
   for(const room of rooms.values()){
    room.tick++;
+   // One server-authoritative strike at the landing time, whether or not
+   // the browser sends its usual autoattack packet.
+   for(const p of players.values()){
+    if(!p.joined||p.radius!==room.radius||!p.chargeImpact)continue;
+    const landed=completeSphereCharge(room.mobs,p,now);
+    if(!landed.ok)continue;
+    p.lastCombatAt=now;
+    for(const event of landed.events)sendInRoom(room.radius,event);
+    for(const entry of landed.credits){
+     const recipient=players.get(entry.targetId);
+     if(recipient?.queueVerifiedKill)
+      void recipient.queueVerifiedKill(entry.event).catch(()=>{});
+     else sendToId(entry.targetId,entry.event);
+    }
+    sendToId(p.id,{type:'playerVitals',hp:p.hp,maxHp:p.maxHp,resource:p.resource});
+    sendToId(p.id,{type:'chargeLanded',mobId:landed.events[0]?.mobId,
+     normal:landed.normal,heading:landed.heading});
+   }
    const events=tickSphericalMobs(room.mobs,players,room.radius,dt,now);
    for(const e of events){
     if(e.type==='mobAttack'){
