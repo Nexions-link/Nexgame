@@ -7,6 +7,7 @@ import {questWaypoint,questDirection,preferredQuestId} from './starter-quest-gui
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT,HOTBAR_AUTO_ACTIVE} from './native-hotbar-art.js?v=3';
 import {getAbilityRangeIndicator,getAbilityResourceIndicator} from './ability-range-visuals.js?v=2';
+import {levelExperienceRequirement,earnedExperienceSince,earlyLevelMilestone} from './level-progression.js?v=1';
 import {compareEquipment,itemStatRows,formatBagEquipmentChanges} from './equipment-comparison.js?v=2';
 import {ITEM_CATALOG,MERCHANT_STOCK,deriveStats,itemStackLimit} from '../items.js?v=0.6.43.5';
 import {getAbilityDefinition,getClassDefinition,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=0.6.43.53';
@@ -71,7 +72,7 @@ const SPAWNS=DOLGONOG_SPAWNS.slice(0,-1);
 const SAVE_KEY=OFFLINE_RPG_SAVE_KEY;
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const xpRequired=level=>100+(level-1)*50;
+const xpRequired=levelExperienceRequirement;
 const pretty=num=>Number(num).toLocaleString('ru-RU',{maximumFractionDigits:1});
 const LABEL=EQUIPMENT_LABELS;
 const EQUIP_SLOTS=['weapon','shield','head','chest','legs','hands','waist','wrists','feet'];
@@ -701,18 +702,23 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   void updateEquipmentVisuals();
   draw();
   if(!modal.hidden&&['merchant','mentor','herbalist','bag','character','quests','chest','banditQuest'].includes(modal.dataset.kind))renderModal();
-  if(source==='mob'){
-   // A saved revision can be rebroadcast during reconnect. Never animate it twice.
-   if(Number.isInteger(progress.revision)&&progress.revision===lastMobXpRevision)return;
-   if(Number.isInteger(progress.revision))lastMobXpRevision=progress.revision;
-   let gained=state.xp-previousXp;
-   for(let level=previousLevel;level<state.level&&level<60;level++)gained+=xpRequired(level);
-   gained=Math.max(0,gained);
-   xpFeedback.show(gained,{levelUp:state.level>previousLevel});
-   msg(gained>0?
-    'Получено +'+gained+' опыта. Осмотри тело для получения добычи.':
-    'Противник слишком слаб: 0 опыта. Добыча остаётся на теле.',2.6);
+  // Every server-verified reward uses the same level curve, including quests.
+  // Checkpoints, logins and duplicate broadcasts must not trigger fake popups.
+  const newXp=earnedExperienceSince(previousLevel,previousXp,state.level,state.xp);
+  const leveled=state.level>previousLevel;
+  if(source==='mob'&&Number.isInteger(progress.revision)){
+   if(progress.revision===lastMobXpRevision)return;
+   lastMobXpRevision=progress.revision;
   }
+  if(source!=='welcome'&&source!=='checkpoint'&&(newXp>0||leveled))
+   xpFeedback.show(newXp,{levelUp:leveled});
+  if(leveled){
+   const unlocked=previousLevel<8&&state.level>=8?
+    ' Новая способность: «Рывок» — открой книгу способностей.':'';
+   msg('Новый уровень: '+state.level+'! Здоровье восстановлено.'+unlocked,4);
+  }else if(source==='mob')msg(newXp>0?
+   'Получено +'+newXp+' опыта. Осмотри тело для получения добычи.':
+   'Противник слишком слаб: 0 опыта. Добыча остаётся на теле.',2.6);
  }
  function onKillCredit(event){
   if(authenticatedProfile)return;
@@ -1526,7 +1532,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  function levelCheck(){
   while(state.level<60&&state.xp>=xpRequired(state.level)){
    state.xp-=xpRequired(state.level);state.level++;
-   const oldMax=stats().maxHp;state.hp=oldMax;msg('Новый уровень: '+state.level+'!');
+   const newMax=stats().maxHp;state.hp=newMax;
+   const milestone=earlyLevelMilestone(state.level-1);
+   msg('Новый уровень: '+state.level+'! Здоровье восстановлено.'+
+    (milestone?.level===state.level?' Открыта способность «'+milestone.label+'»!':''),3.5);
   }
   state.hotbar=normalizeHotbar(state.hotbar,'warrior',state.level);persist();
  }
