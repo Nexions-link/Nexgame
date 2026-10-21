@@ -137,3 +137,72 @@ test('initial welcome respects visual interest radius just like later snapshots'
   child.kill();
  }
 });
+
+test('group survives leader handoff, cancels stale invites and uses a fresh ID on reconnect',
+ {timeout:20000},async()=>{
+ const {port,child}=await start(),clients=[];
+ try{
+  for(const name of ['Предводитель','Новый лидер','Соратник','Кандидат']){
+   clients.push(await join(port,name));
+  }
+  const [a,b,c,d]=clients;
+  const [wa,wb,wc,wd]=await Promise.all(clients.map(x=>
+   until(()=>x.events.find(e=>e.type==='welcome'))));
+  const idA=wa.id,idB=wb.id,idC=wc.id,idD=wd.id;
+  const invite=async(from,target,fromId)=>{
+   from.send({type:'partyInvite',targetId:target});
+   await until(()=>clients.find(x=>x.events.some(e=>e.type==='welcome'&&e.id===target))
+    ?.events.find(e=>e.type==='partyInvite'&&e.fromId===fromId));
+  };
+  await invite(a,idB,idA);
+  b.send({type:'partyRespond',fromId:idA,accept:true});
+  const first=await until(()=>a.events.find(e=>e.type==='partyState'
+   &&e.members.length===2&&e.leaderId===idA));
+  const stableGroup=first.groupId;
+  await invite(a,idD,idA); // Invitation is still waiting when leadership changes.
+  a.send({type:'partyPromote',targetId:idB});
+  await Promise.all([a,b].map(x=>until(()=>x.events.find(e=>
+   e.type==='partyState'&&e.groupId===stableGroup&&e.leaderId===idB))));
+  await until(()=>d.events.find(e=>e.type==='partyNotice'
+   &&e.error&&/отменено/i.test(e.message)));
+  d.send({type:'partyRespond',fromId:idA,accept:true});
+  await until(()=>d.events.find(e=>e.type==='partyNotice'
+   &&e.error&&/недействительно/i.test(e.message)));
+  assert.equal(d.events.some(e=>e.type==='partyState'&&e.groupId===stableGroup),false,
+   'stale invitation cannot add an outsider after leadership transfer');
+  a.send({type:'partyInvite',targetId:idC});
+  await until(()=>a.events.find(e=>e.type==='partyNotice'
+   &&e.error&&/только лидер/i.test(e.message)));
+  b.send({type:'partyInvite',targetId:idC});
+  await until(()=>c.events.find(e=>e.type==='partyInvite'&&e.fromId===idB));
+  c.send({type:'partyRespond',fromId:idB,accept:true});
+  await Promise.all([a,b,c].map(x=>until(()=>x.events.find(e=>
+   e.type==='partyState'&&e.groupId===stableGroup&&e.members.length===3
+   &&e.leaderId===idB))));
+  a.send({type:'chatSend',channel:'party',text:'Лидер меняется, чат продолжается'});
+  await Promise.all([a,b,c].map(x=>until(()=>x.events.find(e=>e.type==='chat'
+   &&e.channel==='party'&&e.text==='Лидер меняется, чат продолжается'))));
+  assert.equal(d.events.some(e=>e.type==='chat'&&e.channel==='party'),false,
+   'a player outside group must not receive group conversation');
+  b.close();
+  await Promise.all([a,c].map(x=>until(()=>x.events.find(e=>
+   e.type==='partyState'&&e.groupId===stableGroup&&e.members.length===2
+   &&e.leaderId===idA))));
+  const returned=await join(port,'Новый лидер');clients.push(returned);
+  const wReturn=await until(()=>returned.events.find(e=>e.type==='welcome'));
+  assert.notEqual(wReturn.id,idB);
+  const disconnectedGroup=await until(()=>returned.events.find(e=>e.type==='partyState'));
+  assert.equal(disconnectedGroup.groupId,null,'old membership is not inherited by a new socket');
+  returned.send({type:'partyPromote',targetId:idC});
+  await until(()=>returned.events.find(e=>e.type==='partyNotice'&&e.error));
+  a.send({type:'partyInvite',targetId:wReturn.id});
+  await until(()=>returned.events.find(e=>e.type==='partyInvite'&&e.fromId===idA));
+  returned.send({type:'partyRespond',fromId:idA,accept:true});
+  await Promise.all([a,c,returned].map(x=>until(()=>x.events.find(e=>
+   e.type==='partyState'&&e.groupId===stableGroup&&e.members.length===3
+   &&e.leaderId===idA))));
+ }finally{
+  for(const x of clients)x.close();
+  child.kill();
+ }
+});
