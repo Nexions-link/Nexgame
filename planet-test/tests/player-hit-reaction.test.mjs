@@ -46,7 +46,7 @@ test('live hit changes Tauren bones, never root transform or saved grip',()=>{
  animateSphericalTauren(hero,{dt:1/60,time:0,attack:-1,weaponKind:'axe'});
  const base=hero.body.rotation.x;
  rpg.setMultiplayer({connected:true});
- rpg.onMobAttack({mobId:'dolgonog-0',life:1,hp:60,damage:18,blocked:false,absorbed:0});
+ rpg.onMobAttack({mobId:'dolgonog-0',hp:60,damage:18,blocked:false,absorbed:0});
  for(let i=0;i<5;i++)animateSphericalTauren(hero,{dt:1/60,time:0,attack:-1,weaponKind:'axe'});
  assert.ok(hero.body.rotation.x<base-.045);
  assert.equal(root.position.distanceTo(position),0);
