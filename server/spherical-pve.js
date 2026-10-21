@@ -18,6 +18,7 @@ export const SPHERE_RESPAWN_MS=30000;
 export const SPHERE_LEASH_METRES=23;
 export const SPHERE_ROAM_RADIUS=3.2;
 const TAU=Math.PI*2,MAX_TICK=.25,MELEE_RANGE=3.45,STOMP_RANGE=4.5;
+const AGGRO_SWITCH_MARGIN=1.20; // PvE aggro does not ping-pong between similar hits.
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 export function localToNormal(x,z,r){
@@ -111,7 +112,7 @@ export function createSphericalMobs(){
   return {id:spec.id,index,x,z,spawnX:x,spawnZ:z,yaw:0,
    family:spec.family,boss,level:spec.level,creatureType:spec.type,name:spec.name,
    hp:health,maxHp:health,
-   phase:'alive',life:1,aggroId:null,contributors:new Set(),lastHitAt:0,
+   phase:'alive',life:1,aggroId:null,contributors:new Set(),threat:new Map(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
    roaming:index*1.73,navigation:null,returning:false,
    roamState:'rest',roamUntil:0,roamGoalX:x,roamGoalZ:z,patrolIndex:0};
@@ -140,6 +141,8 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  if(!ability||!['autoAttack','heavyStrike','thunderStomp'].includes(abilityId))
   return {ok:false,reason:'Неизвестная боевая способность',events:[]};
  if(player.hp<=0)return {ok:false,reason:'Персонаж мёртв',events:[]};
+ if(player.respawnShieldUntil>now)return {ok:false,reason:'Защита после возрождения',events:[]};
+ if(player.chargeUntil>now)return {ok:false,reason:'Рывок ещё выполняется',events:[]};
  if(abilityId!=='thunderStomp'&&mobs.some(m=>m.id===mobId&&m.phase==='alive'&&m.returning))
   return {ok:false,reason:'Противник возвращается к месту появления',events:[]};
  const cooldown=player.abilityCooldowns??(player.abilityCooldowns={});
@@ -166,18 +169,26 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  if(ability.gcd>0)cooldown.gcd=now+ability.gcd*1000;
  const stats=playerStats(player),events=[],credits=[];
  for(const target of targets){
+  // Incremental scaling preserves early-zone balance and keeps abilities useful.
   const damage=abilityId!=='thunderStomp'&&isAuthorizedBattlefuryEquipped(player)?target.hp:
-   abilityId==='thunderStomp'?6:
+   abilityId==='thunderStomp'?6+2*Math.floor((Math.max(1,player.level||1)-1)/4):
    Math.max(1,Math.round(stats.damageMin+clamp(rng(),0,1)*(stats.damageMax-stats.damageMin))+
-    (abilityId==='heavyStrike'?ability.damageBonus||0:0));
+    (abilityId==='heavyStrike'?(ability.damageBonus||0)+2*Math.floor((Math.max(1,player.level||1)-1)/3):0));
   target.hp=Math.max(0,target.hp-damage);
   target.contributors.add(player.id);
-  // New attacker: discard any windup aimed at the previous player.
-  if(target.aggroId!==player.id)target.attackAt=0;
-  target.aggroId=player.id;target.returning=false;target.roamState='rest';
-  target.navigation=null;
-  target.lastHitAt=now;
-  if(abilityId==='thunderStomp')target.stunUntil=Math.max(target.stunUntil,now+2500);
+  const threat=target.threat??(target.threat=new Map());
+  const nextThreat=(threat.get(player.id)||0)+damage+(abilityId==='heavyStrike'?8:abilityId==='thunderStomp'?3:0);
+  threat.set(player.id,nextThreat);
+  const incumbentThreat=threat.get(target.aggroId)||0;
+  if(!target.aggroId||target.aggroId===player.id||nextThreat>incumbentThreat*AGGRO_SWITCH_MARGIN){
+   if(target.aggroId!==player.id){target.attackAt=0;target.attackCooldownAt=0;}
+   target.aggroId=player.id;target.navigation=null;
+  }
+  target.returning=false;target.roamState='rest';target.lastHitAt=now;
+  if(abilityId==='thunderStomp'){
+   target.stunUntil=Math.max(target.stunUntil,now+(target.boss?1000:2500));
+   target.attackAt=0; // No delayed invisible hit from an interrupted windup.
+  }
   const bonus=player.chargeBonus;
   const firstChargeHit=abilityId!=='thunderStomp'&&bonus&&
    bonus.mobId===target.id&&bonus.life===target.life&&now<=bonus.expiresAt;
@@ -190,6 +201,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
    target.phase='corpse';target.deathAt=now;target.corpseUntil=now+SPHERE_CORPSE_MS;
    target.respawnAt=target.corpseUntil+SPHERE_RESPAWN_MS;
    target.aggroId=null;target.attackAt=0;target.attackCooldownAt=0;target.navigation=null;
+   target.threat.clear();
    const recipients=[...target.contributors];
    for(const attackerId of recipients)credits.push({targetId:attackerId,
     event:{type:'killCredit',mobId:target.id,life:target.life,
@@ -208,23 +220,27 @@ export function startSphereEvade(mob){
  mob.aggroId=null;mob.attackAt=0;mob.attackCooldownAt=0;
  mob.stunUntil=0;mob.navigation=null;mob.returning=true;
  mob.roamState='rest';mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;
- mob.contributors.clear();
+ mob.contributors.clear();mob.threat?.clear();
 }
 
 // A disconnected tank must NOT reset a jointly fought enemy while other
 // living contributors are still in the same leash area. Remove ownership from
 // the departing player, then transfer aggro to an eligible remaining attacker.
-export function reassignSphereAggroOnLeave(mob,departingId,players,radius){
+export function reassignSphereAggroOnLeave(mob,departingId,players,radius,now=Date.now()){
  if(!mob||mob.phase!=='alive')return false;
- mob.contributors.delete(departingId);
+ mob.contributors.delete(departingId);mob.threat?.delete(departingId);
  if(mob.aggroId!==departingId)return false;
  const leash=mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES;
  const spawn=localToNormal(mob.spawnX,mob.spawnZ,radius);
- const remaining=[...mob.contributors].map(id=>players.get(id)).filter(p=>
-  p?.joined&&p.hp>0&&p.radius===radius&&
-  arcDistance(spawn,p.normal,radius)<=leash&&localDistance(mob,p,radius)<=leash);
+ const remaining=[...mob.contributors].map(id=>players.get(id)).filter(p=>{
+  if(!p?.joined||p.hp<=0||p.respawnShieldUntil>now||p.radius!==radius||
+   arcDistance(spawn,p.normal,radius)>leash||localDistance(mob,p,radius)>leash)return false;
+  const position=normalToLocal(p.normal,radius);
+  return position&&sphereCombatLineClear(mob.x,mob.z,position.x,position.z);
+ });
  if(!remaining.length){startSphereEvade(mob);return false}
- remaining.sort((a,b)=>localDistance(mob,a,radius)-localDistance(mob,b,radius));
+ remaining.sort((a,b)=>(mob.threat?.get(b.id)||0)-(mob.threat?.get(a.id)||0)||
+  localDistance(mob,a,radius)-localDistance(mob,b,radius));
  mob.aggroId=remaining[0].id;
  mob.attackAt=0;mob.attackCooldownAt=0;mob.navigation=null;
  mob.returning=false;
@@ -240,7 +256,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   if(mob.phase==='hidden'&&now>=mob.respawnAt){
    mob.phase='alive';mob.hp=mob.maxHp;mob.life++;
    mob.x=mob.spawnX;mob.z=mob.spawnZ;mob.yaw=0;mob.aggroId=null;
-   mob.contributors.clear();mob.navigation=null;mob.attackAt=0;mob.attackCooldownAt=0;
+   mob.contributors.clear();mob.threat?.clear();mob.navigation=null;mob.attackAt=0;mob.attackCooldownAt=0;
    mob.stunUntil=0;mob.roaming=mob.index*1.73;
    mob.returning=false;mob.roamState='rest';mob.roamUntil=now+1500;
    mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;mob.patrolIndex=0;
@@ -248,12 +264,12 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   if(mob.phase!=='alive')continue;
   const spawnNormal=localToNormal(mob.spawnX,mob.spawnZ,radius);
   let target=mob.aggroId?players.get(mob.aggroId):null;
-  if(target&&(!target.joined||target.hp<=0||target.radius!==radius||
+  if(mob.aggroId&&(!target||!target.joined||target.hp<=0||target.radius!==radius||
     target.respawnShieldUntil>now||
     arcDistance(spawnNormal,target.normal,radius)>(mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES))){
-   startSphereEvade(mob);target=null;
+   reassignSphereAggroOnLeave(mob,mob.aggroId,players,radius,now);
+   target=mob.aggroId?players.get(mob.aggroId):null;
   }
-  if(!target&&mob.aggroId)startSphereEvade(mob);
   // An evading creature must actually finish its return before reacquiring aggro.
   if(!target&&!mob.returning){
    let closest=Infinity;
@@ -325,8 +341,10 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    target.lastMobAttackAt=now;
    target.resource=clamp((target.resource||0)+5,0,100);
    mob.attackAt=0;mob.attackCooldownAt=now+(mob.boss?1800:2100);
-   events.push({type:'mobAttack',mobId:mob.id,targetId:target.id,
+   events.push({type:'mobAttack',mobId:mob.id,life:mob.life,targetId:target.id,
     damage,blocked:block,absorbed,hp:target.hp,maxHp:target.maxHp});
+   // Visual-only confirmation for observers, no other player's health data.
+   events.push({type:'mobStrike',mobId:mob.id,life:mob.life,targetId:target.id,blocked:block});
    if(target.hp<=0){
     target.hp=target.maxHp;target.resource=0;target.normal=localToNormal(0,0,radius);
     target.heading=0;target.x=0;target.z=0;
