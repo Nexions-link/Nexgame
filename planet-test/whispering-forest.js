@@ -62,7 +62,7 @@ export function createForestLayout(seed=451921){
   if(forestDistance(lon,lat,FOREST_CAMP.lon,FOREST_CAMP.lat)<FOREST_CAMP.clearingRadius-2)continue;
   ground.push({lon,lat,size:.44+rand()*.92,yaw:rand()*TAU,tint:rand()});
  }
- for(let i=0;i<34;i++){
+ for(let i=0;i<100&&logs.length<34;i++){
   const lon=.27+rand()*1.17,lat=forestTrailLatitude(lon)+(rand()-.5)*.7;
   if(Math.abs(lat-forestTrailLatitude(lon))*261<6)continue;
   if(forestDistance(lon,lat,FOREST_CAMP.lon,FOREST_CAMP.lat)<FOREST_CAMP.clearingRadius+4)continue;
