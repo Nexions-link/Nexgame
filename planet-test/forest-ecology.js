@@ -16,13 +16,8 @@ export function forestEcologyLayout(seed=97431){
   }
   return null;
  }
- // Thicker low foliage under the canopy; an intentional walking corridor
- // remains visible to players, and soft plants never block movement.
- for(let i=0;i<620;i++){const p=sample(1.1);if(p)shrubs.push(p)}
- for(let i=0;i<480;i++){
-  const p=sample(.7,7.4);
-  if(p&&p.lon>.42&&p.lon<1.38)bracken.push(p);
- }
+ // Preserve legacy shrub and wildlife coordinates for existing players.
+ for(let i=0;i<500;i++){const p=sample(1.1);if(p)shrubs.push(p)}
  for(let i=0;i<190;i++){const p=sample(.9);if(p)rocks.push(p)}
  for(let i=0;i<145;i++){const p=sample(.25);if(p)fungi.push(p)}
  for(let i=0;i<11;i++){
@@ -35,6 +30,12 @@ export function forestEcologyLayout(seed=97431){
    p={...maybe,kind:i%3===0?'deer':'boar'};break;
   }
   if(p)wildlife.push(p);
+ }
+ // Add a separate seed continuation after the established wildlife layout,
+ // so additional foliage never re-rolls animals, rocks, or mushrooms.
+ for(let i=0;i<480;i++){
+  const p=sample(.7,7.4);
+  if(p&&p.lon>.42&&p.lon<1.38)bracken.push(p);
  }
  return {shrubs,rocks,fungi,bracken,wildlife};
 }
