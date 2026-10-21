@@ -195,7 +195,13 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
   const bonus=player.chargeBonus;
   const firstChargeHit=abilityId!=='thunderStomp'&&bonus&&
    bonus.mobId===target.id&&bonus.life===target.life&&now<=bonus.expiresAt;
-  if(firstChargeHit)player.chargeBonus=null;
+  if(firstChargeHit){
+   player.chargeBonus=null;
+   // A real client strike may reach the server just before its 10Hz
+   // landing tick. It consumes the pending auto-blow to prevent a duplicate.
+   if(player.chargeImpact?.mobId===target.id&&player.chargeImpact?.life===target.life)
+    player.chargeImpact=null;
+  }
   player.resource=clamp(player.resource+
    (firstChargeHit?20:abilityId==='autoAttack'?12:abilityId==='heavyStrike'?8:3),0,100);
   events.push({type:'combat',mobId:target.id,life:target.life,abilityId,
