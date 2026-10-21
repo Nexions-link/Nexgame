@@ -61,6 +61,9 @@ test('visible camp mesh tangent orientation agrees with geodetic collision coord
 // A path that only passes at its center can still feel blocked on a phone.
 test('both shoulders of the walking trail remain free of forest colliders',()=>{
  for(let lon=.145;lon<=1.46;lon+=.008){
+  // The survey camp has visible tents and a table beside the centerline;
+  // those should block passage, not be mistaken for invisible trail walls.
+  if(forestDistance(lon,forestTrailLatitude(lon),FOREST_CAMP.lon,FOREST_CAMP.lat)<FOREST_CAMP.clearingRadius+4)continue;
   for(const sideways of [-3.5,-2,0,2,3.5]){
    const p=local(lon,forestTrailLatitude(lon)+sideways/R);
    assert.equal(blocksForestAtLocal(p.x,p.z,.42,R),false,
