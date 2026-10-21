@@ -18,7 +18,7 @@ export function paintTrackedQuestOnMinimap(ctx,map,scale){
    ctx.moveTo(center.x*scale-3,center.z*scale);ctx.lineTo(center.x*scale+3,center.z*scale);
    ctx.moveTo(center.x*scale,center.z*scale-3);ctx.lineTo(center.x*scale,center.z*scale+3);
    ctx.stroke();
-  }else if(map.kind==='targets'){
+  }else if(map.kind==='targets'||map.kind==='waypoint'){
    for(const point of map.points||[]){
     if(!Number.isFinite(point?.x)||!Number.isFinite(point?.z))continue;
     const x=point.x*scale,z=point.z*scale;
