@@ -284,6 +284,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     party.invite(current.id,m.targetId);return;
    }
    if(m.type==='partyRespond'){party.respond(current.id,m.fromId,m.accept===true);return}
+   if(m.type==='partyPromote'){party.promote(current.id,m.targetId);return}
    if(m.type==='partyLeave'){party.leave(current.id);return}
    if(m.type==='chatSend'){chat.handle(current.id,m);return}
    if(m.type==='chestStatus'){sendNearbyChestStatus(current);return;}
