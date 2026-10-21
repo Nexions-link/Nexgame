@@ -88,6 +88,10 @@ export function createAccountEconomyDispatcher({
    else if(kind==='expeditionArrive')result=await economyStore.expeditionArrive({...params,context});
    else if(kind==='expeditionDiscover')result=await economyStore.expeditionDiscover({...params,context,index:message.index});
    else if(kind==='expeditionTurnIn')result=await economyStore.expeditionTurnIn({...params,context});
+   else if(kind==='forestHuntAccept')result=await economyStore.forestHuntAccept({...params,context});
+   else if(kind==='forestHuntReport')result=await economyStore.forestHuntReport({...params,context});
+   else if(kind==='forestHuntInspect')result=await economyStore.forestHuntInspect({...params,context,index:message.index});
+   else if(kind==='forestHuntTurnIn')result=await economyStore.forestHuntTurnIn({...params,context});
    else if(kind==='mentorAccept')result=await economyStore.startMentor({...params,context});
    else if(kind==='mentorInteract')result=await economyStore.mentorInteract({...params,context,
     kind:message.interaction});

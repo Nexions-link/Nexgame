@@ -6,6 +6,7 @@ import {monsterKillExperience,DOLGONOG_BOSS_INDEX} from '../planet-test/mob-leve
 import {randomUUID} from 'node:crypto';
 import {createResilientPgPool} from './postgres-pool.js';
 import {getMentorQuest,certifyMentorKill} from './economy-rules.js';
+import {creditForestWolfKill} from './forest-hunt-quest.js';
 import {
  assertCharacterId,parseRevision,readProgress,validateKillCredit,
  awardVerifiedKill,validateServerCheckpoint,validateServerVitals,equipOwnedItem,unequipOwnedItem,
@@ -136,6 +137,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    let next=awardVerifiedKill(state,deferLoot?{...event,loot:[]}:event);
    next=creditBanditQuestKill(next,serverCredit.mobId);
     next=creditBanditChiefKill(next,serverCredit.mobId);
+   next=creditForestWolfKill(next,serverCredit.mobId);
    // Quest kill objectives share the exact same transaction and world-run
    // identity as the reward: duplicate packets cannot advance objectives.
    const mentor=getMentorQuest(next);

@@ -3,6 +3,7 @@
 // supply a validated live position, combat state and gather interaction.
 import {createHash,randomUUID} from 'node:crypto';
 import {acceptExpedition,arriveExpedition,discoverExpedition,finishExpedition} from './expedition-quest.js';
+import {acceptForestHunt,reportForestHunt,inspectForestDen,finishForestHunt} from './forest-hunt-quest.js';
 import {createResilientPgPool} from './postgres-pool.js';
 import {createProgressStore} from './progress-store.js';
 import {acceptBanditQuest,turnInBanditQuest,acceptBanditChiefQuest,turnInBanditChiefQuest,
@@ -414,6 +415,38 @@ export function createEconomyStore({pool:externalPool,
    return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
   });
  }
+ async function forestHuntAccept(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(acceptForestHunt(state,args.context))};
+  });
+ }
+ async function forestHuntReport(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(reportForestHunt(state,args.context))};
+  });
+ }
+ async function forestHuntInspect(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(inspectForestDen(state,args.context,args.index))};
+  });
+ }
+ async function forestHuntTurnIn(args){
+  return transaction(args,async({client,state,save})=>{
+   revision(state,args.expectedRevision);
+   const {next,event}=finishForestHunt(state,args.context);
+   const exists=await client.query(
+    'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,event.eventKey]);
+   if(exists.rowCount)fail('forest_hunt_already_paid');
+   await client.query(
+    "INSERT INTO ngw_progress_events(character_id,event_key,event_kind,xp_granted,gold_granted,loot) VALUES($1,$2,$3,$4,$5,'[]'::jsonb)",
+    [args.characterId,event.eventKey,event.eventKind,event.xp,event.gold]);
+   return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
+  });
+ }
  async function startMentor(args){
   const {context}=args;
   return transaction(args,async({state,save})=>{
@@ -469,6 +502,7 @@ export function createEconomyStore({pool:externalPool,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
   expeditionAccept,expeditionArrive,expeditionDiscover,expeditionTurnIn,
+  forestHuntAccept,forestHuntReport,forestHuntInspect,forestHuntTurnIn,
   startBanditQuest,finishBanditQuest,
    startBanditWeaponsQuest,finishBanditWeaponsQuest,startBanditWeaponGather,finishBanditWeaponGather,
    startBanditChiefQuest,finishBanditChiefQuest,
