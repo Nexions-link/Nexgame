@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {acceptExpedition,arriveExpedition,discoverExpedition,finishExpedition,getExpedition} from '../expedition-quest.js';
+import {EXPEDITION_MENTOR,EXPEDITION_SCOUT,EXPEDITION_SITES} from '../../planet-test/expedition-quest.js';
+import {localToNormal} from '../spherical-pve.js';
+const ctx=p=>({normal:localToNormal(p.x,p.z,261),radius:261,inCombat:false});
+const fresh=()=>({worldRadius:261,level:4,experience:0,health:180,equipment:{},gold:0,quests:{}});
+test('server-verified expedition and once-only rewards',()=>{
+ let s=fresh();
+ assert.throws(()=>arriveExpedition(s,ctx(EXPEDITION_SCOUT)));
+ s=acceptExpedition(s,ctx(EXPEDITION_MENTOR));
+ assert.equal(getExpedition(s).stage,1);
+ assert.throws(()=>acceptExpedition(s,ctx(EXPEDITION_MENTOR)));
+ assert.throws(()=>arriveExpedition(s,ctx(EXPEDITION_MENTOR)));
+ s=arriveExpedition(s,ctx(EXPEDITION_SCOUT));
+ assert.equal(getExpedition(s).stage,2);
+ assert.throws(()=>discoverExpedition(s,ctx(EXPEDITION_SCOUT),0));
+ for(const site of EXPEDITION_SITES)s=discoverExpedition(s,ctx(site),site.index);
+ assert.equal(getExpedition(s).stage,3);
+ const {next,event}=finishExpedition(s,ctx(EXPEDITION_SCOUT));
+ assert.equal(next.quests.expedition.stage,4);
+ assert.equal(event.eventKey,'expedition:survey:v1');
+ assert.equal(event.xp,280);assert.equal(next.gold,45);
+ assert.throws(()=>finishExpedition(next,ctx(EXPEDITION_SCOUT)));
+});
+test('exploration cannot skip stages, duplicate discovery, or send fake indices',()=>{
+ let s=fresh();s.level=3;assert.throws(()=>acceptExpedition(s,ctx(EXPEDITION_MENTOR)));
+ s.level=4;s=acceptExpedition(s,ctx(EXPEDITION_MENTOR));
+ assert.throws(()=>discoverExpedition(s,ctx(EXPEDITION_SITES[0]),0));
+ s=arriveExpedition(s,ctx(EXPEDITION_SCOUT));
+ assert.throws(()=>discoverExpedition(s,ctx(EXPEDITION_SITES[0]),77));
+ s=discoverExpedition(s,ctx(EXPEDITION_SITES[0]),0);
+ assert.throws(()=>discoverExpedition(s,ctx(EXPEDITION_SITES[0]),0));
+ assert.throws(()=>finishExpedition(s,ctx(EXPEDITION_SCOUT)));
+});
