@@ -11,6 +11,7 @@ import {CREATURE_TYPE_BEAST,creatureTypeForMob,rollCreatureCoins} from '../plane
 import {monsterAttackDamage} from '../planet-test/mob-levels.js';
 import {CREATURE_SPAWNS,creatureSpawnHealth,creatureKillReward} from '../planet-test/creature-registry.js';
 import {BANDIT_CAMP,BANDIT_PATROLS,nextPatrolPoint} from '../planet-test/bandit-camp-data.js';
+import {eligibleWolfPackHelper,WOLF_PACK_HOWL_MS,WOLF_PACK_COOLDOWN_MS,WOLF_PACK_MAX_HELPERS} from '../planet-test/forest-wolf-pack.js';
 
 export const SPHERE_MOB_SPAWNS=CREATURE_SPAWNS.map(({x,z})=>[x,z]);
 export const SPHERE_CORPSE_MS=30000;
@@ -115,6 +116,7 @@ export function createSphericalMobs(){
    phase:'alive',life:1,aggroId:null,contributors:new Set(),threat:new Map(),lastHitAt:0,
    stunUntil:0,attackAt:0,attackCooldownAt:0,deathAt:0,corpseUntil:0,respawnAt:0,
    roaming:index*1.73,navigation:null,returning:false,
+   packAlerted:false,packAssisting:false,packHowlUntil:0,packCooldownUntil:0,
    roamState:'rest',roamUntil:0,roamGoalX:x,roamGoalZ:z,patrolIndex:0};
  });
 }
@@ -210,6 +212,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
    target.phase='corpse';target.deathAt=now;target.corpseUntil=now+SPHERE_CORPSE_MS;
    target.respawnAt=target.corpseUntil+SPHERE_RESPAWN_MS;
    target.aggroId=null;target.attackAt=0;target.attackCooldownAt=0;target.navigation=null;
+   target.packHowlUntil=0;target.packAlerted=false;target.packAssisting=false;
    target.threat.clear();
    const recipients=[...target.contributors];
    for(const attackerId of recipients)credits.push({targetId:attackerId,
@@ -227,6 +230,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
 export function startSphereEvade(mob){
  if(!mob||mob.phase!=='alive')return;
  mob.aggroId=null;mob.attackAt=0;mob.attackCooldownAt=0;
+ mob.packAlerted=false;mob.packAssisting=false;mob.packHowlUntil=0;
  mob.stunUntil=0;mob.navigation=null;mob.returning=true;
  mob.roamState='rest';mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;
  mob.contributors.clear();mob.threat?.clear();
@@ -256,6 +260,40 @@ export function reassignSphereAggroOnLeave(mob,departingId,players,radius,now=Da
  return true;
 }
 
+// Rally only one wolf from the *same* nearby pair. No chain calls, remote
+// pack pulls, teleportation, bypasses through solid trunks or threat stealing.
+export function rallyNearbyWolves(mobs,leader,target,radius,now){
+ if(leader.family!=='forestWolf'||leader.packAlerted||leader.packAssisting||
+  leader.phase!=='alive'||!target||!target.joined||target.hp<=0)return [];
+ leader.packAlerted=true;
+ if(now<(leader.packCooldownUntil||0))return [];
+ const distance=(a,b)=>Array.isArray(b.normal)?
+  arcDistance(localToNormal(a.x,a.z,radius),b.normal,radius):
+  arcDistance(localToNormal(a.x,a.z,radius),localToNormal(b.x,b.z,radius),radius);
+ const clear=(from,to)=>{
+  const destination=Array.isArray(to.normal)?normalToLocal(to.normal,radius):to;
+  return !!destination&&sphereCombatLineClear(from.x,from.z,destination.x,destination.z);
+ };
+ const helpers=mobs.filter(w=>eligibleWolfPackHelper(leader,w,target,{
+  radius,now,leash:SPHERE_LEASH_METRES,distance,clear
+ })).sort((a,b)=>distance(a,leader)-distance(b,leader)||
+  a.index-b.index).slice(0,WOLF_PACK_MAX_HELPERS);
+ if(!helpers.length)return [];
+ leader.packHowlUntil=now+WOLF_PACK_HOWL_MS;
+ leader.packCooldownUntil=now+WOLF_PACK_COOLDOWN_MS;
+ leader.attackAt=0;leader.navigation=null;
+ for(const helper of helpers){
+  helper.aggroId=target.id;
+  helper.packAssisting=true;helper.packAlerted=true;
+  helper.packHowlUntil=now+WOLF_PACK_HOWL_MS;
+  helper.packCooldownUntil=now+WOLF_PACK_COOLDOWN_MS;
+  helper.attackAt=0;helper.attackCooldownAt=0;
+  helper.navigation=null;helper.roamState='rest';helper.returning=false;
+  helper.threat.set(target.id,1);
+ }
+ return [{type:'mobHowl',mobId:leader.id,life:leader.life,
+  helperIds:helpers.map(w=>w.id),durationMs:WOLF_PACK_HOWL_MS}];
+}
 export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math.random){
  dt=clamp(dt,0,MAX_TICK);
  const events=[];
@@ -268,6 +306,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    mob.contributors.clear();mob.threat?.clear();mob.navigation=null;mob.attackAt=0;mob.attackCooldownAt=0;
    mob.stunUntil=0;mob.roaming=mob.index*1.73;
    mob.returning=false;mob.roamState='rest';mob.roamUntil=now+1500;
+   mob.packAlerted=false;mob.packAssisting=false;mob.packHowlUntil=0;
    mob.roamGoalX=mob.spawnX;mob.roamGoalZ=mob.spawnZ;mob.patrolIndex=0;
   }
   if(mob.phase!=='alive')continue;
@@ -294,6 +333,8 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    }
    if(target){mob.aggroId=target.id;mob.navigation=null;}
   }
+  if(target&&mob.family==='forestWolf'&&!mob.packAlerted)
+   events.push(...rallyNearbyWolves(mobs,mob,target,radius,now));
   const aim=target?normalToLocal(target.normal,radius):null;
   mob.roaming+=dt;
   if(target){mob.returning=false;mob.roamState='rest';}
@@ -315,7 +356,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   if(!finite(gx)||!finite(gz))continue;
   const distance=target?localDistance(mob,target,radius):Math.hypot(gx-mob.x,gz-mob.z);
   const beforeX=mob.x,beforeZ=mob.z;
-  const cannotMove=now<mob.stunUntil||now<mob.attackAt;
+  const cannotMove=now<mob.stunUntil||now<mob.attackAt||now<(mob.packHowlUntil||0);
   if(!cannotMove&&distance>(target?(mob.boss?3:2.35):.28)){
    moveMobToward(mob,{goalX:gx,goalZ:gz,dt,
     speed:target?(mob.boss?1.75:2.05):mob.returning?1.65:.95,
@@ -332,7 +373,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   }
   if(!target){mob.attackAt=0;continue;}
   const close=distance<(mob.boss?3:2.6)&&sphereCombatLineClear(mob.x,mob.z,gx,gz);
-  if(now<mob.stunUntil||!close){mob.attackAt=0;continue;}
+  if(now<mob.stunUntil||now<(mob.packHowlUntil||0)||!close){mob.attackAt=0;continue;}
   if(mob.attackAt===0&&now>=mob.attackCooldownAt){
    mob.attackAt=now+(mob.boss?450:400);
    events.push({type:'mobTelegraph',mobId:mob.id,life:mob.life,targetId:target.id,windupMs:mob.boss?450:400});
