@@ -40,7 +40,7 @@ test('holding and dragging to world discards only on pointer release',()=>{
  act('pointerup',480,500);
  assert.equal(discard,1,'scroll/move before hold cannot trigger deletion');
 });
-test('game integrates slot-id checking, confirmation and revisioned economy request',()=>{
+test('game integrates slot-id checking, confirmation and revisioned economy request',async()=>{
  const fs=await import('node:fs');
  const rpg=fs.readFileSync(new URL('../offline-rpg.js',import.meta.url),'utf8');
  assert.match(rpg,/attachBagDiscardDrag\(cell/);
