@@ -50,7 +50,8 @@ export function forestLocalPoint(lon,lat,radius=261){
 export function forestTrailLatitude(lon){
  const d=lon-.145;
  // Through the gap between existing sandstone mesas east of the village.
- return -.035+.015*Math.sin(d*4)+.012*Math.sin(Math.max(0,lon-.51)*8.5)+.011*Math.exp(-Math.pow((lon-.40)/.072,2));
+ return -.035+.015*Math.sin(d*4)+.012*Math.sin(Math.max(0,lon-.51)*8.5)+.011*Math.exp(-Math.pow((lon-.40)/.072,2))
+  +.055*Math.exp(-Math.pow((lon-.193)/.045,2));
 }
 export function forestMoodAt(lon,lat){
  return smooth(.15,.62,lon)*(1-smooth(1.45,1.75,lon))*
