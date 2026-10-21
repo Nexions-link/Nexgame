@@ -1,6 +1,6 @@
 // Server-owned first humanoid quest; state lives in the existing quests JSONB.
 // No browser-provided kill, reward, position, or quest-count claim is trusted.
-import {ProgressError,addExperience} from './progress-rules.js';
+import {ProgressError,applyExperienceReward} from './progress-rules.js';
 import {BANDIT_QUEST_GIVER,BANDIT_QUEST_KILLS,BANDIT_QUEST_MIN_LEVEL,creatureById} from '../planet-test/creature-registry.js';
 import {requireServerProximity,countItem,consumeOwnedStacks} from './economy-rules.js';
 import {BANDIT_WEAPON_ITEM,BANDIT_WEAPON_REQUIRED,BANDIT_WEAPON_INTERACT_RANGE,banditWeaponNode} from '../planet-test/bandit-weapons.js';
@@ -33,7 +33,7 @@ export function turnInBanditQuest(state,context){
  const quest=getBanditQuest(state);
  if(quest.stage!==2)reject('bandit_quest_not_ready');
  if(state.gold>2147483647-BANDIT_QUEST_REWARD.gold)reject('gold_overflow');
- const xp=addExperience(state.level,state.experience,BANDIT_QUEST_REWARD.xp);
+ const xp=applyExperienceReward(state,BANDIT_QUEST_REWARD.xp);
  return {next:put({...state,...xp,gold:state.gold+BANDIT_QUEST_REWARD.gold},
     {stage:3,kills:BANDIT_QUEST_KILLS}),
   event:{eventKey:'bandit:quest:turnin:v1',eventKind:'quest_reward',
@@ -76,7 +76,7 @@ export function turnInBanditWeaponsQuest(state,context){
   reject('bandit_weapons_quest_not_ready');
  if(state.gold>2147483647-BANDIT_WEAPONS_REWARD.gold)reject('gold_overflow');
  const inventory=consumeOwnedStacks(state.inventory,BANDIT_WEAPON_ITEM,BANDIT_WEAPON_REQUIRED);
- const xp=addExperience(state.level,state.experience,BANDIT_WEAPONS_REWARD.xp);
+ const xp=applyExperienceReward(state,BANDIT_WEAPONS_REWARD.xp);
  return {next:putWeapons({...state,...xp,inventory,gold:state.gold+BANDIT_WEAPONS_REWARD.gold},2),
   event:{eventKey:'bandit:weapons:turnin:v1',eventKind:'quest_reward',
    xp:BANDIT_WEAPONS_REWARD.xp,gold:BANDIT_WEAPONS_REWARD.gold}};
@@ -107,7 +107,7 @@ export function turnInBanditChiefQuest(state,context,rewardItemId){
  requireServerProximity(state,context,BANDIT_QUEST_GIVER,BANDIT_QUEST_GIVER.range);
  if(getBanditChiefQuest(state).stage!==2)reject('bandit_chief_quest_not_ready');
  if(state.gold>2147483647-BANDIT_CHIEF_REWARD.gold)reject('gold_overflow');
- const xp=addExperience(state.level,state.experience,BANDIT_CHIEF_REWARD.xp);
+ const xp=applyExperienceReward(state,BANDIT_CHIEF_REWARD.xp);
  return {next:putChief({...state,...xp,gold:state.gold+BANDIT_CHIEF_REWARD.gold},3),
   event:{eventKey:'bandit:chief:turnin:v1',eventKind:'quest_reward',
    xp:BANDIT_CHIEF_REWARD.xp,gold:BANDIT_CHIEF_REWARD.gold}};
