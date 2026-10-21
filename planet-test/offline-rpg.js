@@ -49,7 +49,7 @@ import {moveMobToward,mobSegmentClear} from './mob-navigation.js?v=1';
 import {consumeAnimationTime} from './animation-budget.js?v=1';
 import {advanceCreatureGait} from './creature-gait.js?v=3';
 import {advanceMobImpact,mobVisualMode} from './mob-impact.js?v=1';
-import {advanceCreatureSecondary,applyCreatureSecondary,resetCreatureSecondary,shouldReplayCreatureHurt} from './creature-secondary.js?v=5';
+import {advanceCreatureSecondary,applyCreatureSecondary,resetCreatureSecondary,shouldReplayCreatureHurt} from './creature-secondary.js?v=6';
 import {advanceCreatureStrike,resetCreatureStrike} from './creature-strike.js?v=1';
 import {createSphericalStomp} from './sphere-skill-effects.js?v=1';
 import {createMobDeath} from './mob-death.js?v=2';
@@ -1097,7 +1097,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   const stance=advanceCreatureSecondary(gltf.secondary,delta,{
    kind:'raider',yaw:isOnline()?mob.renderYaw??mob.yaw:mob.yaw,
    walking:gait.walking,speed:Math.min(1,gltf.gait.rate||0),
-   attacking,attackRemaining:gltf.attackRemaining,hitWeight:impact.weight,
+   attacking,attackRemaining:gltf.attackRemaining,hitWeight:impact.weight,hitSide:impact.side,
    strikePrepare:strike.prepare,strikeImpact:strike.impact,strikeRecover:strike.recover,
    stridePhase:gait.stridePhase,stepWeight:gait.stepWeight
   });
@@ -1170,7 +1170,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     kind:'longstrider',yaw:isOnline()?mob.renderYaw??mob.yaw:mob.yaw,
     walking:gait.walking,speed:Math.min(1,bird.gait?.rate||0),
     attacking:bird.mode==='Peck',attackRemaining:bird.attackRemaining,
-    hitWeight:impact.weight,
+    hitWeight:impact.weight,hitSide:impact.side,
     strikePrepare:strike.prepare,strikeImpact:strike.impact,strikeRecover:strike.recover,
     stridePhase:gait.stridePhase,stepWeight:gait.stepWeight
    });
