@@ -2332,7 +2332,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
     const routeId=entry.routeId||entry.id;
     const waypoint=entry.status==='current'&&isAcceptedQuest(routeId,state)?
      questWaypoint(routeId,state,state.inventory,player()):null;
-    const actions=waypoint?[[(trackedQuestId===routeId?'Выключить отслеживание':'Отслеживать'),
+    const actions=waypoint?[[(trackedQuestId===routeId?'✓ Отслеживается · Выключить':'Отслеживать'),
       ()=>{
        setTrackedQuest(trackedQuestId===routeId?null:routeId);
        draw(false);renderModal();
@@ -2486,6 +2486,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   ['targetNext',()=>targetNearest(1)],['interact',interact],
   ['bag',()=>openWindow('bag')],['character',()=>openWindow('character')],
   ['journal',()=>openWindow('quests')],['questJournalOpen',()=>openWindow('quests')],
+  ['untrackQuest',()=>{setTrackedQuest(null);draw(false);} ],
   ['spellbookButton',toggleSpellbook],
   ['pause',()=>openWindow('menu')],
   ['partyOpen',()=>openWindow('party')],
