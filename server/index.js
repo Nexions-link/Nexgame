@@ -3,6 +3,7 @@ import {createServer} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {WebSocketServer} from 'ws';
 import {createWorldHeartbeat} from './world-heartbeat.js';
+import {createWorldPerformanceMonitor} from './world-performance.js';
 import {existsSync,unlinkSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {resolve,dirname,join} from 'node:path';
@@ -28,6 +29,7 @@ const previousFile=resolve(process.env.CHEST_DATA_FILE||'chest-data.json');
 const activeFile=resolve(process.env.NGW_CHEST_DATA_FILE||
  join(dirname(previousFile),'nexgameworld-chest.json'));
 const world=createSphericalWorld({chestFilePath:activeFile});
+const worldPerformance=createWorldPerformanceMonitor();
 // Retire old NexGame persistent chest. Never touch the new NGW file.
 let legacyCleanup='not_found';
 if(previousFile!==activeFile){
@@ -147,7 +149,7 @@ const http=createServer((req,res)=>{
   res.end(JSON.stringify({ok:true,world:'nexgameworld',
    players:world.population(),sphericalPlayers:world.population(),mobs:world.mobCount(),
    protocol:SPHERE_PROTOCOL,build:BUILD,legacyCleanup,
-   websocketHealth:heartbeat.stats(),
+   websocketHealth:heartbeat.stats(),worldPerformance:worldPerformance.stats(),
    geometry:{chest:{x:CHEST_X,z:CHEST_Z,range:CHEST_RANGE}},
    databaseConfigured:Boolean(process.env.DATABASE_URL),
    accountDbStatus,accountApiEnabled:!!accountApi,
@@ -257,7 +259,7 @@ http.listen(PORT,'0.0.0.0',()=>{
 process.on('SIGTERM',()=>{
  if(stopping)return;
  stopping=true;
- heartbeat.close();clearInterval(initRetry);
+ heartbeat.close();worldPerformance.close();clearInterval(initRetry);
  if(accountCleanupTimer)clearInterval(accountCleanupTimer);
  wss.close();http.close();
  void (async()=>{
