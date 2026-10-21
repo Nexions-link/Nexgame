@@ -29,6 +29,7 @@ import {OFFLINE_RPG_SAVE_KEY,clearOfflineProgress} from './progress-reset.js?v=1
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
 import {createXpFeedback} from './xp-feedback.js?v=1';
+import {createLevelUpFeedback} from './level-up-feedback.js?v=1';
 import {createSphericalCombatVfx} from './sphere-combat-vfx.js?v=2';
 import {createQuestMarkerFactory} from './quest-markers.js?v=3';
 import {createCameraTargetFilter} from './camera-targeting.js?v=1';
@@ -713,9 +714,10 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(source!=='welcome'&&source!=='checkpoint'&&(newXp>0||leveled))
    xpFeedback.show(newXp,{levelUp:leveled});
   if(leveled){
-   const unlocked=previousLevel<8&&state.level>=8?
-    ' Новая способность: «Рывок» — открой книгу способностей.':'';
-   msg('Новый уровень: '+state.level+'! Здоровье восстановлено.'+unlocked,4);
+   const unlocked=previousLevel<8&&state.level>=8;
+   levelUpFeedback.show(state.level,{unlockedCharge:unlocked});
+   msg('Новый уровень: '+state.level+'! Здоровье восстановлено.'+
+    (unlocked?' Новая способность: «Рывок» — открой книгу способностей.':''),4);
   }else if(source==='mob')msg(newXp>0?
    'Получено +'+newXp+' опыта. Осмотри тело для получения добычи.':
    'Противник слишком слаб: 0 опыта. Добыча остаётся на теле.',2.6);
@@ -832,6 +834,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  if(!feedbackLayer)throw Error('Отсутствует слой чисел урона');
  const combatFeedback=createSphereCombatFeedback({THREE,document,camera,layer:feedbackLayer});
  const xpFeedback=createXpFeedback({document,layer:$('xpFeedback')});
+ const levelUpFeedback=createLevelUpFeedback({document,layer:$('levelUpFeedback')});
  let lastMobXpRevision=null;
   const combatVfx=createSphericalCombatVfx({THREE,parent:scene,
    getViewerNormal:playerNormal,getRadius});
@@ -1530,12 +1533,16 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   draw();
  }
  function levelCheck(){
+  const previousLevel=state.level;
   while(state.level<60&&state.xp>=xpRequired(state.level)){
    state.xp-=xpRequired(state.level);state.level++;
-   const newMax=stats().maxHp;state.hp=newMax;
-   const milestone=earlyLevelMilestone(state.level-1);
+   state.hp=stats().maxHp;
+  }
+  if(state.level>previousLevel){
+   const unlocked=previousLevel<8&&state.level>=8;
+   levelUpFeedback.show(state.level,{unlockedCharge:unlocked});
    msg('Новый уровень: '+state.level+'! Здоровье восстановлено.'+
-    (milestone?.level===state.level?' Открыта способность «'+milestone.label+'»!':''),3.5);
+    (unlocked?' Открыта способность «Рывок»!':''),3.5);
   }
   state.hotbar=normalizeHotbar(state.hotbar,'warrior',state.level);persist();
  }
