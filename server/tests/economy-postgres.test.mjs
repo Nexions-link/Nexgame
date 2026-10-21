@@ -47,6 +47,26 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
   await assert.rejects(()=>store.buy(base(a,alice,0,ctx({x:100,z:100}),{
    itemId:'wornAxe',qty:1
   })),e=>e.code==='interaction_too_far');
+  // Separate character: idempotent permanent deletion backed by Neon,
+  // without modifying the Alice/Bob chest-test revision sequence.
+  const discardChar=await hero(a,'Утилизатор');
+  const seed=await store.buy(base(a,discardChar,0,ctx(ECONOMY_VENDOR),{
+   itemId:'wornAxe',qty:1
+  }));
+  const discardArgs=base(a,discardChar,seed.progress.revision,ctx({x:95,z:80}),{
+   bagSlot:0,itemId:'wornAxe',qty:1
+  });
+  const discarded=await store.discard(discardArgs);
+  assert.equal(discarded.applied,true);
+  assert.equal(discarded.progress.revision,2);
+  assert.equal(discarded.progress.inventory[0],null);
+  assert.equal((await progress.load(a,discardChar)).inventory[0],null);
+  await assert.rejects(()=>store.discard(discardArgs),e=>e.code==='stale_revision');
+  assert.equal((await progress.load(a,discardChar)).revision,2);
+  await assert.rejects(()=>store.discard({...discardArgs,qty:2}),e=>e.code==='stale_revision');
+  await assert.rejects(()=>store.discard(base(a,discardChar,2,ctx(ECONOMY_VENDOR),{
+   bagSlot:0,itemId:'wornAxe',qty:1
+  })),e=>e.code==='inventory_discard_stale');
   const firstArgs=base(a,alice,0,ctx(ECONOMY_VENDOR),{itemId:'wornAxe',qty:1});
   const bought=await store.buy(firstArgs);
   assert.equal(bought.applied,true);

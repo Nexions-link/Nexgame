@@ -17,7 +17,7 @@ import {
  ECONOMY_VENDOR,
  getGatherQuest,acceptGatherQuest,gatherNode,requireGatherAvailable,
  acceptMentorQuest,certifyMentorKill,certifyMentorInteraction,turnInMentorQuest,
- requireServerProximity,addOwnedStacks,buyFromMerchant,sellToMerchant,
+ requireServerProximity,addOwnedStacks,buyFromMerchant,sellToMerchant,discardInventoryStack,
  turnInGatherQuest,moveSharedChest
 } from './economy-rules.js';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -136,6 +136,15 @@ export function createEconomyStore({pool:externalPool,
   return executeReceipt(args,'merchant_sell',{bagSlot,qty},async({state})=>({
    next:sellToMerchant(state,{bagSlot,qty},context)
   }));
+ }
+ async function discard(args){
+  const {bagSlot,itemId,qty}=args;
+  // The trusted progress revision serializes deletes and rejects replays.
+  // No production receipt-table migration is needed.
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {applied:true,progress:await save(discardInventoryStack(state,{bagSlot,itemId,qty}))};
+  });
  }
  async function readChest({accountId,characterId,context}){
   assertCharacterId(accountId);assertCharacterId(characterId);
@@ -423,7 +432,7 @@ export function createEconomyStore({pool:externalPool,
   });
  }
  return {
-  ping,schemaReady:ready,buy,sell,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
+  ping,schemaReady:ready,buy,sell,discard,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
   startBanditQuest,finishBanditQuest,

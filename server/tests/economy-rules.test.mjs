@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
  requireServerProximity,getGatherQuest,acceptGatherQuest,gatherNode,
  requireGatherAvailable,addOwnedStacks,consumeOwnedStacks,
- buyFromMerchant,sellToMerchant,turnInGatherQuest,moveSharedChest,
+ buyFromMerchant,discardInventoryStack,sellToMerchant,turnInGatherQuest,moveSharedChest,
  getMentorQuest,acceptMentorQuest,certifyMentorKill,certifyMentorInteraction,turnInMentorQuest,
  ECONOMY_VENDOR,ECONOMY_HERBALIST,ECONOMY_CHEST,ECONOMY_MENTOR
 } from '../economy-rules.js';
@@ -134,4 +134,16 @@ test('mentor objectives require genuine server-shape kill credits and fixed prog
  assert.equal(getMentorQuest(hero).step,12);
  assert.throws(()=>turnInMentorQuest(hero,atMentor),/mentor_reward_not_ready/);
  assert.throws(()=>acceptMentorQuest(hero,atMentor),/mentor_quest_not_available/);
+});
+
+test('discard deletes the entire exact stack without gold, rejecting changed slots',()=>{
+ const bag=Array(12).fill(null);bag[0]={id:'wornAxe',qty:1};bag[4]={id:'meadowFlower',qty:4};
+ const previous=state({inventory:bag,gold:74});
+ const next=discardInventoryStack(previous,{bagSlot:4,itemId:'meadowFlower',qty:4});
+ assert.equal(next.inventory[4],null);assert.deepEqual(next.inventory[0],bag[0]);
+ assert.equal(next.gold,74);assert.deepEqual(previous.inventory[4],bag[4]);
+ assert.throws(()=>discardInventoryStack(previous,{bagSlot:4,itemId:'meadowFlower',qty:1}),/inventory_discard_stale/);
+ assert.throws(()=>discardInventoryStack(previous,{bagSlot:4,itemId:'wornAxe',qty:4}),/inventory_discard_stale/);
+ assert.throws(()=>discardInventoryStack(previous,{bagSlot:-1,itemId:'wornAxe',qty:1}),/invalid_inventory_discard/);
+ assert.throws(()=>discardInventoryStack(next,{bagSlot:4,itemId:'meadowFlower',qty:4}),/inventory_discard_stale/);
 });

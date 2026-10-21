@@ -124,6 +124,20 @@ export function buyFromMerchant(state,{itemId,qty},context){
  const inventory=addOwnedStacks(state.inventory,[{id:itemId,qty}]);
  return {...state,gold:state.gold-price,inventory};
 }
+// Delete exactly one server-verified inventory stack. A delayed drag cannot
+// remove a newly equipped item from the same physical slot.
+export function discardInventoryStack(state,{bagSlot,itemId,qty}){
+ if(!Array.isArray(state?.inventory)||
+    !int(bagSlot,0,state.inventory.length-1)||
+    typeof itemId!=='string'||!int(qty,1,1000))
+  invalid('invalid_inventory_discard');
+ const row=state.inventory[bagSlot];
+ if(!row||row.id!==itemId||row.qty!==qty)
+  invalid('inventory_discard_stale',409);
+ const inventory=state.inventory.map(clone);
+ inventory[bagSlot]=null;
+ return {...state,inventory};
+}
 export function sellToMerchant(state,{bagSlot,qty},context){
  requireServerProximity(state,context,ECONOMY_VENDOR,ECONOMY_VENDOR.range);
  if(!int(bagSlot,0,state.inventory.length-1)||!int(qty,1,20))
