@@ -41,16 +41,17 @@ export function forestFloorLayout(seed=768451){
   const lat=forestTrailLatitude(lon)+(rand()-.5)*.77;
   const mood=forestMoodAt(lon,lat),size=.36+rand()*1.35;
   const type=rand(),variation=rand(),angle=rand()*TAU;
-  if(mood<=0.035||!open(lon,lat,size))continue;
+  const finalSize=type<.51?size*(.8+variation*.75):.15+size*.31;
+  if(mood<=0.035||!open(lon,lat,finalSize))continue;
   // More vegetation in the shaded interior but leave illuminated breaks visible.
   const shade=forestCanopyShadeAt(lon,lat);
   if(type<.51&&moss.length<FOREST_FLOOR_COUNTS.moss){
    if(rand()>.25+.67*mood*.7+.20*shade)continue;
-   moss.push(Object.freeze({lon,lat,size:size*(.8+variation*.75),
+   moss.push(Object.freeze({lon,lat,size:finalSize,
     variation,angle,kind:'moss'}));
   }else if(litter.length<FOREST_FLOOR_COUNTS.litter){
    if(rand()>.37+.48*mood)continue;
-   litter.push(Object.freeze({lon,lat,size:.15+size*.31,
+   litter.push(Object.freeze({lon,lat,size:finalSize,
     variation,angle,kind:variation>.82?'twig':'leaf'}));
   }
  }
