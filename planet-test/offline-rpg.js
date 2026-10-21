@@ -108,7 +108,8 @@ function restore(){
 export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRadius,toNormal,toLocal,heightAt,camera,canvas,preview=false,authenticatedProfile=null}){
  const serverInitial=()=>{
   const safe=initial(),row=authenticatedProfile;
-  safe.level=row.level;safe.xp=row.experience||0;safe.gold=row.gold||0;
+  safe.level=Number.isSafeInteger(row.level)&&row.level>=1&&row.level<=60?row.level:1;
+  safe.xp=row.experience||0;safe.gold=row.gold||0;
   safe.hp=row.health??null;safe.resource=row.resource||0;
   safe.inventory=Array.isArray(row.inventory)?row.inventory.filter(Boolean).map(item=>({...item})):[];
   safe.equipment=row.equipment||{};
@@ -711,14 +712,18 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(progress.revision===lastMobXpRevision)return;
    lastMobXpRevision=progress.revision;
   }
-  if(source!=='welcome'&&source!=='checkpoint'&&(newXp>0||leveled))
+  if(source==='mob'||source!=='welcome'&&source!=='checkpoint'&&(newXp>0||leveled))
    xpFeedback.show(newXp,{levelUp:leveled});
   if(leveled){
    const unlocked=previousLevel<8&&state.level>=8;
    levelUpFeedback.show(state.level,{unlockedCharge:unlocked});
-   msg('Новый уровень: '+state.level+'! Здоровье восстановлено.'+
-    (unlocked?' Новая способность: «Рывок» — открой книгу способностей.':''),4);
-  }else if(source==='mob')msg(newXp>0?
+   // The separate center-screen level card contains the celebration.
+   // Keep ordinary XP/loot toast unchanged for existing quests and tests.
+   if(source!=='mob')
+    msg('Новый уровень: '+state.level+'! Здоровье восстановлено.'+
+     (unlocked?' Новая способность: «Рывок» — открой книгу способностей.':''),4);
+  }
+  if(source==='mob')msg(newXp>0?
    'Получено +'+newXp+' опыта. Осмотри тело для получения добычи.':
    'Противник слишком слаб: 0 опыта. Добыча остаётся на теле.',2.6);
  }
