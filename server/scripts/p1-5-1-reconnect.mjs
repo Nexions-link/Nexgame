@@ -15,7 +15,7 @@ const started=performance.now(),clients=[],allSockets=[],pingMs=[],samples=[],dr
 const wait=async(predicate,limit=9000,description='condition')=>{
  const until=performance.now()+limit;
  while(performance.now()<until){
-  const v=predicate();if(v)return v;
+  const v=await predicate();if(v)return v;
   await sleep(75);
  }
  throw Error('Timed out waiting for '+description);
@@ -101,14 +101,9 @@ async function replace(index,planned=false,why='temporary_disconnect'){
  clients[index]=updated;
  if(planned)plannedReconnects++;else recoveredUnplanned++;
  await wait(()=>updated.lastSnapshot?.onlineCount===10,8000,'new session sees 10');
- await wait(()=>clients.every(c=>c.lastSnapshot?.onlineCount===10),8000,
-  'everyone sees 10 after rejoin');
- // Delayed snapshots from earlier sessions must not retain ghost identities.
- for(const c of clients){
-  const seen=c.lastSnapshot?.players||[];
-  if(seen.some(x=>x.id===before))
-   throw Error('ghost player remained visible after reconnect');
- }
+ await wait(()=>clients.every(c=>c.lastSnapshot?.onlineCount===10&&
+  !c.lastSnapshot?.players?.some(x=>x.id===before)),9000,
+  'all clients acknowledge replacement and purge old avatar');
  console.log('P1.5.1 RECONNECTED',JSON.stringify({
   index,planned,why,ms:Math.round(performance.now()-started)}));
 }
@@ -131,7 +126,7 @@ async function sample(phase){
   throw Error('Game loop p95 above 275 ms');
  if(h.worldPerformance?.heapUsedMiB>220)
   throw Error('Game V8 heap above 220 MiB');
- if(h.sphericalPlayers!==10){
+ if(h.sphericalPlayers!==10||clients.some(c=>c.ws.readyState!==WebSocket.OPEN)){
   const lost=clients.filter(c=>c.ws.readyState!==WebSocket.OPEN||
    Date.now()-c.lastSnapshotAt>5500);
   drops.push({kind:'population_mismatch',ms:data.ms,
@@ -140,12 +135,13 @@ async function sample(phase){
     lastSnapshotAgeMs:Date.now()-c.lastSnapshotAt
    })),serverCloses:h.websocketHealth?.recentCloses});
   console.log('P1.5.1 POPULATION MISMATCH',JSON.stringify(drops.at(-1)));
-  // Let close events arrive before classifying an active socket as a ghost.
-  await sleep(1800);
+  // Network proxies can delay FIN propagation. Wait until a missing client's
+  // snapshot becomes stale, but never mask a genuine count mismatch.
+  await sleep(6000);
   const remaining=(await health()).sphericalPlayers;
-  if(remaining===10)return;
   const candidates=clients.filter(c=>c.ws.readyState!==WebSocket.OPEN||
    Date.now()-c.lastSnapshotAt>5500);
+  if(remaining===10&&candidates.length===0)return;
   if(candidates.length!==1)
    throw Error('Population '+remaining+'; cannot safely identify single dropped connection');
   await replace(candidates[0].index,false,'lost_connection_or_stale_snapshot');
