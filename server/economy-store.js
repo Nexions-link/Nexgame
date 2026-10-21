@@ -139,9 +139,12 @@ export function createEconomyStore({pool:externalPool,
  }
  async function discard(args){
   const {bagSlot,itemId,qty}=args;
-  return executeReceipt(args,'inventory_discard',{bagSlot,itemId,qty},async({state})=>({
-   next:discardInventoryStack(state,{bagSlot,itemId,qty})
-  }));
+  // The trusted progress revision serializes deletes and rejects replays.
+  // No production receipt-table migration is needed.
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(discardInventoryStack(state,{bagSlot,itemId,qty}))};
+  });
  }
  async function readChest({accountId,characterId,context}){
   assertCharacterId(accountId);assertCharacterId(characterId);

@@ -61,10 +61,9 @@ test('PostgreSQL: owner-bound economy, receipt replay, shared chest, gather cast
   assert.equal(discarded.progress.revision,2);
   assert.equal(discarded.progress.inventory[0],null);
   assert.equal((await progress.load(a,discardChar)).inventory[0],null);
-  const repeatDiscard=await store.discard(discardArgs);
-  assert.equal(repeatDiscard.applied,false);
-  assert.equal(repeatDiscard.progress.revision,2);
-  await assert.rejects(()=>store.discard({...discardArgs,qty:2}),e=>e.code==='idempotency_key_conflict');
+  await assert.rejects(()=>store.discard(discardArgs),e=>e.code==='stale_revision');
+  assert.equal((await progress.load(a,discardChar)).revision,2);
+  await assert.rejects(()=>store.discard({...discardArgs,qty:2}),e=>e.code==='stale_revision');
   await assert.rejects(()=>store.discard(base(a,discardChar,2,ctx(ECONOMY_VENDOR),{
    bagSlot:0,itemId:'wornAxe',qty:1
   })),e=>e.code==='inventory_discard_stale');
