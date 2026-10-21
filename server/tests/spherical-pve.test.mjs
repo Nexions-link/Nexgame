@@ -141,9 +141,12 @@ test('the world has exactly nine normal dolgonogs (levels 1 and 2) and one elite
  const mobs=createSphericalMobs();
  assert.equal(mobs.length,20);
  assert.deepEqual([mobs.find(m=>m.boss).x,mobs.find(m=>m.boss).z],[BOSS_POSITION.x,BOSS_POSITION.z]);
- for(const m of mobs.slice(0,-1)){
+ for(const m of mobs){
   assert.equal(canWalkCamp(m.spawnX,m.spawnZ),true,'mob spawn must not be inside a wall');
-  assert.equal(canWadeAtLocal(m.spawnX,m.spawnZ),true,'mob spawn must not be in deep water');
+  // The only physical lake is in the original 82m start chart. Beyond it,
+  // walkability is spherical terrain; flat starter height is not authoritative.
+  if(Math.hypot(m.spawnX,m.spawnZ)<82)
+   assert.equal(canWadeAtLocal(m.spawnX,m.spawnZ),true,'starter spawn must not be in deep water');
  }
  assert.deepEqual(mobs.filter(m=>m.family==='dolgonog').map(m=>m.level),[1,1,1,1,1,2,2,2,2]);
  const boss=mobs.find(m=>m.boss);

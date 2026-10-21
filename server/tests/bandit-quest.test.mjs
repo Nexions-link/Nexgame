@@ -31,7 +31,8 @@ test('20 uniquely identified PvE creatures include 4 original bandits and six fo
   // canWalkCamp takes an entity collision radius, not the world's 261 m radius.
   const collisionRadius=spec.boss?.94:.52;
   assert.ok(canWalkCamp(spec.x,spec.z,collisionRadius),'solid ground for '+spec.id);
-  assert.ok(canWadeAtLocal(spec.x,spec.z),'no spawns in lake: '+spec.id);
+  if(Math.hypot(spec.x,spec.z)<82)
+   assert.ok(canWadeAtLocal(spec.x,spec.z),'no starter spawns in lake: '+spec.id);
   assert.equal(creatureById(spec.id)?.index,spec.index);
  }
 });
