@@ -46,7 +46,7 @@
 <link rel="stylesheet" href="./bandit-quest.css?v=3">
 <link rel="stylesheet" href="./xp-feedback.css?v=1">
 <link rel="stylesheet" href="./level-up-feedback.css?v=2">
-<link rel="stylesheet" href="./quest-tracking.css?v=2">
+<link rel="stylesheet" href="./quest-tracking.css?v=3">
 <style id="ngw-connection-guard">
 #connectionBanner[hidden]{display:none!important}
 #connectionBanner{
@@ -550,6 +550,7 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 <div id="minimapFrame" role="button" tabindex="0" aria-pressed="false" aria-label="Открыть всю планету — нажать миникарту" title="Вся планета"><canvas id="minimap" width="240" height="240" aria-label="Карта ближайшей местности"></canvas><span class="north">С</span><span id="mapLabel">Лагерь Нараче</span></div>
 </div>
 <div id="zoneTitle"><span id="area">Лагерь Нараче</span><small>М У Л Г О Р</small></div>
+<aside id="questProgressPanel" hidden aria-label="Прогресс отслеживаемых заданий"></aside>
 <aside id="quest" hidden>
  <button id="questJournalOpen" type="button" aria-label="Открыть журнал заданий">Задания <span aria-hidden="true">↗</span></button>
  <div id="mainQuestTracker" hidden><div id="quest-progress"></div><b id="qtitle"></b><p id="qtext"></p><p id="questGuidance" class="quest-guidance" hidden></p></div>
