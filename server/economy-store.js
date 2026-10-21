@@ -143,7 +143,7 @@ export function createEconomyStore({pool:externalPool,
   // No production receipt-table migration is needed.
   return transaction(args,async({state,save})=>{
    revision(state,args.expectedRevision);
-   return {progress:await save(discardInventoryStack(state,{bagSlot,itemId,qty}))};
+   return {applied:true,progress:await save(discardInventoryStack(state,{bagSlot,itemId,qty}))};
   });
  }
  async function readChest({accountId,characterId,context}){
