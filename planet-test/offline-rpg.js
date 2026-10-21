@@ -48,6 +48,7 @@ import {canWadeAtLocal} from './start-zone.js?v=45';
 import {moveMobToward,mobSegmentClear} from './mob-navigation.js?v=1';
 import {consumeAnimationTime} from './animation-budget.js?v=1';
 import {advanceCreatureGait} from './creature-gait.js?v=3';
+import {queueLongstriderSnapshot,sampleLongstriderSnapshot,resetLongstriderSnapshot} from './longstrider-interpolation.js?v=1';
 import {advanceMobImpact,mobVisualMode} from './mob-impact.js?v=1';
 import {advanceCreatureSecondary,applyCreatureSecondary,resetCreatureSecondary,shouldReplayCreatureHurt} from './creature-secondary.js?v=6';
 import {advanceCreatureStrike,resetCreatureStrike} from './creature-strike.js?v=1';
@@ -731,9 +732,18 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    if(!remote||(remote.id&&remote.id!==mob.id)||!['alive','corpse','hidden'].includes(remote.phase)||
     !Number.isFinite(remote.x)||!Number.isFinite(remote.z)||!Number.isFinite(remote.hp))continue;
    const wasCorpse=mob.corpse,wasHidden=!mob.root.visible,changedLife=mob.life!==remote.life;
+   // Online longstriders: keep previous/current server positions for a
+   // constant-speed visual segment; combat continues using mob.x/z.
+   if(mob.family!=='bandit'){
+    if(remote.phase==='alive'&&!wasCorpse&&!wasHidden&&!changedLife)
+     queueLongstriderSnapshot(mob,{x:remote.x,z:remote.z,
+      yaw:Number.isFinite(remote.yaw)?remote.yaw:0},clock);
+    else resetLongstriderSnapshot(mob);
+   }
    mob.x=remote.x;mob.z=remote.z;mob.yaw=Number.isFinite(remote.yaw)?remote.yaw:0;
    if(!Number.isFinite(mob.renderX)||wasHidden||wasCorpse||changedLife){
     mob.renderX=mob.x;mob.renderZ=mob.z;mob.renderYaw=mob.yaw;
+    if(mob.family!=='bandit')resetLongstriderSnapshot(mob);
    }
    mob.hp=remote.hp;mob.life=remote.life;mob.aggro=remote.aggro===true;mob.returning=false;
    if(remote.phase!=='alive'||changedLife){
@@ -1010,6 +1020,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   banditAnimation(mob,0,0);
  }
  function resetCreatureImpact(mob){
+   resetLongstriderSnapshot(mob);
   // Death poses freeze the mixer; reset cosmetic state for a new life.
   // Preserve server position, aggro, inventory, combat and equipment.
   mob.visualHitSequence=0;
@@ -2540,11 +2551,14 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
      // Smooth authoritative 100ms server snapshots without altering hit detection.
      const bx=mob.renderX??mob.x,bz=mob.renderZ??mob.z;
      const delta=Math.hypot(mob.x-bx,mob.z-bz);
-     const t=delta>7?1:1-Math.exp(-Math.min(.1,Math.max(0,dt))*15);
-     mob.renderX=bx+(mob.x-bx)*t;mob.renderZ=bz+(mob.z-bz)*t;
-     const priorYaw=mob.renderYaw??mob.yaw;
-     const turn=Math.atan2(Math.sin(mob.yaw-priorYaw),Math.cos(mob.yaw-priorYaw));
-     mob.renderYaw=priorYaw+turn*t;
+     const interpolated=mob.family!=='bandit'&&sampleLongstriderSnapshot(mob,dt);
+     if(!interpolated){
+      const t=delta>7?1:1-Math.exp(-Math.min(.1,Math.max(0,dt))*15);
+      mob.renderX=bx+(mob.x-bx)*t;mob.renderZ=bz+(mob.z-bz)*t;
+      const priorYaw=mob.renderYaw??mob.yaw;
+      const turn=Math.atan2(Math.sin(mob.yaw-priorYaw),Math.cos(mob.yaw-priorYaw));
+      mob.renderYaw=priorYaw+turn*t;
+     }
      setModelAt(mob,mob.renderX,mob.renderZ,mob.renderYaw);
      // Render the server-authoritative movement and turn on EVERY frame.
      // Only far-away, noncombat GLB pose updates may run at 15/30 Hz.
