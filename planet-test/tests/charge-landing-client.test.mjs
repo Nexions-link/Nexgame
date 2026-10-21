@@ -12,7 +12,7 @@ test('authoritative charge strike gets a visual-only swing without another attac
  t.update(.5);
  assert.equal(t.busy,false);
  assert.equal(t.start('autoAttack',mob),true);
- assert.equal(t.update(.35).visualOnly,false,'other swings remain authoritative client submissions');
+ assert.equal(t.update(.35).visualOnly,undefined,'other swings remain authoritative client submissions');
 });
 test('online client receives landed coordinates and avoids double award',()=>{
  const rpg=readFileSync(new URL('../offline-rpg.js',import.meta.url),'utf8');

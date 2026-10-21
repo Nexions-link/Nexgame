@@ -28,7 +28,7 @@ export function createCombatTimeline(){
    const stomp=current.skill==='thunderStomp';
    let impact=null;
    if(!current.impacted&&current.elapsed>=(stomp?STOMP_IMPACT_SECONDS:MELEE_IMPACT_SECONDS)){
-    current.impacted=true;impact={skill:current.skill,target:current.target,visualOnly:current.visualOnly};
+    current.impacted=true;impact={skill:current.skill,target:current.target,...(current.visualOnly?{visualOnly:true}:{})};
    }
    if(current.elapsed>=(stomp?STOMP_ANIMATION_SECONDS:MELEE_ANIMATION_SECONDS))current=null;
    return impact;
