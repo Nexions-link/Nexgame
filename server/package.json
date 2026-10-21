@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "scripts": {
     "start": "node index.js",
-    "check": "node --check index.js && node --check postgres-pool.js && node --check spherical-world.js && node --check spherical-pve.js && node --check groups.js && node --check chat.js && node --check chest.js && node --check progress-store.js && node --check progress-rules.js && node --check world-movement.js && node --check world-heartbeat.js && node --check world-interest.js && node --check world-shutdown.js && node --check database-failures.js && node --check server-readiness.js && node --check world-performance.js && node --check scripts/p1-load.mjs",
+    "check": "node --check index.js && node --check postgres-pool.js && node --check spherical-world.js && node --check spherical-pve.js && node --check groups.js && node --check chat.js && node --check chest.js && node --check progress-store.js && node --check progress-rules.js && node --check world-movement.js && node --check world-heartbeat.js && node --check world-interest.js && node --check world-shutdown.js && node --check database-failures.js && node --check server-readiness.js && node --check world-performance.js && node --check scripts/p1-load.mjs && node --check scripts/p1-5-1-reconnect.mjs",
     "test": "node --test tests/world-performance.test.mjs tests/server-readiness.test.mjs tests/world-shutdown.test.mjs tests/postgres-pool.test.mjs tests/chat.test.mjs tests/chest.test.mjs tests/groups.test.mjs tests/spherical-world.test.mjs tests/spherical-pve.test.mjs tests/admin-battlefury.test.mjs tests/battlefury-presence.test.mjs tests/spherical-online-integration.test.mjs tests/five-player-journey.test.mjs && node --test tests/world-movement.test.mjs tests/world-heartbeat.test.mjs && node --test tests/world-interest.test.mjs && npm run test:release",
     "check:accounts": "node --check account-rules.js && node --check auth-crypto.js && node --check account-store.js && node --check account-api.js && node --check account-smoke.js",
     "test:accounts": "node --test tests/accounts-foundation.test.mjs tests/account-api.test.mjs tests/auth-hardening.test.mjs tests/auth-throttle-store.test.mjs",
@@ -20,7 +20,8 @@
     "test:bandit:postgres": "node --test tests/bandit-postgres.test.mjs",
     "test:release": "node --test tests/release-consistency.test.mjs",
     "test:journey:postgres": "node --test tests/gameplay-journey-postgres.test.mjs tests/cooperative-pve-postgres.test.mjs",
-    "test:load": "node scripts/p1-load.mjs"
+    "test:load": "node scripts/p1-load.mjs",
+    "test:p1-5-1:staging": "node scripts/p1-5-1-reconnect.mjs"
   },
   "engines": {
     "node": ">=20"
