@@ -52,7 +52,7 @@ export function coniferCrownData(variant=0){
    const r=radius*scallop;
    const angleLeft=a-.205,angleRight=a+.205;
    const centerY=vertical+.105;
-   const tipY=vertical-.16-.022*Math.sin(j*1.8+level);
+   const tipY=vertical-.12-.015*Math.sin(j*1.8+level);
    const left=[r*.61*Math.cos(angleLeft),vertical-.045,r*.61*Math.sin(angleLeft)];
    const right=[r*.61*Math.cos(angleRight),vertical-.045,r*.61*Math.sin(angleRight)];
    const tip=[r*Math.cos(a),tipY,r*Math.sin(a)];
