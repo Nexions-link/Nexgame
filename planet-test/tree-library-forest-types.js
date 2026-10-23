@@ -313,7 +313,8 @@ export function createForestLibraryTree(THREE,{id,seed=17,mapSize=512,
    tuft.setColorAt(i,color);
   }
   tuft.instanceMatrix.needsUpdate=true;tuft.instanceColor.needsUpdate=true;
-  tuft.frustumCulled=false;tuft.name=id+' 3D leaves';tuft.castShadow=false;
+  tuft.computeBoundingSphere();tuft.frustumCulled=true;
+  tuft.name=id+' 3D leaves';tuft.castShadow=false;
   group.add(tuft);geometries.push(shape);
  }
  if(st.moss){
@@ -327,7 +328,7 @@ export function createForestLibraryTree(THREE,{id,seed=17,mapSize=512,
    const size=.035+hash(i*29)*.13;
    obj.scale.set(size*.7,size*1.23,size*.38);obj.updateMatrix();moss.setMatrixAt(i,obj.matrix);
   }
-  moss.instanceMatrix.needsUpdate=true;moss.frustumCulled=false;
+  moss.instanceMatrix.needsUpdate=true;moss.computeBoundingSphere();moss.frustumCulled=true;
   moss.name=id+' volumetric bark moss';group.add(moss);geometries.push(mg);
  }
  if(id==='tree_dead_sentinel'){
