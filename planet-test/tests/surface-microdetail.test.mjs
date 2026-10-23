@@ -85,7 +85,7 @@ test('existing globe stays an opaque unmodified standard material',()=>{
 });
 
 test('warped UVs remain continuous while avoiding a repeated four-metre stamp',()=>{
- const a=surfaceDetailWarp(12,19),b=surfaceDetailWarp(16,19);
+ const a=surfaceDetailWarp(0,19),b=surfaceDetailWarp(4,19);
  assert.ok(Number.isFinite(a.u)&&Number.isFinite(a.v));
  assert.ok(Number.isFinite(b.u)&&Number.isFinite(b.v));
  assert.ok(Math.abs((b.u-a.u)-1)>.015,

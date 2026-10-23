@@ -1,6 +1,7 @@
 // P2.3.15: close-range soil scatter. Material clues rather than noise:
 // irregular pebble chips, dry needles and leaf ribs. Exactly two instanced
 // draw calls, no terrain deformation, raycast targets or collision changes.
+import {lakeRadius} from './start-zone.js?v=50';
 import {forestTrailLatitude,forestDistance,FOREST_CAMP,FOREST_SITE_CLEARINGS}
  from './whispering-forest.js';
 const TAU=2*Math.PI,R=261;
@@ -28,7 +29,7 @@ export function soilScatterLayout(seed=841736){
   if(d>67||Math.hypot(x,z-9)<12)continue;
   // Avoid camp hearth, original lake, shoreline, buildings and tight paths.
   if(Math.hypot(x+27,z+2)<19)continue;
-  if(Math.hypot((x-30)/17.2,(z-26)/12.5)<1.41)continue;
+  if(lakeRadius(x,z)<1.42)continue;
   const kind=rand()<.47?'chips':'needles';
   if((kind==='chips'?chips:needles).length>= (kind==='chips'?500:620))continue;
   pick(kind,{coord:'start',x,z});
