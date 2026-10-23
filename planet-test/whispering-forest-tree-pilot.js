@@ -2,9 +2,9 @@
 // Replaces ONLY the client visuals for three deterministic existing forest trees.
 // The server's forest layout and all collision cylinders remain untouched.
 import {createAncientPine,ancientPineTrunkRadius}
- from './tree-library-ancient-pine.js?v=4';
+ from './tree-library-ancient-pine.js?v=5';
 import {createForestLibraryTree,forestTrunkRadius}
- from './tree-library-forest-types.js?v=5';
+ from './tree-library-forest-types.js?v=6';
 import {enableTreeInstanceCulling,simplifyForestBarkShading,
  createForestShadowSilhouette,configurePilotTreeRender}
  from './forest-tree-render-optimization.js?v=1';
