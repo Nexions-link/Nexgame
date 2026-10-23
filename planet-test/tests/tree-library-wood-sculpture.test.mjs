@@ -29,7 +29,7 @@ test('buttresses genuinely grow into the trunk shell, fading with height',()=>{
 test('organic continuous wood sweep has finite normals, UV and non-circular radial outline',()=>{
  const points=[[0,0,0],[1,.24,.2],[2,1.3,1.1],[3,1.1,2.6]],
   radii=[.51,.38,.23,.025],sides=22;
- const mesh=sculptedWoodPathGeometry(THREE,points,radii,{sides,seed:41});
+ const mesh=sculptedWoodPathGeometry(THREE,points,radii,{sides,seed:41,subdivisions:12});
  assert.equal(mesh.userData.biologicalSculpture,true);
  assert.equal(mesh.userData.radialSides,sides);
  assert.ok(mesh.userData.pathSamples>12);
@@ -50,9 +50,9 @@ test('organic continuous wood sweep has finite normals, UV and non-circular radi
  }
  assert.ok(Math.max(...ring)-Math.min(...ring)>.035,'biological non-circular outline');
  assert.ok(mesh.boundingSphere.radius>2);
- const copy=sculptedWoodPathGeometry(THREE,points,radii,{sides,seed:41});
+ const copy=sculptedWoodPathGeometry(THREE,points,radii,{sides,seed:41,subdivisions:12});
  assert.deepEqual([...copy.getAttribute('position').array], [...position.array]);
- const variant=sculptedWoodPathGeometry(THREE,points,radii,{sides,seed:142});
+ const variant=sculptedWoodPathGeometry(THREE,points,radii,{sides,seed:142,subdivisions:12});
  assert.notDeepEqual([...variant.getAttribute('position').array], [...position.array]);
  for(const g of [mesh,copy,variant])g.dispose();
 });
