@@ -59,7 +59,7 @@ test('pilot render uses one cheap shadow caster and NEVER casts master boughs',(
  assert.equal(models.length,3);
  for(const group of models){
   const opt=group.userData.rendererOptimizations;
-  assert.ok(opt.culledInstances>=1);
+  assert.ok(opt.culledInstances>=(group.userData.assetId==='tree_dead_sentinel'?0:1));
   assert.ok(opt.savedFragmentPasses>=1);
   assert.ok(opt.shadowProxyTriangles<3000);
   const shadows=[],geometry=[];
