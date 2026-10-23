@@ -40,6 +40,7 @@ export function artLabBiomeHeight(n){
 export function artLabScenicRelief(x,z){
  if(!Number.isFinite(x)||!Number.isFinite(z))throw new RangeError('Invalid terrain');
  const d=Math.hypot(x,z),edge=1-smooth(11.8,17,d);
+ if(edge<=0)return 0;
  const high=.86*Math.exp(-((x+9)*(x+9)/110+(z-8)*(z-8)/78));
  const rocky=.81*Math.exp(-((x-8)*(x-8)/60+(z+8)*(z+8)/95));
  const hummocks=.31*Math.sin(x*.26+z*.14)*Math.cos(z*.19-x*.09);
