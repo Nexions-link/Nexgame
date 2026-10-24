@@ -154,13 +154,14 @@ export function proceduralForestTrunkOutline(y,angle){
  // Deep radial root valleys below 12% of tree height reveal five toes.
  // Root direction matches the existing five instanced buttress fins.
  const twist=angle+.035*Math.sin(t*8.8)+.008*Math.sin(3*angle);
- const ridges=Math.pow(.5+.5*Math.cos(5*twist+.16),6);
+ const ridges=Math.pow(.5+.5*Math.cos(5*twist+.16),2);
  const flare=Math.exp(-Math.pow(t/.115,1.45));
  const rib=.145*ridges*flare;
- const valley=-.055*(1-ridges)*flare;
+ const valley=-.17*Math.pow(1-ridges,6)*flare;
+ const bottomMass=.052*Math.exp(-Math.pow(t/.035,2));
  const wood=.965+.035*relief.radial;
  const radius=Math.min(FOREST_TRUNK_BASE_SCALE*.985,
-  Math.max(.12,bole*wood+rib+valley));
+  Math.max(.12,bole*wood+rib+valley+bottomMass));
  // A centreline curve makes the trunk slightly wind-swept without changing
  // any vertex count or altering the original base/collision position.
  const curveX=.062*t*t*Math.sin(t*4.5+.50)+.012*t*Math.sin(t*9.2);
