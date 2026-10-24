@@ -156,8 +156,8 @@ export function proceduralForestTrunkOutline(y,angle){
  const twist=angle+.035*Math.sin(t*8.8)+.008*Math.sin(3*angle);
  const ridges=Math.pow(.5+.5*Math.cos(5*twist+.16),6);
  const flare=Math.exp(-Math.pow(t/.115,1.45));
- const rib=.13*ridges*flare;
- const valley=-.10*(1-ridges)*flare;
+ const rib=.145*ridges*flare;
+ const valley=-.055*(1-ridges)*flare;
  const wood=.965+.035*relief.radial;
  const radius=Math.min(FOREST_TRUNK_BASE_SCALE*.985,
   Math.max(.12,bole*wood+rib+valley));
