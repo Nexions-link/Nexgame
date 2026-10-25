@@ -13,6 +13,7 @@ import {
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
 import {resolveSphereWalk} from './world-movement.js';
+import {MOUNT_STATE,FIRST_MOUNT_ID,MOUNT_CAST_MS,canBeginMount,beginMount,advanceMount,dismount,mountedSpeed,publicMount,mountOwned} from './mount-rules.js';
 import {applySphereCharge,completeSphereCharge} from './sphere-charge.js';
 import {selectVisiblePlayers} from './world-interest.js';
 import {CORPSE_LOOT_RANGE} from '../planet-test/interaction-targeting.js';
@@ -63,6 +64,7 @@ const send=(ws,p)=>{
 export const publicPlayer=p=>({
  id:p.id,name:p.name,normal:p.normal,heading:p.heading,
  moving:p.moving,radius:p.radius,level:p.level,hp:p.hp,maxHp:p.maxHp,
+ ...publicMount(p),
  resource:p.resource,equipment:{
   weapon:p.equipment.weapon?.id||null,shieldId:p.equipment.shield?.id||null
  },
@@ -125,6 +127,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    p.savedInventory=progress.inventory;
    const levelUp=progress.level>p.level;
    p.level=progress.level;
+    p.mountOwned=mountOwned(progress);
+    if(p.level<10||!p.mountOwned)Object.assign(p,dismount(p));
    p.equipment=sanitizeSphereEquipment(progress.equipment,progress.level);
    p.maxHp=deriveStats(progress.level,p.equipment).maxHp;
    p.hp=levelUp?p.maxHp:Math.min(p.maxHp,p.hp);
@@ -198,6 +202,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      characterId:trustedCharacter?.characterId||null,
      accountId:trustedCharacter?.accountId||null,
      normal,heading,moving:false,radius,
+      mountState:MOUNT_STATE.FOOT,mountId:null,castEndsAt:0,mountOwned:mountOwned(saved),
      level,equipment,hp,maxHp:stats.maxHp,resource:saved?bound(saved.resource,0,100):0,
      battlefuryPose:BATTLEFURY_TUNER_DEFAULTS,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
@@ -266,6 +271,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
       .filter(x=>x.id!==p.id).map(publicPlayer),
      mobs:mobSnapshot(rooms.get(p.radius).mobs),hp:p.hp,maxHp:p.maxHp,resource:p.resource,
      onlineCount:[...players.values()].filter(x=>x.radius===p.radius).length,
+      mount:{owned:p.mountOwned,levelRequired:10,castMs:MOUNT_CAST_MS,mountId:FIRST_MOUNT_ID,...publicMount(p)},
      ...(trustedCharacter?{characterId:p.characterId,
       progress:trustedCharacter.progress,authenticated:true}:{})});
     send(ws,party.state(p.id));
@@ -316,7 +322,26 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      void current.queueEconomy(m.kind,m).catch(()=>{});
     return;
    }
-   if(m.type==='charge'){
+   if(m.type==='mountSummon'){
+     const now=Date.now();
+     const reason=canBeginMount({level:current.level,owned:current.mountOwned,
+      inCombat:now-(current.lastCombatAt||0)<5000,dead:current.hp<=0,moving:current.moving,
+      state:current.mountState});
+     if(reason){send(ws,{type:'mountRejected',reason});return}
+     Object.assign(current,beginMount(current,now));
+     send(ws,{type:'mountCasting',mountId:current.mountId,durationMs:MOUNT_CAST_MS});
+     return;
+    }
+    if(m.type==='mountDismount'){
+     Object.assign(current,dismount(current));
+     send(ws,{type:'mountChanged',...publicMount(current)});
+     return;
+    }
+    if(m.type==='charge'){
+     if(current.mountState!==MOUNT_STATE.FOOT){
+      Object.assign(current,dismount(current));
+      send(ws,{type:'mountChanged',...publicMount(current)});
+     }
     const now=Date.now(),fromNormal=[...current.normal];
     const result=applySphereCharge(rooms.get(current.radius).mobs,current,m.mobId,now);
     if(!result.ok){
@@ -331,6 +356,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     return;
    }
    if(m.type==='attack'){
+     if(current.mountState!==MOUNT_STATE.FOOT){Object.assign(current,dismount(current));send(ws,{type:'mountChanged',...publicMount(current)});}
     if(current.respawnShieldUntil>Date.now())return;
     const res=applySphereAttack(rooms.get(current.radius).mobs,current,m.abilityId,m.mobId);
     if(!res.ok){send(ws,{type:'combatRejected',abilityId:m.abilityId,reason:res.reason});return}
@@ -373,13 +399,15 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    if(!Number.isFinite(delta)||delta>MAX_POSITION_RESYNC){
     correct('position_out_of_range');return;
    }
-   const capped=delta>MAX_SPEED*dt+.8;
+   const allowedSpeed=mountedSpeed(MAX_SPEED,current);
+    const capped=delta>allowedSpeed*dt+.8;
    const desired=capped
-    ?boundedSphereAdvance(current.normal,normal,current.radius,MAX_SPEED*dt):normal;
+    ?boundedSphereAdvance(current.normal,normal,current.radius,allowedSpeed*dt):normal;
    const sweep=resolveSphereWalk(current.normal,desired,current.radius);
    current.normal=sweep.normal;
    current.heading=heading;
    current.moving=m.moving&&!sweep.blocked;
+    if(current.mountState===MOUNT_STATE.CASTING&&current.moving){Object.assign(current,dismount(current));send(ws,{type:'mountChanged',...publicMount(current)});}
    current.updatedAt=now;
    // Accept only cosmetic transforms from the authenticated, uniquely
    // equipped owner; never from guests or from arbitrary gear IDs.
@@ -424,7 +452,9 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    // One server-authoritative strike at the landing time, whether or not
    // the browser sends its usual autoattack packet.
    for(const p of players.values()){
-    if(!p.joined||p.radius!==room.radius||!p.chargeImpact)continue;
+    if(p.radius!==room.radius)continue;
+     if(p.mountState===MOUNT_STATE.CASTING){const next=advanceMount(p,now,{inCombat:now-(p.lastCombatAt||0)<5000,moving:p.moving,dead:p.hp<=0});if(next.mountState!==p.mountState){Object.assign(p,next);sendToId(p.id,{type:'mountChanged',...publicMount(p)});}}
+     if(!p.joined||!p.chargeImpact)continue;
     const landed=completeSphereCharge(room.mobs,p,now);
     if(!landed.ok)continue;
     p.lastCombatAt=now;
@@ -442,7 +472,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const events=tickSphericalMobs(room.mobs,players,room.radius,dt,now);
    for(const e of events){
     if(e.type==='mobAttack'){
-     const p=players.get(e.targetId);if(p)p.lastCombatAt=now;
+     const p=players.get(e.targetId);if(p){p.lastCombatAt=now;if(p.mountState!==MOUNT_STATE.FOOT){Object.assign(p,dismount(p));sendToId(p.id,{type:'mountChanged',...publicMount(p)});}}
     }
     if(e.type==='mobAttack'||e.type==='respawnAccepted')sendToId(e.targetId,e);
     else sendInRoom(room.radius,e);
