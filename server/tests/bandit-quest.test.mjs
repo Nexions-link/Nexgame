@@ -19,8 +19,8 @@ const state=()=>readProgress({schemaVersion:1,revision:'0',level:2,experience:0,
 test('26 uniquely identified PvE creatures include 4 original bandits and twelve forest wolves',()=>{
  const mobs=createSphericalMobs();
  assert.equal(mobs.length,26);
- assert.equal(new Set(mobs.map(x=>x.id)).size,20);
- assert.deepEqual(mobs.filter(x=>x.family==='forestWolf').map(x=>x.level),[5,5,6,6,7,7]);
+ assert.equal(new Set(mobs.map(x=>x.id)).size,26);
+ assert.deepEqual(mobs.filter(x=>x.family==='forestWolf').map(x=>x.level),[5,5,5,5,6,6,6,6,7,7,7,7]);
  const bandits=mobs.filter(x=>x.family==='bandit');
  assert.deepEqual(bandits.map(x=>x.id),['bandit-0','bandit-1','bandit-2','bandit-3']);
  assert.deepEqual(bandits.map(x=>x.level),[3,3,4,5]);
