@@ -8,9 +8,9 @@ import {canWalkCamp} from '../../planet-test/sphere-physics.js';
 const now=100000;
 const player=p=>({id:'p1',normal:localToNormal(p.x,p.z,261),radius:261,
  joined:true,hp:120,maxHp:120,respawnShieldUntil:0,heading:0,resource:0,equipment:{}});
-test('three independent pairs are close, visibly reachable and clear of collisions',()=>{
- assert.equal(FOREST_WOLF_SPAWNS.length,6);
- for(let pair=0;pair<3;pair++){
+test('six independent pairs are close, visibly reachable and clear of collisions',()=>{
+ assert.equal(FOREST_WOLF_SPAWNS.length,12);
+ for(let pair=0;pair<6;pair++){
   const a=FOREST_WOLF_SPAWNS[pair*2],b=FOREST_WOLF_SPAWNS[pair*2+1];
   const d=Math.hypot(a.x-b.x,a.z-b.z);
   assert.ok(d>18&&d<26,'pair '+pair+' distance '+d);
