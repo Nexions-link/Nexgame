@@ -7,7 +7,7 @@ export const FOREST_WOLF_LEVELS=Object.freeze([5,5,5,5,6,6,6,6,7,7,7,7]);
 const locations=[];
 for(let i=0;i<FOREST_WOLF_LEVELS.length;i++){
  // Six two-wolf territories, each with an unobstructed communication path.
- const base=[.53,.61,.67,.75,.82,.90,1.00,1.08,1.18,1.26,1.33,1.40][i];
+ const base=[.60,.675,.82,.895,1.17,1.245,.53,.60,1.02,1.10,1.32,1.39][i];
  const side=Math.floor(i/2)%2?1:-1;
  let found=null;
  for(let k=0;k<510;k++){
