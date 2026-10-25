@@ -112,7 +112,7 @@ export function createForestWolfVisual(THREE,variant=0){
   body.position.y=Math.sin(stridePhase*2)*(.045+.025*sprint)*moving+.08*voice
    -.075*windup+.045*lunge;
   body.position.z=-.085*windup+.30*lunge-.05*recovery;
-  body.rotation.x=-.035*sprint*Math.sin(stridePhase*2)*moving+.13*windup-.21*lunge+.055*recovery+.035*sniff;
+  body.rotation.x=-.035*sprint*Math.sin(stridePhase*2)*moving+.13*windup-.21*lunge+.055*recovery;
   tailPivot.rotation.z=Math.sin(time*(threat?1.9:1.3)+variant)*(threat?.06:.10+.11*watch)+.025*sniff;
   tailPivot.rotation.x=.08*Math.sin(time*1.1+variant)-.13*rest+.10*watch;
  }
