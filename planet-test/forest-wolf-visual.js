@@ -96,7 +96,7 @@ export function createForestWolfVisual(THREE,variant=0){
   // Four limbs share a smooth phase, blending a walking sequence into a trot.
   // Small idle breaths, listening movements and ear twitches make a still
   // wolf readable in the undergrowth without changing its hitbox or position.
-  body.scale.y=1+.014*Math.sin(time*1.9+variant)*idle;
+  body.scale.y=1+.014*Math.sin(time*1.9+variant)*idle*(combatPose?0:1);
   for(let i=0;i<legs.length;i++){
    const front=i%2===1;
    const walkOffset=[0,Math.PI*.5,Math.PI,Math.PI*1.5][i];
