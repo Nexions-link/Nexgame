@@ -16,9 +16,9 @@ const context=at=>({normal:localToNormal(at.x,at.z,261),radius:261,inCombat:fals
 const state=()=>readProgress({schemaVersion:1,revision:'0',level:2,experience:0,
  gold:30,health:120,resource:0,worldRadius:261,positionNormal:[0,0,1],heading:0,
  inventory:Array(12).fill(null),equipment:{},quests:{},actionBar:[]});
-test('20 uniquely identified PvE creatures include 4 original bandits and six forest wolves',()=>{
+test('26 uniquely identified PvE creatures include 4 original bandits and twelve forest wolves',()=>{
  const mobs=createSphericalMobs();
- assert.equal(mobs.length,20);
+ assert.equal(mobs.length,26);
  assert.equal(new Set(mobs.map(x=>x.id)).size,20);
  assert.deepEqual(mobs.filter(x=>x.family==='forestWolf').map(x=>x.level),[5,5,6,6,7,7]);
  const bandits=mobs.filter(x=>x.family==='bandit');
