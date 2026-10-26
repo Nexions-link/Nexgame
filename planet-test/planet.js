@@ -549,8 +549,11 @@ try {
       rpg.onPartyState({groupId:null,leaderId:null,members:[]});
     },
     onStatus:(value,count)=>{
-      mountControls.setConnected(value==='online');
-      rpg.refreshMountCollection();
+      const mountOnline=value==='online';
+      if(mountControls.connected!==mountOnline){
+       mountControls.setConnected(mountOnline);
+       rpg.refreshMountCollection();
+      }
       const element=$('onlineStatus');
       if(element)element.textContent=value==='online'?'В мире: '+count+' игрок'+(count===1?'':count>=2&&count<=4?'а':'ов'):
         value==='connecting'?'Подключение к миру…':
