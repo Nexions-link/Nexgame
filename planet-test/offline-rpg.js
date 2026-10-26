@@ -301,7 +301,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  const up=new THREE.Vector3(...UP_AXIS),anchorQuat=new THREE.Quaternion(),spinQuat=new THREE.Quaternion();
  const mobs=[],entities=[],citizens=[];
  let multiplayer=null,partyState={groupId:null,leaderId:null,members:[]},onlinePlayers=[],onlineChest=null;
- let mountControlsRef=null,mountCollectionFilter='all';
+ let mountControlsRef=null,mountCollectionFilter='all',mountCollectionSnapshot=null;
  let selectedAllyId=null;
  const chatHistory=[];
  // Refresh the live party and nearby-player list without touching the chat input.
@@ -2006,6 +2006,13 @@ function resetCreatureImpact(mob){
   // children are destroyed, even if scrollTop is restored synchronously.
   // Skip all DOM replacement when actual bag and equipment data are unchanged.
   // A checkpoint, combat HUD redraw or server ping must not scroll the sheet.
+  if(kind==='mounts'){
+   const c=mountControlsRef;
+   const snapshot=JSON.stringify([state.level,state.mountQuest,state.mounts,
+    mountCollectionFilter,c?.state,c?.owned,c?.connected]);
+   if(snapshot===mountCollectionSnapshot&&body.querySelector('.ngw-mount-grid'))return;
+   mountCollectionSnapshot=snapshot;
+  }
   if(kind==='battlefuryTuner'&&body.querySelector('.battlefury-tuner'))return;
   if(kind==='bag'){
    const snapshot=JSON.stringify([state.inventory,state.equipment,state.level,state.gold]);
