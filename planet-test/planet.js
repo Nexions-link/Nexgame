@@ -474,6 +474,7 @@ try {
    onNotice:message=>rpg.onPartyNotice({message})
   });
   mountControls.setLevel(accountProfile?.level??1);
+  rpg.setMountControls(mountControls);
   const onlinePresence=isPortalPreview?null:createSphericalPresence({
     THREE,scene,
     createAvatar:options=>createTauren(THREE,scene,options),
@@ -495,9 +496,10 @@ try {
      onMountChange:mount=>{
       mountState=mount.mountState==='riding'?'riding':'foot';
       mountControls.setMount(mount);
+      rpg.refreshMountCollection();
      },
-     onMountCast:event=>mountControls.beginCast(event),
-     onMountRejected:reason=>mountControls.reject(reason),
+     onMountCast:event=>{mountControls.beginCast(event);rpg.refreshMountCollection();},
+     onMountRejected:reason=>{mountControls.reject(reason);rpg.refreshMountCollection();},
     onChargeAccepted:message=>{
       if(!rpg.onChargeAccepted(message)||!Array.isArray(message.normal)||
          message.normal.length!==3||!message.normal.every(Number.isFinite))return;
@@ -542,11 +544,13 @@ try {
     onDisconnect:()=>{
       chargeMotion=null;chargeRecovery=0;chargeLandingCorrection=null;presenceMoving=false;mountState='foot';
       mountControls.setConnected(false);
+      rpg.refreshMountCollection();
       rpg.onNetworkDisconnect();
       rpg.onPartyState({groupId:null,leaderId:null,members:[]});
     },
     onStatus:(value,count)=>{
       mountControls.setConnected(value==='online');
+      rpg.refreshMountCollection();
       const element=$('onlineStatus');
       if(element)element.textContent=value==='online'?'В мире: '+count+' игрок'+(count===1?'':count>=2&&count<=4?'а':'ов'):
         value==='connecting'?'Подключение к миру…':
