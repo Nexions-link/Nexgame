@@ -16,7 +16,9 @@ async function waitFor(messages,predicate,timeout=3500){
 }
 test('WebSocket economy is bound to server-owned hero identity, location and progress', {timeout:12000},async()=>{
  const world=createSphericalWorld(),server=createServer(),wss=new WebSocketServer({server});
- const normal=localToNormal(-9,-25,261);
+ // Isolate economy authorization from incidental nearby Dolgonog aggro.
+ // A mob now spawns at (-9,-23) and can enter combat before merchantBuy.
+ const normal=localToNormal(0,0,261);
  let revision=7,saveCalls=0,buyCalls=0,readCalls=0;
  let persistent={
   revision,level:2,experience:5,gold:30,health:113,resource:0,
