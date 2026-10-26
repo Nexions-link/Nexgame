@@ -26,7 +26,7 @@ test('mount movement only applies to authorized riding state',()=>{
  const riding=advanceMount(started,2000);
  assert.equal(mountedSpeed(5,riding),5*MOUNT_SPEED_MULTIPLIER);
  assert.equal(mountedSpeed(5,dismount(riding)),5);
- assert.deepEqual(publicMount(started),{mountState:'foot',mountId:null});
+ assert.deepEqual(publicMount(started),{mountState:'casting',mountId:FIRST_MOUNT_ID});
  assert.deepEqual(publicMount(riding),{mountState:'riding',mountId:FIRST_MOUNT_ID});
 });
 test('blocked in combat, water, interiors, and when already moving',()=>{
