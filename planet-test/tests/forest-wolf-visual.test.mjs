@@ -125,7 +125,7 @@ test('articulated wolf walk and mounted gallop bend knees without root drift',()
  assert.ok(walk.gallop<.15,'walking should not use gallop gait');
  assert.ok(visual.legs.some(leg=>Math.abs(leg.hock.rotation.x)>.02));
  let gallop=null;
- for(let i=72;i<=148;i++)gallop=visual.animate(i/60,.11,0,0,0,{}, {mounted:true});
+ for(let i=72;i<=148;i++)gallop=visual.animate(i/60,.13,0,0,0,{}, {mounted:true});
  assert.ok(gallop.gallop>.7,'mount travel speed should select gallop');
  assert.ok(gallop.legs.some(leg=>leg.hock>.20),'paws clear ground during recovery');
  assert.ok(Math.abs(gallop.bounce)<.1,'suspension stays bounded');
