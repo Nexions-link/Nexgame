@@ -28,16 +28,18 @@ test('portrait and landscape cast overlays clear the utility row',()=>{
  assert.match(css,/bottom:calc\(128px/);
  assert.match(gameCss,/#hotbarUtilities\{right:12px;bottom:calc\(91px/);
 });
-test('mobile panel stays within the visible viewport and clears left joystick',()=>{
- for(const width of [320,360,375,390,430]){
+test('cast indicator is perfectly centered with the ability hotbar on every phone width',()=>{
+ assert.match(gameCss,/#actionsBar\{[\s\S]*?left:50%;right:auto;bottom:calc\(19px/);
+ assert.match(css,/#mountCast\{\s*position:fixed;\s*z-index:25;\s*left:50%;\s*transform:translateX\(-50%\)/);
+ assert.doesNotMatch(css,/left:calc\(50%\s*\+/,'cast must never be pushed to the right');
+ // Its center X remains exactly half the viewport, regardless of responsive width.
+ for(const width of [320,360,375,390,430,760,1024]){
   const narrow=width<=360;
-  const size=narrow?Math.min(210,width*.62):Math.min(220,width*.66);
-  const offset=narrow?45:40;
-  const left=width/2+offset-size/2;
+  const size=width<=760?(narrow?Math.min(210,width*.62):Math.min(220,width*.66)):Math.min(236,width*.68);
+  const left=(width-size)/2;
   const right=left+size;
-  const joystickRight=narrow?99:110;
-  assert.ok(left>=joystickRight-2,'left edge clears joystick at '+width+' px');
-  assert.ok(right<=width-7,'right edge is on-screen at '+width+' px');
+  assert.ok(Math.abs((left+right)/2-width/2)<.01,'center aligns at '+width+'px');
+  assert.ok(left>=7&&right<=width-7,'cast fits inside viewport at '+width+'px');
  }
  assert.match(css,/@media\(max-width:360px\)\{[\s\S]*?width:min\(210px,62vw\)/);
  assert.match(css,/pointer-events:none/);
