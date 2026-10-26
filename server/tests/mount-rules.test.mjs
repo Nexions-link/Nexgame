@@ -7,6 +7,8 @@ import {
 test('level and server-issued ownership are mandatory',()=>{
  assert.equal(MOUNT_LEVEL,10);
  assert.equal(mountOwned({mounts:[FIRST_MOUNT_ID]}),true);
+ assert.equal(mountOwned({quests:{mounts:[FIRST_MOUNT_ID]}}),true);
+ assert.equal(mountOwned({quests:{mounts:[]}}),false);
  assert.equal(mountOwned({mounts:[]}),false);
  assert.equal(canBeginMount({level:9,owned:true}),'level');
  assert.equal(canBeginMount({level:10,owned:false}),'not_owned');
