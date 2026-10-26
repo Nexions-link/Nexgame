@@ -74,7 +74,11 @@
  #mountCast .mount-cast-track{height:6px}
 }
 @media(max-width:360px){
- #mountCast{bottom:calc(132px + var(--safe-bottom,env(safe-area-inset-bottom,0px)))}
+ #mountCast{
+  bottom:calc(132px + var(--safe-bottom,env(safe-area-inset-bottom,0px)));
+  left:calc(50% + 45px);
+  width:min(210px,62vw);
+ }
 }
 @media(max-height:510px) and (min-width:600px){
  #mountCast{
