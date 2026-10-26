@@ -41,6 +41,8 @@ export function mountedSpeed(baseSpeed,state){
   ?baseSpeed*MOUNT_CATALOG[state.mountId].speedMultiplier:baseSpeed;
 }
 export function publicMount(state){
- return {mountState:state?.mountState===MOUNT_STATE.RIDING?'riding':'foot',
-  mountId:state?.mountState===MOUNT_STATE.RIDING&&MOUNT_CATALOG[state.mountId]?state.mountId:null};
+ const valid=!!MOUNT_CATALOG[state?.mountId];
+ const status=valid&&state.mountState===MOUNT_STATE.RIDING?'riding':
+  valid&&state.mountState===MOUNT_STATE.CASTING?'casting':'foot';
+ return {mountState:status,mountId:status==='foot'?null:state.mountId};
 }
