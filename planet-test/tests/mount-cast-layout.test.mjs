@@ -23,7 +23,7 @@ test('fallback cast offsets leave approximately 20px above the hotbar',()=>{
  for(const p of positions)
   assert.equal(p.bottom-p.hotbarTopFromBottom,20,
    'expected 20px above hotbar at '+p.width+'px width');
- for(const bottom of [104,97,115,99])assert.match(css,new RegExp('bottom:calc\\\\('+bottom+'px'));
+ for(const bottom of [104,97,115,99])assert.ok(css.includes('bottom:calc('+bottom+'px'));
  assert.match(css,/@media\(max-height:510px\) and \(min-width:600px\)/);
  assert.match(gameCss,/#hotbarUtilities\{right:12px;bottom:calc\(91px/);
 });
