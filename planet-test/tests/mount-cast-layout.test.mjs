@@ -11,21 +11,20 @@ test('mount cast is a compact single-row, narrow progress panel',()=>{
  assert.match(css,/@media\(max-width:760px\)\{[\s\S]*?#mountCast\{[\s\S]*?width:min\(220px,66vw\)/);
  assert.match(css,/@media\(max-width:760px\)\{[\s\S]*?#mountCast \.mount-cast-track\{height:6px\}/);
 });
-test('portrait and landscape cast overlays clear the utility row',()=>{
+test('fallback cast offsets leave approximately 20px above the hotbar',()=>{
+ // Real placement is computed from getBoundingClientRect() on each casting
+ // state change and orientation change. CSS remains a safe pre-layout fallback.
  const positions=[
-  {width:390,bottom:140,utility:91,utilityHeight:40},
-  {width:320,bottom:132,utility:84,utilityHeight:40},
-  {width:1024,bottom:156,utility:105,utilityHeight:42},
-  {width:844,bottom:128,utility:78,utilityHeight:40}
+  {width:390,bottom:104,hotbarTopFromBottom:84},
+  {width:320,bottom:97,hotbarTopFromBottom:77},
+  {width:1024,bottom:115,hotbarTopFromBottom:95},
+  {width:844,bottom:99,hotbarTopFromBottom:79}
  ];
  for(const p of positions)
-  assert.ok(p.bottom-p.utility-p.utilityHeight>=7,
-   'mount cast should be above utility row at viewport width '+p.width);
- assert.match(css,/bottom:calc\(140px/);
- assert.match(css,/bottom:calc\(132px/);
- assert.match(css,/bottom:calc\(156px/);
+  assert.equal(p.bottom-p.hotbarTopFromBottom,20,
+   'expected 20px above hotbar at '+p.width+'px width');
+ for(const bottom of [104,97,115,99])assert.match(css,new RegExp('bottom:calc\\\\('+bottom+'px'));
  assert.match(css,/@media\(max-height:510px\) and \(min-width:600px\)/);
- assert.match(css,/bottom:calc\(128px/);
  assert.match(gameCss,/#hotbarUtilities\{right:12px;bottom:calc\(91px/);
 });
 test('cast indicator is perfectly centered with the ability hotbar on every phone width',()=>{
