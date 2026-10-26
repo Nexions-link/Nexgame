@@ -53,7 +53,7 @@ test('published atlas unifies creature and weapon collections, preserving legacy
  assert.match(catalog,/steppe-dagger-v0\.1\.glb/);
  assert.match(catalog,/nexgame_round_shield_poor\.glb/);
  assert.match(catalog,/nexgame_kite_shield_quality\.glb/);
- for(const category of ['creatures','weapons','armor','items','world'])assert.ok(catalog.includes("id:'"+category+"'"));
+ for(const category of ['creatures','weapons','armor','items','world','candidates'])assert.ok(catalog.includes("id:'"+category+"'"));
 });
 test('dolgonog model API has independent preview and animation hooks',()=>{
  assert.equal(typeof createDolgonog,'function');
@@ -115,7 +115,7 @@ test('hand pose returns to previous left and right wrist angles while axe remain
 // Wild boar stays in the Atlas only: animated model, no game spawn/AI.
 test('C002 boar model has Idle Walk Attack clips in the Atlas only',()=>{
  const catalog=read('bestiary/atlas-catalog.js');
- assert.match(catalog,/id:'wild-boar',category:'creatures',number:'C002'/);
+ assert.match(catalog,/id:'wild-boar',category:'candidates',number:'C002'/);
  assert.match(catalog,/models\/wild-boar-v0\.1\.glb/);
  const bin=readFileSync(resolve(root,'bestiary/models/wild-boar-v0.1.glb'));
  assert.equal(bin.length,473468);
@@ -148,4 +148,15 @@ test('Atlas bypasses stale browser caches while keeping stable bestiary and mode
  const catalog=read('bestiary/atlas-catalog.js');
  assert.match(catalog,/id:'wild-boar'.*version:'0\.1'/);
  assert.match(catalog,/animations:\['Idle','Walk','Attack'\]/);
+});
+
+test('Atlas candidates tab lists boar without publishing rejected wolf',async()=>{
+ const {ATLAS_CATEGORIES,ATLAS_ENTRIES,filterAtlasEntries}=await import('../bestiary/atlas-catalog.js');
+ assert.ok(ATLAS_CATEGORIES.some(c=>c.id==='candidates'&&c.name==='Возможные модели'));
+ assert.deepEqual(filterAtlasEntries('candidates').map(e=>e.id),['wild-boar']);
+ assert.equal(ATLAS_ENTRIES.find(e=>e.id==='wild-boar')?.category,'candidates');
+ assert.ok(!ATLAS_ENTRIES.some(e=>/wolf|волк/i.test(e.id+' '+e.name)));
+ const viewer=read('bestiary/atlas.js');
+ assert.match(viewer,/entry\.category==='candidates'\?'КАНДИДАТ · ВНЕ ИГРЫ'/);
+ assert.match(viewer,/visible\.length&&!visible\.some/);
 });
