@@ -129,8 +129,11 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    p.savedInventory=progress.inventory;
    const levelUp=progress.level>p.level;
    p.level=progress.level;
+    const previousMountOwnership=p.mountOwned;
     p.mountOwned=mountOwned(progress);
     if(p.level<10||!p.mountOwned)Object.assign(p,dismount(p));
+    if(previousMountOwnership!==p.mountOwned)
+     send(ws,{type:'mountChanged',...publicMount(p),owned:p.mountOwned});
    p.equipment=sanitizeSphereEquipment(progress.equipment,progress.level);
    p.maxHp=deriveStats(progress.level,p.equipment).maxHp;
    p.hp=levelUp?p.maxHp:Math.min(p.maxHp,p.hp);
