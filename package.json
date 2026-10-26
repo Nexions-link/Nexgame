@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:planet-graphics && node --test planet-test/tests/*.test.mjs planet-test/creature-registry.test.mjs",
-    "check": "node --check planet-test/planet.js && node --check planet-test/sphere-online.js && node --check planet-test/mount-visual.js && node --check planet-test/mount-controls.js && node --check planet-test/offline-rpg.js && node --check planet-test/gather-world.js && node --check planet-test/quest-markers.js && node --check planet-test/start-zone.js && node --check items.js && node --check skills.js && node --check hotbar.js && node --check movement-controls.js && node --check party-map.js && node --check combat-feedback.js",
+    "check": "node --check planet-test/planet.js && node --check planet-test/sphere-online.js && node --check planet-test/mount-visual.js && node --check planet-test/mount-controls.js && node --check planet-test/mount-quest.js && node --check planet-test/offline-rpg.js && node --check planet-test/gather-world.js && node --check planet-test/quest-markers.js && node --check planet-test/start-zone.js && node --check items.js && node --check skills.js && node --check hotbar.js && node --check movement-controls.js && node --check party-map.js && node --check combat-feedback.js",
     "test:planet-graphics": "node --test planet-test/graphics-quality.test.mjs planet-test/village-visuals.test.mjs planet-test/tauren-visual-details.test.mjs planet-test/tauren-horn-profile.test.mjs planet-test/sphere-combat-vfx.test.mjs planet-test/quest-markers.test.mjs planet-test/gather-visibility.test.mjs planet-test/progress-reset.test.mjs"
   },
   "devDependencies": {
