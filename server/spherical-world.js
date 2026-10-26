@@ -481,6 +481,17 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      normal:landed.normal,heading:landed.heading});
    }
    const events=tickSphericalMobs(room.mobs,players,room.radius,dt,now);
+   // Treat acquiring aggro as entering combat, before the monster's first hit.
+   for(const mob of room.mobs){
+    if(mob.phase!=='alive'||!mob.aggroId)continue;
+    const target=players.get(mob.aggroId);
+    if(!target||target.radius!==room.radius)continue;
+    if(target.mountState!==MOUNT_STATE.FOOT){
+     Object.assign(target,dismount(target));
+     sendToId(target.id,{type:'mountChanged',...publicMount(target)});
+    }
+    target.lastCombatAt=now;
+   }
    for(const e of events){
     if(e.type==='mobAttack'){
      const p=players.get(e.targetId);if(p){p.lastCombatAt=now;if(p.mountState!==MOUNT_STATE.FOOT){Object.assign(p,dismount(p));sendToId(p.id,{type:'mountChanged',...publicMount(p)});}}
