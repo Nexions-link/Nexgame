@@ -10,7 +10,8 @@ export const MOUNT_CATALOG=Object.freeze({
 export const MOUNT_STATE=Object.freeze({FOOT:'foot',CASTING:'casting',RIDING:'riding'});
 export function mountOwned(progress,mountId=FIRST_MOUNT_ID){
  // A quest reward must be granted by server persistence, never the browser.
- return !!progress&&Array.isArray(progress.mounts)&&progress.mounts.includes(mountId);
+ const mounts=progress?.quests?.mounts??progress?.mounts;
+ return Array.isArray(mounts)&&mounts.includes(mountId);
 }
 export function canBeginMount({level,owned=false,inCombat=false,inWater=false,indoors=false,dead=false,moving=false,state='foot'}={}){
  if(!Number.isInteger(level)||level<MOUNT_LEVEL)return 'level';
