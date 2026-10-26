@@ -4,6 +4,7 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {acceptExpedition,arriveExpedition,discoverExpedition,finishExpedition} from './expedition-quest.js';
 import {acceptForestHunt,reportForestHunt,inspectForestDen,finishForestHunt} from './forest-hunt-quest.js';
+import {acceptMountQuest,inspectMountTracks,finishMountQuest} from './mount-quest.js';
 import {createResilientPgPool} from './postgres-pool.js';
 import {createProgressStore} from './progress-store.js';
 import {acceptBanditQuest,turnInBanditQuest,acceptBanditChiefQuest,turnInBanditChiefQuest,
@@ -415,6 +416,32 @@ export function createEconomyStore({pool:externalPool,
    return {progress:await save(next),reward:{xp:event.xp,gold:event.gold}};
   });
  }
+ async function mountQuestAccept(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(acceptMountQuest(state,args.context))};
+  });
+ }
+ async function mountQuestInspect(args){
+  return transaction(args,async({state,save})=>{
+   revision(state,args.expectedRevision);
+   return {progress:await save(inspectMountTracks(state,args.context,args.index))};
+  });
+ }
+ async function mountQuestTurnIn(args){
+  return transaction(args,async({client,state,save})=>{
+   revision(state,args.expectedRevision);
+   const {next,event,mountId}=finishMountQuest(state,args.context);
+   const existing=await client.query(
+    'SELECT 1 FROM ngw_progress_events WHERE character_id=$1 AND event_key=$2',
+    [args.characterId,event.eventKey]);
+   if(existing.rowCount)fail('mount_quest_already_paid');
+   await client.query(
+    "INSERT INTO ngw_progress_events(character_id,event_key,event_kind,xp_granted,gold_granted,loot) VALUES($1,$2,$3,$4,$5,'[]'::jsonb)",
+    [args.characterId,event.eventKey,event.eventKind,event.xp,event.gold]);
+   return {progress:await save(next),reward:{mountId}};
+  });
+ }
  async function forestHuntAccept(args){
   return transaction(args,async({state,save})=>{
    revision(state,args.expectedRevision);
@@ -503,6 +530,7 @@ export function createEconomyStore({pool:externalPool,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
   expeditionAccept,expeditionArrive,expeditionDiscover,expeditionTurnIn,
   forestHuntAccept,forestHuntReport,forestHuntInspect,forestHuntTurnIn,
+  mountQuestAccept,mountQuestInspect,mountQuestTurnIn,
   startBanditQuest,finishBanditQuest,
    startBanditWeaponsQuest,finishBanditWeaponsQuest,startBanditWeaponGather,finishBanditWeaponGather,
    startBanditChiefQuest,finishBanditChiefQuest,
