@@ -12,7 +12,9 @@ import {
  sanitizeSphereEquipment,normalToLocal,arcDistance,localDistance,startSphereEvade
 } from './spherical-pve.js';
 import {deriveStats} from '../items.js';
-import {resolveSphereWalk} from './world-movement.js';
+import {resolveSphereWalk,walkableSphereNormal} from './world-movement.js';
+import {insideHouse} from '../planet-test/hearth-house.js';
+import {lakeRadius,startHeightAt,LAKE_SURFACE} from '../planet-test/start-zone.js';
 import {MOUNT_STATE,FIRST_MOUNT_ID,MOUNT_CAST_MS,canBeginMount,beginMount,advanceMount,dismount,mountedSpeed,publicMount,mountOwned} from './mount-rules.js';
 import {applySphereCharge,completeSphereCharge} from './sphere-charge.js';
 import {selectVisiblePlayers} from './world-interest.js';
@@ -326,6 +328,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      const now=Date.now();
      const reason=canBeginMount({level:current.level,owned:current.mountOwned,
       inCombat:now-(current.lastCombatAt||0)<5000,dead:current.hp<=0,moving:current.moving,
+      indoors:insideHouse(current.x,current.z)||!walkableSphereNormal(current.normal,current.radius,.62),
+      inWater:lakeRadius(current.x,current.z)<1&&LAKE_SURFACE-startHeightAt(current.x,current.z)>.08,
       state:current.mountState});
      if(reason){send(ws,{type:'mountRejected',reason});return}
      Object.assign(current,beginMount(current,now));
@@ -403,7 +407,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     const capped=delta>allowedSpeed*dt+.8;
    const desired=capped
     ?boundedSphereAdvance(current.normal,normal,current.radius,allowedSpeed*dt):normal;
-   const sweep=resolveSphereWalk(current.normal,desired,current.radius);
+   const sweep=resolveSphereWalk(current.normal,desired,current.radius,
+     current.mountState===MOUNT_STATE.RIDING?.62:.42);
    current.normal=sweep.normal;
    current.heading=heading;
    current.moving=m.moving&&!sweep.blocked;
@@ -417,6 +422,12 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    }
    const loc=normalToLocal(current.normal,current.radius);
    current.x=loc.x;current.z=loc.z;
+    if(current.mountState===MOUNT_STATE.RIDING&&
+      (insideHouse(current.x,current.z)||lakeRadius(current.x,current.z)<1&&
+       LAKE_SURFACE-startHeightAt(current.x,current.z)>.08)){
+     Object.assign(current,dismount(current));
+     send(ws,{type:'mountChanged',...publicMount(current)});
+    }
    // The first accepted movement into range pushes the count without opening.
    const chestNearby=Math.hypot(current.x-CHEST_X,current.z-CHEST_Z)<=12;
    if(chestNearby&&!current.chestStatusNearby)sendNearbyChestStatus(current);
