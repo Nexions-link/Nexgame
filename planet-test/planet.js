@@ -42,6 +42,7 @@ const planetViewport=document.getElementById('viewport');
 installTouchButtons(document);
 installDraggableHudButton(document.getElementById('targetNext'));
 installDraggableHudButton(document.getElementById('spellbookButton'),{storageKey:SPELLBOOK_POSITION_KEY});
+installDraggableHudButton(document.getElementById('mountButton'),{storageKey:'ngw-mount-button-position-v1'});
 installSurfaceZoomGuard(document,planetViewport);
 planetViewport.addEventListener('selectstart',event=>event.preventDefault());
 planetViewport.addEventListener('contextmenu',event=>event.preventDefault());
