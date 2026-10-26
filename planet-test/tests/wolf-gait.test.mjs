@@ -22,7 +22,13 @@ test('walk, trot and mounted gallop are distinct smooth speed-dependent poses',(
  assert.ok(walk.trot<.05&&walk.gallop===0);
  assert.ok(trot.trot>.95&&trot.gallop<.1);
  assert.ok(gallop.gallop>.95);
- assert.ok(gallop.legs.some(leg=>leg.hock>.25));
+ const cycle=createWolfGaitState(1);
+ let lifted=false;
+ for(let i=0;i<145;i++){
+  const frame=advanceWolfGait(cycle,i/60,.13,{mounted:true});
+  if(frame.gallop>.95&&frame.legs.some(leg=>leg.hock>.25))lifted=true;
+ }
+ assert.ok(lifted,'at least one paw must clear the ground during a full gallop cycle');
  assert.ok(gallop.legs.every(leg=>Number.isFinite(leg.hip)&&Number.isFinite(leg.ankle)));
  assert.ok(Math.abs(gallop.bounce)<.1);
  assert.ok(Math.abs(gallop.pitch)<.09);
