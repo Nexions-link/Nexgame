@@ -63,6 +63,17 @@ jobs:
             echo "== private env present =="; if test -f /opt/nexgameworld/shared/server.env; then echo YES; else echo NO; fi
             echo "== 9800 in use =="; if ss -ltn | grep -Eq ":9800[[:space:]]"; then echo YES; else echo NO; fi
           '
+      - name: S-08 verify VPS readiness without starting Node
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
+            echo "== release link =="; if test -L /opt/nexgameworld/current; then readlink -f /opt/nexgameworld/current; else echo MISSING; fi
+            echo "== Node files =="; if test -f /opt/nexgameworld/current/index.js; then node --check /opt/nexgameworld/current/index.js && echo OK; else echo MISSING; fi
+            echo "== private environment =="; if test -s /opt/nexgameworld/shared/server.env; then echo PRESENT_NONEMPTY; else echo MISSING_OR_EMPTY; fi
+            echo "== service enabled =="; (systemctl is-enabled nexgameworld || true)
+            echo "== service active =="; (systemctl is-active nexgameworld || true)
+            echo "== proxy TLS =="; (curl -sS -o /dev/null -w "HTTP_%{http_code}\n" --connect-timeout 5 --max-time 12 https://api.nexions.ru/ || true)
+            echo "== service port =="; if ss -ltn | grep -Eq ":9800[[:space:]]"; then echo IN_USE; else echo FREE; fi
+          '
       - name: Explain next steps
         run: |
           echo 'Staging uploaded and syntax/dependency checks passed.'
