@@ -42,6 +42,20 @@ jobs:
           "${SSH[@]}" "$REMOTE" "set -eu; umask 077; test -d /opt/nexgameworld/releases; test ! -e /opt/nexgameworld/releases/$RELEASE; mkdir /opt/nexgameworld/releases/$RELEASE"
           tar -C server --exclude=node_modules --exclude='.env' --exclude='.env.*' --exclude='*.pem' --exclude='*.key' -czf - . | "${SSH[@]}" "$REMOTE" "tar -xzf - -C /opt/nexgameworld/releases/$RELEASE"
           "${SSH[@]}" "$REMOTE" "set -eu; cd /opt/nexgameworld/releases/$RELEASE; npm install --omit=dev --ignore-scripts --no-audit --no-fund; node --check index.js; test -d node_modules/pg; test -d node_modules/ws; printf '%s\n' '${{ github.sha }}' > .source-commit; echo STAGING_OK:$RELEASE"
+      - name: Read-only VPS infrastructure preflight
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
+            echo "== identity =="; id -un
+            echo "== runtime =="; node --version; npm --version
+            echo "== disk =="; df -h /opt/nexgameworld; du -sh /opt/nexgameworld/releases
+            echo "== memory =="; free -m
+            echo "== TCP listeners =="; (ss -ltn || true)
+            echo "== reverse proxy =="; command -v caddy || true; command -v nginx || true
+            echo "== systemd user bus =="; (systemctl --user is-system-running || true)
+            echo "== service state =="; (systemctl is-active nexgameworld || true)
+            echo "== private env present =="; if test -f /opt/nexgameworld/shared/server.env; then echo YES; else echo NO; fi
+            echo "== 9800 in use =="; if ss -ltn | grep -Eq ":9800[[:space:]]"; then echo YES; else echo NO; fi
+          '
       - name: Explain next steps
         run: |
           echo 'Staging uploaded and syntax/dependency checks passed.'
