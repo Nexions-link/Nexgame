@@ -1,0 +1,26 @@
+name: NGW VPS SSH staging
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ssh-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure pinned SSH host key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          test -n "$SSH_PRIVATE_KEY"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '94.103.87.93 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbWFAA2zL+WsOnYqQra1JpNSDboVf1ubAOhr4qSQhQH' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Verify SSH access only
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=12 ngw-deploy@94.103.87.93 'id -un; node --version; test -w /opt/nexgameworld/releases && echo RELEASES_WRITABLE'
