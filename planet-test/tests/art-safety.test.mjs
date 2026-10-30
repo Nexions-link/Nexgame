@@ -136,5 +136,6 @@ test('real G-04 integration isolates visuals without changing movement, cameras 
  assert.match(planet,/cameraPitch:previousWorld\?\.cameraPitch\?\?\.36/);
  assert.match(planet,/cameraFollow:previousWorld\?\.cameraFollow\?\?cameraSettings\?\.follow\?\?false/);
  const controller=readFileSync(new URL('../art-safety.js',import.meta.url),'utf8');
- assert.doesNotMatch(controller,/(?:player|account|quest|WebSocket|fetch\(|location\.replace|camera\.position)/);
+ const executable=controller.split('\n').filter(line=>!line.trimStart().startsWith('//')).join('\n');
+ assert.doesNotMatch(executable,/(?:player|account|quest|WebSocket|fetch\(|location\.replace|camera\.position)/);
 });
