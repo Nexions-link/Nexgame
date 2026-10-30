@@ -42,6 +42,13 @@ jobs:
           "${SSH[@]}" "$REMOTE" "set -eu; umask 077; test -d /opt/nexgameworld/releases; test ! -e /opt/nexgameworld/releases/$RELEASE; mkdir /opt/nexgameworld/releases/$RELEASE"
           tar -C server --exclude=node_modules --exclude='.env' --exclude='.env.*' --exclude='*.pem' --exclude='*.key' -czf - . | "${SSH[@]}" "$REMOTE" "tar -xzf - -C /opt/nexgameworld/releases/$RELEASE"
           "${SSH[@]}" "$REMOTE" "set -eu; cd /opt/nexgameworld/releases/$RELEASE; npm install --omit=dev --ignore-scripts --no-audit --no-fund; node --check index.js; test -d node_modules/pg; test -d node_modules/ws; printf '%s\n' '${{ github.sha }}' > .source-commit; echo STAGING_OK:$RELEASE"
+      - name: Select validated release symlink (no server start)
+        env:
+          RELEASE: staging-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 "bash -s -- '$RELEASE'" < ops/vps/select-release.sh
+          echo "CURRENT_LINK_UPDATED:$RELEASE"
       - name: Read-only VPS infrastructure preflight
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
@@ -59,5 +66,5 @@ jobs:
       - name: Explain next steps
         run: |
           echo 'Staging uploaded and syntax/dependency checks passed.'
-          echo 'No systemd unit was started or changed. No Neon database connection attempted.'
+          echo 'Current symlink now selects the validated release. No systemd unit was started or changed. No Neon database connection attempted.'
           echo 'Render and TeamSpeak remain untouched.'
