@@ -8,10 +8,10 @@ export const PARTY_RECONNECT_GRACE_MS=120_000;
 
 export function createPartyManager({players,send,now=Date.now,reconnectGraceMs=PARTY_RECONNECT_GRACE_MS}){
  const groups=new Map(),membership=new Map(),pending=new Map(),suspended=new Map();
- const online=id=>typeof id==='string'&&players.has(id);
+ const online=id=>typeof id==='string'&&players.has(id)&&!suspended.has(id);
  const fail=(id,reason)=>{if(online(id))send(id,{type:'partyNotice',message:reason,error:true});return false};
  const roster=party=>party.members.map(id=>{
-  const p=players.get(id),saved=suspended.get(id);
+  const p=online(id)?players.get(id):null,saved=suspended.get(id);
   return {id,name:p?.name||saved?.name||'Странник',level:p?.level||saved?.level||1,
    online:!!p};
  });
