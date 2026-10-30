@@ -31,7 +31,7 @@ export function createAccountStore({connectionString=process.env.DATABASE_URL,
    await client.query('BEGIN');
    // Serialize account creation to enforce alpha capacity under concurrent requests.
    await client.query('SELECT pg_advisory_xact_lock(707010)');
-   const maxAccounts=Number(process.env.NGW_MAX_ACCOUNTS||10);
+   const maxAccounts=Number(process.env.NGW_MAX_ACCOUNTS||50);
    if(!Number.isInteger(maxAccounts)||maxAccounts<1||maxAccounts>500)
     throw new Error('Invalid NGW_MAX_ACCOUNTS configuration');
    const count=await client.query('SELECT count(*)::int AS used FROM ngw_accounts');
