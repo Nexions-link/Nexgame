@@ -1,0 +1,49 @@
+name: NGW VPS S-04 stage server files
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ngw-vps-stage
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Configure SSH with pinned host key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          test -n "$SSH_PRIVATE_KEY"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '94.103.87.93 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbWFAA2zL+WsOnYqQra1JpNSDboVf1ubAOhr4qSQhQH' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Check server source before upload
+        run: |
+          test -f server/index.js
+          test -f server/package.json
+          node --check server/index.js
+      - name: Upload isolated release (no service start)
+        env:
+          RELEASE: staging-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          SSH=(ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
+          REMOTE="ngw-deploy@94.103.87.93"
+          "${SSH[@]}" "$REMOTE" "set -eu; umask 077; test -d /opt/nexgameworld/releases; test ! -e /opt/nexgameworld/releases/$RELEASE; mkdir /opt/nexgameworld/releases/$RELEASE"
+          tar -C server --exclude=node_modules --exclude='.env' --exclude='.env.*' --exclude='*.pem' --exclude='*.key' -czf - . | "${SSH[@]}" "$REMOTE" "tar -xzf - -C /opt/nexgameworld/releases/$RELEASE"
+          "${SSH[@]}" "$REMOTE" "set -eu; cd /opt/nexgameworld/releases/$RELEASE; npm install --omit=dev --ignore-scripts --no-audit --no-fund; node --check index.js; test -d node_modules/pg; test -d node_modules/ws; printf '%s\n' '${{ github.sha }}' > .source-commit; echo STAGING_OK:$RELEASE"
+      - name: Explain next steps
+        run: |
+          echo 'Staging uploaded and syntax/dependency checks passed.'
+          echo 'No systemd unit was started or changed. No Neon database connection attempted.'
+          echo 'Render and TeamSpeak remain untouched.'
