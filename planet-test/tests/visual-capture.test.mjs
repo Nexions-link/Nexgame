@@ -89,7 +89,8 @@ test('screenshot storage is local IndexedDB only, with no forced navigation/netw
  assert.equal(VISUAL_CAPTURE_DB,'ngw-art-compare-v1');
  assert.throws(()=>createVisualCaptureStore({factory:null}),/IndexedDB/);
  const src=readFileSync(new URL('../visual-capture.js',import.meta.url),'utf8');
- assert.doesNotMatch(src,/XMLHttpRequest|WebSocket|sendBeacon|localStorage\.setItem|fetch\(/);
+ const executable=src.split('\n').filter(line=>!line.trimStart().startsWith('//')).join('\n');
+ assert.doesNotMatch(executable,/XMLHttpRequest|WebSocket|sendBeacon|localStorage\.setItem|fetch\(/);
  assert.match(src,/indexedDB|factory\.open/);
 });
 
