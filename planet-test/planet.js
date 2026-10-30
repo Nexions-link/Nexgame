@@ -11,20 +11,20 @@ import {EXPEDITION_SCOUT,EXPEDITION_SITES,readExpedition} from './expedition-que
 import {sphericalSlideStep} from './sphere-slide.js?v=1';
 import {forestTrailLatitude,forestLocalPoint,FOREST_ENTRANCE_LONGITUDE,FOREST_TRAIL_END} from './whispering-forest.js?v=22';
 import {createWhisperingForest,forestMoodAt} from './whispering-forest.js?v=22';
-import {createForestAtmosphere} from './forest-atmosphere.js?v=1';
-import {createForestFloor} from './forest-floor.js?v=1';
-import {createForestGroundLife} from './forest-ground-life.js?v=2';
-import {createForestUnderstory} from './forest-understory.js?v=2';
+
+
+
+
 import {createForestGroundTexture,forestTextureMask} from './forest-ground-texture.js?v=3';
-import {createSurfaceMicrodetail} from './surface-microdetail.js?v=2';
-import {createSoilScatter} from './soil-scatter.js?v=2';
-import {createRoadsideDetails} from './roadside-details.js?v=2';
+
+
+
 import {WORLD_ART_PALETTE as ART} from './world-art-style.js?v=1';
-import {createPainterlyBiome} from './painterly-biome.js?v=2';
+
 import {createArtSafetyController} from './art-safety.js?v=1';
 import {VISUAL_REFERENCE_VIEWS,getVisualReferenceView,referenceViewPose} from './reference-viewpoints.js?v=1';
 import {captureVisualWebGLFrame,createVisualCaptureStore,makeVisualSnapshotMeta,compareVisualSnapshotMeta} from './visual-capture.js?v=1';
-import {createForestEcology} from './forest-ecology.js?v=4';
+
 import {createForestLightPools,forestCanopyShadeAt,forestLightResponse} from './forest-lighting.js?v=2';
 import {installTouchButtons,installSurfaceZoomGuard,createPointerJoystick} from './touch-input.js?v=2';
 import {installDraggableHudButton,SPELLBOOK_POSITION_KEY,MOUNT_POSITION_KEY} from './target-button-drag.js?v=3';
@@ -41,6 +41,51 @@ import {sampleSphericalFooting} from './foot-placement.js?v=2';
 import {GRAPHICS_PRESETS,resolveGraphicsPreset,effectivePixelRatio,graphicsDensity} from './graphics-quality.js?v=2';
 import {START_RADIUS,ROUTES,LAKE,normalToLocal,startHeightAt,startColorAt,lakeRadius,canWadeAtLocal,createStartZone,createTauren,initStartZoneMath} from './start-zone.js?v=52';
 initStartZoneMath(THREE);
+
+// Optional visuals must never prevent core world modules from loading. A
+// missing or corrupted remaster module is reported and activates base art.
+const optionalArtImports=await Promise.allSettled([
+ import('./forest-atmosphere.js?v=1'),
+ import('./forest-floor.js?v=1'),
+ import('./forest-ground-life.js?v=2'),
+ import('./forest-understory.js?v=2'),
+ import('./surface-microdetail.js?v=2'),
+ import('./soil-scatter.js?v=2'),
+ import('./roadside-details.js?v=2'),
+ import('./painterly-biome.js?v=2'),
+ import('./forest-ecology.js?v=4')
+]);
+const optionalArtCreators=Object.fromEntries([
+ ['createForestAtmosphere',optionalArtImports[0].status==='fulfilled'?
+  optionalArtImports[0].value.createForestAtmosphere:null],
+ ['createForestFloor',optionalArtImports[1].status==='fulfilled'?
+  optionalArtImports[1].value.createForestFloor:null],
+ ['createForestGroundLife',optionalArtImports[2].status==='fulfilled'?
+  optionalArtImports[2].value.createForestGroundLife:null],
+ ['createForestUnderstory',optionalArtImports[3].status==='fulfilled'?
+  optionalArtImports[3].value.createForestUnderstory:null],
+ ['createSurfaceMicrodetail',optionalArtImports[4].status==='fulfilled'?
+  optionalArtImports[4].value.createSurfaceMicrodetail:null],
+ ['createSoilScatter',optionalArtImports[5].status==='fulfilled'?
+  optionalArtImports[5].value.createSoilScatter:null],
+ ['createRoadsideDetails',optionalArtImports[6].status==='fulfilled'?
+  optionalArtImports[6].value.createRoadsideDetails:null],
+ ['createPainterlyBiome',optionalArtImports[7].status==='fulfilled'?
+  optionalArtImports[7].value.createPainterlyBiome:null],
+ ['createForestEcology',optionalArtImports[8].status==='fulfilled'?
+  optionalArtImports[8].value.createForestEcology:null]
+]);
+const missingArtModules=["createForestAtmosphere","createForestFloor","createForestGroundLife","createForestUnderstory","createSurfaceMicrodetail","createSoilScatter","createRoadsideDetails","createPainterlyBiome","createForestEcology"].filter(name=>!optionalArtCreators[name]);
+const createForestAtmosphere=optionalArtCreators.createForestAtmosphere;
+const createForestFloor=optionalArtCreators.createForestFloor;
+const createForestGroundLife=optionalArtCreators.createForestGroundLife;
+const createForestUnderstory=optionalArtCreators.createForestUnderstory;
+const createSurfaceMicrodetail=optionalArtCreators.createSurfaceMicrodetail;
+const createSoilScatter=optionalArtCreators.createSoilScatter;
+const createRoadsideDetails=optionalArtCreators.createRoadsideDetails;
+const createPainterlyBiome=optionalArtCreators.createPainterlyBiome;
+const createForestEcology=optionalArtCreators.createForestEcology;
+
 
 // Independent pointer streams for joystick, UI buttons and camera gestures.
 // Safari's double-tap protection applies only to the 3D surface.
@@ -342,6 +387,9 @@ try {
     }
   });
   const ART_SCENE_ARGS={scene,radius:R,heightAt};
+  if(missingArtModules.length){
+    artSafety.renderError(new Error('Модули оформления не загрузились: '+missingArtModules.join(', ')));
+  }
   artSafety.register('roadside',()=>createRoadsideDetails(THREE,{...ART_SCENE_ARGS,startRoute:ROUTES[1]}));
   artSafety.register('ecology',()=>createForestEcology(THREE,ART_SCENE_ARGS));
   artSafety.register('light-pools',()=>createForestLightPools(THREE,ART_SCENE_ARGS));
