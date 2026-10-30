@@ -147,3 +147,54 @@ test('transferred leader disconnect promotes next surviving player and invalidat
  assert.equal(w.parties.respond(nextId,'p0',true),true);
  assert.equal(w.parties.state(nextId).groupId,groupId);
 });
+
+test('verified character rejoins the same party after mobile reconnect without a new invite',()=>{
+ const w=setup();
+ w.parties.invite('p0','p1');w.parties.respond('p1','p0',true);
+ const stableId=w.parties.getPartyId('p0');
+ assert.equal(w.parties.suspend('p0','char-0',{name:'Воин 0',level:1}),true);
+ w.players.delete('p0');
+ const away=w.last('p1','partyState');
+ assert.equal(away.groupId,stableId);
+ assert.equal(away.members.length,2);
+ assert.equal(away.leaderId,'p1','connected player takes leadership');
+ assert.equal(away.members.find(m=>m.id==='p0').online,false);
+ assert.equal(w.parties.getMemberIds('p1').length,2,'seat is reserved');
+ w.players.set('p7',{id:'p7',name:'Злоумышленник',level:60});
+ assert.equal(w.parties.resume('p7','other-character'),false,
+  'another authenticated character must not steal the reservation');
+ assert.equal(w.parties.getPartyId('p7'),null);
+ w.players.get('p7').name='Воин 0';w.players.get('p7').level=1;
+ assert.equal(w.parties.resume('p7','char-0'),true);
+ assert.equal(w.parties.getPartyId('p0'),null);
+ assert.equal(w.parties.getPartyId('p7'),stableId);
+ const returned=w.last('p7','partyState');
+ assert.equal(returned.members.length,2);
+ assert.equal(returned.members.find(m=>m.id==='p7').online,true);
+ assert.equal(returned.leaderId,'p1','reconnect must not seize leadership');
+ assert.equal(w.parties.info().suspended,0);
+});
+test('unclaimed reconnect reservation expires and releases the group seat',()=>{
+ const w=setup();
+ w.parties.invite('p0','p1');w.parties.respond('p1','p0',true);
+ w.parties.suspend('p1','char-1',{name:'Воин 1',level:2});
+ w.players.delete('p1');
+ assert.equal(w.parties.state('p0').members.length,2);
+ w.advance(120001);
+ w.parties.expire();
+ assert.equal(w.parties.getPartyId('p0'),null);
+ assert.equal(w.parties.getPartyId('p1'),null);
+ assert.equal(w.parties.info().suspended,0);
+ w.players.set('p8',{id:'p8',name:'Воин 1',level:2});
+ assert.equal(w.parties.resume('p8','char-1'),false);
+});
+test('a disconnected party member cannot receive invitations or promote others',()=>{
+ const w=setup();
+ for(const id of ['p1','p2']){
+  w.parties.invite('p0',id);w.parties.respond(id,'p0',true);
+ }
+ w.parties.suspend('p2','char-2',{name:'Воин 2',level:3});
+ assert.equal(w.parties.promote('p0','p2'),false);
+ assert.equal(w.parties.invite('p2','p3'),false);
+ assert.equal(w.parties.getPartyId('p2')!==null,true);
+});
