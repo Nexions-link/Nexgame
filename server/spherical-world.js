@@ -155,7 +155,9 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      void p.queueCheckpoint({normal:[...p.normal],heading:p.heading,
       radius:p.radius},'exit').catch(()=>{});
     }
-    party.disconnect(p.id);chat.disconnect(p.id);chest.disconnect(p.id);
+    if(p.characterId)party.suspend(p.id,p.characterId,{name:p.name,level:p.level});
+    else party.disconnect(p.id);
+    chat.disconnect(p.id);chest.disconnect(p.id);
     players.delete(p.id);sendInRoom(p.radius,{type:'leave',id:p.id});
     // Remove departed ownership, but keep the shared battle active
     // when another living contributor can still hold aggro.
@@ -279,7 +281,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
       mount:{owned:p.mountOwned,levelRequired:10,castMs:MOUNT_CAST_MS,mountId:FIRST_MOUNT_ID,...publicMount(p)},
      ...(trustedCharacter?{characterId:p.characterId,
       progress:trustedCharacter.progress,authenticated:true}:{})});
-    send(ws,party.state(p.id));
+    // Resume only after account gateway validated the character and sent welcome.
+    if(!p.characterId||!party.resume(p.id,p.characterId))send(ws,party.state(p.id));
     return;
    }
    if(!current)return;
@@ -461,6 +464,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
   }};
  }
  function tickOnce(dt=.1,now=Date.now()){
+  party.expire();
   for(const room of rooms.values()){
    room.tick++;
    // One server-authoritative strike at the landing time, whether or not
