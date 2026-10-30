@@ -137,7 +137,7 @@ test('two separate game loads share persistent before/after captures per camera'
  assert.equal(await after.get('wolves','baseline'),undefined);
  await after.remove('trail','current');
  assert.equal(await before.get('trail','current'),undefined);
- assert.throws(()=>before.get('bad id','baseline'),RangeError);
+ await assert.rejects(before.get('bad id','baseline'),RangeError);
 });
 
 test('real game supplies capture metadata and compares only reproducible G-01 frames',()=>{
