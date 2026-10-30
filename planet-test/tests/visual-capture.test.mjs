@@ -92,6 +92,54 @@ test('screenshot storage is local IndexedDB only, with no forced navigation/netw
  assert.doesNotMatch(src,/XMLHttpRequest|WebSocket|sendBeacon|localStorage\.setItem|fetch\(/);
  assert.match(src,/indexedDB|factory\.open/);
 });
+
+test('two separate game loads share persistent before/after captures per camera',async()=>{
+ const saved=new Map();
+ const db={
+  objectStoreNames:{contains:()=>true},
+  transaction(){
+   const tx={};
+   tx.objectStore=()=>({
+    get:key=>{
+     const req={};
+     queueMicrotask(()=>{req.result=saved.get(key);req.onsuccess?.();tx.oncomplete?.();});
+     return req;
+    },
+    put:value=>{
+     const req={};
+     queueMicrotask(()=>{saved.set(value.key,value);req.result=value.key;
+      req.onsuccess?.();tx.oncomplete?.();});
+     return req;
+    },
+    delete:key=>{
+     const req={};
+     queueMicrotask(()=>{saved.delete(key);req.onsuccess?.();tx.oncomplete?.();});
+     return req;
+    }
+   });
+   return tx;
+  }
+ };
+ const factory={open:()=>{
+  const request={result:db};
+  queueMicrotask(()=>request.onsuccess?.());
+  return request;
+ }};
+ const before=createVisualCaptureStore({factory});
+ const metadata=original();
+ const blob=new Blob(['png'],{type:'image/png'});
+ await before.put('trail','baseline',{blob,width:390,height:844,metadata});
+ const after=createVisualCaptureStore({factory});
+ assert.equal((await after.get('trail','baseline')).metadata.version,'0.6.45.28');
+ await after.put('trail','current',{blob,width:390,height:844,
+  metadata:{...metadata,version:'0.6.45.29'}});
+ assert.equal((await before.get('trail','current')).metadata.version,'0.6.45.29');
+ assert.equal(await after.get('wolves','baseline'),undefined);
+ await after.remove('trail','current');
+ assert.equal(await before.get('trail','current'),undefined);
+ assert.throws(()=>before.get('bad id','baseline'),RangeError);
+});
+
 test('real game supplies capture metadata and compares only reproducible G-01 frames',()=>{
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const src=readFileSync(new URL('../planet.js',import.meta.url),'utf8');
