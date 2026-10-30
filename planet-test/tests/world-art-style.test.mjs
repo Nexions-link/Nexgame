@@ -5,8 +5,8 @@ import {WORLD_ART_PALETTE as P,WORLD_ART_VERTEX as V,
  ART_STYLE_VERSION,ART_MATERIAL_SWATCHES,colorHexBytes,paletteColor}
  from '../world-art-style.js';
 import {landscapeGroundPixel,prepareLandscapeRoutes} from '../../landscape.js';
-import {forestGroundPixel,forestTrailLatitude,forestTextureMask}
- from '../forest-ground-texture.js';
+import {forestGroundPixel,forestTextureMask} from '../forest-ground-texture.js';
+import {forestTrailLatitude} from '../whispering-forest.js';
 import {startColorAt,blendBiomeSoilAt} from '../start-zone.js';
 import {forestBarkPixel} from '../forest-bark-texture.js';
 import {forestColliders,createForestLayout} from '../whispering-forest.js';
