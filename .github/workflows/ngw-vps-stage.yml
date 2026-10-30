@@ -77,6 +77,18 @@ jobs:
             *) echo "::error::Expected a PostgreSQL URL"; exit 1 ;;
           esac
           echo "Secret is present; value is not logged."
+      - name: Check whether deploy user can control the service
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
+            echo "== unit properties =="
+            systemctl show nexgameworld -p User -p ExecStart -p EnvironmentFiles -p FragmentPath -p ActiveState -p UnitFileState
+            echo "== passwordless sudo permissions =="
+            if sudo -n -l >/dev/null 2>&1; then echo SUDO_AVAILABLE; else echo SUDO_NOT_AVAILABLE; fi
+            echo "== config file permissions =="
+            stat -c "%U:%G %a %n" /opt/nexgameworld/shared
+            echo "== team speak untouched =="
+            echo READ_ONLY_PREFLIGHT
+          '
       - name: S-08 verify VPS readiness without starting Node
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
