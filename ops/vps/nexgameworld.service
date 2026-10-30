@@ -1,0 +1,26 @@
+[Unit]
+Description=NexGameWorld online server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ngw-deploy
+Group=ngw-deploy
+WorkingDirectory=/opt/nexgameworld/current/server
+Environment=NODE_ENV=production
+Environment=PORT=9800
+EnvironmentFile=/opt/nexgameworld/shared/server.env
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=35
+MemoryMax=580M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/nexgameworld/shared
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
