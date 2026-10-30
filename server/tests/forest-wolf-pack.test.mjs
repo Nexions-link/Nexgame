@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSphericalMobs,localToNormal,rallyNearbyWolves,tickSphericalMobs,
- startSphereEvade,SPHERE_LEASH_METRES,sphereCombatLineClear} from '../spherical-pve.js';
+ startSphereEvade,SPHERE_LEASH_METRES,sphereCombatLineClear,
+ applySphereAttack,reassignSphereAggroOnLeave} from '../spherical-pve.js';
 import {wolfPairIndex,eligibleWolfPackHelper,WOLF_PACK_HOWL_MS} from '../../planet-test/forest-wolf-pack.js';
 import {FOREST_WOLF_SPAWNS} from '../../planet-test/forest-wolf-spawns.js';
 import {canWalkCamp} from '../../planet-test/sphere-physics.js';
@@ -50,4 +51,39 @@ test('a helper never joins a fight through obstacles or beyond its leash',()=>{
  ally.aggroId='another';
  assert.equal(rallyNearbyWolves(mobs,leader,hero,261,now).length,0);
  assert.equal(ally.aggroId,'another');
+});
+
+test('two characters jointly fight one forest wolf; only verified contributors receive kill credit',()=>{
+ const mobs=createSphericalMobs(),wolf=mobs[14],oldLife=wolf.life;
+ const heroA={...player({x:wolf.x,z:wolf.z-1.9}),id:'a',level:5,heading:Math.PI/2};
+ const heroB={...player({x:wolf.x,z:wolf.z-1.8}),id:'b',level:5,heading:Math.PI/2};
+ const first=applySphereAttack(mobs,heroA,'autoAttack',wolf.id,now,()=>.5);
+ assert.equal(first.ok,true,'first warrior can hit forest wolf without obstacles');
+ assert.equal(first.events[0].fromId,'a');
+ assert.ok(first.events[0].damage>0);
+ wolf.hp=1; // Reduce only this test mob so the second verified blow confirms shared kill.
+ const second=applySphereAttack(mobs,heroB,'autoAttack',wolf.id,now+1,()=>.5);
+ assert.equal(second.ok,true);
+ assert.equal(second.events[0].fromId,'b');
+ assert.equal(second.events[0].hp,0);
+ assert.equal(second.events[0].life,oldLife);
+ assert.equal(wolf.phase,'corpse');
+ assert.deepEqual(new Set(second.credits.map(x=>x.targetId)),new Set(['a','b']));
+ assert.ok(second.credits.every(x=>x.event.mobId===wolf.id&&x.event.life===oldLife
+  &&x.event.xp>0));
+ const replay=applySphereAttack(mobs,heroA,'autoAttack',wolf.id,now+3000,()=>.5);
+ assert.equal(replay.ok,false,'corpse cannot be killed twice');
+});
+test('wolf pack aggro remains on the surviving contributor after a tank disconnect',()=>{
+ const mobs=createSphericalMobs(),wolf=mobs[14];
+ const first={...player({x:wolf.x,z:wolf.z-1.9}),id:'tank',level:5,heading:Math.PI/2};
+ const second={...player({x:wolf.x,z:wolf.z-1.8}),id:'ally',level:5,heading:Math.PI/2};
+ assert.equal(applySphereAttack(mobs,first,'autoAttack',wolf.id,now,()=>.5).ok,true);
+ assert.equal(applySphereAttack(mobs,second,'autoAttack',wolf.id,now+1,()=>.5).ok,true);
+ const roster=new Map([['ally',second]]);
+ assert.equal(reassignSphereAggroOnLeave(wolf,'tank',roster,261,now+2),true);
+ assert.equal(wolf.aggroId,'ally');
+ assert.equal(wolf.contributors.has('tank'),false);
+ assert.equal(wolf.contributors.has('ally'),true);
+ assert.equal(wolf.returning,false);
 });

@@ -1,17 +1,19 @@
-// NexGame Alpha 0.3.5.25 — ephemeral 5-player party management.
+// NexGameWorld — server-validated 5-player parties with short authenticated reconnect grace.
 // All invitations and membership mutations happen on the server.
 import {randomUUID} from 'node:crypto';
 
 export const PARTY_MAX_SIZE=5;
 export const PARTY_INVITE_TTL_MS=60_000;
+export const PARTY_RECONNECT_GRACE_MS=120_000;
 
-export function createPartyManager({players,send,now=Date.now}){
- const groups=new Map(),membership=new Map(),pending=new Map();
- const online=id=>typeof id==='string'&&players.has(id);
+export function createPartyManager({players,send,now=Date.now,reconnectGraceMs=PARTY_RECONNECT_GRACE_MS}){
+ const groups=new Map(),membership=new Map(),pending=new Map(),suspended=new Map();
+ const online=id=>typeof id==='string'&&players.has(id)&&!suspended.has(id);
  const fail=(id,reason)=>{if(online(id))send(id,{type:'partyNotice',message:reason,error:true});return false};
  const roster=party=>party.members.map(id=>{
-  const p=players.get(id);
-  return {id,name:p?.name||'Странник',level:p?.level||1};
+  const p=online(id)?players.get(id):null,saved=suspended.get(id);
+  return {id,name:p?.name||saved?.name||'Странник',level:p?.level||saved?.level||1,
+   online:!!p};
  });
  const state=id=>{
   const party=groups.get(membership.get(id));
@@ -89,6 +91,7 @@ export function createPartyManager({players,send,now=Date.now}){
  }
  function leave(id,{disconnected=false}={}){
   clearPending(id);
+  suspended.delete(id);
   const party=groups.get(membership.get(id));
   membership.delete(id);
   if(!party)return false;
@@ -101,6 +104,7 @@ export function createPartyManager({players,send,now=Date.now}){
    groups.delete(party.id);
    for(const member of party.members){
     membership.delete(member);
+    suspended.delete(member);
     if(online(member))send(member,state(member));
    }
   }else{
@@ -113,6 +117,55 @@ export function createPartyManager({players,send,now=Date.now}){
   }
   return true;
  }
+ // Retain a verified character's place during brief mobile network interruptions.
+ // The reservation is never keyed by a user-controlled nickname or socket ID.
+ function suspend(id,characterId,{name='Странник',level=1}={}){
+  if(typeof characterId!=='string'||!characterId)return leave(id,{disconnected:true});
+  clearPending(id);
+  const party=groups.get(membership.get(id));
+  if(!party)return false;
+  suspended.set(id,{characterId,name,level,expires:now()+reconnectGraceMs});
+  for(const member of party.members)if(member!==id&&online(member))
+   send(member,{type:'partyNotice',message:name+' временно отключился'});
+  if(party.leaderId===id){
+   const next=party.members.find(member=>member!==id&&online(member));
+   if(next){
+    party.leaderId=next;
+    for(const member of party.members)if(online(member))
+     send(member,{type:'partyNotice',
+      message:'Новый лидер группы: '+(players.get(next)?.name||'Странник')});
+   }
+  }
+  notify(party);
+  return true;
+ }
+ // The caller must supply a characterId from an already validated login.
+ function resume(id,characterId){
+  expire();
+  if(!online(id)||membership.has(id)||typeof characterId!=='string'||!characterId)
+   return false;
+  for(const [oldId,held] of suspended){
+   if(held.characterId!==characterId)continue;
+   const party=groups.get(membership.get(oldId));
+   if(!party||!party.members.includes(oldId))return false;
+   // A verified character can reclaim only their own existing reservation.
+   suspended.delete(oldId);
+   membership.delete(oldId);
+   party.members=party.members.map(member=>member===oldId?id:member);
+   membership.set(id,party.id);
+   if(party.leaderId===oldId||!online(party.leaderId))party.leaderId=id;
+   notify(party);
+   for(const member of party.members)if(member!==id&&online(member))
+    send(member,{type:'partyNotice',message:(players.get(id)?.name||held.name)+' вернулся в группу'});
+   return true;
+  }
+  return false;
+ }
+ function expire(){
+  const current=now();
+  for(const [id,held] of suspended)if(held.expires<=current)
+   leave(id,{disconnected:true});
+ }
  function getMemberIds(id){
   const party=groups.get(membership.get(id));
   return party?[...party.members]:null;
@@ -121,7 +174,8 @@ export function createPartyManager({players,send,now=Date.now}){
   const party=groups.get(membership.get(id));
   notify(party);
  }
- return {invite,respond,promote,leave,disconnect:id=>leave(id,{disconnected:true}),
+ return {invite,respond,promote,leave,suspend,resume,expire,
+  disconnect:id=>leave(id,{disconnected:true}),
   renamed,state,getPartyId:id=>membership.get(id)||null,getMemberIds,
-  info:()=>({groups:groups.size,pending:pending.size})};
+  info:()=>({groups:groups.size,pending:pending.size,suspended:suspended.size})};
 }

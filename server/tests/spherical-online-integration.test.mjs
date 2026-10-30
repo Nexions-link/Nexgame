@@ -4,6 +4,7 @@ import {spawn} from 'node:child_process';
 import {createServer} from 'node:net';
 import {WebSocket} from 'ws';
 import {localToNormal} from '../spherical-pve.js';
+import {FOREST_WOLF_SPAWNS} from '../../planet-test/forest-wolf-spawns.js';
 import {CHEST_X,CHEST_Z} from '../chest.js';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function server(){
@@ -175,4 +176,47 @@ test('warrior charge visual is shared with nearby observers without client-suppl
   assert.ok(effect.fromNormal.every(Number.isFinite));
   assert.ok(!observer.events.some(e=>e.type==='chargeAccepted'));
  }finally{warrior?.close();observer?.close();child.kill();}
+});
+
+test('Whispering Forest: two real sockets witness the same wolves, combat and pack retaliation',
+ {timeout:15000},async()=>{
+ const {port,child}=await server();let attacker,observer;
+ try{
+  const wolf=FOREST_WOLF_SPAWNS[0],mobId='forest-wolf-0';
+  attacker=await join(port,'Охотник в лесу',wolf.x,wolf.z-1.7,5,261,{weapon:{id:'wornAxe'}});
+  observer=await join(port,'Напарник в лесу',wolf.x,wolf.z-1.9,5,261,{weapon:{id:'wornAxe'}});
+  const a=await until(()=>attacker.events.find(e=>e.type==='welcome'));
+  const b=await until(()=>observer.events.find(e=>e.type==='welcome'));
+  const wa=a.mobs.find(m=>m.id===mobId),wb=b.mobs.find(m=>m.id===mobId);
+  assert.ok(wa&&wb,'the same forest wolf must spawn on both browsers');
+  assert.equal(wa.life,wb.life);
+  assert.equal(wa.family,'forestWolf');
+  await until(()=>attacker.events.find(e=>e.type==='snapshot'
+   &&e.players.some(p=>p.id===b.id)),5000);
+  attacker.send({type:'attack',abilityId:'autoAttack',mobId});
+  const first=await until(()=>observer.events.find(e=>e.type==='combat'
+   &&e.mobId===mobId&&e.fromId===a.id),5000);
+  assert.ok(first.damage>0,'observer sees a real server-confirmed strike');
+  assert.ok(first.hp<wa.maxHp);
+  observer.send({type:'attack',abilityId:'autoAttack',mobId});
+  const second=await until(()=>attacker.events.find(e=>e.type==='combat'
+   &&e.mobId===mobId&&e.fromId===b.id),5000);
+  assert.ok(second.damage>0,'first player sees a teammate hit the same wolf');
+  assert.equal(second.life,first.life);
+  const reaction=await until(()=>attacker.events.find(e=>
+   e.type==='mobTelegraph'&&e.mobId===mobId),7000);
+  assert.equal(reaction.life,first.life);
+  const impact=await until(()=>observer.events.find(e=>
+   e.type==='mobStrike'&&e.mobId===mobId),7000);
+  assert.ok([a.id,b.id].includes(impact.targetId));
+  const received=await until(()=>[attacker,observer].some(c=>c.events.some(e=>
+   e.type==='mobAttack'&&e.mobId===mobId)),3000);
+  assert.equal(received,true,'victim receives authoritative damage');
+  const sa=attacker.events.filter(e=>e.type==='snapshot').at(-1).mobs.find(m=>m.id===mobId);
+  const sb=observer.events.filter(e=>e.type==='snapshot').at(-1).mobs.find(m=>m.id===mobId);
+  assert.equal(sa.life,sb.life);
+  assert.equal(sa.hp,sb.hp,'both browsers converge on the same wolf health');
+ }finally{
+  attacker?.close();observer?.close();child.kill();
+ }
 });
