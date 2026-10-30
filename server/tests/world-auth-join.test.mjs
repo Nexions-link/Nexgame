@@ -167,3 +167,70 @@ test('disconnecting during combat sends mobs into evasion without retaining old 
   client.close();wss.close();server.close();world.close();
  }
 });
+
+test('real authenticated WebSockets restore the same verified character party after reconnect',
+ {timeout:11000},async()=>{
+ const server=createServer(),world=createSphericalWorld();
+ const wss=new WebSocketServer({server});
+ const origin=localToNormal(-9,-24,261);
+ const makeTrusted=(characterId,nickname)=>({
+  accountId:'account-'+characterId,characterId,nickname,
+  progress:{revision:1,level:5,experience:0,gold:30,health:130,resource:0,
+   worldRadius:261,positionNormal:origin,heading:0,equipment:{},quests:{},
+   inventory:[],actionBar:[]}
+ });
+ const identities=[makeTrusted('verified-a','Верный союзник'),
+  makeTrusted('verified-b','Второй союзник'),
+  makeTrusted('verified-impostor','Верный союзник'),
+  makeTrusted('verified-a','Верный союзник')];
+ let joined=0;
+ wss.on('connection',ws=>world.attach(ws,{trustedCharacter:identities[joined++]}));
+ await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
+ const connections=[];
+ const open=async()=>{
+  const ws=new WebSocket('ws://127.0.0.1:'+server.address().port),events=[];
+  ws.on('message',raw=>events.push(JSON.parse(String(raw))));
+  await new Promise((ok,fail)=>{ws.once('open',ok);ws.once('error',fail)});
+  ws.send(JSON.stringify({type:'join',normal:origin,heading:0,radius:261}));
+  connections.push(ws);
+  const welcome=await until(events,'welcome');
+  return {ws,events,welcome,send:m=>ws.send(JSON.stringify(m))};
+ };
+ const waitFor=async(events,predicate)=>{
+  const start=Date.now();
+  while(Date.now()-start<5000){
+   const value=[...events].reverse().find(predicate);
+   if(value)return value;
+   await new Promise(ok=>setTimeout(ok,25));
+  }
+  throw Error('Timed out waiting for authenticated party update');
+ };
+ try{
+  const a=await open(),b=await open();
+  a.send({type:'partyInvite',targetId:b.welcome.id});
+  await waitFor(b.events,e=>e.type==='partyInvite'&&e.fromId===a.welcome.id);
+  b.send({type:'partyRespond',fromId:a.welcome.id,accept:true});
+  const party=await waitFor(b.events,e=>e.type==='partyState'&&e.members.length===2);
+  assert.equal(party.leaderId,a.welcome.id);
+  const stableGroup=party.groupId;
+  a.ws.close();
+  const suspended=await waitFor(b.events,e=>e.type==='partyState'
+   &&e.groupId===stableGroup&&e.leaderId===b.welcome.id
+   &&e.members.some(m=>m.id===a.welcome.id&&m.online===false));
+  assert.equal(suspended.members.length,2);
+  const impostor=await open();
+  const outsider=await waitFor(impostor.events,e=>e.type==='partyState');
+  assert.equal(outsider.groupId,null,'matching nickname must not restore membership');
+  const returning=await open();
+  assert.notEqual(returning.welcome.id,a.welcome.id);
+  const restored=await waitFor(returning.events,e=>e.type==='partyState'
+   &&e.groupId===stableGroup&&e.members.length===2);
+  assert.equal(restored.leaderId,b.welcome.id,'original leader cannot silently seize control');
+  assert.equal(restored.members.find(m=>m.id===returning.welcome.id).online,true);
+  assert.equal(restored.members.some(m=>m.id===a.welcome.id),false);
+  assert.equal(world.players.size,3);
+ }finally{
+  for(const ws of connections)ws.close();
+  wss.close();server.close();world.close();
+ }
+});
