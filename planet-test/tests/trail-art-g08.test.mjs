@@ -109,7 +109,7 @@ test('start and forest trails join in colour and no hard texture cut at the conn
 test('the G-08 module has no camera, shader overrides, network or physical changes',()=>{
  const s=source('../trail-art.js'),game=source('../planet.js');
  const executable=s.split('\n').filter(line=>!line.trimStart().startsWith('//')).join('\n');
- assert.doesNotMatch(executable,/fetch\\(|WebSocket|camera|new THREE|document|heightAt|localStorage/);
+ assert.doesNotMatch(executable,/fetch\(|WebSocket|camera|new THREE|document|heightAt|localStorage/);
  assert.match(game,/new THREE\.PerspectiveCamera\(58, innerWidth \/ innerHeight, \.48, 1300\)/);
  assert.match(game,/cameraPitch:previousWorld\?\.cameraPitch\?\?\.36/);
  assert.match(game,/artSafety\.update\(qualityName,isPortalPreview\)/);
