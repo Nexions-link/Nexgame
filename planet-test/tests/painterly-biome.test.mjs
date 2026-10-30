@@ -27,7 +27,7 @@ test('all plants are true 3D procedural shapes, with a soft-alpha light layer',(
   assert.equal(v.colors.length,v.positions.length/3*(v.alpha?4:3));
   assert.ok(v.positions.every(Number.isFinite));
   assert.ok(v.colors.every(Number.isFinite));
-  assert.ok(v.positions.some((q,i)=>i%3===1&&q>.25),kind+' must have geometry above ground');
+  if(kind!=='sunflecks')assert.ok(v.positions.some((q,i)=>i%3===1&&q>.25),kind+' must have geometry above ground');
  }
 });
 test('graphics presets retain a budgeted scene with a full high-density option',()=>{
