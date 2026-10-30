@@ -63,6 +63,20 @@ jobs:
             echo "== private env present =="; if test -f /opt/nexgameworld/shared/server.env; then echo YES; else echo NO; fi
             echo "== 9800 in use =="; if ss -ltn | grep -Eq ":9800[[:space:]]"; then echo YES; else echo NO; fi
           '
+      - name: S-09 verify Neon secret is configured
+        env:
+          DATABASE_URL: ${{ secrets.NGW_VPS_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DATABASE_URL:-}" ]]; then
+            echo "::error::NGW_VPS_DATABASE_URL is missing"
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            postgres://*|postgresql://*) echo "NEON_SECRET_FORMAT_OK" ;;
+            *) echo "::error::Expected a PostgreSQL URL"; exit 1 ;;
+          esac
+          echo "Secret is present; value is not logged."
       - name: S-08 verify VPS readiness without starting Node
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
