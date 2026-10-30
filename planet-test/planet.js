@@ -21,6 +21,7 @@ import {createSoilScatter} from './soil-scatter.js?v=2';
 import {createRoadsideDetails} from './roadside-details.js?v=2';
 import {WORLD_ART_PALETTE as ART} from './world-art-style.js?v=1';
 import {createPainterlyBiome} from './painterly-biome.js?v=2';
+import {createArtSafetyController} from './art-safety.js?v=1';
 import {VISUAL_REFERENCE_VIEWS,getVisualReferenceView,referenceViewPose} from './reference-viewpoints.js?v=1';
 import {captureVisualWebGLFrame,createVisualCaptureStore,makeVisualSnapshotMeta,compareVisualSnapshotMeta} from './visual-capture.js?v=1';
 import {createForestEcology} from './forest-ecology.js?v=4';
@@ -327,18 +328,32 @@ try {
   })();
   // Detailed native camp, lake and authentic procedural Tauren are isolated in start-zone.js.
   const startZone=createStartZone(THREE,scene,()=>R,heightAt);
-  // Construct expensive surface tiles only on a rich quality preset. Economy
-  // mode and portal first render should not bake a large microtexture at all.
-  let surfaceMicrodetail=null,soilScatter=null;
+  // Core scene, blocking trees and game systems are never detached.
   const whisperingForest=createWhisperingForest(THREE,{scene,radius:R,heightAt});
-  const roadsideDetails=isPortalPreview?null:createRoadsideDetails(THREE,{scene,radius:R,heightAt,startRoute:ROUTES[1]});
-  const forestEcology=isPortalPreview?null:createForestEcology(THREE,{scene,radius:R,heightAt});
-  const forestLightPools=isPortalPreview?null:createForestLightPools(THREE,{scene,radius:R,heightAt});
-  const forestAtmosphere=isPortalPreview?null:createForestAtmosphere(THREE,{scene,radius:R,heightAt});
-  const forestFloor=isPortalPreview?null:createForestFloor(THREE,{scene,radius:R,heightAt});
-  const forestGroundLife=isPortalPreview?null:createForestGroundLife(THREE,{scene,radius:R,heightAt});
-  const forestUnderstory=isPortalPreview?null:createForestUnderstory(THREE,{scene,radius:R,heightAt});
-   const painterlyBiome=isPortalPreview?null:createPainterlyBiome(THREE,{scene,radius:R,heightAt});
+  const artSafety=createArtSafetyController({
+    scene,storage:localStorage,preview:isPortalPreview,
+    onChange:({mode,lastFault,contextLost})=>{
+      const toggle=$('artRemasterToggle'),help=$('artRemasterStatus');
+      if(toggle)toggle.checked=mode==='enhanced';
+      if(help)help.textContent=contextLost?'Контекст WebGL потерян. Ожидаем восстановления.':
+       lastFault?'Безопасная графика включена: '+lastFault.stage+'. Включить ремастер повторно можно вручную.':
+       mode==='enhanced'?'Ремастер включён. При ошибке графический слой отключится.':
+       'Базовая графика: дополнительные декоративные слои выключены.';
+    }
+  });
+  const ART_SCENE_ARGS={scene,radius:R,heightAt};
+  artSafety.register('roadside',()=>createRoadsideDetails(THREE,{...ART_SCENE_ARGS,startRoute:ROUTES[1]}));
+  artSafety.register('ecology',()=>createForestEcology(THREE,ART_SCENE_ARGS));
+  artSafety.register('light-pools',()=>createForestLightPools(THREE,ART_SCENE_ARGS));
+  artSafety.register('atmosphere',()=>createForestAtmosphere(THREE,ART_SCENE_ARGS));
+  artSafety.register('forest-floor',()=>createForestFloor(THREE,ART_SCENE_ARGS));
+  artSafety.register('ground-life',()=>createForestGroundLife(THREE,ART_SCENE_ARGS));
+  artSafety.register('understory',()=>createForestUnderstory(THREE,ART_SCENE_ARGS));
+  artSafety.register('painterly',()=>createPainterlyBiome(THREE,ART_SCENE_ARGS));
+  artSafety.register('microdetail',()=>createSurfaceMicrodetail(THREE,ART_SCENE_ARGS),
+    {when:preset=>preset!=='economy'});
+  artSafety.register('soil-scatter',()=>createSoilScatter(THREE,ART_SCENE_ARGS),
+    {when:preset=>preset!=='economy'});
   relocateInstances();
   const hero=createTauren(THREE,scene,{player:true});
   const actor=hero.root;
@@ -379,10 +394,7 @@ try {
   let combatQualitySink=null;
   function applyGraphicsQuality(){
     const profile=GRAPHICS_PRESETS[qualityName];
-    if(!isPortalPreview&&qualityName!=='economy'){
-      if(!surfaceMicrodetail)surfaceMicrodetail=createSurfaceMicrodetail(THREE,{scene,radius:R,heightAt});
-      if(!soilScatter)soilScatter=createSoilScatter(THREE,{scene,radius:R,heightAt});
-    }
+    const artEnabled=artSafety.update(qualityName,isPortalPreview);
     const enabled=!isPortalPreview&&!state.orbit&&profile.shadowSize>0;
     renderer.setPixelRatio(effectivePixelRatio(qualityName,window.devicePixelRatio||1,isPortalPreview));
     renderer.toneMappingExposure=profile.exposure;
@@ -399,23 +411,14 @@ try {
     const sceneryDensity=graphicsDensity(qualityName);
     // The portal shows the latest village art without costly shadows or high DPR.
     if(isPortalPreview)sceneryDensity.detail=.68;
-    startZone.setGraphics({...sceneryDensity,waterColor:profile.waterColor,shadows:enabled,portal:isPortalPreview,microBump:surfaceMicrodetail?.reliefVillage});
+    startZone.setGraphics({...sceneryDensity,waterColor:profile.waterColor,shadows:enabled,portal:isPortalPreview,microBump:artEnabled?artSafety.getLayer('microdetail')?.reliefVillage:null});
     // The existing opaque forest map doubles as subtle material relief on
     // richer presets, adding zero GPU texture memory or custom shaders.
-    const relief=!isPortalPreview&&qualityName!=='economy'?(surfaceMicrodetail?.reliefGlobe||groundTexture):null;
+    const relief=artEnabled&&!isPortalPreview&&qualityName!=='economy'?(artSafety.getLayer('microdetail')?.reliefGlobe||groundTexture):null;
     if(groundMaterial.bumpMap!==relief){groundMaterial.bumpMap=relief;groundMaterial.needsUpdate=true;}
     groundMaterial.bumpScale=qualityName==='high'?.074:.043;
     whisperingForest.setQuality(qualityName,isPortalPreview);
-    roadsideDetails?.setQuality(qualityName,isPortalPreview);
-    forestEcology?.setQuality(qualityName,isPortalPreview);
-    forestLightPools?.setQuality(qualityName,isPortalPreview);
-    forestAtmosphere?.setQuality(qualityName,isPortalPreview);
-    forestFloor?.setQuality(qualityName,isPortalPreview);
-    forestGroundLife?.setQuality(qualityName,isPortalPreview);
-    forestUnderstory?.setQuality(qualityName,isPortalPreview);
-     painterlyBiome?.setQuality(qualityName,isPortalPreview);
-    surfaceMicrodetail?.setQuality(qualityName,isPortalPreview);
-    soilScatter?.setQuality(qualityName,isPortalPreview);
+    // Optional scenery presets are protected by artSafety.update above.
     hero.visualDetails?.setQuality(isPortalPreview?.68:profile.detail);
     combatQualitySink?.(isPortalPreview?.15:profile.detail);
     if(qualityHelp)qualityHelp.textContent=
@@ -427,6 +430,10 @@ try {
   graphicsSelect?.addEventListener('change',()=>{
     qualityName=resolveGraphicsPreset(graphicsSelect.value);
     storePreference(graphicsStorageKey,qualityName);
+    applyGraphicsQuality();
+  });
+  $('artRemasterToggle')?.addEventListener('change',event=>{
+    artSafety.setMode(event.target.checked?'enhanced':'base',qualityName);
     applyGraphicsQuality();
   });
   if(fpsToggle&&fpsCounter){
@@ -1080,6 +1087,35 @@ try {
   const windowFocus=new THREE.Vector3();let hasWindowFocus=false;
   const clock = new THREE.Clock();
   let elapsed = 0, uiClock = 0, introClock = 0, forestFogBlend=0, forestShadeBlend=0;
+  let webglContextFailed=false;
+  const gfxFailure=$('graphicsFailure'),gfxFailureText=$('graphicsFailureText');
+  function showGraphicsFailure(message,error){
+    if(gfxFailureText)gfxFailureText.textContent=message;
+    if(gfxFailure)gfxFailure.hidden=false;
+    if(error)console.error('NexGameWorld graphics failure',error);
+  }
+  $('graphicsReload')?.addEventListener('click',()=>{
+    artSafety.setMode('base',qualityName);
+    location.reload();
+  });
+  canvas.addEventListener('webglcontextlost',event=>{
+    event.preventDefault();
+    artSafety.onContextLost();
+    webglContextFailed=true;
+    showGraphicsFailure('WebGL временно недоступен. При восстановлении игра продолжится в базовой графике.');
+  },false);
+  canvas.addEventListener('webglcontextrestored',()=>{
+    artSafety.onContextRestored();
+    webglContextFailed=false;
+    try{
+      applyGraphicsQuality();
+      shadowBudget.reset();
+      if(gfxFailure)gfxFailure.hidden=true;
+    }catch(error){
+      webglContextFailed=true;
+      showGraphicsFailure('Не удалось восстановить графику. Перезагрузите игру.',error);
+    }
+  },false);
   let fpsSeconds=0,fpsFrames=0;
   function animate() {
     requestAnimationFrame(animate);
@@ -1217,8 +1253,8 @@ try {
     mountControls.tick();
     startZone.animate(elapsed);
     whisperingForest.animate(elapsed);
-    forestEcology?.animate(elapsed);
-    forestAtmosphere?.animate(elapsed,state.orbit?0:forestFogBlend);
+    artSafety.animate('ecology',elapsed);
+    artSafety.animate('atmosphere',elapsed,state.orbit?0:forestFogBlend);
     rpg.update(dt);
     // Single native pose pass after gathering/combat state has updated.
     // No second subsystem may reset the hip, knee, torso or arm angles.
@@ -1337,8 +1373,20 @@ try {
       sun.target.updateMatrixWorld();
     }
     drawNativeMinimap();
-    renderer.render(scene,camera);
-    if(pendingVisualShot){
+    if(!webglContextFailed&&!artSafety.isContextLost){
+      try{renderer.render(scene,camera)}
+      catch(renderError){
+        artSafety.renderError(renderError);
+        try{
+          applyGraphicsQuality();
+          renderer.render(scene,camera);
+        }catch(baseError){
+          webglContextFailed=true;
+          showGraphicsFailure('Не удалось восстановить рендер. Перезагрузите игру в безопасном режиме.',baseError);
+        }
+      }
+    }
+    if(pendingVisualShot&&!webglContextFailed&&!artSafety.isContextLost){
       const shot=pendingVisualShot;pendingVisualShot=null;
       // Call synchronously after the real frame; WebGL target is restored by
       // captureVisualWebGLFrame before the next animation frame.
