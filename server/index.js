@@ -243,7 +243,7 @@ wss.on('connection',(ws,req)=>{
  if(!guestWorldEnabled){ws.close(1008,'Account login required');return;}
  world.attach(ws);
 });
-http.listen(PORT,'0.0.0.0',()=>{
+http.listen(PORT,process.env.HOST||'0.0.0.0',()=>{
  console.log('NexGameWorld spherical server listening on '+PORT);
  console.log('NexGameWorld database URL present:',Boolean(process.env.DATABASE_URL));
  if(process.env.NGW_ACCOUNTS_SMOKE==='once'){
