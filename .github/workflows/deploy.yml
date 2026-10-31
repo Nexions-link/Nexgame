@@ -47,7 +47,7 @@ jobs:
       - name: Install shared imports required by server
         run: |
           set -euo pipefail
-          tar -czf - --exclude='.git' --exclude='node_modules' --exclude='*.env' --exclude='*.key' --exclude='*.pem' items.js skills.js landscape.js planet-test | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'tar -xzf - -C /opt/nexgameworld/releases'
+          tar -czf - --exclude='.git' --exclude='node_modules' --exclude='*.env' --exclude='*.key' --exclude='*.pem' items.js skills.js landscape.js target-selection.js planet-test | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'tar -xzf - -C /opt/nexgameworld/releases'
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/releases/items.js && test -f /opt/nexgameworld/releases/planet-test/start-zone.js && echo SHARED_IMPORTS_OK'
       - name: Activate game service
         run: |
