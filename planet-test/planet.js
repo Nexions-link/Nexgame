@@ -242,6 +242,7 @@ try {
   const localFog=new THREE.Fog(skyDay,105,290);
   const forestFogColor=new THREE.Color('#809b88');
   const forestAmbientColor=new THREE.Color('#bfd6c4');
+  const modernAmbientTint=new THREE.Color('#a7bace');
   const forestSkyColor=new THREE.Color('#a3beb1');
   const blendedForestSky=new THREE.Color();
   sun.shadow.camera.left=-31;sun.shadow.camera.right=31;
@@ -1281,7 +1282,7 @@ try {
       forestLightResponse(forestShadeBlend,fogProfile.exposure),forestShadeBlend,modernGraphicsPreview);
     skyFill.intensity=localLight.hemi;
     skyFill.color.set(ART.light.ambientSky).lerp(forestAmbientColor,forestShadeBlend*.65);
-    if(modernGraphicsPreview)skyFill.color.lerp(new THREE.Color('#a7bace'),.16);
+    if(modernGraphicsPreview)skyFill.color.lerp(modernAmbientTint,.16);
     sun.intensity=localLight.sun;
     if(modernGraphicsPreview)sun.color.set('#ffdfa5');
     else sun.color.set(ART.light.sun);
