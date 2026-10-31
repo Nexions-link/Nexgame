@@ -1,0 +1,30 @@
+name: NGW VPS deploy (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ngw-vps-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -eu
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' '94.103.87.93 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbWFAA2zL+WsOnYqQra1JpNSDboVf1ubAOhr4qSQhQH' > ~/.ssh/known_hosts
+      - name: Validate release
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/current/index.js && node --check /opt/nexgameworld/current/index.js && echo RELEASE_VALID'
+      - name: Verify scoped service rights
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n -l /usr/bin/systemctl restart nexgameworld.service >/dev/null && echo SERVICE_RIGHTS_OK'
+      - name: Report
+        run: echo 'Preflight completed. No production service was started or restarted.'
