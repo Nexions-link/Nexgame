@@ -65,6 +65,11 @@ jobs:
           printf 'PUBLIC_HEALTH=' >> ngw-vps-status.txt
           curl -s -o /dev/null -w '%{http_code}' --max-time 7 https://api.nexions.ru/health >> ngw-vps-status.txt
           printf '\\n' >> ngw-vps-status.txt
-          gh api --method PUT repos/${{ github.repository }}/contents/ops/vps/latest-status.txt -f message="ops: publish VPS health result" -f content="$(base64 -w0 ngw-vps-status.txt)" -f branch=main --jq '.content.path' || true
+          EXISTING_SHA="$(gh api repos/${{ github.repository }}/contents/ops/vps/latest-status.txt --jq .sha 2>/dev/null || true)"
+          if [ -n "$EXISTING_SHA" ]; then
+            gh api --method PUT repos/${{ github.repository }}/contents/ops/vps/latest-status.txt -f message="ops: publish VPS health result" -f content="$(base64 -w0 ngw-vps-status.txt)" -f branch=main -f sha="$EXISTING_SHA" --jq '.content.path'
+          else
+            gh api --method PUT repos/${{ github.repository }}/contents/ops/vps/latest-status.txt -f message="ops: publish VPS health result" -f content="$(base64 -w0 ngw-vps-status.txt)" -f branch=main --jq '.content.path'
+          fi
       - name: Report
         run: echo 'Game service activation requested.'
