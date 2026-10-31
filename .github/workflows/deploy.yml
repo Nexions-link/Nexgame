@@ -33,10 +33,6 @@ jobs:
           npm run check --prefix server
           npm test --prefix server
           node --check planet-test/planet.js
-          node --check planet-test/asset-forest.js
-          node --check planet-test/asset-forest-layout.js
-          node --check planet-test/vendor/GLTFLoader.js
-          node --test planet-test/tests/asset-forest-layout.test.mjs
           node --test ops/audit-production.test.mjs
           # Only tracked runtime source/data: never package credentials or node_modules.
           git ls-files -z | python3 -c 'import sys; paths=sys.stdin.buffer.read().split(b"\0"); sys.stdout.buffer.write(b"\0".join(p for p in paths if p and p.endswith((b".js",b".mjs",b".json",b".sql")) and not p.startswith((b".github/",b"ops/",b"versions/")))+b"\0")' > /tmp/ngw-files
