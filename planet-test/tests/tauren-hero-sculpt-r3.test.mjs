@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {readFileSync} from 'node:fs';
 import {taurenFurLockData,createTaurenFurLockGeometry,carveTaurenHornRadius,
- TAUREN_FUR_LOCK_BUDGET} from '../tauren-hero-sculpt.js';
+ TAUREN_FUR_LOCK_BUDGET} from '../tauren-hero-sculpt.js?v=2';
 import {createTauren} from '../start-zone.js';
 import {animateSphericalTauren} from '../tauren-animation.js';
 import {installDom} from './harness.mjs';
