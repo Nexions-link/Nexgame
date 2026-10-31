@@ -1,6 +1,9 @@
 name: NGW VPS deploy (manual)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/deploy.yml']
 permissions:
   contents: read
 concurrency:
@@ -37,12 +40,15 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$NGW_VPS_DATABASE_URL"
-          printf 'DATABASE_URL=%s\n' "$NGW_VPS_DATABASE_URL" | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'umask 077; cat > /opt/nexgameworld/shared/server.env; chmod 600 /opt/nexgameworld/shared/server.env'
+          printf 'DATABASE_URL=%s\nNGW_ACCOUNTS_ENABLED=true\nNGW_AUTH_WORLD_ENABLED=true\nNGW_ECONOMY_ENABLED=true\nNGW_CHEST_DATA_FILE=/opt/nexgameworld/shared/chest.json\n' "$NGW_VPS_DATABASE_URL" | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'umask 077; cat > /opt/nexgameworld/shared/server.env; chmod 600 /opt/nexgameworld/shared/server.env'
       - name: Verify database connectivity without starting game server
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'cd /opt/nexgameworld/current && node --input-type=module -e '"'"'import pg from "pg"; import {readFileSync} from "node:fs"; const data=readFileSync("/opt/nexgameworld/shared/server.env","utf8"); const line=data.split(/\r?\n/).find(s=>s.startsWith("DATABASE_URL=")); const value=line?.slice("DATABASE_URL=".length).trim(); let url; try{url=new URL(value);}catch{console.error("VPS_DATABASE_URL_INVALID");process.exit(1);} if(!["postgres:","postgresql:"].includes(url.protocol)||["localhost","127.0.0.1","::1"].includes(url.hostname)||!url.password){console.error("VPS_DATABASE_URL_INVALID_OR_LOCAL");process.exit(1);} const pool=new pg.Pool({connectionString:value,connectionTimeoutMillis:8000,max:1}); try{const r=await pool.query("select 1 as ok"); if(r.rows[0].ok!==1)throw Error("Unexpected database result");console.log("NEON_CONNECTION_OK");}catch(e){console.error("NEON_CONNECTION_FAILED",e.code||e.name);process.exitCode=1;}finally{await pool.end();}'"'"''
       - name: Activate game service
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n systemctl restart nexgameworld.service'
+      - name: Verify live game service
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; for i in 1 2 3 4 5 6 7 8; do if curl --fail --silent --max-time 4 http://127.0.0.1:9800/ready >/dev/null; then echo NGW_READY_OK; curl --fail --silent --show-error http://127.0.0.1:9800/health; exit 0; fi; sleep 3; done; echo NGW_NOT_READY; exit 1'
       - name: Report
         run: echo 'Game service activation requested.'
