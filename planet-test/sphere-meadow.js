@@ -4,7 +4,7 @@ import {scatterMeadow} from '../meadow.js?v=0.3.7.1';
 import {createWeatheredStoneGeometry} from './stone-surface.js?v=1';
 import {WORLD_ART_VERTEX as V} from './world-art-style.js?v=1';
 export function meadowGrassBladeData(){
- const positions=[],colors=[],bladeCount=5;
+ const positions=[],colors=[],bladeCount=6;
  const emit=(v,c)=>{positions.push(...v);colors.push(...c)};
  const tri=(a,b,c,ca,cb,cc)=>{emit(a,ca);emit(b,cb);emit(c,cc)};
  for(let i=0;i<bladeCount;i++){
@@ -21,7 +21,8 @@ export function meadowGrassBladeData(){
   const l=[shoulder[0]+tx*w*.56,shoulder[1],shoulder[2]+tz*w*.56];
   const r=[shoulder[0]-tx*w*.56,shoulder[1],shoulder[2]-tz*w*.56];
   tri(left,right,l,dark,dark,mid);
-  tri(right,tip,l,dark,light,mid);
+  tri(right,r,l,dark,mid,mid);
+  tri(l,r,tip,mid,mid,light);
  }
  return {positions,colors,bladeCount};
 }

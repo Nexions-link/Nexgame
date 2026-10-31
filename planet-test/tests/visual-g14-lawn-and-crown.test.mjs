@@ -34,8 +34,8 @@ test('G-14 starter meadow is a dense short lawn with only occasional small shrub
  assert.equal(meadow.counts.shrubs,160,'small shrubs remain sparse');
  assert.ok(meadow.counts.grass/meadow.counts.shrubs>55);
  const grass=meadowGrassBladeData();
- assert.equal(grass.bladeCount,5);
- assert.equal(grass.positions.length/9,10,'each lawn tuft is cheap');
+ assert.equal(grass.bladeCount,6);
+ assert.equal(grass.positions.length/9,18,'six shaded curved grass blades in one tuft');
  assert.equal(scene.children.filter(x=>x.isInstancedMesh).length,6);
  const grassMesh=scene.children[0],shrubMesh=scene.children[4];
  assert.ok(grassMesh.isInstancedMesh&&shrubMesh.isInstancedMesh);
