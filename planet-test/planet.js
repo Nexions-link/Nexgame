@@ -367,6 +367,7 @@ try {
   function readPreference(key,fallback){try{return localStorage.getItem(key)??fallback}catch{return fallback}}
   function storePreference(key,value){try{localStorage.setItem(key,value)}catch{}}
   const graphicsSelect=$('graphicsQuality'),qualityHelp=$('qualityHelp');
+  const r2MaterialsToggle=$('r2MaterialsToggle');
   const fpsToggle=$('showFps'),fpsCounter=$('fpsCounter');
   const fpsCopy=$('copyFpsReport'),fpsReset=$('resetFpsReport'),fpsHelp=$('fpsHelp');
   const frameProfiler=createFrameProfiler();
@@ -400,7 +401,7 @@ try {
     startZone.setGraphics({...sceneryDensity,waterColor:profile.waterColor,shadows:enabled,portal:isPortalPreview,microBump:surfaceMicrodetail?.reliefVillage});
     // The existing opaque forest map doubles as subtle material relief on
     // richer presets, adding zero GPU texture memory or custom shaders.
-    const relief=!isPortalPreview&&qualityName!=='economy'?(surfaceMicrodetail?.reliefGlobe||groundTexture):null;
+    const relief=!isPortalPreview&&qualityName!=='economy'&&!(r2Materials&&qualityName==='high')?(surfaceMicrodetail?.reliefGlobe||groundTexture):null;
     if(groundMaterial.bumpMap!==relief){groundMaterial.bumpMap=relief;groundMaterial.needsUpdate=true;}
     groundMaterial.bumpScale=qualityName==='high'?.074:.043;
     // R2 adds only two 128px tiled textures on HIGH, no new passes or objects.
@@ -434,6 +435,15 @@ try {
       qualityName==='high'?'Самая плотная растительность, чёткая картинка, тени 1024 px.':
       'Умеренная растительность, мягкие тени 512 px и улучшенное озеро.';
     if(graphicsSelect)graphicsSelect.value=qualityName;
+  }
+  if(r2MaterialsToggle){
+    r2MaterialsToggle.checked=r2Materials;
+    r2MaterialsToggle.addEventListener('change',()=>{
+      const next=new URL(location.href);
+      if(r2MaterialsToggle.checked)next.searchParams.set('r2materials','1');
+      else next.searchParams.delete('r2materials');
+      location.replace(next.href);
+    });
   }
   graphicsSelect?.addEventListener('change',()=>{
     qualityName=resolveGraphicsPreset(graphicsSelect.value);
