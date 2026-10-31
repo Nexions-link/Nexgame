@@ -38,8 +38,8 @@ test('adaptive resolution recovers gradually and resets for preset changes or Sa
  const b=createR2AdaptiveRenderBudget();
  play(b,42,3);assert.equal(b.stage,2);
  play(b,16.67,5);assert.equal(b.stage,2,'avoid flicker from a short good interval');
- play(b,16.67,3);assert.ok(b.stage<=1,'recovery requires sustained good performance');
- play(b,16.67,8);assert.equal(b.stage,0);
+ play(b,16.67,5);assert.ok(b.stage<=1,'recovery requires sustained good performance after the slow-window clears');
+ play(b,16.67,10);assert.equal(b.stage,0);
  play(b,42,3);assert.equal(b.stage,2);
  b.observe(16,1/60,{enabled:true,quality:'balanced'});
  assert.equal(b.stage,0,'new graphic quality resets old samples');
