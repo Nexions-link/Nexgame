@@ -33,5 +33,8 @@ jobs:
           set -euo pipefail
           test -n "$NGW_VPS_DATABASE_URL"
           printf 'DATABASE_URL=%s\n' "$NGW_VPS_DATABASE_URL" | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'umask 077; cat > /opt/nexgameworld/shared/server.env; chmod 600 /opt/nexgameworld/shared/server.env'
+      - name: Verify database connectivity without starting game server
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; test -s /opt/nexgameworld/shared/server.env; test -d /opt/nexgameworld/current/node_modules/pg; cd /opt/nexgameworld/current; set -a; . /opt/nexgameworld/shared/server.env; set +a; node --input-type=module -e '"'"'import pg from "pg"; const pool = new pg.Pool({connectionString:process.env.DATABASE_URL,connectionTimeoutMillis:8000,max:1}); try { const r=await pool.query("select 1 as ok"); if(r.rows[0].ok!==1) throw Error("Unexpected database result"); console.log("NEON_CONNECTION_OK"); } finally { await pool.end(); }'"'"''
       - name: Report
         run: echo 'Preflight completed. No production service was started or restarted.'
