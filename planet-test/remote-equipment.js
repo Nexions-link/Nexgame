@@ -15,7 +15,12 @@ const WEAPON_ASSETS=Object.freeze({
 });
 export function remoteEquipmentSpec(peer,slot){
  if(slot!=='weapon'&&slot!=='shield')return null;
- const itemId=slot==='weapon'?peer?.equipment?.weapon:peer?.equipment?.shieldId;
+ // Older verified presence packets may carry only the certified Battlefury
+ // appearance. Keep that supported without accepting arbitrary item IDs.
+ const itemId=slot==='weapon'
+  ?(peer?.equipment?.weapon??(peer?.battlefury?.itemId===BATTLEFURY_ITEM_ID
+   ?BATTLEFURY_ITEM_ID:null))
+  :peer?.equipment?.shieldId;
  if(typeof itemId!=='string')return null;
  const def=ITEM_CATALOG[itemId];
  if(!def||def.slot!==slot)return null;
