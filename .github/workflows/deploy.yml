@@ -44,11 +44,45 @@ jobs:
       - name: Verify database connectivity without starting game server
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'cd /opt/nexgameworld/current && node --input-type=module -e '"'"'import pg from "pg"; import {readFileSync} from "node:fs"; const data=readFileSync("/opt/nexgameworld/shared/server.env","utf8"); const line=data.split(/\r?\n/).find(s=>s.startsWith("DATABASE_URL=")); const value=line?.slice("DATABASE_URL=".length).trim(); let url; try{url=new URL(value);}catch{console.error("VPS_DATABASE_URL_INVALID");process.exit(1);} if(!["postgres:","postgresql:"].includes(url.protocol)||["localhost","127.0.0.1","::1"].includes(url.hostname)||!url.password){console.error("VPS_DATABASE_URL_INVALID_OR_LOCAL");process.exit(1);} const pool=new pg.Pool({connectionString:value,connectionTimeoutMillis:8000,max:1}); try{const r=await pool.query("select 1 as ok"); if(r.rows[0].ok!==1)throw Error("Unexpected database result");console.log("NEON_CONNECTION_OK");}catch(e){console.error("NEON_CONNECTION_FAILED",e.code||e.name);process.exitCode=1;}finally{await pool.end();}'"'"''
-      - name: Install shared imports required by server
+      - name: Validate complete shared module package
         run: |
           set -euo pipefail
-          tar -czf - --exclude='.git' --exclude='node_modules' --exclude='*.env' --exclude='*.key' --exclude='*.pem' items.js skills.js landscape.js target-selection.js planet-test | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'tar -xzf - -C /opt/nexgameworld/releases'
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/releases/items.js && test -f /opt/nexgameworld/releases/planet-test/start-zone.js && echo SHARED_IMPORTS_OK'
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const roots = ['server', 'planet-test'];
+          const files = [];
+          for (const root of roots) {
+            const walk = dir => {
+              for (const item of fs.readdirSync(dir, {withFileTypes:true})) {
+                if (item.name === 'node_modules' || item.name === '.git') continue;
+                const full = path.join(dir,item.name);
+                if (item.isDirectory()) walk(full);
+                else if (item.name.endsWith('.js')) files.push(full);
+              }
+            };
+            walk(root);
+          }
+          for (const item of fs.readdirSync('.')) if (item.endsWith('.js') && fs.statSync(item).isFile()) files.push(item);
+          const missing = new Set();
+          for (const file of files) {
+            const source = fs.readFileSync(file,'utf8');
+            const re = /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]/g;
+            for (const m of source.matchAll(re)) {
+              const spec = (m[1] || m[2]).split('?')[0];
+              if (!spec.startsWith('.')) continue;
+              const target = path.resolve(path.dirname(file),spec);
+              if (!fs.existsSync(target)) missing.add(file + ' -> ' + spec);
+            }
+          }
+          if (missing.size) { console.error('MISSING_SHARED_IMPORTS\n' + [...missing].join('\n')); process.exit(1); }
+          console.log('SHARED_IMPORT_GRAPH_OK', files.length);
+          NODE
+      - name: Install complete shared JavaScript modules
+        run: |
+          set -euo pipefail
+          tar -czf - -- *.js planet-test | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'tar -xzf - -C /opt/nexgameworld/releases'
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/releases/axe-tuner.js && test -f /opt/nexgameworld/releases/planet-test/start-zone.js && echo SHARED_IMPORTS_OK'
       - name: Activate game service
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n systemctl restart nexgameworld.service'
