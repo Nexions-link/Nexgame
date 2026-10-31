@@ -23,7 +23,7 @@ jobs:
           node-version: '22'
       - name: Test watchdog offline without reaching production
         run: node --test ops/audit-production.test.mjs
-      - name: Check Nexions.ru release, Render and Neon readiness (read-only)
+      - name: Check Nexions.ru release, VPS and Neon readiness (read-only)
         env:
           GITHUB_SHA: ${{ github.sha }}
         run: node ops/audit-production.mjs
