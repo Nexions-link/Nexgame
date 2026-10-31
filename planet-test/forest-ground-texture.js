@@ -95,17 +95,17 @@ export function forestGroundPixel(lon,lat,{r2=false,art=false}={}){
  // of allowing fully dark forest soil to appear immediately beyond the rim.
  // No new canvas, shader, mesh, alpha transparency or per-frame sampling.
  const forestBlend=forestEntranceBlend(lon,lat);
- let surface=rgb;
+ let blendedSoil=rgb;
  if(forestBlend<.999){
   const meadow=landscapeGroundPixel(x,z,[],{r2,art});
   const worn=road.wear*.94;
   const meadowRoad=[157+12*dry,125+10*dry,79+8*dry];
   const entrance=meadow.slice(0,3).map((c,i)=>mix(c,meadowRoad[i],worn));
-  surface=entrance.map((c,i)=>mix(c,rgb[i],forestBlend));
+  blendedSoil=entrance.map((c,i)=>mix(c,rgb[i],forestBlend));
  }
- return [Math.round(mix(255,clamp(surface[0]/255)*255,mask)),
-  Math.round(mix(255,clamp(surface[1]/255)*255,mask)),
-  Math.round(mix(255,clamp(surface[2]/255)*255,mask)),255];
+ return [Math.round(mix(255,clamp(blendedSoil[0]/255)*255,mask)),
+  Math.round(mix(255,clamp(blendedSoil[1]/255)*255,mask)),
+  Math.round(mix(255,clamp(blendedSoil[2]/255)*255,mask)),255];
 }
 // The tile has an irregular geometric edge. Feather its outermost
 // existing texels to the EXACT neighbouring globe texture colour; the
