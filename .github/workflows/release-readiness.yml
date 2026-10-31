@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for module in botanical-understory.js painterly-biome.js forest-ecology.js forest-lighting.js whispering-forest.js graphics-quality.js; do
+          for module in botanical-understory.js painterly-biome.js forest-ecology.js forest-lighting.js whispering-forest.js graphics-quality.js forest-surface-profile.js forest-surface.js forest-ground-life.js forest-floor.js forest-understory.js; do
             curl --fail --silent --show-error --retry 3 --retry-all-errors \
               "https://nexions.ru/nexgameworld/planet-test/${module}?ngw_audit=${GITHUB_SHA}" \
               | cmp - "planet-test/${module}"
