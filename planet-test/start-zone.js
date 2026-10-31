@@ -489,6 +489,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1,heroSculpt=fa
  const lockGeometry=heroSculpt?createTaurenFurLockGeometry(THREE):G.cone;
  const lockMaterial=heroSculpt?material(0x745443,{map:taurenFurMap,
   vertexColors:true,roughness:.96}):T.mane;
+ const kneeFurMaterial=heroSculpt?material(fur,{map:taurenFurMap,vertexColors:true}):pelt;
  // The shoulder hump rises above the low, forward-set bovine head.
  taurenForm(chest,pelt,[[-.17,.47,.34,.03],[.15,.62,.43,.02],[.53,.89,.55,-.02],[.95,1.02,.6,-.12],[1.26,.87,.54,-.22],[1.49,.56,.39,-.28],[1.58,.2,.14,-.26]]);
  ell(chest,T.mane,0,.99,-.41,.72,.81,.40);
@@ -551,7 +552,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1,heroSculpt=fa
   taurenForm(knee,pelt,[[-.66,.19,.21,-.01],[-.49,.205,.23,-.075],[-.21,.27,.28,-.09],[.04,.235,.24]],12);
   // Cloven hooves have a real gap and a bevelled toe, with the old IK contact height.
   for(const dx of [-.125,.125]){const toe=taurenForm(foot,T.hoof,[[-.205,.115,.255,.10,dx],[-.17,.12,.28,.105,dx],[.03,.106,.25,.09,dx],[.16,.086,.18,.035,dx]],8,.38);toe.castShadow=true}
-  for(let i=0;i<3;i++){const lock=mesh(knee,lockGeometry,heroSculpt?material(fur,{map:taurenFurMap,vertexColors:true}):pelt,(i-1)*.12,-.47,.035,.105,.30,.14);lock.rotation.z=Math.PI}
+  for(let i=0;i<3;i++){const lock=mesh(knee,lockGeometry,kneeFurMaterial,(i-1)*.12,-.47,.035,.105,.30,.14);lock.rotation.z=Math.PI}
   legs.push({hip,knee,foot,sign:s});
  }
  const tail=group(body,0,.01,-.4);rod(tail,pelt,[0,0,0],[0,-.52,-.32],.085,.055);rod(tail,pelt,[0,-.52,-.32],[0,-.98,-.43],.055,.045);ell(tail,T.mane,0,-1.04,-.43,.15,.28,.15);
