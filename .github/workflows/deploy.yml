@@ -1,117 +1,142 @@
-name: NGW VPS deploy (manual)
+name: NGW VPS deploy
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/deploy.yml']
+    paths:
+      - '.github/workflows/deploy.yml'
+      - 'server/**'
+      - 'planet-test/**'
+      - 'bestiary/**'
+      - '*.js'
+      - 'package.json'
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: ngw-vps-deploy
   cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RELEASE: deploy-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
-      - name: Configure SSH
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate source and release before reaching VPS
+        run: |
+          set -euo pipefail
+          npm install --prefix server --ignore-scripts --no-audit --no-fund
+          npm run check --prefix server
+          npm test --prefix server
+          node --test ops/audit-production.test.mjs
+          # Only tracked runtime source/data: never package credentials or node_modules.
+          git ls-files -z | python3 -c 'import sys; paths=sys.stdin.buffer.read().split(b"\0"); sys.stdout.buffer.write(b"\0".join(p for p in paths if p and p.endswith((b".js",b".mjs",b".json",b".sql")) and not p.startswith((b".github/",b"ops/",b"versions/")))+b"\0")' > /tmp/ngw-files
+          tar --null -T /tmp/ngw-files -czf /tmp/ngw-release.tgz
+      - name: Configure SSH with pinned VPS host key
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           set -eu
+          test -n "$SSH_PRIVATE_KEY"
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' '94.103.87.93 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbWFAA2zL+WsOnYqQra1JpNSDboVf1ubAOhr4qSQhQH' > ~/.ssh/known_hosts
-      - name: Validate release
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/current/index.js && node --check /opt/nexgameworld/current/index.js && echo RELEASE_VALID'
-      - name: Verify scoped service rights
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n -l /usr/bin/systemctl restart nexgameworld.service >/dev/null && echo SERVICE_RIGHTS_OK'
-      - name: Validate database secret format
-        env:
-          NGW_VPS_DATABASE_URL: ${{ secrets.NGW_VPS_DATABASE_URL }}
-        run: |
-          node -e 'const s=process.env.NGW_VPS_DATABASE_URL||""; let u; try { u=new URL(s); } catch { console.error("DATABASE_URL_INVALID"); process.exit(1); } if(!["postgres:","postgresql:"].includes(u.protocol)||!u.hostname||["localhost","127.0.0.1","::1"].includes(u.hostname)||!u.username||!u.password){ console.error("DATABASE_URL_INVALID_OR_LOCAL"); process.exit(1); } console.log("DATABASE_URL_REMOTE_FORMAT_OK");'
-      - name: Configure database connection on VPS
-        env:
-          NGW_VPS_DATABASE_URL: ${{ secrets.NGW_VPS_DATABASE_URL }}
+      - name: Upload and validate isolated complete release
         run: |
           set -euo pipefail
-          test -n "$NGW_VPS_DATABASE_URL"
-          printf 'DATABASE_URL=%s\nNGW_ACCOUNTS_ENABLED=true\nNGW_AUTH_WORLD_ENABLED=true\nNGW_ECONOMY_ENABLED=true\nNGW_CHEST_DATA_FILE=/opt/nexgameworld/shared/chest.json\n' "$NGW_VPS_DATABASE_URL" | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'umask 077; cat > /opt/nexgameworld/shared/server.env; chmod 600 /opt/nexgameworld/shared/server.env'
-      - name: Verify database connectivity without starting game server
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'cd /opt/nexgameworld/current && node --input-type=module -e '"'"'import pg from "pg"; import {readFileSync} from "node:fs"; const data=readFileSync("/opt/nexgameworld/shared/server.env","utf8"); const line=data.split(/\r?\n/).find(s=>s.startsWith("DATABASE_URL=")); const value=line?.slice("DATABASE_URL=".length).trim(); let url; try{url=new URL(value);}catch{console.error("VPS_DATABASE_URL_INVALID");process.exit(1);} if(!["postgres:","postgresql:"].includes(url.protocol)||["localhost","127.0.0.1","::1"].includes(url.hostname)||!url.password){console.error("VPS_DATABASE_URL_INVALID_OR_LOCAL");process.exit(1);} const pool=new pg.Pool({connectionString:value,connectionTimeoutMillis:8000,max:1}); try{const r=await pool.query("select 1 as ok"); if(r.rows[0].ok!==1)throw Error("Unexpected database result");console.log("NEON_CONNECTION_OK");}catch(e){console.error("NEON_CONNECTION_FAILED",e.code||e.name);process.exitCode=1;}finally{await pool.end();}'"'"''
-      - name: Validate complete shared module package
-        run: |
+          SSH=(ssh -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15)
+          "${SSH[@]}" ngw-deploy@94.103.87.93 "set -eu; umask 077; mkdir /opt/nexgameworld/releases/$RELEASE"
+          cat /tmp/ngw-release.tgz | "${SSH[@]}" ngw-deploy@94.103.87.93 "tar -xzf - -C /opt/nexgameworld/releases/$RELEASE"
+          "${SSH[@]}" ngw-deploy@94.103.87.93 "bash -s -- '$RELEASE' '${{ github.sha }}'" <<'REMOTE'
           set -euo pipefail
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          import path from 'node:path';
-          const roots = ['server', 'planet-test', 'bestiary'];
-          const files = [];
-          for (const root of roots) {
-            const walk = dir => {
-              for (const item of fs.readdirSync(dir, {withFileTypes:true})) {
-                if (item.name === 'node_modules' || item.name === '.git') continue;
-                const full = path.join(dir,item.name);
-                if (item.isDirectory()) walk(full);
-                else if (item.name.endsWith('.js')) files.push(full);
-              }
+          cd "/opt/nexgameworld/releases/$1/server"
+          npm install --omit=dev --ignore-scripts --no-audit --no-fund
+          node --check index.js
+          node --input-type=module -e 'await import("./spherical-world.js"); console.log("SERVER_IMPORT_GRAPH_OK")'
+          printf '%s\n' "$2" > .source-commit
+          test -s /opt/nexgameworld/shared/server.env
+          sudo -n -l /usr/bin/systemctl restart nexgameworld.service >/dev/null
+          # Existing database credentials and feature flags remain in the private file.
+          # Pin the game to loopback; the existing proxy terminates TLS/WSS.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/opt/nexgameworld/shared/server.env')
+          lines=[s for s in p.read_text().splitlines() if not s.startswith(('HOST=','PORT='))]
+          assert any(s.startswith('DATABASE_URL=') for s in lines), 'Database configuration missing'
+          p.write_text('\n'.join(lines+['HOST=127.0.0.1','PORT=9800'])+'\n')
+          p.chmod(0o600)
+          PY
+          node --input-type=module <<'JS'
+          import pg from 'pg';
+          import {readFileSync} from 'node:fs';
+          const value=readFileSync('/opt/nexgameworld/shared/server.env','utf8').split(/\r?\n/).find(s=>s.startsWith('DATABASE_URL='))?.slice(13).trim();
+          const pool=new pg.Pool({connectionString:value,connectionTimeoutMillis:10000,max:1});
+          try { await pool.query('SELECT 1'); console.log('DATABASE_CONNECTION_OK'); }
+          catch(e) { console.error('DATABASE_CONNECTION_FAILED',e.code||e.name); process.exitCode=1; }
+          finally { await pool.end(); }
+          JS
+          REMOTE
+      - name: Activate release with rollback and public API checks
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 "bash -s -- '$RELEASE'" <<'REMOTE'
+          set -euo pipefail
+          base=/opt/nexgameworld
+          test -L "$base/current"
+          previous=$(readlink -f "$base/current")
+          next="$base/releases/$1/server"
+          expected=$(node --input-type=module -e "import fs from 'node:fs'; console.log(JSON.parse(fs.readFileSync('$base/releases/$1/planet-test/version.json')).version)")
+          rollback() {
+            echo ROLLING_BACK_GAME_ONLY
+            ln -sfn "$previous" "$base/.current-rollback"
+            mv -Tf "$base/.current-rollback" "$base/current"
+            sudo -n systemctl restart nexgameworld.service
+          }
+          trap 'rollback' ERR
+          ln -sfn "$next" "$base/.current-next"
+          mv -Tf "$base/.current-next" "$base/current"
+          sudo -n systemctl restart nexgameworld.service
+          ready=false
+          for attempt in $(seq 1 20); do
+            if curl -fsS --max-time 5 http://127.0.0.1:9800/ready >/dev/null; then ready=true; break; fi
+            sleep 3
+          done
+          test "$ready" = true
+          EXPECTED="$expected" node --input-type=module <<'JS'
+          for(const origin of ['http://127.0.0.1:9800','https://api.nexions.ru']) {
+            const get=async path=>{
+              const r=await fetch(origin+path,{signal:AbortSignal.timeout(15000)});
+              if(!r.ok)throw Error(path+' HTTP '+r.status);
+              return r.json();
             };
-            walk(root);
+            const [h,r]=await Promise.all([get('/health'),get('/ready')]);
+            if(!h.ok||!r.ready||h.build!==process.env.EXPECTED||r.build!==h.build||
+              h.accountDbStatus!=='ready'||!h.accountApiEnabled||!h.authenticatedWorldEnabled||
+              !h.authenticatedEconomyEnabled||h.guestWorldEnabled!==false||
+              h.worldMetrics.progressSaveFailures!==0)throw Error('Game readiness contract failed');
+            console.log('VERIFIED',origin,h.build,'players='+h.players);
           }
-          for (const item of fs.readdirSync('.')) if (item.endsWith('.js') && fs.statSync(item).isFile()) files.push(item);
-          const missing = new Set();
-          for (const file of files) {
-            const source = fs.readFileSync(file,'utf8');
-            const re = /(?:import|export)\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]/g;
-            for (const m of source.matchAll(re)) {
-              const spec = (m[1] || m[2]).split('?')[0];
-              if (!spec.startsWith('.')) continue;
-              const target = path.resolve(path.dirname(file),spec);
-              if (!fs.existsSync(target)) missing.add(file + ' -> ' + spec);
-            }
-          }
-          if (missing.size) { console.error('MISSING_SHARED_IMPORTS\n' + [...missing].join('\n')); process.exit(1); }
-          console.log('SHARED_IMPORT_GRAPH_OK', files.length);
-          NODE
-      - name: Install complete shared JavaScript modules
-        run: |
-          set -euo pipefail
-          tar -czf - -- *.js planet-test bestiary | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'tar -xzf - -C /opt/nexgameworld/releases'
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/releases/bestiary/chest-preview-motion.js && test -f /opt/nexgameworld/releases/axe-tuner.js && test -f /opt/nexgameworld/releases/planet-test/start-zone.js && echo SHARED_IMPORTS_OK'
-      - name: Resolve actual server imports before restart
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; cd /opt/nexgameworld/current; node --input-type=module -e '"'"'await import("./spherical-world.js"); console.log("SERVER_IMPORT_GRAPH_OK")'"'"''
-      - name: Activate game service
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n systemctl restart nexgameworld.service'
-      - name: Verify live game service
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; for i in 1 2 3 4 5 6 7 8; do if curl --fail --silent --max-time 4 http://127.0.0.1:9800/ready >/dev/null; then echo NGW_READY_OK; curl --fail --silent --show-error http://127.0.0.1:9800/health; exit 0; fi; sleep 3; done; echo NGW_NOT_READY; exit 1'
-      - name: Diagnose VPS gateway and service
+          JS
+          # Prove TLS WebSocket upgrade without creating an account or changing player data.
+          cd "$next"
+          node --input-type=module <<'JS'
+          import WebSocket from 'ws';
+          await new Promise((resolve,reject)=>{
+            const ws=new WebSocket('wss://api.nexions.ru/ws/nexgameworld/auth',{origin:'https://nexions.ru'});
+            const timer=setTimeout(()=>{ws.terminate();reject(Error('WSS timeout'));},10000);
+            ws.once('error',reject);
+            ws.once('open',()=>{clearTimeout(timer); ws.close(); resolve();});
+          });
+          console.log('PUBLIC_WSS_OK');
+          JS
+          trap - ERR
+          echo VPS_RELEASE_VERIFIED
+          REMOTE
+      - name: Read game service state
         if: always()
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'echo SERVICE_STATE; systemctl is-active nexgameworld.service || true; echo PORT_9800; ss -ltn | grep ":9800 " || true; echo LOCAL_HEALTH; curl -sS -i --max-time 5 http://127.0.0.1:9800/health || true; echo PUBLIC_HEALTH; curl -sS -i --max-time 7 https://api.nexions.ru/health || true; echo SERVICE_STATUS; systemctl status nexgameworld.service --no-pager --lines=15 || true'
-      - name: Publish sanitized VPS diagnostic to repository
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set +e
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'printf "SERVICE="; systemctl is-active nexgameworld.service || true; printf "LOCAL_HEALTH="; curl -s -o /dev/null -w "%{http_code}" --max-time 4 http://127.0.0.1:9800/health; printf "\\nLOCAL_READY="; curl -s -o /dev/null -w "%{http_code}" --max-time 4 http://127.0.0.1:9800/ready; printf "\\n"' > ngw-vps-status.txt 2>&1
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'echo SERVICE_DETAILS; systemctl show nexgameworld.service --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts,MainPID --no-pager; echo SERVICE_LOGS; journalctl -u nexgameworld.service -n 25 --no-pager -o cat 2>/dev/null | sed -E "s#(postgresql?://)[^[:space:]]+#\\1[REDACTED]#g" | tail -25' >> ngw-vps-status.txt 2>&1 || true
-          printf 'PUBLIC_HEALTH=' >> ngw-vps-status.txt
-          curl -s -o /dev/null -w '%{http_code}' --max-time 7 https://api.nexions.ru/health >> ngw-vps-status.txt
-          printf '\\n' >> ngw-vps-status.txt
-          EXISTING_SHA="$(gh api repos/${{ github.repository }}/contents/ops/vps/latest-status.txt --jq .sha 2>/dev/null || true)"
-          if [ -n "$EXISTING_SHA" ]; then
-            gh api --method PUT repos/${{ github.repository }}/contents/ops/vps/latest-status.txt -f message="ops: publish VPS health result" -f content="$(base64 -w0 ngw-vps-status.txt)" -f branch=main -f sha="$EXISTING_SHA" --jq '.content.path'
-          else
-            gh api --method PUT repos/${{ github.repository }}/contents/ops/vps/latest-status.txt -f message="ops: publish VPS health result" -f content="$(base64 -w0 ngw-vps-status.txt)" -f branch=main --jq '.content.path'
-          fi
-      - name: Report
-        run: echo 'Game service activation requested.'
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'systemctl show nexgameworld.service -p ActiveState -p SubState -p NRestarts -p ExecMainStatus; printf "HEALTH="; curl -s -o /dev/null -w "%{http_code}\n" --max-time 5 http://127.0.0.1:9800/health; printf "READY="; curl -s -o /dev/null -w "%{http_code}\n" --max-time 5 http://127.0.0.1:9800/ready'
