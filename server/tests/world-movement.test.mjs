@@ -26,3 +26,17 @@ test('unobstructed movement stays walkable',()=>{
 test('deep lake rejects movement',()=>{
  assert.equal(walkableSphereNormal(point(30,26),R),false);
 });
+
+test('bounded movement credit accepts mobile jitter, but rejects repeated speed bursts',async()=>{
+ const {sphereMoveBudget}=await import('../spherical-world.js');
+ let b=sphereMoveBudget(1.2,.1,7,.4);
+ assert.equal(b.capped,false);
+ for(let i=0;i<12;i++)b=sphereMoveBudget(b.credit,.1,7,.405);
+ assert.equal(b.capped,false,'ordinary walking must not trigger a speed cap');
+ assert.ok(b.credit<=2);
+ const spike=sphereMoveBudget(b.credit,.01,7,9);
+ assert.equal(spike.capped,true);
+ assert.ok(spike.distance<=2.07);
+ const again=sphereMoveBudget(spike.credit,.01,7,9);
+ assert.ok(again.distance<=.08,'unused burst distance cannot be reused');
+});

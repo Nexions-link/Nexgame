@@ -36,6 +36,15 @@ export function boundedSphereAdvance(from,to,radius,meters){
  const length=Math.hypot(...next);
  return length>1e-8?next.map(v=>v/length):[...from];
 }
+// Small, bounded carryover absorbs clustered mobile WebSocket packets.
+// Server time refills the budget; clients cannot mint additional distance.
+export function sphereMoveBudget(credit,elapsedSeconds,speed,requested){
+ const available=Math.max(0,Math.min(1,elapsedSeconds))*speed+
+  bound(Number.isFinite(credit)?credit:1.2,0,2);
+ const distance=Math.min(Math.max(0,requested),available);
+ return {distance,capped:requested>available+1e-6,
+  credit:bound(available-distance,0,2)};
+}
 const RADII=[87,174,261],TICK_MS=100,MAX_PLAYERS=100,MAX_SPEED=7;
 // Recover normal packet loss (up to a few dozen metres), never accept an
 // implausible half-planet destination as a path to glide toward.
@@ -66,6 +75,7 @@ const send=(ws,p)=>{
 export const publicPlayer=p=>({
  id:p.id,name:p.name,normal:p.normal,heading:p.heading,
  moving:p.moving,radius:p.radius,level:p.level,hp:p.hp,maxHp:p.maxHp,
+ moveSeq:p.lastMoveSeq??null,
  ...publicMount(p),
  resource:p.resource,equipment:{
   weapon:p.equipment.weapon?.id||null,shieldId:p.equipment.shield?.id||null
@@ -214,7 +224,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      battlefuryPose:BATTLEFURY_TUNER_DEFAULTS,
      lastMobAttackAt:0,lastCombatAt:0,respawnShieldUntil:0,updatedAt:Date.now(),
      joined:true,x:local.x,z:local.z,abilityCooldowns:{},chargeBonus:null,chargeUntil:0,
-     savedRevision:saved?.revision??null,lastPositionCorrectionAt:0};
+     savedRevision:saved?.revision??null,lastPositionCorrectionAt:0,
+     lastMoveSeq:null,moveSlackMeters:1.2};
     if(trustedCharacter&&progressStore){
      p.queueVerifiedKill=credit=>queueSave(async()=>{
       const result=await progressStore.recordMobKill({
@@ -396,26 +407,34 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const normal=normalFrom(m.normal);
    if(!normal||heading===null)return;
    if(Date.now()<(current.chargeUntil||0))return;
-   const now=Date.now(),dt=Math.min(1,(now-current.updatedAt)/1000);
-   if(dt<.075)return;
+   const now=Date.now(),dt=Math.max(0,Math.min(1,(now-current.updatedAt)/1000));
+   // Acknowledge the actual position packet; snapshots can be older than
+   // the local character and must not be compared with its current location.
+   const moveSeq=Number.isSafeInteger(m.moveSeq)&&m.moveSeq>=0?m.moveSeq:null;
+   if(moveSeq!==null&&current.lastMoveSeq!==null&&moveSeq<=current.lastMoveSeq)return;
    const delta=arcDistance(normal,current.normal,current.radius);
    const correct=reason=>{
     if(now-(current.lastPositionCorrectionAt||0)<500)return;
     current.lastPositionCorrectionAt=now;
     counters.positionCorrections++;
     send(ws,{type:'positionCorrection',normal:[...current.normal],
-     heading:current.heading,reason});
+     heading:current.heading,moveSeq:current.lastMoveSeq,reason});
    };
    if(!Number.isFinite(delta)||delta>MAX_POSITION_RESYNC){
     correct('position_out_of_range');return;
    }
    const allowedSpeed=mountedSpeed(MAX_SPEED,current);
-    const capped=delta>allowedSpeed*dt+.8;
-   const desired=capped
-    ?boundedSphereAdvance(current.normal,normal,current.radius,allowedSpeed*dt):normal;
+   const budget=sphereMoveBudget(current.moveSlackMeters,dt,allowedSpeed,delta);
+   const desired=budget.capped
+    ?boundedSphereAdvance(current.normal,normal,current.radius,budget.distance):normal;
    const sweep=resolveSphereWalk(current.normal,desired,current.radius,
      current.mountState===MOUNT_STATE.RIDING?.62:.42);
+   // Obstacles cannot consume travel credit that was never actually used.
+   current.moveSlackMeters=bound(
+    budget.credit+Math.max(0,budget.distance-
+     arcDistance(current.normal,sweep.normal,current.radius)),0,2);
    current.normal=sweep.normal;
+   if(moveSeq!==null)current.lastMoveSeq=moveSeq;
    current.heading=heading;
    current.moving=m.moving&&!sweep.blocked;
     if(current.mountState===MOUNT_STATE.CASTING&&current.moving){Object.assign(current,dismount(current));send(ws,{type:'mountChanged',...publicMount(current)});}
@@ -439,7 +458,8 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    if(chestNearby&&!current.chestStatusNearby)sendNearbyChestStatus(current);
    current.chestStatusNearby=chestNearby;
    if(sweep.blocked)counters.movementRejected++;
-   if(sweep.blocked||capped&&arcDistance(current.normal,normal,current.radius)>1.5)
+   if(sweep.blocked||
+      budget.capped&&arcDistance(current.normal,normal,current.radius)>2.5)
     correct(sweep.blocked?'collision':'speed_limit');
    if(current.queueCheckpoint&&now-lastCheckpoint>=6000){
     lastCheckpoint=now;
