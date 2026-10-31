@@ -89,6 +89,9 @@ jobs:
             echo "== team speak untouched =="
             echo READ_ONLY_PREFLIGHT
           '
+      - name: Verify scoped service permission
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; sudo -n -l /usr/bin/systemctl start nexgameworld.service >/dev/null; echo SCOPED_SERVICE_PERMISSION_OK'
       - name: S-08 verify VPS readiness without starting Node
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
