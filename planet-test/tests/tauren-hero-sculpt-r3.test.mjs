@@ -45,7 +45,7 @@ test('R3-05 gives local and remote players new shared mane, NPC still uses light
  assert.ok(mane.material.vertexColors);
  const countLocks=actor=>{
   let found=0;
-  actor.root.traverse(obj=>{if(obj.isMesh&&obj.geometry===ref)found++;});
+  actor.root.traverse(obj=>{if(obj.isMesh&&!obj.isInstancedMesh&&obj.geometry===ref)found++;});
   return found;
  };
  assert.ok(countLocks(player)>=20);
