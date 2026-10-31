@@ -53,7 +53,8 @@ test('G-15 drooping needle points and staggered lengths make non-conical 3D silh
   branches.add(Math.floor((Math.atan2(z,x)+Math.PI)*10));
  }
  assert.ok(branches.size>=15,'silhouette reads as radial branches from all viewpoints');
- const colors=d.colors, green=new Set(),dark=0,bright=0;
+ const colors=d.colors, green=new Set();
+ let dark=0,bright=0;
  for(let i=1;i<colors.length;i+=3){
   green.add(colors[i].toFixed(2));
   if(colors[i]<.52)dark++;
