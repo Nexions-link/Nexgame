@@ -26,6 +26,11 @@ jobs:
       - name: Verify scoped service rights
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n -l /usr/bin/systemctl restart nexgameworld.service >/dev/null && echo SERVICE_RIGHTS_OK'
+      - name: Validate database secret format
+        env:
+          NGW_VPS_DATABASE_URL: ${{ secrets.NGW_VPS_DATABASE_URL }}
+        run: |
+          node -e 'const s=process.env.NGW_VPS_DATABASE_URL||""; let u; try { u=new URL(s); } catch { console.error("DATABASE_URL_INVALID"); process.exit(1); } if(!["postgres:","postgresql:"].includes(u.protocol)||!u.hostname||["localhost","127.0.0.1","::1"].includes(u.hostname)||!u.username||!u.password){ console.error("DATABASE_URL_INVALID_OR_LOCAL"); process.exit(1); } console.log("DATABASE_URL_REMOTE_FORMAT_OK");'
       - name: Configure database connection on VPS
         env:
           NGW_VPS_DATABASE_URL: ${{ secrets.NGW_VPS_DATABASE_URL }}
@@ -35,6 +40,6 @@ jobs:
           printf 'DATABASE_URL=%s\n' "$NGW_VPS_DATABASE_URL" | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'umask 077; cat > /opt/nexgameworld/shared/server.env; chmod 600 /opt/nexgameworld/shared/server.env'
       - name: Verify database connectivity without starting game server
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; test -s /opt/nexgameworld/shared/server.env; test -d /opt/nexgameworld/current/node_modules/pg; cd /opt/nexgameworld/current; set -a; . /opt/nexgameworld/shared/server.env; set +a; node --input-type=module -e '"'"'import pg from "pg"; const pool = new pg.Pool({connectionString:process.env.DATABASE_URL,connectionTimeoutMillis:8000,max:1}); try { const r=await pool.query("select 1 as ok"); if(r.rows[0].ok!==1) throw Error("Unexpected database result"); console.log("NEON_CONNECTION_OK"); } finally { await pool.end(); }'"'"''
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'cd /opt/nexgameworld/current && node --input-type=module -e '"'"'import pg from "pg"; import {readFileSync} from "node:fs"; const data=readFileSync("/opt/nexgameworld/shared/server.env","utf8"); const line=data.split(/\r?\n/).find(s=>s.startsWith("DATABASE_URL=")); const value=line?.slice("DATABASE_URL=".length).trim(); let url; try{url=new URL(value);}catch{console.error("VPS_DATABASE_URL_INVALID");process.exit(1);} if(!["postgres:","postgresql:"].includes(url.protocol)||["localhost","127.0.0.1","::1"].includes(url.hostname)||!url.password){console.error("VPS_DATABASE_URL_INVALID_OR_LOCAL");process.exit(1);} const pool=new pg.Pool({connectionString:value,connectionTimeoutMillis:8000,max:1}); try{const r=await pool.query("select 1 as ok"); if(r.rows[0].ok!==1)throw Error("Unexpected database result");console.log("NEON_CONNECTION_OK");}catch(e){console.error("NEON_CONNECTION_FAILED",e.code||e.name);process.exitCode=1;}finally{await pool.end();}'"'"''
       - name: Report
         run: echo 'Preflight completed. No production service was started or restarted.'
