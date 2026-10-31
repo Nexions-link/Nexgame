@@ -89,6 +89,17 @@ export function createSphericalPresence({
    rebaseSphereCorrection(THREE,sample.normal,server,current.normal),reason};
  };
  const peers=new Map(),visuals=new Map(),chargeEvents=new Map(),remoteAttacks=new Map();
+ let selfMount={mountState:'foot',mountId:null,owned:false};
+ const applyMount=mount=>{
+  const validId=mount?.mountId==='forest_wolf';
+  const state=validId&&mount.mountState==='riding'?'riding':
+   validId&&mount.mountState==='casting'?'casting':'foot';
+  const owned=typeof mount?.owned==='boolean'?mount.owned:selfMount.owned;
+  if(state===selfMount.mountState&&
+    (state==='foot'?null:'forest_wolf')===selfMount.mountId&&owned===selfMount.owned)return;
+  selfMount={mountState:state,mountId:state==='foot'?null:'forest_wolf',owned};
+  onMountChange?.({...selfMount});
+ };
  let equipmentLoaderPromise=null;
  const cachedEquipmentGltf=new Map();
  async function loadEquipmentAsset(url){
