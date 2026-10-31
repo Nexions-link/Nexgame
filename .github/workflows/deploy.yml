@@ -61,6 +61,7 @@ jobs:
         run: |
           set +e
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'printf "SERVICE="; systemctl is-active nexgameworld.service || true; printf "LOCAL_HEALTH="; curl -s -o /dev/null -w "%{http_code}" --max-time 4 http://127.0.0.1:9800/health; printf "\\nLOCAL_READY="; curl -s -o /dev/null -w "%{http_code}" --max-time 4 http://127.0.0.1:9800/ready; printf "\\n"' > ngw-vps-status.txt 2>&1
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'echo SERVICE_DETAILS; systemctl show nexgameworld.service --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts,MainPID --no-pager; echo SERVICE_LOGS; journalctl -u nexgameworld.service -n 25 --no-pager -o cat 2>/dev/null | sed -E "s#(postgresql?://)[^[:space:]]+#\\1[REDACTED]#g" | tail -25' >> ngw-vps-status.txt 2>&1 || true
           printf 'PUBLIC_HEALTH=' >> ngw-vps-status.txt
           curl -s -o /dev/null -w '%{http_code}' --max-time 7 https://api.nexions.ru/health >> ngw-vps-status.txt
           printf '\\n' >> ngw-vps-status.txt
