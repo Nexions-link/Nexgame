@@ -61,13 +61,15 @@ jobs:
             process.exitCode=1;
           }
           JS
-      - name: Verify published botanical modules match this release
+      - name: Verify current live graphics modules match the source release
         shell: bash
         run: |
           set -euo pipefail
-          for module in botanical-understory.js painterly-biome.js forest-ecology.js forest-lighting.js whispering-forest.js graphics-quality.js forest-surface-profile.js forest-surface.js forest-ground-life.js forest-floor.js forest-understory.js forest-spatial-batches.js render-budget.js; do
+          # Check only modules in the current post-rollback renderer, not deleted experiments.
+          for module in planet.js start-zone.js forest-ground-texture.js r2-materials.js sphere-meadow.js whispering-forest.js forest-ecology.js forest-lighting.js graphics-quality.js forest-ground-life.js forest-floor.js forest-understory.js render-budget.js; do
+            test -s "planet-test/${module}" || { echo "::error::Missing required graphics module ${module}"; exit 1; }
             curl --fail --silent --show-error --retry 3 --retry-all-errors \
               "https://nexions.ru/nexgameworld/planet-test/${module}?ngw_audit=${GITHUB_SHA}" \
               | cmp - "planet-test/${module}"
-            echo "Verified live module: ${module}"
+            echo "Verified live graphics module: ${module}"
           done
