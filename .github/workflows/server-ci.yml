@@ -12,7 +12,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ngw-server-${{ github.ref }}
+  group: ngw-server-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   server-tests:
