@@ -3,7 +3,6 @@
 // shadow passes, meshes, external textures or changed game/camera state.
 const clamp=(v,min=0,max=1)=>Math.max(min,Math.min(max,Number.isFinite(v)?v:0));
 const finite=(v,otherwise)=>Number.isFinite(v)?v:otherwise;
-const mix=(a,b,t)=>a+(b-a)*clamp(t);
 
 /**
  * Forest shade and fog blend are already eased by the gameplay renderer;
@@ -27,7 +26,7 @@ export function r2LightingProfile({shade=0,forest=0,exposure=1.14,
  const depthFar=far*(1-.56*depth-.06*shadow);
  const boundedNear=Math.max(19,depthNear);
  const boundedFar=Math.max(boundedNear+54,depthFar);
- return Object.freeze({
+ return {
   sun,hemi,fill,
   exposure:e*(.985-.032*shadow),
   fogNear:boundedNear,
@@ -41,7 +40,7 @@ export function r2LightingProfile({shade=0,forest=0,exposure=1.14,
   // Distant silhouettes fade faster on balanced than high, not on near NPCs.
   detailDepth:isHigh?.94:1,
   shadowNormalBias:isHigh?.027:.032
- });
+ };
 }
 
 export function r2AtmosphereBudget(quality='balanced',preview=false){
