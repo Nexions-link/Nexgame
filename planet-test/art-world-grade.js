@@ -19,7 +19,7 @@ export function paintVillageGround(original,{worn=0,earth=0,moss=0,dry=0,
  // Narrow warm worn track, soft dark compressed wheel ruts and gravel.
  const trackNoise=(flecks-.5)*12+(grit-.5)*8;
  const muddy=clamp(moisture*.55+clump*.45);
- const rut=Math.exp(-((roadEdge-1.05)/.34)**2)*wear;
+ const rut=Math.exp(-Math.pow((roadEdge-1.05)/.34,2))*wear;
  const trail=[
   163+24*dry+trackNoise-26*rut*moody(muddy),
   117+16*dry+trackNoise*.79-19*rut*moody(muddy),
