@@ -16,7 +16,7 @@ test('G-11 ages the forest outline without crossing the original authoritative t
  assert.equal(G11_FOREST_BOUND,FOREST_TRUNK_BASE_SCALE);
  const rings=new Map();
  let displacement=0,scar=0,collar=0;
- for(const y of [-.5,-.42,-.31,-.20,0,.22,.5]){
+ for(const y of [-.5,-.42,-.31,-.20,-.09,0,.03,.19,.22,.5]){
   const rad=[];
   for(let i=0;i<360;i++){
    const a=TAU*i/360;

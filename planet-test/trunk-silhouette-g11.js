@@ -23,8 +23,9 @@ export function g11ForestSection(y,angle,originalOutline){
   +.026*bell(t,.69,.038)*bell(angular(angle,3.92),0,.27);
  const oldScar=.019*bell(t,.53,.11)*bell(angular(angle,2.28),0,.18);
  const ageSwelling=.014*bell(t,.28,.18)*Math.sin(4*angle-1.9*t);
+ const upperTaper=.045*smooth((t-.80)/.20);
  const growth=grain*(.55+.45*(1-smooth((t-.65)/.35)))+
-  buttressBias+limbCollar-oldScar+ageSwelling;
+  buttressBias+limbCollar-oldScar+ageSwelling-upperTaper;
  // A slow wind-shaped centreline and a finer upper bow. Ground anchor is
  // always exactly the existing collision centre, including at y=-.5.
  const curveX=old.curveX+t*t*.010*Math.sin(3.8*t+1.2);
