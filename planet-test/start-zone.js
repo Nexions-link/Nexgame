@@ -4,7 +4,7 @@ import {forestLocalPoint,forestTrailLatitude} from './whispering-forest.js?v=21'
 import {createSphericalMeadow} from './sphere-meadow.js?v=5';
 import {createVillageVisuals} from './village-visuals.js?v=2';
 import {createTaurenVisualDetails} from './tauren-visual-details.js?v=5';
-import {createTaurenFurLockGeometry} from './tauren-hero-sculpt.js?v=1';
+import {createTaurenFurLockGeometry,carveTaurenHornRadius} from './tauren-hero-sculpt.js?v=2';
 import {createTaurenAnatomy} from './tauren-anatomy.js?v=3';
 import {getTaurenSurfaceMaps} from './tauren-fur-textures.js?v=1';
 import {hornPathPoints,hornRadius} from './tauren-horn-profile.js?v=1';
@@ -473,11 +473,11 @@ function taurenForm(parent,mat,rings,segments=14,power=1){
  }
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();return mesh(parent,g,mat);
 }
-function taurenHorn(parent,sign){
+function taurenHorn(parent,sign,heroSculpt=false){
  const curve=new THREE.CatmullRomCurve3(hornPathPoints(THREE,sign));
  const p=[],uv=[],ix=[],steps=15,sides=8,up=new THREE.Vector3(0,0,1);
- for(let i=0;i<=steps;i++){const t=i/steps,point=curve.getPoint(t),tangent=curve.getTangent(t),normal=new THREE.Vector3().crossVectors(tangent,up).normalize(),binormal=new THREE.Vector3().crossVectors(tangent,normal).normalize(),r=hornRadius(t);
-  for(let j=0;j<=sides;j++){const a=j/sides*TAU,v=point.clone().addScaledVector(normal,Math.cos(a)*r).addScaledVector(binormal,Math.sin(a)*r);p.push(v.x,v.y,v.z);uv.push(j/sides,t)}
+ for(let i=0;i<=steps;i++){const t=i/steps,point=curve.getPoint(t),tangent=curve.getTangent(t),normal=new THREE.Vector3().crossVectors(tangent,up).normalize(),binormal=new THREE.Vector3().crossVectors(tangent,normal).normalize();
+  for(let j=0;j<=sides;j++){const a=j/sides*TAU,r=heroSculpt?carveTaurenHornRadius(t,a,hornRadius(t)):hornRadius(t);const v=point.clone().addScaledVector(normal,Math.cos(a)*r).addScaledVector(binormal,Math.sin(a)*r);p.push(v.x,v.y,v.z);uv.push(j/sides,t)}
  }
  for(let i=0;i<steps;i++)for(let j=0;j<sides;j++){const a=i*(sides+1)+j,b=a+sides+1;ix.push(a,a+1,b,b,a+1,b+1)}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();mesh(parent,g,taurenMaterials.horn);
@@ -519,7 +519,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1,heroSculpt=fa
   ell(head,M.black,s*.247,.134,.523,.025,.034,.013);
   const brow=ell(head,pelt,s*.27,.256,.418,.222,.073,.099);brow.rotation.z=s*.23;
   ell(head,M.black,s*.245,-.095,1.06,.092,.046,.024).rotation.z=-s*.27;
-  taurenHorn(head,s);
+  taurenHorn(head,s,heroSculpt);
   // Cheek locks fall into two bead-bound braids, animated independently below.
   for(let i=0;i<3;i++){const lock=mesh(head,lockGeometry,lockMaterial,s*(.42-i*.035),-.20-i*.14,.17,.17,.42,.16);lock.rotation.z=Math.PI+s*.2}
  }
