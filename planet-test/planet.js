@@ -55,9 +55,16 @@ planetViewport.addEventListener('contextmenu',event=>event.preventDefault());
 // NexGameWorld uses isolated spherical WebSockets for player presence; RPG combat stays local.
 const isPortalPreview = new URLSearchParams(location.search).get('portal-preview') === '1';
 // R2 is an in-game A/B preview; default remains the verified fast renderer.
-const r2Materials=!isPortalPreview&&new URLSearchParams(location.search).get('r2materials')==='1';
-const r2Vegetation=!isPortalPreview&&new URLSearchParams(location.search).get('r2vegetation')==='1';
-const r2Lighting=!isPortalPreview&&new URLSearchParams(location.search).get('r2lighting')==='1';
+const r2Materials=!isPortalPreview&&(
+ new URLSearchParams(location.search).get('r2materials')==='1'||
+ new URLSearchParams(location.search).get('r2materials')!=='0');
+const r2Vegetation=!isPortalPreview&&(
+ new URLSearchParams(location.search).get('r2vegetation')==='1'||
+ new URLSearchParams(location.search).get('r2vegetation')!=='0');
+const r2Lighting=!isPortalPreview&&(
+ new URLSearchParams(location.search).get('r2lighting')==='1'||
+ new URLSearchParams(location.search).get('r2lighting')!=='0');
+const artRemaster=!isPortalPreview; // NGW R3: live visual overhaul, not a demo flag.
 const r2Performance=!isPortalPreview&&new URLSearchParams(location.search).get('r2perf')==='1';
 const accountMode=!isPortalPreview;
 const accountLaunch=accountMode?getAccountLaunch(sessionStorage):null;
@@ -209,7 +216,7 @@ try {
   const colorData = new Float32Array(pos.count * 3);
   const groundDirections = new Float32Array(pos.count * 3);
   // One baked texture on the existing opaque globe, never a replacement shader.
-  const groundTexture=isPortalPreview?null:createForestGroundTexture(THREE,{r2:r2Materials});
+  const groundTexture=isPortalPreview?null:createForestGroundTexture(THREE,{r2:r2Materials,art:artRemaster});
   const n0 = new THREE.Vector3();
   const neutralForest=new THREE.Color('#ffffff');
   for (let i = 0; i < pos.count; i++) {
@@ -347,11 +354,11 @@ try {
    }catch{return null;}
   })();
   // Detailed native camp, lake and authentic procedural Tauren are isolated in start-zone.js.
-  const startZone=createStartZone(THREE,scene,()=>R,heightAt,{r2Materials,r2Vegetation});
+  const startZone=createStartZone(THREE,scene,()=>R,heightAt,{r2Materials,r2Vegetation,artRemaster});
   // Construct expensive surface tiles only on a rich quality preset. Economy
   // mode and portal first render should not bake a large microtexture at all.
   let surfaceMicrodetail=null,soilScatter=null;
-  const whisperingForest=createWhisperingForest(THREE,{scene,radius:R,heightAt,r2Vegetation});
+  const whisperingForest=createWhisperingForest(THREE,{scene,radius:R,heightAt,r2Vegetation,artRemaster});
   const roadsideDetails=isPortalPreview?null:createRoadsideDetails(THREE,{scene,radius:R,heightAt,startRoute:ROUTES[1]});
   const forestEcology=isPortalPreview?null:createForestEcology(THREE,{scene,radius:R,heightAt});
   const forestLightPools=isPortalPreview?null:createForestLightPools(THREE,{scene,radius:R,heightAt,r2Lighting});
@@ -492,7 +499,7 @@ try {
     r2LightingToggle.addEventListener('change',()=>{
       const next=new URL(location.href);
       if(r2LightingToggle.checked)next.searchParams.set('r2lighting','1');
-      else next.searchParams.delete('r2lighting');
+      else next.searchParams.set('r2lighting','0');
       location.replace(next.href);
     });
   }
@@ -501,7 +508,7 @@ try {
     r2VegetationToggle.addEventListener('change',()=>{
       const next=new URL(location.href);
       if(r2VegetationToggle.checked)next.searchParams.set('r2vegetation','1');
-      else next.searchParams.delete('r2vegetation');
+      else next.searchParams.set('r2vegetation','0');
       location.replace(next.href);
     });
   }
@@ -510,7 +517,7 @@ try {
     r2MaterialsToggle.addEventListener('change',()=>{
       const next=new URL(location.href);
       if(r2MaterialsToggle.checked)next.searchParams.set('r2materials','1');
-      else next.searchParams.delete('r2materials');
+      else next.searchParams.set('r2materials','0');
       location.replace(next.href);
     });
   }
