@@ -68,7 +68,10 @@ test('G-16 depth grades existing trees without colliders or draw batches',()=>{
  });
  assert.equal(Object.keys(chosen).length,3);
  const color=new THREE.Color(),samples=Object.fromEntries(
-  Object.entries(chosen).map(([band,i])=>[band,oak.getColorAt(i,color).clone().toArray()]));
+  Object.entries(chosen).map(([band,i])=>{
+   oak.getColorAt(i,color);
+   return [band,color.toArray()];
+  }));
  assert.notDeepEqual(samples.near,samples.middle);
  assert.notDeepEqual(samples.middle,samples.far);
  assert.deepEqual(forestColliders(),before);
