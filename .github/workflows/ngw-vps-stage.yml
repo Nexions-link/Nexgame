@@ -92,6 +92,22 @@ jobs:
       - name: Verify scoped service permission
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; sudo -n -l /usr/bin/systemctl start nexgameworld.service >/dev/null; echo SCOPED_SERVICE_PERMISSION_OK'
+      - name: Check readiness for safe activation
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu
+            test -f /opt/nexgameworld/current/index.js
+            test -d /opt/nexgameworld/current/node_modules/pg
+            if test -s /opt/nexgameworld/shared/server.env; then
+              echo CONFIG_PRESENT
+            else
+              echo CONFIG_MISSING
+            fi
+            if sudo -n -l /usr/bin/systemctl start nexgameworld.service >/dev/null 2>&1; then
+              echo SERVICE_CONTROL_READY
+            else
+              echo SERVICE_CONTROL_UNAVAILABLE
+            fi
+          '
       - name: S-08 verify VPS readiness without starting Node
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 ngw-deploy@94.103.87.93 'set -eu
