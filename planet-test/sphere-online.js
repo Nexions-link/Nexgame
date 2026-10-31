@@ -179,7 +179,9 @@ export function createSphericalPresence({
    const spec=remoteEquipmentSpec(peer,slot);
    void visual.gearSwitcher.update(slot,spec?.key??null,spec);
   }
-  if(peer.battlefury?.itemId!==BATTLEFURY_ITEM_ID||!visual.gearMeshes.weapon)return;
+  const certified=remoteEquipmentSpec(peer,'weapon');
+  if(!certified?.battlefury||visual.gearKeys.weapon!==certified.key||
+     !visual.gearMeshes.weapon)return;
   const pose=normalizeBattlefuryTuning(peer.battlefury.pose);
   const key=JSON.stringify(pose);
   if(visual.gearPoseKey===key)return;
