@@ -1,3 +1,4 @@
+import {getActorOutfitMaps} from './actor-outfit-materials.js?v=1';
 import {createSmoothActorForm,getSmoothActorPrimitives} from './smooth-actor-geometry.js?v=1';
 import {createLandscapeMap} from '../landscape.js?v=0.6.45.60';
 import {createR2MaterialMaps} from './r2-materials.js?v=1';
@@ -450,7 +451,8 @@ export function createTauren(THREE,scene,{fur=0x836144,clothColor=null,player=fa
  const TAU=Math.PI*2;
  const material=(color,extra={})=>new THREE.MeshStandardMaterial({color,roughness:1,metalness:0,...extra});
  function texture(draw,size=128){const c=document.createElement('canvas');c.width=c.height=size;draw(c.getContext('2d'),size);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
- const M={red:material(0x9a4931),teal:material(0x427b70),gold:material(0xd7ae5e),bone:material(0xe5d5aa),black:material(0x231f19),wood:material(0x5b3d24)};
+ const outfit=getActorOutfitMaps(THREE);
+ const M={red:material(0x9a4931,{map:outfit.cloth}),teal:material(0x427b70),gold:material(0xd7ae5e),bone:material(0xe5d5aa),black:material(0x231f19),wood:material(0x5b3d24)};
  const G=getSmoothActorPrimitives(THREE);
  function group(parent,x=0,y=0,z=0){const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);return g}
  function mesh(parent,geometry,mat,x=0,y=0,z=0,sx=1,sy=1,sz=1,cast=true){const m=new THREE.Mesh(geometry,mat);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=cast;m.receiveShadow=true;parent.add(m);return m}
@@ -458,7 +460,7 @@ export function createTauren(THREE,scene,{fur=0x836144,clothColor=null,player=fa
  const box=(p,m,x,y,z,sx,sy,sz,cast=true)=>mesh(p,G.box,m,x,y,z,sx,sy,sz,cast);
  function rod(p,m,a,b,r=.08,r2=r,segments=7){const av=new THREE.Vector3(...a),bv=new THREE.Vector3(...b),d=bv.clone().sub(av);const obj=mesh(p,new THREE.CylinderGeometry(r2,r,d.length(),segments),m,...av.clone().add(bv).multiplyScalar(.5).toArray());obj.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());return obj}
 const {pelt:taurenFurMap,muzzle:taurenMuzzleMap,horn:hornMap}=getTaurenSurfaceMaps(THREE);
-const taurenMaterials={mane:material(0x36261d,{map:taurenFurMap}),muzzle:material(0xc5a47b,{map:taurenMuzzleMap}),nose:material(0x503b30),hoof:material(0x382e25),horn:material(0xffffff,{map:hornMap}),eye:material(0xc4944e),hide:material(0x68442c,{map:taurenFurMap}),trim:material(0x9a7450),ivory:material(0xc7b28a)};
+const taurenMaterials={mane:material(0x36261d,{map:taurenFurMap}),muzzle:material(0xc5a47b,{map:taurenMuzzleMap}),nose:material(0x503b30,{roughness:.65}),hoof:material(0x382e25),horn:material(0xffffff,{map:hornMap}),eye:material(0xc4944e,{roughness:.32}),hide:material(0x68442c,{map:outfit.leather,roughness:.88}),trim:material(0x9a7450),ivory:material(0xc7b28a)};
 // Ring profiles form continuous tapered muscle volumes, instead of stacked balls.
 function taurenForm(parent,mat,rings,segments=14,power=1){
  return mesh(parent,createSmoothActorForm(THREE,rings,{segments:Math.max(16,segments),power}),mat);
@@ -470,7 +472,7 @@ function taurenHorn(parent,sign,heroSculpt=false){
   for(let j=0;j<=sides;j++){const a=j/sides*TAU,r=heroSculpt?carveTaurenHornRadius(t,a,hornRadius(t)):hornRadius(t);const v=point.clone().addScaledVector(normal,Math.cos(a)*r).addScaledVector(binormal,Math.sin(a)*r);p.push(v.x,v.y,v.z);uv.push(j/sides,t)}
  }
  for(let i=0;i<steps;i++)for(let j=0;j<sides;j++){const a=i*(sides+1)+j,b=a+sides+1;ix.push(a,a+1,b,b,a+1,b+1)}
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();mesh(parent,g,taurenMaterials.horn);
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();const normals=g.attributes.normal;for(let ring=0;ring<=steps;ring++){const a=ring*(sides+1),b=a+sides;const normal=new THREE.Vector3().fromBufferAttribute(normals,a).add(new THREE.Vector3().fromBufferAttribute(normals,b)).normalize();normals.setXYZ(a,normal.x,normal.y,normal.z);normals.setXYZ(b,normal.x,normal.y,normal.z)}mesh(parent,g,taurenMaterials.horn);
 }
 function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1,heroSculpt=false}={}){
  const T=taurenMaterials,pelt=material(fur,{map:taurenFurMap}),root=group(scene),body=group(root,0,1.4,0),chest=group(body),neck=group(chest,0,1.02,.48),head=group(neck);
@@ -486,7 +488,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1,heroSculpt=fa
  // Pointed overlapping locks define the mane in profile and from behind.
  for(let row=0;row<4;row++)for(let col=-2;col<=2;col++){const y=.35+row*.28,width=.22+row*.1,x=col*width*.42;const tuft=mesh(chest,lockGeometry,lockMaterial,x,y-.07*Math.abs(col),-.69-.08*Math.sin(row*.6),.14+row*.017,.40,.12);tuft.rotation.x=-.15;tuft.rotation.z=Math.PI-col*.10}
  for(const s of [-1,1]){
-  ell(chest,pelt,s*.44,.86,.33,.53,.41,.28).rotation.z=-s*.16;
+  ell(chest,pelt,s*.44,.86,.33,.49,.36,.27).rotation.z=-s*.16;
   rod(chest,T.hide,[s*.62,.95,.51],[s*.44,.12,.41],.053,.052);
   for(let i=0;i<3;i++)ell(chest,T.ivory,s*(.6-i*.035),.77-i*.14,.57,.055,.064,.038);
  }
@@ -524,7 +526,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1,heroSculpt=fa
  const arms=[];
  for(const s of [-1,1]){
   const shoulder=group(chest,s*.99,.96,-.035),elbow=group(shoulder,s*.13,-.69,.015),hand=group(elbow,s*.025,-.69,.035);
-  ell(shoulder,pelt,s*.10,-.05,0,.48,.46,.47);
+  ell(shoulder,pelt,s*.10,-.05,0,.43,.42,.40);
   taurenForm(shoulder,pelt,[[-.74,.235,.24,.02,s*.13],[-.53,.33,.33,0,s*.13],[-.29,.39,.37,-.01,s*.06],[.04,.35,.34,0]],12);
   taurenForm(elbow,pelt,[[-.68,.25,.24,.035,s*.025],[-.44,.33,.30,.025],[-.17,.35,.32,.01],[.04,.24,.25]],12);
   mesh(elbow,G.cylinder,T.hide,s*.02,-.56,.03,.28,.23,.265);
@@ -549,7 +551,7 @@ function makeTauren({fur=0x836144,cloth=M.red,weapon=false,scale=1,heroSculpt=fa
   return {root,body,chest,neck,tail,braids,arms,legs,head};
 }
 
-  const actor=makeTauren({weapon:false,fur,cloth:clothColor===null?M.red:material(clothColor),heroSculpt:true});
+  const actor=makeTauren({weapon:false,fur,cloth:clothColor===null?M.red:material(clothColor,{map:outfit.cloth}),heroSculpt:true});
   actor.root.userData.surfaceRevision='smooth-actor-1';
   // Refreshed anatomy attaches only to existing joints, without moving the
   // weapon/shield grips. Existing NPCs stay lightweight; remote players receive
