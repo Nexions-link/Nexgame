@@ -50,7 +50,7 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           import path from 'node:path';
-          const roots = ['server', 'planet-test'];
+          const roots = ['server', 'planet-test', 'bestiary'];
           const files = [];
           for (const root of roots) {
             const walk = dir => {
@@ -81,8 +81,11 @@ jobs:
       - name: Install complete shared JavaScript modules
         run: |
           set -euo pipefail
-          tar -czf - -- *.js planet-test | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'tar -xzf - -C /opt/nexgameworld/releases'
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/releases/axe-tuner.js && test -f /opt/nexgameworld/releases/planet-test/start-zone.js && echo SHARED_IMPORTS_OK'
+          tar -czf - -- *.js planet-test bestiary | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'tar -xzf - -C /opt/nexgameworld/releases'
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'test -f /opt/nexgameworld/releases/bestiary/chest-preview-motion.js && test -f /opt/nexgameworld/releases/axe-tuner.js && test -f /opt/nexgameworld/releases/planet-test/start-zone.js && echo SHARED_IMPORTS_OK'
+      - name: Resolve actual server imports before restart
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; cd /opt/nexgameworld/current; node --input-type=module -e '"'"'await import("./spherical-world.js"); console.log("SERVER_IMPORT_GRAPH_OK")'"'"''
       - name: Activate game service
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n systemctl restart nexgameworld.service'
