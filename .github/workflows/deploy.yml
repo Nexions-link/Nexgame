@@ -50,5 +50,9 @@ jobs:
       - name: Verify live game service
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'set -eu; for i in 1 2 3 4 5 6 7 8; do if curl --fail --silent --max-time 4 http://127.0.0.1:9800/ready >/dev/null; then echo NGW_READY_OK; curl --fail --silent --show-error http://127.0.0.1:9800/health; exit 0; fi; sleep 3; done; echo NGW_NOT_READY; exit 1'
+      - name: Diagnose VPS gateway and service
+        if: always()
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'echo SERVICE_STATE; systemctl is-active nexgameworld.service || true; echo PORT_9800; ss -ltn | grep ":9800 " || true; echo LOCAL_HEALTH; curl -sS -i --max-time 5 http://127.0.0.1:9800/health || true; echo PUBLIC_HEALTH; curl -sS -i --max-time 7 https://api.nexions.ru/health || true; echo SERVICE_STATUS; systemctl status nexgameworld.service --no-pager --lines=15 || true'
       - name: Report
         run: echo 'Game service activation requested.'
