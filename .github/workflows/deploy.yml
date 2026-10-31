@@ -41,5 +41,8 @@ jobs:
       - name: Verify database connectivity without starting game server
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'cd /opt/nexgameworld/current && node --input-type=module -e '"'"'import pg from "pg"; import {readFileSync} from "node:fs"; const data=readFileSync("/opt/nexgameworld/shared/server.env","utf8"); const line=data.split(/\r?\n/).find(s=>s.startsWith("DATABASE_URL=")); const value=line?.slice("DATABASE_URL=".length).trim(); let url; try{url=new URL(value);}catch{console.error("VPS_DATABASE_URL_INVALID");process.exit(1);} if(!["postgres:","postgresql:"].includes(url.protocol)||["localhost","127.0.0.1","::1"].includes(url.hostname)||!url.password){console.error("VPS_DATABASE_URL_INVALID_OR_LOCAL");process.exit(1);} const pool=new pg.Pool({connectionString:value,connectionTimeoutMillis:8000,max:1}); try{const r=await pool.query("select 1 as ok"); if(r.rows[0].ok!==1)throw Error("Unexpected database result");console.log("NEON_CONNECTION_OK");}catch(e){console.error("NEON_CONNECTION_FAILED",e.code||e.name);process.exitCode=1;}finally{await pool.end();}'"'"''
+      - name: Activate game service
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n systemctl restart nexgameworld.service'
       - name: Report
-        run: echo 'Preflight completed. No production service was started or restarted.'
+        run: echo 'Game service activation requested.'
