@@ -52,7 +52,13 @@ test('forest keeps all server colliders, trees, positions and 12 instanced batch
  for(let i=0;i<12;i++){
   assert.equal(old[i].name,now[i].name);
   assert.equal(old[i].instanceMatrix.count,now[i].instanceMatrix.count);
-  assert.deepEqual(Array.from(old[i].instanceMatrix.array),Array.from(now[i].instanceMatrix.array));
+  // R3 already gave crown batches different artistic scale: world anchors
+  // must match, while foliage size is intentionally allowed to change.
+  for(let j=0;j<old[i].instanceMatrix.count;j++){
+   for(const k of [12,13,14])assert.equal(
+    old[i].instanceMatrix.array[16*j+k],now[i].instanceMatrix.array[16*j+k],
+    'tree world anchor must stay fixed in '+old[i].name);
+  }
   assert.equal(old[i].geometry.attributes.position.count,now[i].geometry.attributes.position.count);
   assert.equal(old[i].geometry.index?.count??0,now[i].geometry.index?.count??0);
  }
