@@ -45,7 +45,9 @@ test('quality preset avoids mobile bump cost while keeping color texture',()=>{
  });
  assert.equal(textures.map.colorSpace,'srgb');
  assert.equal(textures.bumpMap.colorSpace,'none');
- assert.deepEqual(textures.map.tile,[2,7]);
+ assert.deepEqual(textures.map.tile,[2,4]);
+ assert.equal(textures.roughnessMap.colorSpace,'none');
+ assert.deepEqual(textures.roughnessMap.tile,[2,4]);
  assert.equal(textures.map.image.width,256);
  assert.equal(textures.map.image.height,512);
 });
