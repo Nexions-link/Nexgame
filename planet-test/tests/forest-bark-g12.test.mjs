@@ -89,7 +89,7 @@ test('G-12 bark is shared by trunks, high boughs and fallen timber without extra
  assert.equal(tr.material.map,branch.material.map);
  assert.equal(tr.material.map,fallen.material.map);
  assert.equal(tr.geometry.userData.g11Trunk,true);
- assert.equal(fallen.count,34);
+ assert.equal(fallen.instanceMatrix.count,34,'full original timber layout is retained');
  const palette=Array.from({length:12},(_,i)=>{
   const c=new THREE.Color();tr.getColorAt(i,c);return c.getHexString();
  });
