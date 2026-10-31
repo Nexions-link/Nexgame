@@ -61,3 +61,13 @@ jobs:
             process.exitCode=1;
           }
           JS
+      - name: Verify published botanical modules match this release
+        shell: bash
+        run: |
+          set -euo pipefail
+          for module in botanical-understory.js painterly-biome.js forest-ecology.js; do
+            curl --fail --silent --show-error --retry 3 --retry-all-errors \
+              "https://nexions.ru/nexgameworld/planet-test/${module}?ngw_audit=${GITHUB_SHA}" \
+              | cmp - "planet-test/${module}"
+            echo "Verified live module: ${module}"
+          done
