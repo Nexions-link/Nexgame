@@ -10,7 +10,6 @@ export function taurenFurLockData(){
  const positions=[],uv=[],colors=[],indices=[];
  for(let j=0;j<rings;j++){
   const t=j/(rings-1),height=t-.5;
-  const shaft=Math.pow(1-t,.83);
   const radius=[.83,1,.78,.45,.015][j];
   const curveX=.18*t*t+.032*Math.sin(t*Math.PI*1.3);
   const curveZ=-.065*t*t;
@@ -48,4 +47,15 @@ export function createTaurenFurLockGeometry(THREE){
  geo.computeBoundingSphere();
  cache.set(THREE,geo);
  return geo;
+}
+
+// Carve shallow, asymmetrical growth lines directly into the same horn rings.
+// Baseline horn tips, paths and the eight radial sectors are unchanged.
+export function carveTaurenHornRadius(t,angle,base){
+ if(!Number.isFinite(t)||!Number.isFinite(angle)||!Number.isFinite(base)||base<0)
+  throw new RangeError('Invalid horn profile');
+ const growth=Math.sin(7*angle+18*t+1.1*Math.sin(3*t));
+ const ridge=Math.sin(4*angle-9*t)*Math.sin(Math.PI*Math.min(1,Math.max(0,t)));
+ const variation=1+.037*growth+.022*ridge;
+ return base*Math.max(.93,Math.min(1.07,variation));
 }
