@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           # Check only modules in the current post-rollback renderer, not deleted experiments.
-          for module in planet.js connection-indicator.js sphere-online.js start-zone.js sphere-meadow.js forest-crown-geometry.js r2-vegetation.js forest-ground-texture.js r2-materials.js sphere-meadow.js whispering-forest.js forest-ecology.js forest-lighting.js graphics-quality.js forest-ground-life.js forest-floor.js forest-understory.js render-budget.js; do
+          for module in planet.js connection-indicator.js sphere-online.js start-zone.js sphere-meadow.js forest-crown-geometry.js r2-vegetation.js r2-lighting.js forest-atmosphere.js forest-lighting.js forest-ground-texture.js r2-materials.js sphere-meadow.js whispering-forest.js forest-ecology.js forest-lighting.js graphics-quality.js forest-ground-life.js forest-floor.js forest-understory.js render-budget.js; do
             test -s "planet-test/${module}" || { echo "::error::Missing required graphics module ${module}"; exit 1; }
             curl --fail --silent --show-error --retry 3 --retry-all-errors \
               "https://nexions.ru/nexgameworld/planet-test/${module}?ngw_audit=${GITHUB_SHA}" \
