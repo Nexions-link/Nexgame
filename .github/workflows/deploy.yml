@@ -26,5 +26,12 @@ jobs:
       - name: Verify scoped service rights
         run: |
           ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'sudo -n -l /usr/bin/systemctl restart nexgameworld.service >/dev/null && echo SERVICE_RIGHTS_OK'
+      - name: Configure database connection on VPS
+        env:
+          NGW_VPS_DATABASE_URL: ${{ secrets.NGW_VPS_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$NGW_VPS_DATABASE_URL"
+          printf 'DATABASE_URL=%s\n' "$NGW_VPS_DATABASE_URL" | ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=yes ngw-deploy@94.103.87.93 'umask 077; cat > /opt/nexgameworld/shared/server.env; chmod 600 /opt/nexgameworld/shared/server.env'
       - name: Report
         run: echo 'Preflight completed. No production service was started or restarted.'
