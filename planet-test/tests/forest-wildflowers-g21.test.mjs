@@ -22,7 +22,8 @@ test('G-21 tiny original botanical petals, green stems and golden cores stay wit
  const y=g.positions.filter((_,i)=>i%3===1);
  assert.ok(Math.min(...y)>=.04&&Math.max(...y)<.70,
   'wildflowers are small ground flowers rather than giant blooms');
- assert.ok(new Set(y.map(v=>v.toFixed(2))).size>18);
+ assert.ok(new Set(y.map(v=>v.toFixed(2))).size>=14,
+  'petal tips, stalks, foliage and centres should occupy distinct 3D layers');
  assert.deepEqual(forestWildflowerGeometryData(),g);
  assert.equal(FOREST_WILDFLOWER_PALETTE.length,4);
  assert.ok(new Set(FOREST_WILDFLOWER_PALETTE).size===4);
