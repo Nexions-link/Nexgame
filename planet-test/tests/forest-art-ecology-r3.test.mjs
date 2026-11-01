@@ -25,7 +25,8 @@ test('mushroom caps have rounded rims and dark gills, no transparent geometry',(
  assert.equal(cap.colors.length,cap.positions.length);
  assert.deepEqual(cap,forestMushroomCapData());
  assert.ok(cap.colors.every(x=>Number.isFinite(x)&&x>=0&&x<=1));
- assert.ok(Math.max(...cap.positions.filter((_,i)=>i%3===1))>.4);
+ assert.ok(Math.max(...cap.positions.filter((_,i)=>i%3===1))>.30,
+  'G-22 small clustered caps must be visible but lower than the old giant single mushroom');
  assert.ok(Math.min(...cap.positions.filter((_,i)=>i%3===1))<-.2);
  assert.ok(new Set(cap.colors.filter((_,i)=>i%3===0)).size>=4);
 });
