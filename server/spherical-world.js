@@ -77,7 +77,7 @@ export const publicPlayer=p=>({
  moving:p.moving,radius:p.radius,level:p.level,hp:p.hp,maxHp:p.maxHp,
  moveSeq:p.lastMoveSeq??null,
  ...publicMount(p),
- resource:p.resource,equipment:{
+ raceId:p.raceId||'hornfolk',classId:p.classId||'warrior',resource:p.resource,equipment:{
   weapon:p.equipment.weapon?.id||null,shieldId:p.equipment.shield?.id||null
  },
  ...(isAuthorizedBattlefuryEquipped(p)?{
@@ -218,6 +218,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     const p={id:randomUUID(),name:trustedCharacter?cleanName(trustedCharacter.nickname):cleanName(m.name),
      characterId:trustedCharacter?.characterId||null,
      accountId:trustedCharacter?.accountId||null,
+     raceId:trustedCharacter?.raceId||'hornfolk',classId:trustedCharacter?.classId||'warrior',
      normal,heading,moving:false,radius,
       mountState:MOUNT_STATE.FOOT,mountId:null,castEndsAt:0,mountOwned:mountOwned(saved),
      level,equipment,hp,maxHp:stats.maxHp,resource:saved?bound(saved.resource,0,100):0,
@@ -529,7 +530,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    for(const p of players.values()){
     if(p.radius!==room.radius||now-(p.lastCombatAt||0)<=5000)continue;
     p.hp=Math.min(p.maxHp,p.hp+3*dt);
-    p.resource=Math.max(0,p.resource-5*dt);
+    p.resource=p.classId==='hunter'?Math.min(100,p.resource+6*dt):Math.max(0,p.resource-5*dt);
    }
    const roomPlayers=[...players.values()].filter(p=>p.radius===room.radius);
    if(!roomPlayers.length||room.tick%2!==0)continue;
