@@ -57,7 +57,10 @@ test('ranged hunter pull keeps aggro and damaged health while mob pursues beyond
 test('far beyond combat leash creature evades instead of pursuing forever',()=>{
  const {mobs,m,player}=setup();
  assert.equal(applySphereAttack(mobs,player,'arcaneShot',m.id,10000,()=>.5).ok,true);
- player.normal=localToNormal(m.x,m.z-(SPHERE_LEASH_METRES+10),261);
+ // A creature already standing on its home point completes evade immediately.
+ // Move it a little from spawn to verify the return phase persists.
+ m.x=m.spawnX+2;
+ player.normal=localToNormal(m.spawnX,m.spawnZ-(SPHERE_LEASH_METRES+10),261);
  tickSphericalMobs(mobs,new Map([[player.id,{...player,joined:true,respawnShieldUntil:0}]]),261,.1,10100,()=>.5);
  assert.equal(m.aggroId,null);
  assert.equal(m.returning,true);
