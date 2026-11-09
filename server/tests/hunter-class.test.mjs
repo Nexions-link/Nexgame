@@ -40,7 +40,7 @@ test('hunter hotbar survives server validation and cannot contain warrior spells
 
 test('ranged hunter pull keeps aggro and damaged health while mob pursues beyond old leash',()=>{
  const {mobs,m,player}=setup();
- player.normal=localToNormal(m.x,m.z-32,261);
+ player.normal=localToNormal(m.x,m.z-29,261);
  assert.ok(facesMob(player,m,261));
  const shot=applySphereAttack(mobs,player,'arcaneShot',m.id,10000,()=>.5);
  assert.equal(shot.ok,true);
