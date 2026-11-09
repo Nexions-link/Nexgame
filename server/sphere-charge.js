@@ -17,6 +17,7 @@ function headingTowards(from,to){
 }
 export function applySphereCharge(mobs,player,mobId,now=Date.now()){
  const def=getAbilityDefinition('charge');
+ if(player.classId&&player.classId!=='warrior')return {ok:false,reason:'Недоступно этому классу'};
  if((player.level||1)<def.level)return {ok:false,reason:'Необходим 8 уровень'};
  if(player.hp<=0||player.respawnShieldUntil>now)return {ok:false,reason:'Персонаж не может атаковать'};
  const cd=player.abilityCooldowns??(player.abilityCooldowns={});

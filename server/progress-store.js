@@ -17,7 +17,7 @@ const FIELDS=[
  'SELECT p.schema_version AS "schemaVersion",p.revision,p.level,p.experience,',
  'p.gold,p.health,p.resource,p.world_radius AS "worldRadius",',
  'p.position_normal AS "positionNormal",p.heading,p.inventory,',
- 'p.equipment,p.quests,p.action_bar AS "actionBar"',
+ 'p.equipment,p.quests,p.action_bar AS "actionBar",c.class_id AS "classId"',
  'FROM ngw_character_progress p',
  'JOIN ngw_characters c ON c.id=p.character_id',
  'JOIN ngw_accounts a ON a.id=c.account_id',
@@ -107,14 +107,14 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
       Object.keys(state.equipment).length){
     await client.query('COMMIT');return state;
    }
-   const loot=[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}];
-   const inventory=[...loot,...Array(state.inventory.length-2).fill(null)];
+   const loot=state.classId==='hunter'?[{id:'healingPotion',qty:3}]:[{id:'wornAxe',qty:1},{id:'healingPotion',qty:3}];
+   const inventory=[...loot,...Array(Math.max(0,state.inventory.length-loot.length)).fill(null)];
    await client.query(
     ["INSERT INTO ngw_progress_events",
      "(character_id,event_key,event_kind,xp_granted,gold_granted,loot)",
      "VALUES($1,'starter:default:v1','starter_pack',0,0,$2::jsonb)"].join(' '),
     [characterId,JSON.stringify(loot)]);
-   const saved=await write(client,characterId,state,{...state,inventory});
+   const saved=await write(client,characterId,state,{...state,inventory,equipment:state.classId==='hunter'?{weapon:{id:'wornBow'}}:state.equipment,resource:state.classId==='hunter'?100:state.resource});
    await client.query('COMMIT');return saved;
   }catch(error){try{await client.query('ROLLBACK')}catch{}throw error}
   finally{client.release()}

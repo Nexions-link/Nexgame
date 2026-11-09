@@ -140,8 +140,12 @@ const playerStats=p=>deriveStats(p.level||1,p.equipment||{});
 const notice=(id,reason)=>({targetId:id,event:{type:'combatRejected',reason}});
 export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng=Math.random,{chargeImpact=false}={}){
  const ability=getAbilityDefinition(abilityId);
- if(!ability||!['autoAttack','heavyStrike','thunderStomp'].includes(abilityId))
+ if(!ability||!['autoAttack','heavyStrike','thunderStomp','autoShot','arcaneShot','concussiveShot','multiShot','aimedShot'].includes(abilityId))
   return {ok:false,reason:'Неизвестная боевая способность',events:[]};
+ if(ability.classId!==(player.classId||'warrior'))return {ok:false,reason:'Недоступно этому классу',events:[]};
+ if(ability.classId==='hunter'&&ITEM_CATALOG[player.equipment?.weapon?.id]?.weaponKind!=='bow')return {ok:false,reason:'Нужен лук',events:[]};
+ if((player.level||1)<ability.level)return {ok:false,reason:'Недостаточный уровень',events:[]};
+ if(['autoShot','aimedShot'].includes(abilityId)&&player.moving)return {ok:false,reason:'Остановитесь для выстрела',events:[]};
  if(player.hp<=0)return {ok:false,reason:'Персонаж мёртв',events:[]};
  if(player.respawnShieldUntil>now)return {ok:false,reason:'Защита после возрождения',events:[]};
  if(player.chargeUntil>now)return {ok:false,reason:'Рывок ещё выполняется',events:[]};
@@ -154,7 +158,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
    (ability.gcd>0&&now<(cooldown.gcd||0)))
   return {ok:false,reason:'Способность восстанавливается',events:[]};
  if((player.resource||0)<ability.resourceCost)
-  return {ok:false,reason:'Недостаточно ярости',events:[]};
+  return {ok:false,reason:player.classId==='hunter'?'Недостаточно маны':'Недостаточно ярости',events:[]};
  const pos=normalToLocal(player.normal,player.radius);
  const targets=abilityId==='thunderStomp'
   ?mobs.filter(m=>m.phase==='alive'&&!m.returning&&
@@ -164,21 +168,27 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  if(abilityId!=='thunderStomp'&&targets.length!==1)
   return {ok:false,reason:'Цель недоступна',events:[]};
  if(abilityId!=='thunderStomp'&&
-  (localDistance(targets[0],player,player.radius)>MELEE_RANGE+.35||!facesMob(player,targets[0],player.radius)))
+  (localDistance(targets[0],player,player.radius)>ability.range+.35||!facesMob(player,targets[0],player.radius)))
   return {ok:false,reason:'Цель слишком далеко или не перед вами',events:[]};
  if(abilityId!=='thunderStomp'&&(!pos||
   !sphereCombatLineClear(pos.x,pos.z,targets[0].x,targets[0].z)))
   return {ok:false,reason:'Цель за препятствием',events:[]};
+ if(abilityId==='multiShot'){
+  const primary=targets[0];
+  targets.push(...mobs.filter(m=>m!==primary&&m.phase==='alive'&&!m.returning&&Math.hypot(m.x-primary.x,m.z-primary.z)<=7&&localDistance(m,player,player.radius)<=ability.range&&facesMob(player,m,player.radius)&&sphereCombatLineClear(pos.x,pos.z,m.x,m.z)).slice(0,2));
+ }
  player.resource=clamp((player.resource||0)-ability.resourceCost,0,100);
  cooldown[abilityId]=now+(abilityId==='autoAttack'?Math.max(800,playerStats(player).speed*1000):ability.cooldown*1000);
  if(ability.gcd>0)cooldown.gcd=now+ability.gcd*1000;
  const stats=playerStats(player),events=[],credits=[];
  for(const target of targets){
   // Incremental scaling preserves early-zone balance and keeps abilities useful.
-  const damage=abilityId!=='thunderStomp'&&isAuthorizedBattlefuryEquipped(player)?target.hp:
+  const damage=ability.classId==='hunter'?Math.round(9+Math.max(1,player.level||1)*2+clamp(rng(),0,1)*4+(ability.damageBonus||0)):
+   abilityId!=='thunderStomp'&&isAuthorizedBattlefuryEquipped(player)?target.hp:
    abilityId==='thunderStomp'?6+2*Math.floor((Math.max(1,player.level||1)-1)/4):
    Math.max(1,Math.round(stats.damageMin+clamp(rng(),0,1)*(stats.damageMax-stats.damageMin))+
     (abilityId==='heavyStrike'?(ability.damageBonus||0)+2*Math.floor((Math.max(1,player.level||1)-1)/3):0));
+  if(abilityId==='concussiveShot')target.slowUntil=now+4000;
   target.hp=Math.max(0,target.hp-damage);
   target.contributors.add(player.id);
   const threat=target.threat??(target.threat=new Map());
@@ -204,7 +214,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
    if(player.chargeImpact?.mobId===target.id&&player.chargeImpact?.life===target.life)
     player.chargeImpact=null;
   }
-  player.resource=clamp(player.resource+
+  if(player.classId!=='hunter')player.resource=clamp(player.resource+
    (firstChargeHit?20:abilityId==='autoAttack'?12:abilityId==='heavyStrike'?8:3),0,100);
   events.push({type:'combat',mobId:target.id,life:target.life,abilityId,
    fromId:player.id,damage,hp:target.hp,maxHp:target.maxHp});
@@ -359,7 +369,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   const cannotMove=now<mob.stunUntil||now<mob.attackAt||now<(mob.packHowlUntil||0);
   if(!cannotMove&&distance>(target?(mob.boss?3:2.35):.28)){
    moveMobToward(mob,{goalX:gx,goalZ:gz,dt,
-    speed:target?(mob.boss?1.75:2.05):mob.returning?1.65:.95,
+    speed:(target?(mob.boss?1.75:2.05):mob.returning?1.65:.95)*(mob.slowUntil>now?.5:1),
     mode:target?'chase':mob.returning?'return':'roam',
     canWalk:(x,z)=>walkable(x,z,mob.boss?.94:.52),detour:!!target||mob.returning});
   }
@@ -389,7 +399,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    const damage=Math.max(0,Math.round((raw-absorbed)*(1-reduction)));
    target.hp=Math.max(0,target.hp-damage);
    target.lastMobAttackAt=now;
-   target.resource=clamp((target.resource||0)+5,0,100);
+   if(target.classId!=='hunter')target.resource=clamp((target.resource||0)+5,0,100);
    mob.attackAt=0;mob.attackCooldownAt=now+(mob.boss?1800:2100);
    events.push({type:'mobAttack',mobId:mob.id,life:mob.life,targetId:target.id,
     damage,blocked:block,absorbed,hp:target.hp,maxHp:target.maxHp});

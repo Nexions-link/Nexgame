@@ -39,7 +39,7 @@ export function createWorldSessionGate({accountStore,progressStore}){
    equipment:character.equipment,quests:character.quests,actionBar:character.actionBar
   };
   return {accountId:account.id,characterId:character.id,
-   nickname:character.nickname,progress};
+   nickname:character.nickname,raceId:character.raceId||'hornfolk',classId:character.classId||'warrior',progress};
  }
  async function enter(socket,args){
   if(bySocket.has(socket))throw new WorldAuthError('socket_already_joined',409);

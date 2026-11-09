@@ -1,3 +1,4 @@
+import {defaultHotbarForClass} from '../hotbar.js';
 // NexGameWorld Alpha 0.7.2 — trusted SERVER-ONLY progression rules.
 // Do not invoke these with untrusted HTTP/WebSocket payloads.
 // Current PvE emits killCredit from server/spherical-pve.js; those credits
@@ -112,7 +113,7 @@ export function readProgress(row){
  if(!plain(quests)||!Array.isArray(actionBar)||actionBar.length>8)
   invalid('corrupt_character_progress');
  return {
-  revision,level,experience,gold,health,resource,worldRadius:radius,
+  ...(row.classId?{classId:row.classId}:{}),revision,level,experience,gold,health,resource,worldRadius:radius,
   positionNormal:[...normal],heading,inventory,equipment,
   quests:jsonValue(quests),actionBar:jsonValue(actionBar)
  };
@@ -243,8 +244,8 @@ export function setActionBarSlot(state,slot,entry){
  if(!integer(slot,0,7))invalid('invalid_action_bar_slot');
  if(entry!==null){
   if(!plain(entry)||Object.keys(entry).some(k=>!['kind','id'].includes(k))||
-     !actionDefinition(entry,'warrior',state.level))invalid('invalid_action_bar_entry');
+     !actionDefinition(entry,state.classId||'warrior',state.level))invalid('invalid_action_bar_entry');
  }
- const base=state.actionBar.length?state.actionBar:DEFAULT_HOTBAR;
- return {...state,actionBar:assignHotbarSlot(normalizeHotbar(base,'warrior',state.level),slot,entry,'warrior',state.level)};
+ const base=state.actionBar.length?state.actionBar:defaultHotbarForClass(state.classId);
+ return {...state,actionBar:assignHotbarSlot(normalizeHotbar(base,state.classId||'warrior',state.level),slot,entry,state.classId||'warrior',state.level)};
 }

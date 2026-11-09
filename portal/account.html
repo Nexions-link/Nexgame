@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101f24"><meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; connect-src https://api.nexions.ru; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>NexGameWorld — аккаунт · Alpha 0.7</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+:root{color-scheme:dark;font:15px system-ui,-apple-system,sans-serif;background:#0b171e;color:#eae2cf}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;background:radial-gradient(ellipse at 50% 30%,#25413e,#0b171e 70%);display:grid;place-items:center;padding:20px}
+main{width:min(100%,440px);border:1px solid #7d7758;border-radius:12px;background:#102129ee;box-shadow:0 18px 70px #0006;padding:clamp(18px,4vw,32px)}
+h1{text-align:center;color:#e5ca8d;font:600 clamp(29px,7vw,40px) Georgia,serif;margin:4px 0}h2{font:500 22px Georgia,serif;margin:12px 0}
+small,.muted{color:#acb6b3}p{line-height:1.5}label{display:block;margin:15px 0 6px}
+input{width:100%;font:inherit;min-height:46px;border-radius:6px;background:#08171f;border:1px solid #697269;color:white;padding:12px;outline-offset:2px}
+input:focus{outline:2px solid #d8bd88;border-color:#d8bd88}
+.password-control{position:relative}
+.password-control input{padding-right:100px}
+.toggle-password{position:absolute;right:5px;top:50%;transform:translateY(-50%);min-height:40px;min-width:88px;border:0;border-radius:4px;background:transparent;color:#d8c291;font-size:13px;font-weight:600;padding:0 8px}
+.toggle-password:focus-visible{outline:2px solid #d8bd88;outline-offset:1px}
+.toggle-password:hover{background:#20323a}
+.remember-row{display:flex;align-items:center;gap:11px;margin:15px 0 4px;cursor:pointer;color:#e8dcc4;font-size:14px}
+.remember-row input{appearance:auto;width:19px;height:19px;min-height:19px;margin:0;flex:0 0 auto;accent-color:#d8bd88;cursor:pointer}
+.remember-note{margin:2px 0 5px 30px}
+button{font:inherit;cursor:pointer;min-height:45px;padding:10px 14px;border:1px solid #7b866e;border-radius:6px;background:#223638;color:#ecdfc3}
+button.primary{width:100%;margin:16px 0 8px;background:#dbc08a;color:#10201e;font-weight:700;border-color:#e0c795}
+button:disabled{opacity:.55;cursor:wait}.links{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.links button{background:transparent;border:none;color:#d8c291;text-decoration:underline;padding:6px;min-height:32px}
+.view[hidden],#feedback[hidden]{display:none!important}#feedback{padding:12px;border-left:3px solid #d6b779;background:#2a3230;margin:16px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+#feedback[data-error=true]{border-color:#e27a74}.hint{font-size:12px;color:#aeb9b0;margin:5px 0 12px}
+.codes{list-style:none;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:5px}.codes li{font:12px ui-monospace,monospace;overflow-wrap:anywhere;background:#091820;padding:6px;border:1px solid #5c6a5e;border-radius:4px}
+.hero{border:1px solid #62664f;padding:12px;border-radius:7px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0}
+.hero-actions{display:flex;flex-direction:column;gap:7px;flex-shrink:0}
+.account-actions{display:flex;flex-direction:column;gap:22px;margin-top:14px}
+.account-actions>button{display:block;width:100%;margin:0}
+.delete-hero{border-color:#704b49;background:#2c2224;color:#ffb5ad;min-height:39px}
+.delete-hero:hover{background:#47292c}
+dialog{width:min(92vw,420px);max-height:min(84dvh,640px);overflow-y:auto;margin:auto;padding:22px;border-radius:12px;border:1px solid #9a7f6e;color:#eae2cf;background:#13252a;box-shadow:0 18px 65px #000b}
+dialog::backdrop{background:#030a0dc9}
+dialog h2{margin-top:0}
+.dialog-actions{display:flex;gap:10px;margin-top:16px}
+.dialog-actions button{flex:1}
+button.danger-confirm{background:#923c3c;color:#fff0ec;border-color:#e48e82}
+button.danger-confirm:disabled{background:#332d2d;color:#b0a29f;border-color:#564e4d;cursor:not-allowed}
+.dialog-error{color:#ffb1ad;white-space:pre-wrap;overflow-wrap:anywhere}
+a{color:#d8c291}header{text-align:center;margin-bottom:14px}header p{margin:5px;font-size:12px;letter-spacing:.14em;color:#aab9ad}
+</style><link rel="stylesheet" href="./planet-test/character-creation.css?v=64600"></head><body><main>
+<header><h1>NexGameWorld</h1><p>АЛЬФА · ТЕСТ РЕГИСТРАЦИИ</p></header>
+<div id="feedback" role="status" aria-live="polite" hidden></div>
+<section class="view" id="login">
+<h2>Войти</h2><form id="loginForm">
+<label for="loginName">Логин</label><input id="loginName" name="username" required minlength="3" maxlength="24" autocomplete="username">
+<label for="loginPass">Пароль</label><div class="password-control"><input id="loginPass" name="password" type="password" required minlength="6" maxlength="128" autocomplete="current-password"><button class="toggle-password" type="button" data-show-password="loginPass" aria-controls="loginPass" aria-pressed="false" aria-label="Показать пароль">Показать</button></div>
+<label class="remember-row" for="rememberLogin"><input id="rememberLogin" name="remember" type="checkbox"><span>Запомнить меня на этом устройстве</span></label>
+<p class="hint remember-note">Вход без пароля до 7 дней. Не включайте на чужом устройстве.</p>
+<button class="primary" type="submit">Войти</button></form>
+<div class="links"><button type="button" data-view="register">Создать аккаунт</button><button type="button" data-view="recover">Забыл пароль?</button></div>
+</section>
+<section class="view" id="register" hidden>
+<h2>Регистрация</h2>
+<p class="hint">В новой онлайн-версии все начинают с нуля. Персонажи и прогресс предыдущей альфы не переносятся.</p><form id="registerForm">
+<label for="registerName">Логин</label><input id="registerName" name="username" required pattern="[A-Za-z][A-Za-z0-9_-]{2,23}" maxlength="24" autocomplete="username">
+<p class="hint">3–24 символа: латиница, цифры, дефис, подчёркивание.</p>
+<label for="registerPass">Пароль</label><div class="password-control"><input id="registerPass" name="password" type="password" required minlength="6" maxlength="128" autocomplete="new-password"><button class="toggle-password" type="button" data-show-password="registerPass" aria-controls="registerPass" aria-pressed="false" aria-label="Показать пароль">Показать</button></div>
+<p class="hint">Пароль — не менее 6 символов. Рекомендуем использовать уникальный пароль, который не применяется на других сайтах.</p>
+<label for="registerPass2">Повторите пароль</label><div class="password-control"><input id="registerPass2" type="password" required minlength="6" maxlength="128" autocomplete="new-password"><button class="toggle-password" type="button" data-show-password="registerPass2" aria-controls="registerPass2" aria-pressed="false" aria-label="Показать пароль">Показать</button></div>
+<button class="primary" type="submit">Создать аккаунт</button></form>
+<div class="links"><button type="button" data-view="login">Уже есть аккаунт? Войти</button></div>
+</section>
+<section class="view" id="recoveryCodes" hidden>
+<h2>Сохраните резервные коды</h2>
+<p>Эти коды помогут восстановить доступ без электронной почты. Каждый действует только один раз. <strong>После закрытия этого окна они больше не появятся.</strong></p>
+<ul id="codes" class="codes"></ul>
+<button id="copyCodes" type="button">Скопировать коды</button>
+<label><input type="checkbox" id="codesSaved" style="width:auto;min-height:0"> Я сохранил коды в надёжном месте</label>
+<button id="codesContinue" class="primary" type="button" disabled>Продолжить ко входу</button>
+</section>
+<section class="view" id="recover" hidden>
+<h2>Восстановить пароль</h2><p class="hint">Нужен один из резервных кодов, выданных при регистрации.</p>
+<form id="recoverForm">
+<label for="recoverName">Логин</label><input id="recoverName" name="username" required autocomplete="username">
+<label for="recoverCode">Резервный код</label><input id="recoverCode" name="recoveryCode" required maxlength="32" autocomplete="off">
+<label for="recoverPass">Новый пароль</label><div class="password-control"><input id="recoverPass" name="newPassword" type="password" required minlength="6" maxlength="128" autocomplete="new-password"><button class="toggle-password" type="button" data-show-password="recoverPass" aria-controls="recoverPass" aria-pressed="false" aria-label="Показать пароль">Показать</button></div>
+<button type="submit" class="primary">Сменить пароль</button></form><button data-view="login">Вернуться ко входу</button>
+</section>
+<section class="view" id="characters" hidden>
+<h2>Персонажи</h2><p id="accountName" class="muted"></p><p class="hint">Новые герои начинают на 1-м уровне. Перенос старых сохранений недоступен.</p><div id="characterList"></div>
+<form id="characterForm" class="creation-forge">
+<div class="creation-heading"><small>NEXGAMEWORLD</small><h2>Создание персонажа</h2><p>Выберите свой путь</p></div>
+<div class="creation-layout">
+<fieldset class="creation-races"><legend>Раса</legend>
+<label class="creation-option"><input type="radio" name="raceId" value="hornfolk" checked><span class="creation-emblem">♉</span><strong>Таурен</strong><small>Хранители равнин</small></label>
+<label class="creation-option"><input type="radio" name="raceId" value="orc"><span class="creation-emblem">♜</span><strong>Орк</strong><small>Дети камня и стали</small></label>
+<p class="creation-race-description"></p></fieldset>
+<div class="creation-stage" tabindex="0" role="img" aria-label="Вращаемая 3D-модель персонажа"><span class="creation-gesture">Проведите по модели, чтобы повернуть</span></div>
+<fieldset class="creation-classes"><legend>Класс</legend>
+<label class="creation-option"><input type="radio" name="classId" value="warrior" checked><span class="creation-emblem">⚔</span><strong>Воин</strong><small>Ближний бой · ярость</small></label>
+<label class="creation-option"><input type="radio" name="classId" value="hunter"><span class="creation-emblem">➶</span><strong>Охотник</strong><small>Дальний бой · мана</small></label>
+<p class="creation-class-description"></p></fieldset>
+</div><div class="creation-footer"><h3 class="creation-title">Таурен · Воин</h3><label for="heroName">Имя героя</label><input id="heroName" name="nickname" required minlength="3" maxlength="24" autocomplete="off" placeholder="Как вас будут звать?">
+<button class="primary" type="submit">Войти в историю</button><p class="hint">Новый герой начинает с 1-го уровня. Раса и класс сохраняются навсегда.</p></div></form>
+
+<div class="account-actions">
+<button id="openPasswordChange" type="button">Сменить пароль</button>
+<form id="passwordChangeForm" hidden>
+<h2>Смена пароля</h2>
+<label for="currentAccountPassword">Текущий пароль</label>
+<div class="password-control"><input id="currentAccountPassword" name="currentPassword" type="password" required minlength="6" maxlength="128" autocomplete="current-password"><button class="toggle-password" type="button" data-show-password="currentAccountPassword" aria-controls="currentAccountPassword" aria-pressed="false" aria-label="Показать пароль">Показать</button></div>
+<label for="newAccountPassword">Новый пароль</label>
+<div class="password-control"><input id="newAccountPassword" name="newPassword" type="password" required minlength="6" maxlength="128" autocomplete="new-password"><button class="toggle-password" type="button" data-show-password="newAccountPassword" aria-controls="newAccountPassword" aria-pressed="false" aria-label="Показать пароль">Показать</button></div>
+<p class="hint">Не менее 6 символов. Для безопасности используйте пароль, который нигде больше не применяется.</p>
+<label for="repeatAccountPassword">Повторите новый пароль</label>
+<div class="password-control"><input id="repeatAccountPassword" type="password" required minlength="6" maxlength="128" autocomplete="new-password"><button class="toggle-password" type="button" data-show-password="repeatAccountPassword" aria-controls="repeatAccountPassword" aria-pressed="false" aria-label="Показать пароль">Показать</button></div>
+<button class="primary" type="submit">Сохранить новый пароль</button>
+<button id="cancelPasswordChange" type="button">Отмена</button>
+</form>
+<button id="logout" type="button">Выйти из аккаунта</button>
+</div>
+</section>
+<dialog id="deleteDialog" aria-labelledby="deleteTitle">
+<h2 id="deleteTitle">Удаление персонажа</h2>
+<p>Персонаж <strong id="deleteHeroName"></strong> исчезнет из списка, а слот станет свободным.</p>
+<p class="hint">Для подтверждения введите его имя точно так же, как оно написано выше.</p>
+<form id="deleteHeroForm">
+<label for="deleteConfirmName">Имя персонажа</label>
+<input id="deleteConfirmName" type="text" required autocomplete="off" spellcheck="false" autocapitalize="none">
+<p id="deleteError" class="dialog-error" role="alert" hidden></p>
+<div class="dialog-actions">
+<button type="button" id="cancelDelete">Отмена</button>
+<button type="submit" id="confirmDelete" class="danger-confirm" disabled>Удалить</button>
+</div>
+</form>
+</dialog>
+<footer style="text-align:center;font-size:12px;margin-top:15px"><a href="/">На главную</a></footer>
+</main><script type="module" src="./account.js?v=64600"></script></body></html>

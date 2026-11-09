@@ -43,9 +43,9 @@ export function validateCharacterOptions(input){
  const nickname=normalizeNickname(input.nickname);
  // The launch build has one playable race/class. The DB schema remains open
  // to additional class and appearance ids after server-side allowlisting.
- if(input.raceId!==undefined&&input.raceId!==INITIAL_RACE)
+ if(input.raceId!==undefined&&!['hornfolk','orc'].includes(input.raceId))
   throw new TypeError('Раса пока недоступна');
- if(input.classId!==undefined&&input.classId!==INITIAL_CLASS)
+ if(input.classId!==undefined&&!['warrior','hunter'].includes(input.classId))
   throw new TypeError('Класс пока недоступен');
- return {nickname,raceId:INITIAL_RACE,classId:INITIAL_CLASS,appearance:{}};
+ return {nickname,raceId:input.raceId||INITIAL_RACE,classId:input.classId||INITIAL_CLASS,appearance:{}};
 }
