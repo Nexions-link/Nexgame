@@ -16,7 +16,8 @@ import {eligibleWolfPackHelper,WOLF_PACK_HOWL_MS,WOLF_PACK_COOLDOWN_MS,WOLF_PACK
 export const SPHERE_MOB_SPAWNS=CREATURE_SPAWNS.map(({x,z})=>[x,z]);
 export const SPHERE_CORPSE_MS=30000;
 export const SPHERE_RESPAWN_MS=30000;
-export const SPHERE_LEASH_METRES=23;
+// Combat leash exceeds the hunter's 35m shooting range. Initial passive aggro remains short-range.
+export const SPHERE_LEASH_METRES=75;
 export const SPHERE_ROAM_RADIUS=3.2;
 const TAU=Math.PI*2,MAX_TICK=.25,MELEE_RANGE=3.45,STOMP_RANGE=4.5;
 const AGGRO_SWITCH_MARGIN=1.20; // PvE aggro does not ping-pong between similar hits.
@@ -253,7 +254,7 @@ export function reassignSphereAggroOnLeave(mob,departingId,players,radius,now=Da
  if(!mob||mob.phase!=='alive')return false;
  mob.contributors.delete(departingId);mob.threat?.delete(departingId);
  if(mob.aggroId!==departingId)return false;
- const leash=mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES;
+ const leash=SPHERE_LEASH_METRES;
  const spawn=localToNormal(mob.spawnX,mob.spawnZ,radius);
  const remaining=[...mob.contributors].map(id=>players.get(id)).filter(p=>{
   if(!p?.joined||p.hp<=0||p.respawnShieldUntil>now||p.radius!==radius||
@@ -324,7 +325,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
   let target=mob.aggroId?players.get(mob.aggroId):null;
   if(mob.aggroId&&(!target||!target.joined||target.hp<=0||target.radius!==radius||
     target.respawnShieldUntil>now||
-    arcDistance(spawnNormal,target.normal,radius)>(mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES))){
+    arcDistance(spawnNormal,target.normal,radius)>SPHERE_LEASH_METRES)){
    reassignSphereAggroOnLeave(mob,mob.aggroId,players,radius,now);
    target=mob.aggroId?players.get(mob.aggroId):null;
   }
@@ -333,7 +334,7 @@ export function tickSphericalMobs(mobs,players,radius,dt,now=Date.now(),rng=Math
    let closest=Infinity;
    for(const p of alive){
     const spawnDistance=arcDistance(spawnNormal,p.normal,radius),distance=localDistance(mob,p,radius);
-    const leash=mob.family==='bandit'?BANDIT_CAMP.leashRadius:SPHERE_LEASH_METRES;
+    const leash=SPHERE_LEASH_METRES;
     const aggro=mob.family==='bandit'?(mob.boss?7:BANDIT_CAMP.aggroRadius):(mob.boss?9:7);
     if(spawnDistance<leash&&distance<aggro&&distance<closest){
      const loc=normalToLocal(p.normal,radius);
