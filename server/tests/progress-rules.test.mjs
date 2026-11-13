@@ -88,6 +88,33 @@ test('equip and unequip are inventory-conserving and require ownership + level',
  assert.deepEqual(back.equipment,{});
  assert.throws(()=>unequipOwnedItem(next,'weapon',1),/inventory_slot_occupied/);
 });
+test('equipping a bow and shield together is rejected atomically in either order',()=>{
+ for(const [equipment,item,slot] of [
+  [{weapon:{id:'wornBow'}},'batteredBuckler','shield'],
+  [{weapon:{id:'wornAxe'},shield:{id:'batteredBuckler'}},'wornBow','weapon']
+ ]){
+  const inventory=Array.from({length:12},(_,i)=>({id:i===0?item:'wornAxe',qty:1}));
+  const state=readProgress({...rows(),classId:'hunter',equipment,inventory});
+  const original=structuredClone(state);
+  assert.throws(()=>equipOwnedItem(state,0,slot),
+   error=>error instanceof ProgressError&&error.code==='equipment_conflict'&&error.status===409);
+  assert.deepEqual(state,original,'rejection must not consume or move owned items');
+ }
+});
+test('legacy bow and shield saves stay readable and the inactive shield can be removed safely',()=>{
+ const equipment={weapon:{id:'wornBow'},shield:{id:'batteredBuckler'}};
+ const state=readProgress({...rows(),classId:'hunter',equipment});
+ assert.deepEqual(state.equipment,equipment);
+ const removed=unequipOwnedItem(state,'shield',0);
+ assert.deepEqual(removed.equipment,{weapon:{id:'wornBow'}});
+ assert.deepEqual(removed.inventory[0],{id:'batteredBuckler',qty:1});
+ assert.deepEqual(state.equipment,equipment,'legacy snapshot remains immutable');
+ const withoutBow=unequipOwnedItem(state,'weapon',0);
+ withoutBow.inventory[1]={id:'wornAxe',qty:1};
+ const restored=equipOwnedItem(withoutBow,1,'weapon');
+ assert.deepEqual(restored.equipment,{weapon:{id:'wornAxe'},shield:{id:'batteredBuckler'}});
+ assert.deepEqual(restored.inventory[0],{id:'wornBow',qty:1});
+});
 test('trusted checkpoints cannot write level, currency, gear, or move planets',()=>{
  const normal=validateServerCheckpoint({normal:[0,0,1.003],radius:261,heading:1},261);
  assert.equal(normal.positionNormal[2],1);

@@ -3,7 +3,7 @@ import {defaultHotbarForClass} from '../hotbar.js';
 // Do not invoke these with untrusted HTTP/WebSocket payloads.
 // Current PvE emits killCredit from server/spherical-pve.js; those credits
 // can be persisted only after the session is bound to an owned DB character.
-import {ITEM_CATALOG,itemStackLimit,deriveStats} from '../items.js';
+import {ITEM_CATALOG,itemStackLimit,deriveStats,equipmentConflict} from '../items.js';
 import {levelExperienceRequirement,MAX_CHARACTER_LEVEL} from '../planet-test/level-progression.js';
 import {DEFAULT_HOTBAR,normalizeHotbar,actionDefinition,assignHotbarSlot} from '../hotbar.js';
 import {CREATURE_LOOT_TABLES,creatureGearPool} from '../planet-test/loot-tables.js';
@@ -216,6 +216,8 @@ export function equipOwnedItem(state,bagSlot,slot){
  const def=ITEM_CATALOG[item.id];
  if(!def||def.slot!==slot||(def.requiredLevel||1)>state.level)
   throw new ProgressError('equipment_requirements_not_met',409);
+ if(equipmentConflict(state.equipment,item.id))
+  throw new ProgressError('equipment_conflict',409);
  const inventory=state.inventory.map(row=>row?{...row}:null);
  const equipment={...state.equipment};
  const previous=equipment[slot]||null;

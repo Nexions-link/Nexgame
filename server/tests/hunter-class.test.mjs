@@ -1,11 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateCharacterOptions} from '../account-rules.js';
-import {createSphericalMobs,applySphereAttack,localToNormal,facesMob,tickSphericalMobs,SPHERE_LEASH_METRES} from '../spherical-pve.js';
+import {createSphericalMobs,applySphereAttack,localToNormal,facesMob,tickSphericalMobs,SPHERE_LEASH_METRES,sanitizeSphereEquipment} from '../spherical-pve.js';
 import {applySphereCharge} from '../sphere-charge.js';
 import {defaultHotbarForClass,normalizeHotbar} from '../../hotbar.js';
 import {setActionBarSlot} from '../progress-rules.js';
+import {deriveStats,effectiveShield,equipmentConflict} from '../../items.js';
 const setup=()=>{const mobs=createSphericalMobs(),m=mobs[0];const player={id:'hunter',classId:'hunter',raceId:'orc',radius:261,normal:localToNormal(m.x,m.z-12,261),heading:Math.PI/2,hp:120,maxHp:120,level:1,resource:100,equipment:{weapon:{id:'wornBow'}},abilityCooldowns:{},moving:false};assert.ok(facesMob(player,m,261));return {mobs,m,player};};
+test('two-handed bow suppresses all legacy shield bonuses and presence in the live world',()=>{
+ const bow={weapon:{id:'wornBow'}},legacy={...bow,shield:{id:'infantryBear'}};
+ assert.deepEqual(deriveStats(6,legacy),deriveStats(6,bow));
+ assert.equal(effectiveShield(legacy),null);
+ assert.equal(equipmentConflict(bow,'batteredBuckler'),true);
+ assert.equal(equipmentConflict({shield:{id:'batteredBuckler'}},'wornBow'),true);
+ assert.deepEqual(sanitizeSphereEquipment(legacy,6),bow);
+ assert.deepEqual(legacy.shield,{id:'infantryBear'},'saved item is preserved');
+ const melee={weapon:{id:'wornAxe'},shield:{id:'infantryBear'}};
+ assert.equal(equipmentConflict(melee,'feebleSword'),false);
+ assert.equal(equipmentConflict(melee,'batteredBuckler'),false);
+ assert.ok(effectiveShield(melee));
+ assert.deepEqual(sanitizeSphereEquipment(melee,6),melee);
+ assert.equal(deriveStats(6,melee).blockChance,.05);
+});
 test('all four race/class combinations are allowed, injected identities rejected',()=>{
  for(const raceId of ['hornfolk','orc'])for(const classId of ['warrior','hunter'])assert.deepEqual(validateCharacterOptions({nickname:'Следопыт',raceId,classId}),{nickname:'Следопыт',raceId,classId,appearance:{}});
  assert.throws(()=>validateCharacterOptions({nickname:'Следопыт',raceId:'elf'}));
@@ -64,4 +80,16 @@ test('far beyond combat leash creature evades instead of pursuing forever',()=>{
  tickSphericalMobs(mobs,new Map([[player.id,{...player,joined:true,respawnShieldUntil:0}]]),261,.1,10100,()=>.5);
  assert.equal(m.aggroId,null);
  assert.equal(m.returning,true);
+});
+
+test('hunter PvE damage preserves the ranged level scaling and each shot bonus',()=>{
+ for(const [abilityId,minimum] of [['autoShot',25],['arcaneShot',37],['concussiveShot',25],['multiShot',31],['aimedShot',55]]){
+  for(const [random,expected] of [[0,minimum],[1,minimum+4]]){
+   const {mobs,m,player}=setup();player.level=8;m.hp=m.maxHp=200;
+   const result=applySphereAttack(mobs,player,abilityId,m.id,10000,()=>random);
+   assert.equal(result.ok,true,abilityId);
+   assert.equal(result.events[0].damage,expected,abilityId);
+   assert.equal(m.hp,m.maxHp-expected);
+  }
+ }
 });

@@ -4,9 +4,9 @@ import {MELEE_FACING_COSINE} from '../planet-test/melee-facing.js';
 import {canWalkCamp} from '../planet-test/sphere-physics.js';
 import {moveMobToward,mobSegmentClear} from '../planet-test/mob-navigation.js';
 import {rollCreatureLoot} from '../planet-test/loot-tables.js';
-import {deriveStats,ITEM_CATALOG,armorReduction} from '../items.js';
+import {deriveStats,ITEM_CATALOG,armorReduction,effectiveShield} from '../items.js';
 import {isAuthorizedBattlefuryEquipped} from './admin-battlefury.js';
-import {getAbilityDefinition} from '../skills.js';
+import {getAbilityDefinition,rollHunterDamage} from '../skills.js';
 import {CREATURE_TYPE_BEAST,creatureTypeForMob,rollCreatureCoins} from '../planet-test/creature-types.js';
 import {monsterAttackDamage} from '../planet-test/mob-levels.js';
 import {CREATURE_SPAWNS,creatureSpawnHealth,creatureKillReward} from '../planet-test/creature-registry.js';
@@ -135,6 +135,7 @@ export function sanitizeSphereEquipment(raw,level){
   if(typeof id==='string'&&ITEM_CATALOG[id]?.slot===slot&&
    (ITEM_CATALOG[id].requiredLevel||1)<=level)result[slot]={id};
  }
+ if(result.shield&&!effectiveShield(result))delete result.shield;
  return result;
 }
 const playerStats=p=>deriveStats(p.level||1,p.equipment||{});
@@ -184,7 +185,7 @@ export function applySphereAttack(mobs,player,abilityId,mobId,now=Date.now(),rng
  const stats=playerStats(player),events=[],credits=[];
  for(const target of targets){
   // Incremental scaling preserves early-zone balance and keeps abilities useful.
-  const damage=ability.classId==='hunter'?Math.round(9+Math.max(1,player.level||1)*2+clamp(rng(),0,1)*4+(ability.damageBonus||0)):
+  const damage=ability.classId==='hunter'?rollHunterDamage(player.level,abilityId,rng):
    abilityId!=='thunderStomp'&&isAuthorizedBattlefuryEquipped(player)?target.hp:
    abilityId==='thunderStomp'?6+2*Math.floor((Math.max(1,player.level||1)-1)/4):
    Math.max(1,Math.round(stats.damageMin+clamp(rng(),0,1)*(stats.damageMax-stats.damageMin))+
