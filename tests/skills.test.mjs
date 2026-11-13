@@ -12,14 +12,15 @@ const ctx=(runtime,additional={})=>({
  classId:'warrior',level:1,resource:40,runtime,hasTarget:true,
  range:2.5,facing:true,hasConsumable:true,needsHealing:true,...additional
 });
-test('class definitions and future-class restrictions',()=>{
+test('class definitions and playable-class restrictions',()=>{
  assert.equal(Object.keys(CLASS_DEFINITIONS).length,3);
  assert.equal(getClassDefinition('warrior').resource,'rage');
  assert.equal(getClassDefinition('shaman').resource,'mana');
  assert.equal(getClassDefinition('hunter').resource,'mana');
  assert.equal(CLASS_DEFINITIONS.warrior.playable,true);
  assert.equal(CLASS_DEFINITIONS.shaman.playable,false);
- assert.equal(CLASS_DEFINITIONS.hunter.playable,false);
+ assert.equal(CLASS_DEFINITIONS.hunter.playable,true);
+ assert.equal(normalizeClassId('hunter'),'hunter');
  assert.equal(normalizeClassId('shaman'),'warrior');
  assert.equal(normalizeClassId('unknown'),'warrior');
 });
@@ -34,7 +35,8 @@ test('old save migration, resources and clamping',()=>{
 test('warrior ability loadout is data driven',()=>{
  assert.deepEqual(getClassAbilities('warrior',1).map(x=>x.id).sort(),
   ['autoAttack','thunderStomp','healingPotion','heavyStrike'].sort());
- assert.deepEqual(getClassAbilities('hunter',1).map(x=>x.id),['healingPotion']);
+ assert.deepEqual(getClassAbilities('hunter',1).map(x=>x.id),
+  ['autoShot','arcaneShot','concussiveShot','healingPotion']);
  assert.equal(ABILITY_DEFINITIONS.heavyStrike.resourceCost,20);
  assert.equal(ABILITY_DEFINITIONS.heavyStrike.cooldown,3);
  assert.equal(ABILITY_DEFINITIONS.heavyStrike.gcd,1.5);
