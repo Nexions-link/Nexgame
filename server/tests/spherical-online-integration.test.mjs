@@ -39,6 +39,35 @@ async function until(get,timeout=3500){
  }
  throw Error('Timed out waiting for expected network event');
 }
+test('party kick packets use the connected leader identity and publish the confirmed roster',{timeout:10000},async()=>{
+ const {port,child}=await server();let a,b,c;
+ try{
+  a=await join(port,'Лидер',CHEST_X,CHEST_Z);
+  b=await join(port,'Участник',CHEST_X,CHEST_Z);
+  c=await join(port,'Союзник',CHEST_X,CHEST_Z);
+  const aw=await until(()=>a.events.find(e=>e.type==='welcome'));
+  const bw=await until(()=>b.events.find(e=>e.type==='welcome'));
+  const cw=await until(()=>c.events.find(e=>e.type==='welcome'));
+  for(const peer of [b,c]){
+   const id=peer===b?bw.id:cw.id;
+   a.send({type:'partyInvite',targetId:id});
+   await until(()=>peer.events.find(e=>e.type==='partyInvite'&&e.fromId===aw.id));
+   peer.send({type:'partyRespond',fromId:aw.id,accept:true});
+   await until(()=>peer.events.find(e=>e.type==='partyState'&&e.groupId));
+  }
+  await until(()=>a.events.find(e=>e.type==='partyState'&&e.members.length===3));
+  b.send({type:'partyKick',fromId:aw.id,groupId:'forged',targetId:cw.id});
+  const denied=await until(()=>b.events.find(e=>e.type==='partyNotice'&&e.error&&/Исключать/.test(e.message)));
+  assert.equal(denied.error,true,'forged leader IDs cannot remove a player');
+  const before=b.events.length;
+  a.send({type:'partyKick',targetId:bw.id});
+  await until(()=>b.events.slice(before).find(e=>e.type==='partyState'&&e.groupId===null));
+  await until(()=>b.events.slice(before).find(e=>e.type==='partyNotice'&&/исключены/.test(e.message)));
+  const confirmed=await until(()=>c.events.find(e=>e.type==='partyState'&&e.members.length===2));
+  assert.equal(confirmed.leaderId,aw.id);
+  assert.deepEqual(confirmed.members.map(row=>row.id),[aw.id,cw.id]);
+ }finally{a?.close();b?.close();c?.close();child.kill();}
+});
 test('two browsers share authoritative dolgonog health, kill credit and quest rewards', {timeout:10000},async()=>{
  const {port,child}=await server();let a,b;
  try{
