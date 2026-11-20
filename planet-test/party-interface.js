@@ -268,8 +268,19 @@ export function createPartyInterface({document:doc=globalThis.document,getTransp
   if(event.key==='Escape'&&(!prompt.hidden||!menu.hidden)){
    event.preventDefault();event.stopPropagation?.();if(!prompt.hidden){if(invite)respond(false);else hidePrompt();}else hideMenu();
   }else if(event.key==='Tab'&&!prompt.hidden&&promptButtons.length){
-   event.preventDefault();const active=doc.activeElement,index=promptButtons.indexOf(active);
+   event.preventDefault();event.stopPropagation?.();
+   const active=doc.activeElement,index=promptButtons.indexOf(active);
    promptButtons[(index+(event.shiftKey?-1:1)+promptButtons.length)%promptButtons.length].focus?.();
+  }else if(!menu.hidden&&event.key==='Tab'){
+   event.stopPropagation?.();hideMenu();
+  }else if(!menu.hidden&&['ArrowUp','ArrowDown','Home','End'].includes(event.key)){
+   event.preventDefault();event.stopPropagation?.();
+   const items=Array.from(menu.querySelectorAll?.('button')||[]).filter(item=>!item.disabled);
+   if(!items.length)return;
+   const at=Math.max(0,items.indexOf(doc.activeElement));
+   const next=event.key==='Home'?0:event.key==='End'?items.length-1:
+    (at+(event.key==='ArrowUp'?-1:1)+items.length)%items.length;
+   items[next].focus?.();
   }
  };
  doc.addEventListener?.('pointerdown',outside);doc.addEventListener?.('keydown',keyboard,true);
