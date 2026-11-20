@@ -7,6 +7,7 @@ import {acceptForestHunt,reportForestHunt,inspectForestDen,finishForestHunt} fro
 import {acceptMountQuest,inspectMountTracks,finishMountQuest} from './mount-quest.js';
 import {createResilientPgPool} from './postgres-pool.js';
 import {createProgressStore} from './progress-store.js';
+import {exchangeTradeProgress} from './player-trade-rules.js';
 import {acceptBanditQuest,turnInBanditQuest,acceptBanditChiefQuest,turnInBanditChiefQuest,
  acceptBanditWeaponsQuest,turnInBanditWeaponsQuest,requireBanditWeaponAvailable} from './bandit-quest.js';
 import {BANDIT_WEAPON_CAST_SECONDS,BANDIT_WEAPON_RESPAWN_SECONDS,banditWeaponNode} from '../planet-test/bandit-weapons.js';
@@ -39,6 +40,12 @@ export function createEconomyStore({pool:externalPool,
  const transaction=(args,handler)=>progress.trustedTransaction(
   args.accountId,args.characterId,args.expectedRevision,handler);
  async function ping(){await pool.query('SELECT 1 AS ok');return true}
+ async function exchangePlayers({participants,offers,validate}){
+  return progress.trustedPairTransaction(participants,async({states})=>{
+   validate?.();
+   return {next:exchangeTradeProgress(states,offers),beforeCommit:validate};
+  });
+ }
  async function ready(){
   const {rows}=await pool.query(
    "SELECT to_regclass('public.ngw_shared_chests') IS NOT NULL AS chest,"+
@@ -525,7 +532,7 @@ export function createEconomyStore({pool:externalPool,
   });
  }
  return {
-  ping,schemaReady:ready,buy,sell,discard,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
+  ping,schemaReady:ready,buy,sell,discard,exchangePlayers,readCorpseLoot,takeCorpseLoot,readChest,readChestStatus,moveChest,
   acceptGather,startGather,finishGather,turnInGather,
   startMentor,mentorInteract,recordMentorKill,turnInMentor,
   expeditionAccept,expeditionArrive,expeditionDiscover,expeditionTurnIn,

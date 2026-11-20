@@ -5,6 +5,7 @@ import {createPartyInterface,partyClassInfo} from './party-interface.js?v=64611'
 import {defaultHotbarForClass} from '../hotbar.js?v=64604';
 import {createChestSheet} from './chest-sheet.js?v=3';
 import {createCharacterPreview} from './character-preview.js?v=64608';
+import {createPlayerTradeUi,TRADE_BAG_MIME} from './player-trade-ui.js';
 import {renderCharacterSheet} from './character-sheet.js?v=64604';
 import {renderChiefRewardChoice} from './quest-reward-choice.js?v=1';
 import {questWaypoint,isAcceptedQuest,trackedQuestMap} from './starter-quest-guidance.js?v=64609';
@@ -157,7 +158,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
  // The UI compacts occupied cells, but mutations must keep real server slots.
  function syncServerBag(rows){
   if(!authenticatedProfile||!Array.isArray(rows))return false;
-  serverBagSlots=Array.from({length:12},(_,i)=>rows[i]?{...rows[i]}:null);
+  serverBagSlots=Array.from({length:Math.max(12,Math.min(108,rows.length))},(_,i)=>rows[i]?{...rows[i]}:null);
   state.inventory=serverBagSlots.filter(Boolean).map(row=>({...row}));
   return true;
  }
@@ -445,9 +446,30 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
    hp:state.hp,maxHp:stats().maxHp,resource:state.resource,classId,
    raceId:authenticatedProfile?.raceId||'hornfolk'}),
   onSelect:id=>{selectAlly(id);if(!modal.hidden&&modal.dataset.kind==='party')closeWindow();},
-  onOpenRoster:()=>openWindow('party'),onNotice:message=>msg(message)});
+  onOpenRoster:()=>openWindow('party'),onTrade:inviteTrade,onNotice:message=>msg(message)});
  function setMultiplayer(transport){multiplayer=transport||null;partyInterface.update();}
+ const playerTrade=createPlayerTradeUi({
+  getInventory:()=>serverBagSlots,getGold:()=>state.gold,
+  getPlayerName:()=>authenticatedProfile?.nickname||'Вы',isConnected:isOnline,
+  respond:(...args)=>multiplayer?.tradeRespond?.(...args)??false,
+  offer:(...args)=>multiplayer?.tradeOffer?.(...args)??false,
+  accept:(...args)=>multiplayer?.tradeAccept?.(...args)??false,
+  cancel:(...args)=>multiplayer?.tradeCancel?.(...args)??false,
+  notice:message=>msg(message),openInventory:()=>openWindow('bag'),
+  renderItemIcon:(id,doc)=>createItemIcon(doc,id,ITEM_CATALOG[id])
+ });
+ function inviteTrade(id=selectedAllyId){
+  if(!authenticatedProfile)return msg('Обмен доступен авторизованным персонажам.');
+  if(!id||!isOnline()||!onlinePlayers.some(player=>player.id===id))return msg('Игрок недоступен для обмена.');
+  if(inCombat())return msg('Обмен недоступен во время боя.');
+  return multiplayer.tradeInvite?.(id)||msg('Не удалось отправить приглашение к обмену.');
+ }
+ function onTradeInvite(event){if(isOnline())playerTrade.onInvite(event)}
+ function onTradeState(event){if(isOnline())playerTrade.onState(event)}
+ function onTradeClosed(event){playerTrade.onClosed(event)}
+ function onTradeNotice(event){playerTrade.onNotice(event)}
  function onNetworkDisconnect(){
+  playerTrade.disconnect();
   if(!authenticatedProfile)return;
   partyInterface.reset();
   cancelBowShot(true);
@@ -773,6 +795,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   state.xp=progress.experience;
   state.gold=progress.gold;
   if(Array.isArray(progress.inventory))syncServerBag(progress.inventory);
+  playerTrade.refreshInventory();
   if(progress.equipment&&typeof progress.equipment==='object')
    state.equipment=progress.equipment;
   if(progress.quests?.mentor?.step!==undefined)
@@ -2502,6 +2525,15 @@ function resetCreatureImpact(mob){
         if(item.id===BATTLEFURY_ITEM_ID){icon.classList.add('battlefury-icon');icon.innerHTML='';}
         const qty=document.createElement('span');qty.className='slot-count';qty.textContent=item.qty>1?item.qty:'';
         cell.append(icon,qty);
+        if(authenticatedProfile){
+         cell.draggable=true;
+         cell.addEventListener('dragstart',event=>{
+          const physical=serverBagSlot(i);
+          if(physical<0||!event.dataTransfer)return;
+          event.dataTransfer.setData(TRADE_BAG_MIME,String(physical));
+          event.dataTransfer.effectAllowed='copy';
+         });
+        }
         attachBagDiscardDrag(cell,{document,panel:$('panel'),
          item:{id:item.id,qty:item.qty,name:def?.name||'Предмет'},
          onDiscard:()=>{
@@ -3293,6 +3325,7 @@ function resetCreatureImpact(mob){
    if(!modal.hidden&&modal.dataset.kind==='mounts')renderModal();
   },
   setMultiplayer,onNetworkDisconnect,networkCharacter,onOnlinePlayers,onPartyState,onPartyInvite,onPartyNotice,onChat,onChestState,onChestStatus,onChestResult,
+  inviteTrade,onTradeInvite,onTradeState,onTradeClosed,onTradeNotice,
   onVitals,onCombatEvent,onChargeAccepted,onChargeRejected,onKillCredit,applyServerProgress,onEconomyResult,onMobAttack,onMobStrike,onMobTelegraph,onMobHowl,onNetworkRespawn,onMobSnapshot,
   // Only the active owner's cosmetic pose is sent; item entitlement remains on server.
   getBattlefuryPose:()=>authenticatedProfile&&state.equipment.weapon?.id===BATTLEFURY_ITEM_ID?
