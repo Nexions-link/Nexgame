@@ -19,7 +19,7 @@ import {questProgressSummary,renderQuestProgressPanel} from './quest-progress-pa
 // Offline spherical NexGame systems. Use the unchanged production rules for items,
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT,HOTBAR_AUTO_ACTIVE} from './native-hotbar-art.js?v=64600';
-import {createItemIcon,backpackArtwork} from './inventory-art.js';
+import {createItemIcon,backpackArtwork} from './inventory-art.js?v=64610';
 import {getAbilityRangeIndicator,getAbilityResourceIndicator} from './ability-range-visuals.js?v=2';
 import {levelExperienceRequirement,earnedExperienceSince} from './level-progression.js?v=1';
 import {compareEquipment,itemStatRows,formatBagEquipmentChanges} from './equipment-comparison.js?v=64604';
