@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createPartyManager,PARTY_MAX_SIZE,PARTY_INVITE_TTL_MS} from '../groups.js';
+import {createPartyManager,PARTY_MAX_SIZE,PARTY_INVITE_TTL_MS,PARTY_MANAGE_INTERVAL_MS} from '../groups.js';
 
 function setup(count=7){
  const players=new Map(Array.from({length:count},(_,i)=>['p'+i,{id:'p'+i,name:'Воин '+i,level:i+1}]));
@@ -197,4 +197,46 @@ test('a disconnected party member cannot receive invitations or promote others',
  assert.equal(w.parties.promote('p0','p2'),false);
  assert.equal(w.parties.invite('p2','p3'),false);
  assert.equal(w.parties.getPartyId('p2')!==null,true);
+});
+
+test('only the current leader can remove another member of their own party',()=>{
+ const w=setup();
+ for(const id of ['p1','p2','p3']){w.parties.invite('p0',id);w.parties.respond(id,'p0',true);}
+ const groupId=w.parties.getPartyId('p0');
+ for(const [from,target] of [['p1','p2'],['p4','p1'],['p0','p0'],['p0','p4'],['missing','p1']]){
+  assert.equal(w.parties.kick(from,target),false);
+  assert.equal(w.parties.state('p0').members.length,4);
+ }
+ assert.equal(w.parties.kick('p0','p1'),true);
+ assert.equal(w.parties.getPartyId('p1'),null);
+ assert.equal(w.last('p1','partyState').groupId,null);
+ assert.match(w.last('p1','partyNotice').message,/исключены/);
+ assert.match(w.last('p2','partyNotice').message,/исключён/);
+ assert.equal(w.parties.state('p0').leaderId,'p0');
+ assert.equal(w.parties.getPartyId('p2'),groupId);
+ assert.equal(w.messages.has('p4'),true,'outsider receives only their own failed-action notice');
+ assert.equal((w.messages.get('p4')||[]).some(row=>row.type==='partyState'),false,'roster stays private');
+});
+
+test('leader removals have a bounded cadence and do not mutate membership on throttled packets',()=>{
+ const w=setup();
+ for(const id of ['p1','p2','p3']){w.parties.invite('p0',id);w.parties.respond(id,'p0',true);}
+ assert.equal(w.parties.kick('p0','p1'),true);
+ assert.equal(w.parties.kick('p0','p2'),false);
+ assert.equal(w.parties.state('p2').members.length,3);
+ w.advance(PARTY_MANAGE_INTERVAL_MS);
+ assert.equal(w.parties.kick('p0','p2'),true);
+ assert.equal(w.parties.state('p0').members.length,2);
+});
+
+test('removing an offline reserved member revokes their reconnect seat',()=>{
+ const w=setup();
+ for(const id of ['p1','p2']){w.parties.invite('p0',id);w.parties.respond(id,'p0',true);}
+ w.parties.suspend('p1','character-1',{name:'Воин 1',level:2});w.players.delete('p1');
+ assert.equal(w.parties.kick('p0','p1'),true);
+ assert.equal(w.parties.info().suspended,0);
+ w.players.set('p7',{id:'p7',name:'Воин 1',level:2});
+ assert.equal(w.parties.resume('p7','character-1'),false);
+ assert.equal(w.parties.getPartyId('p7'),null);
+ assert.equal(w.parties.state('p0').members.length,2);
 });

@@ -5,9 +5,10 @@ import {randomUUID} from 'node:crypto';
 export const PARTY_MAX_SIZE=5;
 export const PARTY_INVITE_TTL_MS=60_000;
 export const PARTY_RECONNECT_GRACE_MS=120_000;
+export const PARTY_MANAGE_INTERVAL_MS=250;
 
 export function createPartyManager({players,send,now=Date.now,reconnectGraceMs=PARTY_RECONNECT_GRACE_MS}){
- const groups=new Map(),membership=new Map(),pending=new Map(),suspended=new Map();
+ const groups=new Map(),membership=new Map(),pending=new Map(),suspended=new Map(),lastKickAt=new Map();
  const online=id=>typeof id==='string'&&players.has(id)&&!suspended.has(id);
  const fail=(id,reason)=>{if(online(id))send(id,{type:'partyNotice',message:reason,error:true});return false};
  const roster=party=>party.members.map(id=>{
@@ -89,22 +90,39 @@ export function createPartyManager({players,send,now=Date.now,reconnectGraceMs=P
   notify(party);
   return true;
  }
- function leave(id,{disconnected=false}={}){
+ function kick(from,target){
+  if(!online(from))return false;
+  const party=groups.get(membership.get(from));
+  if(!party||party.leaderId!==from)return fail(from,'Исключать может только лидер группы');
+  if(from===target)return fail(from,'Чтобы выйти из группы, выберите «Покинуть группу»');
+  if(membership.get(target)!==party.id||!party.members.includes(target))
+   return fail(from,'Игрок не состоит в вашей группе');
+  if(now()-(lastKickAt.get(from)??-Infinity)<PARTY_MANAGE_INTERVAL_MS)
+   return fail(from,'Подождите перед следующим действием группы');
+  lastKickAt.set(from,now());
+  return leave(target,{kickedBy:from});
+ }
+ function leave(id,{disconnected=false,kickedBy=null}={}){
   clearPending(id);
   suspended.delete(id);
+  lastKickAt.delete(id);
   const party=groups.get(membership.get(id));
   membership.delete(id);
   if(!party)return false;
   party.members=party.members.filter(member=>member!==id);
-  if(online(id)&&!disconnected)send(id,state(id));
+  if(online(id)&&!disconnected){
+   send(id,state(id));
+   if(kickedBy)send(id,{type:'partyNotice',message:'Вы исключены из группы'});
+  }
   const departed=players.get(id)?.name||'Странник';
   for(const member of party.members)if(online(member))send(member,{type:'partyNotice',
-   message:departed+(disconnected?' отключился и покинул группу':' покинул группу')});
+   message:departed+(kickedBy?' исключён из группы':disconnected?' отключился и покинул группу':' покинул группу')});
   if(party.members.length<=1){
    groups.delete(party.id);
    for(const member of party.members){
     membership.delete(member);
     suspended.delete(member);
+    lastKickAt.delete(member);
     if(online(member))send(member,state(member));
    }
   }else{
@@ -122,6 +140,7 @@ export function createPartyManager({players,send,now=Date.now,reconnectGraceMs=P
  function suspend(id,characterId,{name='Странник',level=1}={}){
   if(typeof characterId!=='string'||!characterId)return leave(id,{disconnected:true});
   clearPending(id);
+  lastKickAt.delete(id);
   const party=groups.get(membership.get(id));
   if(!party)return false;
   suspended.set(id,{characterId,name,level,expires:now()+reconnectGraceMs});
@@ -174,7 +193,7 @@ export function createPartyManager({players,send,now=Date.now,reconnectGraceMs=P
   const party=groups.get(membership.get(id));
   notify(party);
  }
- return {invite,respond,promote,leave,suspend,resume,expire,
+ return {invite,respond,promote,kick,leave,suspend,resume,expire,
   disconnect:id=>leave(id,{disconnected:true}),
   renamed,state,getPartyId:id=>membership.get(id)||null,getMemberIds,
   info:()=>({groups:groups.size,pending:pending.size,suspended:suspended.size})};
