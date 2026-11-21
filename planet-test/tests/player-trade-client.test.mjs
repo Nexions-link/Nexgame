@@ -66,11 +66,23 @@ test('actual RPG offers physical server bag slots and applies inventory only thr
  nodes().find(node=>node.textContent==='Добавить').click();
  assert.deepEqual(calls.at(-1),['offer','trade-id',3,[{tradeSlot:0,bagSlot:5,qty:2}],0]);
  assert.deepEqual(h.rpg.state.inventory,ownBefore);assert.equal(h.rpg.state.gold,30);
+ h.get('bag').click();
+ const cell=descendants(h.get('mbody')).find(node=>node.className.includes('inventory-slot')&&node.className.includes('occupied'));
+ assert.equal(cell.draggable,true);
+ const previousTimer=globalThis.setTimeout;let scheduled=0;
+ globalThis.setTimeout=()=>++scheduled;
+ try{for(const handler of cell.events.pointerdown)handler({pointerId:1,pointerType:'mouse',button:0,clientX:10,clientY:10})}
+ finally{globalThis.setTimeout=previousTimer}
+ assert.equal(scheduled,0,'an active trade cannot arm hold-to-discard or capture a native item drag');
+ const payload=[];
+ for(const handler of cell.events.dragstart)handler({dataTransfer:{setData:(...args)=>payload.push(args)},preventDefault(){}});
+ assert.deepEqual(payload,[['application/x-ngw-bag-slot','5']]);
  const updated=structuredClone(inventory);updated[5].qty=2;updated[0]={id:'wolfPelt',qty:1};
  h.rpg.applyServerProgress({...profile,inventory:updated,gold:33,revision:4},'trade');
  assert.equal(h.rpg.state.gold,33);assert.ok(h.rpg.state.inventory.some(row=>row.id==='wolfPelt'));
  h.rpg.onTradeClosed({tradeId:'trade-id',status:'completed'});
  assert.equal(nodes().find(node=>node.className==='ngw-trade-window').hidden,true);
+ cell.events.pointerdown[0]();assert.equal(cell.draggable,false,'ordinary inventory discard remains the native behavior outside trade');
  h.rpg.onTradeInvite({tradeId:'next',from:{name:'Друг'}});
  assert.equal(nodes().find(node=>node.className==='ngw-trade-invitation').hidden,false);
  transport.connected=false;h.rpg.onNetworkDisconnect();

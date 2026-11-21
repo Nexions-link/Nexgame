@@ -2512,7 +2512,9 @@ function resetCreatureImpact(mob){
     detail.textContent='Нажми на предмет, чтобы узнать подробности.';
     const dropHelp=document.createElement('small');
     dropHelp.className='ngw-bag-discard-help';
-    dropHelp.textContent='Удерживай предмет и перетащи за пределы рюкзака, чтобы удалить всю стопку.';
+    dropHelp.textContent=playerTrade.active?
+     'Для обмена перетащите предмет в своё предложение или выберите его в окне обмена.':
+     'Удерживай предмет и перетащи за пределы рюкзака, чтобы удалить всю стопку.';
     for(let i=0;i<12;i++){
       const item=state.inventory[i],def=item&&ITEM_CATALOG[item.id];
       const cell=document.createElement('button');cell.type='button';
@@ -2526,15 +2528,18 @@ function resetCreatureImpact(mob){
         const qty=document.createElement('span');qty.className='slot-count';qty.textContent=item.qty>1?item.qty:'';
         cell.append(icon,qty);
         if(authenticatedProfile){
-         cell.draggable=true;
+         cell.draggable=playerTrade.active;
+         cell.addEventListener('pointerdown',()=>{cell.draggable=playerTrade.active;});
          cell.addEventListener('dragstart',event=>{
+          if(!playerTrade.active){event.preventDefault?.();return;}
           const physical=serverBagSlot(i);
-          if(physical<0||!event.dataTransfer)return;
+          if(physical<0||!event.dataTransfer){event.preventDefault?.();return;}
           event.dataTransfer.setData(TRADE_BAG_MIME,String(physical));
           event.dataTransfer.effectAllowed='copy';
          });
         }
         attachBagDiscardDrag(cell,{document,panel:$('panel'),
+         canDiscard:()=>!playerTrade.active,
          item:{id:item.id,qty:item.qty,name:def?.name||'Предмет'},
          onDiscard:()=>{
           if(pendingBagDiscard)return msg('Предыдущее удаление ещё сохраняется');

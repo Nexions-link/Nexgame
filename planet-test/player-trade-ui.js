@@ -61,6 +61,7 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
  const money=value=>Math.max(0,Number(value)||0).toLocaleString('ru-RU');
  const root=make('div','ngw-trade-dock');root.id='playerTradeDock';
  const window=make('section','ngw-trade-window');window.hidden=true;
+ window.tabIndex=-1;
  window.setAttribute('role','dialog');window.setAttribute('aria-modal','false');window.setAttribute('aria-labelledby','playerTradeTitle');
  const header=make('header','ngw-trade-header'),crest=make('span','ngw-trade-crest','⇄');crest.setAttribute('aria-hidden','true');
  const title=make('h2','','Обмен');title.id='playerTradeTitle';
@@ -74,13 +75,14 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
  const acceptButton=button('Обменяться','ngw-trade-action',()=>{
   if(!editable())return;
   if(accept(state.tradeId,state.revision,!state.self.accepted)===false)return tell('Нет связи с сервером.');
-  pending=true;render();
+  pending=true;render();focusDialog();
  });
  const cancelButton=button('Отмена','ngw-trade-secondary',()=>requestCancel());
  footer.append(bagButton,acceptButton,cancelButton);
  const picker=make('section','ngw-trade-picker');picker.hidden=true;picker.setAttribute('aria-label','Предметы для обмена');
  window.append(header,subtitle,columns,status,picker,footer);
  const invitation=make('section','ngw-trade-invitation');invitation.hidden=true;
+ invitation.tabIndex=-1;
  invitation.setAttribute('role','dialog');invitation.setAttribute('aria-labelledby','tradeInvitationTitle');
  const inviteTitle=make('h3','','Приглашение к обмену');inviteTitle.id='tradeInvitationTitle';
  const inviteText=make('p','ngw-trade-invite-copy');
@@ -89,7 +91,28 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
  const no=button('Отклонить','ngw-trade-secondary',()=>reply(false));
  inviteActions.append(yes,no);invitation.append(inviteTitle,inviteText,inviteActions);
  root.append(window,invitation);(host||doc.body||doc.getElementById?.('ngwTradeHost'))?.append(root);
- let state=null,invite=null,pending=false,disposed=false,pickerSlot=null,pickerBag=null,lastMessage='';
+ let state=null,invite=null,pending=false,disposed=false,pickerSlot=null,pickerBag=null,lastMessage='',returnFocus=null;
+ const contains=(parent,node)=>{for(let current=node;current;current=current.parentNode)if(current===parent)return true;return false;};
+ const visible=node=>{
+  if(!node||node.disabled)return false;
+  for(let current=node;current&&current!==root.parentNode;current=current.parentNode)if(current.hidden)return false;
+  return true;
+ };
+ const controls=parent=>Array.from(parent.children||[]).flatMap(node=>[
+  ...(['BUTTON','INPUT'].includes(String(node.tagName).toUpperCase())&&visible(node)?[node]:[]),...controls(node)]);
+ const rememberFocus=()=>{if(!state&&!invite)returnFocus=doc.activeElement;};
+ function focusDialog(){
+  if(contains(root,doc.activeElement)&&visible(doc.activeElement))return;
+  const target=invite?(yes.disabled?invitation:yes):!picker.hidden?
+   controls(picker)[0]||window:!acceptButton.disabled?acceptButton:!cancelButton.disabled?cancelButton:
+    controls(window)[0]||window;
+  target.focus?.();
+ }
+ function restoreFocus(){
+  const fallback=doc.getElementById?.('allyActions')||doc.getElementById?.('viewport')||doc.body;
+  const target=returnFocus&&(returnFocus.isConnected??contains(doc.body,returnFocus))&&visible(returnFocus)?returnFocus:fallback;
+  returnFocus=null;target?.focus?.();
+ }
  const inventory=()=>{const rows=getInventory();return Array.isArray(rows)?rows:[];};
  const purse=()=>{const value=getGold();return integer(value,0,MAX_GOLD)?value:0;};
  const connected=()=>!disposed&&isConnected();
@@ -103,19 +126,19 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
   if(invite)return reply(false);
   if(!state)return;
   if(cancel(state.tradeId)===false)return tell('Нет связи с сервером.');
-  pending=true;clearPicker();render();
+  pending=true;clearPicker();render();focusDialog();
  }
  function reply(accepted){
   if(!invite||pending||!connected())return;
   if(respond(invite.tradeId,accepted)===false)return tell('Нет связи с сервером.');
-  pending=true;yes.disabled=true;no.disabled=true;
-  if(!accepted){invite=null;invitation.hidden=true;pending=false;}
+  pending=true;yes.disabled=true;no.disabled=true;invitation.focus?.();
+  if(!accepted){invite=null;invitation.hidden=true;pending=false;restoreFocus();}
  }
  function sendOffer(items,gold){
   if(!editable())return false;
   const refs=items.map(({tradeSlot,bagSlot,qty})=>({tradeSlot,bagSlot,qty}));
   if(offer(state.tradeId,state.revision,refs,gold)===false){tell('Нет связи с сервером.');return false;}
-  pending=true;lastMessage='Обновляем предложение…';clearPicker();render();return true;
+  pending=true;lastMessage='Обновляем предложение…';clearPicker();render();focusDialog();return true;
  }
  function chooseBag(bagSlot){
   const row=inventory()[bagSlot];
@@ -241,6 +264,9 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
  }
  function render(){
   if(!state){window.hidden=true;return;}
+  const focusedGold=contains(root,doc.activeElement)&&String(doc.activeElement?.className||'').split(' ').includes('ngw-trade-gold');
+  const draftGold=focusedGold&&!pending?doc.activeElement.value:null;
+  const selection=focusedGold?{start:doc.activeElement.selectionStart,end:doc.activeElement.selectionEnd,direction:doc.activeElement.selectionDirection}:null;
   window.hidden=false;invitation.hidden=true;
   const waiting=state.phase==='invited',committing=state.phase==='committing';
   subtitle.textContent=waiting?'Ожидаем ответа '+(state.other.name||'игрока')+'…':committing?
@@ -252,6 +278,15 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
   status.textContent=!connected()?'Нет связи с сервером.':pending?lastMessage||'Ожидаем подтверждения сервера…':
    committing?'Не закрывайте окно до ответа сервера.':state.self.accepted?
    'Вы подтвердили предложение. Ожидаем другого игрока.':lastMessage||'Предметы и монеты останутся у вас до завершения обмена.';
+  if(focusedGold&&editable()){
+   const input=controls(columns).find(node=>String(node.className||'').split(' ').includes('ngw-trade-gold'));
+   if(input){
+    if(draftGold!==null)input.value=draftGold;
+    input.focus?.();
+    if(draftGold!==null&&Number.isInteger(selection?.start)&&Number.isInteger(selection?.end))
+     input.setSelectionRange?.(selection.start,selection.end,selection.direction||'none');
+   }
+  }
  }
  function normalizePerson(person={}){
   return {id:String(person.id||''),name:typeof person.name==='string'?person.name:'Игрок',gold:integer(person.gold,0,MAX_GOLD)?person.gold:0,
@@ -259,12 +294,28 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
     row&&integer(row.tradeSlot,0,5)&&integer(row.qty,1,20)&&typeof row.itemId==='string').slice(0,6).map(row=>({...row}))};
  }
  const keydown=event=>{
-  if(event.key==='Escape'&&(state||invite)){event.preventDefault?.();if(!picker.hidden)clearPicker();else requestCancel();}
+  if(!state&&!invite)return;
+  if(!contains(root,event.target)&&!contains(root,doc.activeElement)&&event.target)return;
+  // Capture before world-target and hotbar handlers. Native text editing still
+  // works because ordinary keys retain their default action inside inputs.
+  event.stopPropagation?.();
+  const editing=['INPUT','TEXTAREA'].includes(String(event.target?.tagName||doc.activeElement?.tagName).toUpperCase())||event.target?.isContentEditable;
+  if(!editing&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&['b','i'].includes(String(event.key).toLowerCase())){
+   event.preventDefault?.();if(!invite&&!bagButton.disabled)openInventory();
+  }else if(event.key==='Escape'){
+   event.preventDefault?.();if(!picker.hidden){clearPicker();focusDialog();}else requestCancel();
+  }else if(event.key==='Tab'){
+   event.preventDefault?.();
+   const items=controls(invite?invitation:!picker.hidden?picker:window),index=items.indexOf(doc.activeElement);
+   const next=event.shiftKey?(index<=0?items.length-1:index-1):(index+1)%Math.max(1,items.length);
+   (items[next]||window).focus?.();
+  }
  };
- doc.addEventListener?.('keydown',keydown);
+ doc.addEventListener?.('keydown',keydown,true);
  return {
   onInvite(event){
    if(disposed||!event?.tradeId)return;
+   rememberFocus();
    invite={...event};pending=false;state=null;clearPicker();window.hidden=true;invitation.hidden=false;
    inviteText.textContent=(event.from?.name||'Игрок')+' предлагает обменяться предметами и монетами.';
    yes.disabled=!connected();no.disabled=!connected();yes.focus?.();
@@ -273,22 +324,26 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
    if(disposed||!event?.tradeId||!integer(event.revision,0,Number.MAX_SAFE_INTEGER)||
      !['invited','open','committing'].includes(event.phase))return;
    if(state?.tradeId===event.tradeId&&event.revision<state.revision)return;
+   const shouldFocus=!state||!!invite||contains(root,doc.activeElement);
+   rememberFocus();
    state={tradeId:event.tradeId,revision:event.revision,phase:event.phase,
     self:normalizePerson(event.self),other:normalizePerson(event.other)};
-   invite=null;pending=false;lastMessage='';clearPicker();render();
+   invite=null;pending=false;lastMessage='';clearPicker();render();if(shouldFocus)focusDialog();
   },
   onClosed(event){
    const id=state?.tradeId||invite?.tradeId;if(!id||event?.tradeId!==id)return;
    state=null;invite=null;pending=false;window.hidden=true;invitation.hidden=true;clearPicker();
    tell(event.status==='completed'?'Обмен завершён.':messageFor(event));
+   restoreFocus();
   },
-  onNotice(event){if(disposed)return;pending=false;tell(messageFor(event));render();},
+  onNotice(event){if(disposed)return;const focused=contains(root,doc.activeElement);pending=false;tell(messageFor(event));render();if(focused)focusDialog();},
   disconnect(){
    if(!state&&!invite)return;state=null;invite=null;pending=false;clearPicker();window.hidden=true;invitation.hidden=true;
    tell('Связь потеряна. Проверьте рюкзак после подключения.');
+   restoreFocus();
   },
   refreshInventory(){if(state){render();if(pickerSlot!==null)renderPicker();}},
-  dispose(){if(disposed)return;disposed=true;state=null;invite=null;doc.removeEventListener?.('keydown',keydown);root.remove?.();},
+  dispose(){if(disposed)return;disposed=true;state=null;invite=null;doc.removeEventListener?.('keydown',keydown,true);root.remove?.();restoreFocus();},
   get active(){return !disposed&&!!(state||invite);}
  };
 }

@@ -11,7 +11,7 @@ class Element{
  addEventListener(type,handler){(this.events[type]??=[]).push(handler);}
  dispatch(type,event={}){for(const handler of this.events[type]||[])handler({target:this,preventDefault(){},...event});}
  click(){if(!this.disabled)this.dispatch('click');}
- focus(){this.focused=true;}
+ focus(){this.focused=true;if(this.ownerDocument)this.ownerDocument.activeElement=this;}
  remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(child=>child!==this);this.parentNode=null;}
  get lastChild(){return this.children.at(-1);}
 }
@@ -19,7 +19,7 @@ const walk=node=>[node,...node.children.flatMap(walk)];
 const classes=node=>new Set(node.className.split(' '));
 function fixture({connected=true,art=false}={}){
  const body=new Element('body'),events={};
- const document={body,createElement:tag=>new Element(tag),
+ const document={body,activeElement:body,createElement:tag=>Object.assign(new Element(tag),{ownerDocument:document}),
   addEventListener:(type,handler)=>{(events[type]??=[]).push(handler);},
   removeEventListener:(type,handler)=>{events[type]=(events[type]||[]).filter(item=>item!==handler);},
   dispatch:(type,event)=>{for(const handler of events[type]||[])handler({preventDefault(){},...event});}};
@@ -186,4 +186,30 @@ test('all authoritative trade rejection reasons have actionable copy without cla
  }
  h.ui.onNotice({reason:'trade_save_failed'});assert.match(h.calls.notice.at(-1),/Проверьте рюкзак после подключения/);
  assert.doesNotMatch(h.calls.notice.at(-1),/Обмен отменён/);
+});
+test('trade keyboard focus traps Tab and Escape without leaking game hotkeys or blocking numeric typing',()=>{
+ const h=fixture(),trigger=h.document.createElement('button');h.body.append(trigger);trigger.focus();
+ h.ui.onState(h.state());assert.equal(h.document.activeElement,h.textButton('Обменяться'));
+ let stopped=0,prevented=0;
+ const press=(key,extra={})=>h.document.dispatch('keydown',{key,target:h.document.activeElement,
+  stopPropagation(){stopped++},preventDefault(){prevented++},...extra});
+ press('Tab');assert.equal(stopped,1);assert.equal(prevented,1);
+ assert.ok(walk(h.get('ngw-trade-window')).includes(h.document.activeElement));
+ const input=h.get('ngw-trade-gold');input.focus();
+ press('1');press('ArrowLeft');assert.equal(stopped,3);assert.equal(prevented,1,'input editing retains native default actions');
+ input.value='17';h.ui.onState(h.state({revision:3}));
+ assert.equal(h.document.activeElement,h.get('ngw-trade-gold'));assert.equal(h.get('ngw-trade-gold').value,'17','other-side updates preserve a focused amount draft');
+ press('Escape');assert.equal(stopped,4);assert.deepEqual(h.calls.cancel,[['trade-1']]);
+ h.ui.onClosed({tradeId:'trade-1',status:'cancelled',reason:'trade_cancelled'});
+ assert.equal(h.document.activeElement,trigger,'closing returns focus to the control that opened trade');
+ press('1');assert.equal(stopped,4,'closed exchange does not swallow game input');
+});
+test('B and I open the bag from trade buttons while amount fields retain native typing',()=>{
+ const h=fixture();h.ui.onState(h.state());let stopped=0,prevented=0;
+ const press=key=>h.document.dispatch('keydown',{key,target:h.document.activeElement,
+  stopPropagation(){stopped++},preventDefault(){prevented++}});
+ press('B');assert.equal(h.calls.bag,1);assert.equal(stopped,1);assert.equal(prevented,1);
+ const input=h.get('ngw-trade-gold');input.focus();press('b');
+ assert.equal(h.calls.bag,1);assert.equal(prevented,1,'typing an amount never opens another window');
+ h.textButton('Обменяться').focus();press('i');assert.equal(h.calls.bag,2);assert.equal(stopped,3);
 });

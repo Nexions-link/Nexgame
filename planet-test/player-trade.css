@@ -1,6 +1,10 @@
 /* Original game chrome: private exchange panel, independent of world camera. */
 .ngw-trade-dock{position:fixed;inset:0;z-index:72;pointer-events:none;color:var(--wow-text,#e8d8b4);font:13px/1.4 var(--wow-font,Georgia,serif)}
 .ngw-trade-dock [hidden]{display:none!important}
+/* The bag remains usable above the exchange, including its close/drag handle.
+   Only the bag panel receives pointer events; exposed trade slots still accept
+   native drops. Touch users can choose items directly inside each trade slot. */
+body:has(#playerTradeDock .ngw-trade-window:not([hidden])) #modal:has(#panel.inventory-modal){z-index:74!important}
 .ngw-trade-window,.ngw-trade-invitation{pointer-events:auto;box-sizing:border-box;border:3px solid var(--wow-metal,#82775f);border-radius:8px;background:radial-gradient(ellipse at 50% 0,#49443855,transparent 62%),repeating-linear-gradient(17deg,#ffffff03 0 1px,transparent 1px 5px),var(--wow-panel,#191815);box-shadow:0 0 0 1px #090807,0 16px 50px #000c,inset 0 0 0 1px #c2aa735e}
 .ngw-trade-window{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(580px,calc(100vw - 24px));max-height:calc(100dvh - 24px);display:flex;flex-direction:column;padding:0 12px 10px;overflow:hidden}
 .ngw-trade-header{display:flex;align-items:center;gap:10px;flex:none;position:relative;min-height:48px;margin:0 -12px 10px;padding:0 12px;border-bottom:2px ridge #a78d5a;background:linear-gradient(100deg,#4b1614,#692720 55%,#30100e);box-shadow:inset 0 1px #c7935844,0 2px 8px #0008}
@@ -18,16 +22,17 @@
 .ngw-trade-person h3{margin:0;color:#e4c977;font:700 16px/1.1 Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ngw-trade-ready{color:#aaa28c;font:10px/1.2 system-ui,sans-serif;min-height:13px}
 .ngw-trade-person.is-accepted .ngw-trade-ready{color:#a1dc7e}
-.ngw-trade-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:64px;gap:7px}
-.ngw-trade-slot{box-sizing:border-box;position:relative;display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0;min-height:64px;padding:5px;border:2px ridge var(--trade-quality,#716b58);border-radius:4px;color:var(--trade-quality,#b9ad8d);background:radial-gradient(ellipse at 30% 15%,#a8976b20,transparent 72%),linear-gradient(135deg,#292923,#0b0e0d);box-shadow:inset 0 0 8px #000a;text-align:left}
-.ngw-trade-slot.is-empty{justify-content:center;color:#746d59;border-color:#5d5849;background:linear-gradient(135deg,#24261f,#11140f)}
-.ngw-trade-slot-number{font:21px Georgia,serif;opacity:.45;text-shadow:0 1px #000}
-.ngw-trade-slot:not(.is-empty){border-color:var(--trade-quality,#a99f83)}
-.ngw-trade-item-icon{flex:none;display:block;font:29px/1 system-ui,sans-serif;filter:drop-shadow(0 2px 2px #0009)}
-.ngw-trade-item-icon>*{display:block;width:32px;height:32px}.ngw-trade-bag-icon>*{display:block;width:30px;height:30px}
+.ngw-trade-slots{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:48px;gap:5px}
+.ngw-trade-slot{box-sizing:border-box;position:relative;display:flex;align-items:center;justify-content:flex-start;gap:7px;min-width:0;min-height:48px;padding:4px;border:1px solid #524c3c;border-radius:2px;color:var(--trade-quality,#b9ad8d);background:radial-gradient(ellipse at 30% 15%,#a8976b20,transparent 72%),linear-gradient(135deg,#292923,#0b0e0d);box-shadow:inset 0 0 8px #000a;text-align:left}
+.ngw-trade-slot.is-empty{justify-content:flex-start;color:#746d59;border-color:#5d5849;background:linear-gradient(135deg,#24261f,#11140f)}
+.ngw-trade-slot.is-empty:before{content:"";position:absolute;left:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;box-sizing:border-box;border:2px ridge #655e4c;background:linear-gradient(135deg,#252820,#0d100d)}
+.ngw-trade-slot-number{position:relative;z-index:1;width:36px;flex:none;text-align:center;font:16px Georgia,serif;opacity:.35;text-shadow:0 1px #000}
+.ngw-trade-slot:not(.is-empty){border-color:#69604a}
+.ngw-trade-item-icon{flex:none;display:grid;place-items:center;box-sizing:border-box;width:36px;height:36px;border:2px ridge var(--trade-quality,#aaa089);background:#10140f;font:28px/1 system-ui,sans-serif;filter:drop-shadow(0 2px 2px #0009)}
+.ngw-trade-item-icon>*{display:block;width:100%;height:100%}.ngw-trade-bag-icon>*{display:block;width:30px;height:30px}
 .ngw-trade-item-icon svg,.ngw-trade-bag-icon svg{display:block;width:100%;height:100%}
-.ngw-trade-item-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;font:10px/1.15 system-ui,sans-serif;max-height:35px;overflow-wrap:anywhere}
-.ngw-trade-item-quantity{position:absolute;right:3px;bottom:1px;color:#fff;font:700 12px/1.2 system-ui,sans-serif;text-shadow:1px 1px #000,-1px -1px #000}
+.ngw-trade-item-name{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;font:11px/1.2 system-ui,sans-serif;max-height:31px;overflow-wrap:break-word}
+.ngw-trade-item-quantity{position:absolute;left:4px;right:auto;bottom:4px;width:35px;text-align:right;color:#fff;font:700 12px/1.2 system-ui,sans-serif;text-shadow:1px 1px #000,-1px -1px #000}
 .ngw-trade-coins{box-sizing:border-box;display:flex;align-items:center;gap:5px;min-height:42px;margin-top:9px;padding:5px 6px;border:1px solid #5d5541;background:#090b08;border-radius:3px}
 .ngw-trade-money-label{display:flex;align-items:center;gap:5px;min-width:0;flex:1;color:#aaa28a;font:10px/1.3 system-ui,sans-serif}
 .ngw-trade-gold{box-sizing:border-box;min-width:0;width:100%;max-width:132px;min-height:28px;padding:3px 5px;border:1px solid #766846;border-radius:2px;background:#10120e;color:#f1d279;font:700 14px/1.1 Georgia,serif;text-align:right;font-variant-numeric:tabular-nums}
@@ -67,10 +72,10 @@
  .ngw-trade-subtitle{font-size:10px;margin-bottom:7px}
  .ngw-trade-columns{gap:7px}.ngw-trade-person{padding:6px}
  .ngw-trade-person h3{font-size:14px}.ngw-trade-person-heading{height:39px;margin-bottom:7px}
- .ngw-trade-ready{font-size:9px}.ngw-trade-slots{gap:5px;grid-auto-rows:58px}
- .ngw-trade-slot{min-height:58px;padding:4px;flex-direction:column;gap:3px;justify-content:center}
- .ngw-trade-item-icon{font-size:25px}.ngw-trade-item-name{font-size:8px;line-height:1.1;max-height:18px;align-self:stretch;text-align:center}
- .ngw-trade-item-quantity{top:2px;bottom:auto;padding:0 1px;background:#0008;border-radius:2px}
+ .ngw-trade-ready{font-size:9px}.ngw-trade-slots{gap:4px;grid-auto-rows:46px}
+ .ngw-trade-slot{min-height:46px;padding:4px;flex-direction:row;gap:5px;justify-content:flex-start}
+ .ngw-trade-item-icon{width:34px;height:34px;font-size:26px}.ngw-trade-slot.is-empty:before{width:34px;height:34px}.ngw-trade-slot-number{width:34px}.ngw-trade-item-name{font-size:10px;line-height:1.15;max-height:30px;align-self:center;text-align:left}
+ .ngw-trade-item-quantity{top:auto;bottom:4px;left:4px;width:33px;padding:0 1px;background:none;border-radius:0}
  .ngw-trade-coins{margin-top:7px;padding:4px;gap:3px}.ngw-trade-money-label{font-size:9px;gap:4px}
  .ngw-trade-gold{font-size:12px;padding:3px;min-height:27px}.ngw-trade-gold-readonly{font-size:12px}
  .ngw-trade-purse{font-size:8px}.ngw-trade-status{font-size:10px;min-height:29px;margin:7px 0 5px}
@@ -80,7 +85,7 @@
 @media(max-height:530px){
  .ngw-trade-window{top:7px;transform:translateX(-50%);max-height:calc(100dvh - 14px)}
  .ngw-trade-columns{overflow:auto}.ngw-trade-slot{min-height:44px}.ngw-trade-person-heading{height:29px;margin-bottom:5px}
- .ngw-trade-slots{grid-auto-rows:44px}.ngw-trade-item-name{max-height:24px}
+ .ngw-trade-slots{grid-auto-rows:44px}.ngw-trade-item-name{max-height:28px}.ngw-trade-item-icon,.ngw-trade-slot.is-empty:before{width:34px;height:34px}.ngw-trade-slot-number{width:34px}.ngw-trade-item-quantity{width:33px}
  .ngw-trade-header{min-height:34px;margin-bottom:5px}.ngw-trade-subtitle{margin-bottom:5px;font-size:10px}
  .ngw-trade-status{min-height:17px;margin:5px 0;font-size:10px}.ngw-trade-footer{padding-top:5px}
 }
