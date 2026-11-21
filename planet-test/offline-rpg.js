@@ -455,7 +455,9 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   offer:(...args)=>multiplayer?.tradeOffer?.(...args)??false,
   accept:(...args)=>multiplayer?.tradeAccept?.(...args)??false,
   cancel:(...args)=>multiplayer?.tradeCancel?.(...args)??false,
-  notice:message=>msg(message),openInventory:()=>openWindow('bag'),
+  notice:message=>msg(message),openInventory:()=>{
+   if(!modal.hidden&&modal.dataset.kind==='bag')closeWindow();else openWindow('bag');
+  },
   renderItemIcon:(id,doc)=>createItemIcon(doc,id,ITEM_CATALOG[id])
  });
  function inviteTrade(id=selectedAllyId){

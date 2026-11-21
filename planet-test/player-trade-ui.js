@@ -43,7 +43,7 @@ const messageFor=event=>reasons[event?.reason]||
 
 export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayerName=()=> 'Вы',
  isConnected=()=>false,respond=()=>false,offer=()=>false,accept=()=>false,cancel=()=>false,
- notice=()=>{},openInventory=()=>{},renderItemIcon=null,document:doc=globalThis.document,host=null}={}){
+ notice=()=>{},openInventory=()=>{},renderItemIcon=null,bindItemTooltip=null,document:doc=globalThis.document,host=null}={}){
  if(!doc?.createElement)return {onInvite(){},onState(){},onClosed(){},onNotice(){},disconnect(){},refreshInventory(){},dispose(){},get active(){return false;}};
  const make=(tag,className='',text='')=>{
   const node=doc.createElement(tag);node.className=className;if(text)node.textContent=text;return node;
@@ -214,6 +214,14 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
   let bagSlot;
   try{const value=JSON.parse(raw);bagSlot=typeof value==='object'?value?.bagSlot:value;}catch{bagSlot=Number(raw);}
   if(!integer(bagSlot,0,inventory().length-1))return;
+  const row=inventory()[bagSlot];
+  if(!row||!eligible(row.id)||!integer(row.qty,1,20)||
+    state.self.items.some(item=>item.bagSlot===bagSlot&&item.tradeSlot!==slot))return;
+  if(!event.shiftKey){
+   const next=state.self.items.filter(item=>item.tradeSlot!==slot);
+   next.push({tradeSlot:slot,bagSlot,qty:row.qty});
+   sendOffer(next,state.self.gold);return;
+  }
   pickerSlot=slot;pickerBag=null;chooseBag(bagSlot);
  }
  function column(person,self){
@@ -235,6 +243,7 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
     const name=make('span','ngw-trade-item-name',def?.name||'Предмет');
     const qty=make('span','ngw-trade-item-quantity',row.qty>1?String(row.qty):'');
     cell.append(icon,name,qty);cell.title=(def?.name||'Предмет')+' ×'+row.qty;
+    if(def)bindItemTooltip?.(cell,row.itemId);
    }else cell.append(make('span','ngw-trade-slot-number',String(slot+1)));
    if(self){
     cell.addEventListener('dragover',event=>{
@@ -296,11 +305,13 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
  const keydown=event=>{
   if(!state&&!invite)return;
   if(!contains(root,event.target)&&!contains(root,doc.activeElement)&&event.target)return;
+  if(event.key==='Shift')return; // The shared item tooltip observes comparison mode.
   // Capture before world-target and hotbar handlers. Native text editing still
   // works because ordinary keys retain their default action inside inputs.
   event.stopPropagation?.();
   const editing=['INPUT','TEXTAREA'].includes(String(event.target?.tagName||doc.activeElement?.tagName).toUpperCase())||event.target?.isContentEditable;
-  if(!editing&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&['b','i'].includes(String(event.key).toLowerCase())){
+  if(!editing&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&
+    (['KeyB','KeyI'].includes(event.code)||['b','i'].includes(String(event.key).toLowerCase()))){
    event.preventDefault?.();if(!invite&&!bagButton.disabled)openInventory();
   }else if(event.key==='Escape'){
    event.preventDefault?.();if(!picker.hidden){clearPicker();focusDialog();}else requestCancel();

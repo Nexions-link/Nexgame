@@ -17,7 +17,7 @@ class Element{
 }
 const walk=node=>[node,...node.children.flatMap(walk)];
 const classes=node=>new Set(node.className.split(' '));
-function fixture({connected=true,art=false}={}){
+function fixture({connected=true,art=false,tooltips=false}={}){
  const body=new Element('body'),events={};
  const document={body,activeElement:body,createElement:tag=>Object.assign(new Element(tag),{ownerDocument:document}),
   addEventListener:(type,handler)=>{(events[type]??=[]).push(handler);},
@@ -25,12 +25,13 @@ function fixture({connected=true,art=false}={}){
   dispatch:(type,event)=>{for(const handler of events[type]||[])handler({preventDefault(){},...event});}};
  let inventory=[{id:'wornAxe',qty:1},{id:'feather',qty:12},{id:'healingPotion',qty:4},
   {id:'meadowFlower',qty:3},{id:'adminBattlefury',qty:1},null,null,null,null,null,null,null],gold=100;
- const calls={respond:[],offer:[],accept:[],cancel:[],notice:[],bag:0,art:[]};
+ const calls={respond:[],offer:[],accept:[],cancel:[],notice:[],bag:0,art:[],tooltips:[]};
  const config={document,getInventory:()=>inventory,getGold:()=>gold,getPlayerName:()=>'<b>Вы</b>',isConnected:()=>connected,
   respond:(...args)=>{calls.respond.push(args);return connected;},offer:(...args)=>{calls.offer.push(args);return connected;},
   accept:(...args)=>{calls.accept.push(args);return connected;},cancel:(...args)=>{calls.cancel.push(args);return connected;},
   notice:text=>calls.notice.push(text),openInventory:()=>{calls.bag++;},
-  ...(art?{renderItemIcon:(id,doc)=>{calls.art.push(id);const svg=doc.createElement('svg');svg.dataset.art=id;return svg;}}:{})};
+  ...(art?{renderItemIcon:(id,doc)=>{calls.art.push(id);const svg=doc.createElement('svg');svg.dataset.art=id;return svg;}}:{}),
+  ...(tooltips?{bindItemTooltip:(node,id)=>calls.tooltips.push({node,id})}:{})};
  const ui=createPlayerTradeUi(config);
  const find=(predicate)=>walk(body).find(predicate);
  const all=(className)=>walk(body).filter(node=>classes(node).has(className));
@@ -134,13 +135,21 @@ test('a committing exchange disables close, edit and approval while Escape canno
  h.ui.onClosed({tradeId:'trade-1',status:'completed'});assert.equal(h.ui.active,false);assert.match(h.calls.notice.at(-1),/завершён/);
 });
 
-test('native bag drops resolve a physical slot and use the same quantity review as touch selection',()=>{
+test('ordinary native bag drops propose the whole stack and Shift-drop reviews a partial amount',()=>{
  const h=fixture();h.ui.onState(h.state());let prevented=false;
+ const owned=structuredClone(h.inventory());
  const transfer={types:[TRADE_BAG_MIME],getData:type=>type===TRADE_BAG_MIME?JSON.stringify({bagSlot:2}):''};
  h.ownSlot(4).dispatch('dragover',{dataTransfer:transfer,preventDefault:()=>{prevented=true;}});assert.equal(prevented,true);
  h.ownSlot(4).dispatch('drop',{dataTransfer:transfer});
- assert.equal(h.get('ngw-trade-picker').hidden,false);h.textButton('Добавить').click();
+ assert.equal(h.get('ngw-trade-picker').hidden,true);
  assert.deepEqual(h.calls.offer[0],[ 'trade-1',2,[{tradeSlot:4,bagSlot:2,qty:4}],0]);
+ assert.deepEqual(h.inventory(),owned,'a drop is still only a server proposal');
+ const partial=fixture();partial.ui.onState(partial.state());
+ partial.ownSlot(4).dispatch('drop',{dataTransfer:transfer,shiftKey:true});
+ assert.equal(partial.get('ngw-trade-picker').hidden,false);assert.equal(partial.calls.offer.length,0);
+ partial.find(node=>node.attributes['aria-label']==='Количество предметов').value='2';
+ partial.textButton('Добавить').click();
+ assert.deepEqual(partial.calls.offer[0],['trade-1',2,[{tradeSlot:4,bagSlot:2,qty:2}],0]);
 });
 
 test('disconnect closes the private UI without replaying or pretending the transfer failed',()=>{
@@ -206,10 +215,20 @@ test('trade keyboard focus traps Tab and Escape without leaking game hotkeys or 
 });
 test('B and I open the bag from trade buttons while amount fields retain native typing',()=>{
  const h=fixture();h.ui.onState(h.state());let stopped=0,prevented=0;
- const press=key=>h.document.dispatch('keydown',{key,target:h.document.activeElement,
-  stopPropagation(){stopped++},preventDefault(){prevented++}});
+ const press=(key,extra={})=>h.document.dispatch('keydown',{key,target:h.document.activeElement,
+  stopPropagation(){stopped++},preventDefault(){prevented++},...extra});
  press('B');assert.equal(h.calls.bag,1);assert.equal(stopped,1);assert.equal(prevented,1);
  const input=h.get('ngw-trade-gold');input.focus();press('b');
  assert.equal(h.calls.bag,1);assert.equal(prevented,1,'typing an amount never opens another window');
  h.textButton('Обменяться').focus();press('i');assert.equal(h.calls.bag,2);assert.equal(stopped,3);
+ press('и',{code:'KeyB'});assert.equal(h.calls.bag,3,'physical B remains a bag shortcut on a Cyrillic keyboard');
+});
+test('known offer rows share item tooltips and Shift comparison without binding empty slots',()=>{
+ const h=fixture({tooltips:true});h.ui.onState(h.state({
+  self:{name:'Вы',items:[{tradeSlot:1,bagSlot:0,itemId:'wornAxe',qty:1}],gold:0,accepted:false},
+  other:{name:'Друг',items:[{tradeSlot:3,itemId:'charm',qty:2}],gold:5,accepted:false}}));
+ assert.deepEqual(h.calls.tooltips.map(binding=>binding.id),['wornAxe','charm']);
+ assert.equal(h.calls.tooltips[0].node.dataset.side,'self');assert.equal(h.calls.tooltips[1].node.dataset.side,'other');
+ let stopped=false;h.document.dispatch('keydown',{key:'Shift',target:h.document.activeElement,stopPropagation(){stopped=true}});
+ assert.equal(stopped,false,'shared tooltip listeners can observe Shift comparison mode');
 });
