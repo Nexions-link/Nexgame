@@ -529,9 +529,9 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 })();
 </script>
 <link rel="stylesheet" href="./wow-ui.css?v=64610">
-<link rel="stylesheet" href="./item-tooltip.css">
-<link rel="stylesheet" href="./player-trade.css">
+<link rel="stylesheet" href="./item-tooltip.css?v=64612">
 <link rel="stylesheet" href="./party-interface.css?v=64611">
+<link rel="stylesheet" href="./player-trade.css?v=64612">
 </head>
 <body>
 <main id="viewport" aria-label="Сферический мир NexGameWorld"></main>
@@ -611,7 +611,7 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 </nav>
 
 
-<aside id="planetBuildWidget" data-build="0.6.46.11" aria-label="Версия сферической NexGameWorld">
+<aside id="planetBuildWidget" data-build="0.6.46.12" aria-label="Версия сферической NexGameWorld">
   <button id="planetVersionBadge" type="button" aria-expanded="false" aria-controls="planetBuildPanel" title="Версия и изменения NexGameWorld">
     <span>Alpha —</span>
     <span id="planetBuildNew" hidden></span>
@@ -737,7 +737,7 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 <script src="./build-status.js?v=3" defer></script>
 <script type="module">
   // If a dependency fails to load, show a useful error instead of an endless sky.
-  import('./planet.js?v=64611').catch(error=>{
+  import('./planet.js?v=64612').catch(error=>{
     const loading=document.getElementById('loading');
     const failure=document.getElementById('failure');
     if(loading)loading.classList.add('is-done');

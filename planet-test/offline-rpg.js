@@ -5,7 +5,7 @@ import {createPartyInterface,partyClassInfo} from './party-interface.js?v=64611'
 import {defaultHotbarForClass} from '../hotbar.js?v=64604';
 import {createChestSheet} from './chest-sheet.js?v=3';
 import {createCharacterPreview} from './character-preview.js?v=64608';
-import {createPlayerTradeUi,TRADE_BAG_MIME} from './player-trade-ui.js';
+import {createPlayerTradeUi,TRADE_BAG_MIME} from './player-trade-ui.js?v=64612';
 import {renderCharacterSheet} from './character-sheet.js?v=64604';
 import {renderChiefRewardChoice} from './quest-reward-choice.js?v=1';
 import {questWaypoint,isAcceptedQuest,trackedQuestMap} from './starter-quest-guidance.js?v=64609';
@@ -22,8 +22,8 @@ import {questProgressSummary,renderQuestProgressPanel} from './quest-progress-pa
 // abilities, hotbar, loot and dummy statistics; do not connect to multiplayer or saves.
 import {HOTBAR_ART,HOTBAR_SHORT,HOTBAR_AUTO_ACTIVE} from './native-hotbar-art.js?v=64600';
 import {createItemIcon,backpackArtwork} from './inventory-art.js?v=64610';
-import {createItemTooltip} from './item-tooltip.js';
-import {interfaceShortcut} from './interface-shortcuts.js';
+import {createItemTooltip} from './item-tooltip.js?v=64612';
+import {interfaceShortcut} from './interface-shortcuts.js?v=64612';
 import {getAbilityRangeIndicator,getAbilityResourceIndicator} from './ability-range-visuals.js?v=2';
 import {levelExperienceRequirement,earnedExperienceSince} from './level-progression.js?v=1';
 import {compareEquipment,itemStatRows,formatBagEquipmentChanges} from './equipment-comparison.js?v=64604';
@@ -32,7 +32,7 @@ import {equipBowVisual} from './orc-avatar.js?v=64609';
 import {ABILITY_DEFINITIONS,getAbilityDefinition,getClassDefinition,getClassAbilities,rollHunterDamage,createAbilityRuntime,tickAbilityRuntime,abilityFailure,activateAbility,changeResource,WARRIOR_RAGE_ON_HURT,WARRIOR_RAGE_DECAY} from '../skills.js?v=64604';
 import {DEFAULT_HOTBAR,normalizeHotbar,assignHotbarSlot,availableHotbarActions,actionDefinition} from '../hotbar.js?v=64604';
 import {attachAbilityDrag} from './ability-drag-drop.js?v=1';
-import {attachBagDiscardDrag} from './bag-discard-drag.js?v=1';
+import {attachBagDiscardDrag} from './bag-discard-drag.js?v=64612';
 import {goToCharacterSelection} from './character-navigation.js?v=1';
 import {TRAINING_DUMMY,createTrainingStats,applyTrainingHit,updateTrainingTarget} from '../training.js?v=0.3.5.1';
 import {PLAINSTRIDER_REQUIRED_CLIPS,validatePlainstriderGltf,advancePlainstriderVisual,resetPlainstriderVisual,resetWalkingClip,PLAINSTRIDER_VISUAL_SCALE} from '../plainstrider-model.js?v=0.6.43.35';
