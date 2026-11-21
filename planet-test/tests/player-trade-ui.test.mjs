@@ -232,3 +232,16 @@ test('known offer rows share item tooltips and Shift comparison without binding 
  let stopped=false;h.document.dispatch('keydown',{key:'Shift',target:h.document.activeElement,stopPropagation(){stopped=true}});
  assert.equal(stopped,false,'shared tooltip listeners can observe Shift comparison mode');
 });
+test('accepted currency stays at the server amount until withdrawing approval is acknowledged',()=>{
+ const h=fixture();
+ h.ui.onState(h.state({self:{name:'Вы',items:[],gold:20,accepted:true}}));
+ const approved=h.get('ngw-trade-gold');assert.equal(approved.disabled,true);assert.equal(approved.value,'20');
+ approved.value='17';approved.dispatch('change');assert.equal(approved.value,'20');assert.equal(h.calls.offer.length,0);
+ h.textButton('Снять подтверждение').click();assert.deepEqual(h.calls.accept,[['trade-1',2,false]]);
+ assert.equal(h.get('ngw-trade-gold').disabled,true,'editing waits for the unaccept response');
+ h.ui.onState(h.state({self:{name:'Вы',items:[],gold:20,accepted:false}}));
+ const editable=h.get('ngw-trade-gold');assert.equal(editable.disabled,false);
+ editable.value='17';editable.dispatch('change');assert.deepEqual(h.calls.offer,[['trade-1',2,[],17]]);
+ h.ui.onState(h.state({revision:3,self:{name:'Вы',items:[],gold:17,accepted:false}}));
+ assert.equal(h.get('ngw-trade-gold').value,'17');assert.equal(h.get('ngw-trade-gold').disabled,false);
+});

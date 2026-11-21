@@ -257,8 +257,9 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
   const gold=self?make('input','ngw-trade-gold'):make('strong','ngw-trade-gold-readonly',money(person.gold));
   if(self){
    gold.type='text';gold.inputMode='numeric';gold.pattern='[0-9]*';gold.maxLength=10;gold.value=String(person.gold);
-   gold.disabled=!editable();gold.setAttribute('aria-label','Монеты в вашем предложении');
+   gold.disabled=!editable()||person.accepted;gold.setAttribute('aria-label','Монеты в вашем предложении');
    gold.addEventListener('change',()=>{
+    if(!editable()||state.self.accepted){gold.value=String(state.self.gold);return;}
     const raw=gold.value.trim(),value=raw===''?0:/^\d+$/.test(raw)?Number(raw):NaN;
     if(!integer(value,0,MAX_GOLD)||value>purse()){
      gold.value=String(state.self.gold);tell('Укажите целое число монет от 0 до '+money(purse())+'.');return;
@@ -287,7 +288,7 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
   status.textContent=!connected()?'Нет связи с сервером.':pending?lastMessage||'Ожидаем подтверждения сервера…':
    committing?'Не закрывайте окно до ответа сервера.':state.self.accepted?
    'Вы подтвердили предложение. Ожидаем другого игрока.':lastMessage||'Предметы и монеты останутся у вас до завершения обмена.';
-  if(focusedGold&&editable()){
+  if(focusedGold&&editable()&&!state.self.accepted){
    const input=controls(columns).find(node=>String(node.className||'').split(' ').includes('ngw-trade-gold'));
    if(input){
     if(draftGold!==null)input.value=draftGold;
