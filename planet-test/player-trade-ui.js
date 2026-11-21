@@ -91,7 +91,7 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
  const no=button('Отклонить','ngw-trade-secondary',()=>reply(false));
  inviteActions.append(yes,no);invitation.append(inviteTitle,inviteText,inviteActions);
  root.append(window,invitation);(host||doc.body||doc.getElementById?.('ngwTradeHost'))?.append(root);
- let state=null,invite=null,pending=false,disposed=false,pickerSlot=null,pickerBag=null,lastMessage='',returnFocus=null;
+ let state=null,invite=null,pending=false,disposed=false,rendering=false,pickerSlot=null,pickerBag=null,lastMessage='',returnFocus=null;
  const contains=(parent,node)=>{for(let current=node;current;current=current.parentNode)if(current===parent)return true;return false;};
  const visible=node=>{
   if(!node||node.disabled)return false;
@@ -259,6 +259,9 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
    gold.type='text';gold.inputMode='numeric';gold.pattern='[0-9]*';gold.maxLength=10;gold.value=String(person.gold);
    gold.disabled=!editable()||person.accepted;gold.setAttribute('aria-label','Монеты в вашем предложении');
    gold.addEventListener('change',()=>{
+    // Replacing a focused input can emit a native change event. A remote
+    // update must preserve that draft rather than submit it as a new offer.
+    if(rendering||!contains(root,gold))return;
     if(!editable()||state.self.accepted){gold.value=String(state.self.gold);return;}
     const raw=gold.value.trim(),value=raw===''?0:/^\d+$/.test(raw)?Number(raw):NaN;
     if(!integer(value,0,MAX_GOLD)||value>purse()){
@@ -281,7 +284,9 @@ export function createPlayerTradeUi({getInventory=()=>[],getGold=()=>0,getPlayer
   const waiting=state.phase==='invited',committing=state.phase==='committing';
   subtitle.textContent=waiting?'Ожидаем ответа '+(state.other.name||'игрока')+'…':committing?
    'Оба предложения подтверждены. Завершаем обмен…':'Проверьте оба предложения перед подтверждением.';
-  columns.replaceChildren(column(state.self,true),column(state.other,false));
+  rendering=true;
+  try{columns.replaceChildren(column(state.self,true),column(state.other,false));}
+  finally{rendering=false;}
   acceptButton.textContent=committing?'Обмен…':state.self.accepted?'Снять подтверждение':'Обменяться';
   acceptButton.disabled=!editable();cancelButton.disabled=committing||pending;close.disabled=committing||pending;
   bagButton.disabled=committing||waiting||!connected();

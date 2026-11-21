@@ -12,6 +12,7 @@ class Element{
  dispatch(type,event={}){for(const handler of this.events[type]||[])handler({target:this,preventDefault(){},...event});}
  click(){if(!this.disabled)this.dispatch('click');}
  focus(){this.focused=true;if(this.ownerDocument)this.ownerDocument.activeElement=this;}
+ setSelectionRange(start,end,direction='none'){this.selectionStart=start;this.selectionEnd=end;this.selectionDirection=direction;}
  remove(){if(this.parentNode)this.parentNode.children=this.parentNode.children.filter(child=>child!==this);this.parentNode=null;}
  get lastChild(){return this.children.at(-1);}
 }
@@ -212,6 +213,17 @@ test('trade keyboard focus traps Tab and Escape without leaking game hotkeys or 
  h.ui.onClosed({tradeId:'trade-1',status:'cancelled',reason:'trade_cancelled'});
  assert.equal(h.document.activeElement,trigger,'closing returns focus to the control that opened trade');
  press('1');assert.equal(stopped,4,'closed exchange does not swallow game input');
+});
+test('replacing a focused currency input does not submit its draft through native change',()=>{
+ const h=fixture();h.ui.onState(h.state());
+ const input=h.get('ngw-trade-gold');input.focus();input.value='17';input.setSelectionRange(1,1);
+ const columns=h.get('ngw-trade-columns'),replace=columns.replaceChildren.bind(columns);
+ columns.replaceChildren=(...children)=>{input.dispatch('change');replace(...children);};
+ h.ui.onState(h.state({revision:3}));
+ assert.deepEqual(h.calls.offer,[],'a remote render must not publish an uncommitted draft');
+ const replacement=h.get('ngw-trade-gold');assert.equal(replacement.value,'17');
+ assert.equal(replacement.selectionStart,1);assert.equal(h.document.activeElement,replacement);
+ input.dispatch('change');assert.deepEqual(h.calls.offer,[],'detached fields cannot publish stale changes');
 });
 test('B and I open the bag from trade buttons while amount fields retain native typing',()=>{
  const h=fixture();h.ui.onState(h.state());let stopped=0,prevented=0;
