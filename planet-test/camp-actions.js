@@ -3,7 +3,7 @@
 // and progress is stored only in the isolated Planet Test save.
 import {GATHER_QUESTS,GATHER_INTERACT_RANGE,GATHER_CAST_SECONDS,GATHER_RESPAWN_SECONDS,OFFLINE_CHEST} from './gather-world.js?v=64609';
 import {ITEM_CATALOG,itemStackLimit} from '../items.js?v=64604';
-import {paintCastBar,hideCastBar} from './cast-bar.js';
+import {paintCastBar,hideCastBar} from './cast-bar.js?v=64613';
 const $=id=>document.getElementById(id);
 export function createCampActions({state,herbalist,gathering,mobs,hero,distance,addItem,takeItem,itemCount,
  persist,levelCheck,draw,openWindow,closeWindow,msg,getClock}){

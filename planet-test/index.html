@@ -47,8 +47,8 @@
 <link rel="stylesheet" href="./xp-feedback.css?v=1">
 <link rel="stylesheet" href="./level-up-feedback.css?v=2">
 <link rel="stylesheet" href="./quest-tracking.css?v=4">
-<link rel="stylesheet" href="./mount-controls.css?v=5">
-<link rel="stylesheet" href="./cast-bar.css?v=1">
+<link rel="stylesheet" href="./mount-controls.css?v=64613">
+<link rel="stylesheet" href="./cast-bar.css?v=64613">
 <link rel="stylesheet" href="./mount-collection.css?v=1">
 <style id="ngw-connection-guard">
 #connectionBanner[hidden]{display:none!important}
@@ -532,7 +532,7 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 <link rel="stylesheet" href="./wow-ui.css?v=64610">
 <link rel="stylesheet" href="./item-tooltip.css?v=64612">
 <link rel="stylesheet" href="./party-interface.css?v=64611">
-<link rel="stylesheet" href="./quest-journal.css">
+<link rel="stylesheet" href="./quest-journal.css?v=64613">
 <link rel="stylesheet" href="./player-trade.css?v=64612">
 </head>
 <body>
@@ -613,7 +613,7 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 </nav>
 
 
-<aside id="planetBuildWidget" data-build="0.6.46.12" aria-label="Версия сферической NexGameWorld">
+<aside id="planetBuildWidget" data-build="0.6.46.13" aria-label="Версия сферической NexGameWorld">
   <button id="planetVersionBadge" type="button" aria-expanded="false" aria-controls="planetBuildPanel" title="Версия и изменения NexGameWorld">
     <span>Alpha —</span>
     <span id="planetBuildNew" hidden></span>
@@ -741,7 +741,7 @@ html.portal-preview #loading{font:15px system-ui,sans-serif;text-align:center}
 <script src="./build-status.js?v=3" defer></script>
 <script type="module">
   // If a dependency fails to load, show a useful error instead of an endless sky.
-  import('./planet.js?v=64612').catch(error=>{
+  import('./planet.js?v=64613').catch(error=>{
     const loading=document.getElementById('loading');
     const failure=document.getElementById('failure');
     if(loading)loading.classList.add('is-done');

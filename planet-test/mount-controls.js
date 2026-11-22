@@ -1,6 +1,6 @@
 // NexGameWorld M1.3 — mount HUD. No client-side grant, timer-based mounting or speed changes.
 // All state transitions are confirmed by the authoritative spherical world.
-import {CAST_HOTBAR_GAP,castBarBottom,paintCastBar,hideCastBar} from './cast-bar.js';
+import {CAST_HOTBAR_GAP,castBarBottom,paintCastBar,hideCastBar} from './cast-bar.js?v=64613';
 export const MOUNT_ERROR_MESSAGES=Object.freeze({
  level:'Ездовые животные доступны с 10-го уровня.',
  not_owned:'Сначала получи ездового волка в задании 10-го уровня.',
