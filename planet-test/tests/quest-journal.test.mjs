@@ -65,6 +65,19 @@ test('list arrow navigation and journal close keys are contained; accepted progr
  const escape=h.key('Escape',h.quest('gather-1'));assert.equal(escape.prevented,true);assert.deepEqual(h.actions,[['close']]);
  const physical=h.key('д',h.quest('1'),'KeyL');assert.equal(physical.prevented,true);assert.deepEqual(h.actions.at(-1),['close']);
 });
+test('arrow keys follow displayed grouped rows when the quest registry interleaves regions',()=>{
+ const h=setup(),forest={...mentor,id:'expedition',routeId:'expedition',region:'Шепчущий лес'};
+ h.journal.render(h.body,model([mentor,forest,gather]));
+ const displayed=descendants(h.cls('ngw-journal-list')).filter(node=>node.dataset.journalQuest).map(node=>node.dataset.journalQuest);
+ assert.deepEqual(displayed,['1','gather-1','expedition']);
+ h.quest('gather-1').click();h.key('ArrowDown',h.quest('gather-1'));
+ assert.equal(h.journal.selectedId,'expedition');assert.equal(document.activeElement,h.quest('expedition'));
+ h.key('ArrowUp',h.quest('expedition'));assert.equal(h.journal.selectedId,'gather-1');
+ h.key('Home',h.quest('gather-1'));assert.equal(h.journal.selectedId,'1');
+ h.key('End',h.quest('1'));assert.equal(h.journal.selectedId,'expedition');
+ h.find(node=>node.dataset.journalGroup==='Начальные земли').click();
+ h.key('Home',h.quest('expedition'));assert.equal(h.journal.selectedId,'expedition','collapsed rows are excluded');
+});
 test('available, locked and completed entries never offer acceptance, rewards or tracking actions',()=>{
  const h=setup(),available={...gather,id:'offered',title:'Предложение',status:'available',trackable:false},locked={...mentor,id:'locked',status:'locked',trackable:false};
  h.journal.render(h.body,{tab:'available',entries:[available,locked],trackedIds:[]});

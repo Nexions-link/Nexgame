@@ -192,7 +192,11 @@ export function createQuestJournal({document:doc,onTab=()=>{},onTrack=()=>{},onC
   }
   const id=event.target?.dataset?.journalQuest;
   if(id&&['arrowup','arrowdown','home','end'].includes(key)){
-   const navigable=visible.filter(entry=>!collapsedHere().has(groupOf(entry))),index=navigable.findIndex(entry=>keyOf(entry)===id);
+   // Regions group interleaved source rows; keyboard order follows the actual
+   // displayed list, rather than the source quest registry's insertion order.
+   const byId=new Map(visible.map(entry=>[keyOf(entry),entry]));
+   const navigable=[...rows.keys()].map(key=>byId.get(key)).filter(entry=>entry&&!collapsedHere().has(groupOf(entry))),
+    index=navigable.findIndex(entry=>keyOf(entry)===id);
    const next=key==='home'?navigable[0]:key==='end'?navigable.at(-1):navigable[Math.max(0,Math.min(navigable.length-1,index+(key==='arrowdown'?1:-1)))];
    if(next){select(keyOf(next));focusNode(rows.get(keyOf(next))?.select);}
    consume();
