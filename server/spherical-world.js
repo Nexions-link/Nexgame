@@ -5,6 +5,7 @@ import {createAccountEconomyDispatcher} from './account-economy-dispatch.js';
 import {resolve,dirname,join} from 'node:path';
 import {WebSocket} from 'ws';
 import {createPartyManager} from './groups.js';
+import {createPlayerTradeManager} from './player-trades.js';
 import {createChatManager} from './chat.js';
 import {createSharedChest,CHEST_X,CHEST_Z,CHEST_SLOTS} from './chest.js';
 import {
@@ -103,6 +104,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  const sendInRoom=(radius,event)=>{for(const [ws,p] of connections)
   if(p?.radius===radius)send(ws,event)};
  const party=createPartyManager({players,send:sendToId});
+ const trade=createPlayerTradeManager({players,send:sendToId});
  const chat=createChatManager({players,parties:party,send:sendToId,
   broadcast:event=>{const from=players.get(event.fromId);if(from)sendInRoom(from.radius,event);}});
  const chest=createSharedChest({players,send:sendToId,
@@ -137,6 +139,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const progress=result.progress;
    p.savedRevision=progress.revision;
    p.savedInventory=progress.inventory;
+   p.savedGold=progress.gold;
    const levelUp=progress.level>p.level;
    p.level=progress.level;
     const previousMountOwnership=p.mountOwned;
@@ -148,6 +151,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    p.maxHp=deriveStats(progress.level,p.equipment).maxHp;
    p.hp=levelUp?p.maxHp:Math.min(p.maxHp,p.hp);
    send(ws,{type:'progressSaved',source,progress});
+   trade.progressChanged(p.id);
    if(levelUp)send(ws,{type:'playerVitals',hp:p.hp,maxHp:p.maxHp,resource:p.resource});
   }
   if(connections.size>=MAX_PLAYERS){
@@ -160,6 +164,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
    const p=connections.get(ws);
    connections.delete(ws);
    if(p){
+    trade.disconnect(p.id);
     p.closeAccountChest?.();
     if(p.queueCheckpoint){
      void p.queueCheckpoint({normal:[...p.normal],heading:p.heading,
@@ -253,6 +258,12 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      };
     }
     p.savedInventory=Array.isArray(saved?.inventory)?saved.inventory:null;
+    p.savedGold=saved?.gold??null;
+    if(trustedCharacter&&progressStore&&typeof economyStore?.exchangePlayers==='function'){
+     p.queueTradeSave=queueSave;
+     p.exchangeTrade=args=>economyStore.exchangePlayers(args);
+     p.publishTradeProgress=progress=>publishProgress(p,{progress},'trade');
+    }
     if(trustedCharacter&&progressStore&&economyStore){
      const dispatch=createAccountEconomyDispatcher({
       player:p,economyStore,progressStore,queueSave,
@@ -298,6 +309,9 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
     return;
    }
    if(!current)return;
+   if(['tradeInvite','tradeRespond','tradeOffer','tradeAccept','tradeCancel'].includes(m.type)){
+    trade.handle(current.id,m);return;
+   }
    if(m.type==='rename'){
     if(trustedCharacter)return;
     const name=cleanName(m.name);
@@ -548,6 +562,7 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
      players:visible.map(p=>byId.get(p.id)),mobs:worldMobs});
    }
   }
+  trade.tick(now);
  }
  timer=setInterval(()=>{
   const now=Date.now(),dt=Math.min(.25,(now-clock)/1000);clock=now;
@@ -555,5 +570,5 @@ export function createSphericalWorld({chestFilePath=resolve(process.env.NGW_CHES
  },TICK_MS);
  timer.unref?.();
  return {attach,population:()=>players.size,mobCount:()=>rooms.get(261).mobs.length,
-  close:()=>clearInterval(timer),tickOnce,rooms,players,metrics:()=>({...counters})};
+  close:()=>{clearInterval(timer);trade.close()},tickOnce,rooms,players,trade,metrics:()=>({...counters})};
 }

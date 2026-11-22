@@ -78,6 +78,56 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
    throw error;
   }finally{client.release()}
  }
+ // Both characters must be owned, distinct and locked in a stable order. One
+ // connection and COMMIT cover both inventory/currency writes; the browser can
+ // never call this hook or choose either participant's trusted identity.
+ async function pairTransaction(participants,handler){
+  if(!Array.isArray(participants)||participants.length!==2||typeof handler!=='function')
+   throw new ProgressError('invalid_trade_participants',400);
+  for(const participant of participants){
+   validateIds(participant?.accountId,participant?.characterId);
+   parseRevision(participant.expectedRevision);
+  }
+  if(participants[0].characterId.toLowerCase()===participants[1].characterId.toLowerCase())
+   throw new ProgressError('invalid_trade_participants',400);
+  const order=[0,1].sort((a,b)=>participants[a].characterId.toLowerCase()
+   .localeCompare(participants[b].characterId.toLowerCase()));
+  const client=await pool.connect();let committing=false,releaseError=null;
+  // SQL deadlines cannot return a response through a broken network. The
+  // driver's deadline also bounds that wait; discard a failed connection so
+  // a late COMMIT response can never contaminate a later pool borrower.
+  const bounded={query:(text,values)=>client.query({text,values,query_timeout:10000})};
+  try{
+   await bounded.query('BEGIN');
+   await bounded.query("SET LOCAL lock_timeout = '3s'");
+   await bounded.query("SET LOCAL statement_timeout = '8s'");
+   const states=Array(2);
+   for(const index of order){
+    const p=participants[index];
+    states[index]=await select(bounded,p.accountId,p.characterId,true);
+    if(!states[index])throw missing();
+    if(states[index].revision!==p.expectedRevision)throw conflict();
+   }
+   const operation=await handler({client:bounded,states});
+   if(!operation||!Array.isArray(operation.next)||operation.next.length!==2)
+    throw new ProgressError('invalid_trade_result',400);
+   const progresses=Array(2);
+   for(const index of order)
+    progresses[index]=await write(bounded,participants[index].characterId,states[index],operation.next[index]);
+   operation.beforeCommit?.();
+   committing=true;
+   await bounded.query('COMMIT');
+   return {applied:true,progresses};
+  }catch(error){
+   // A COMMIT response lost in transit is an unknown result, not permission to
+   // retry with newer revisions. Both sessions must reload their durable state.
+   if(committing&&error&&typeof error==='object')error.tradeCommitUncertain=true;
+   if(!(error instanceof ProgressError))releaseError=error;
+   if(!/query read timeout/i.test(error?.message||''))
+    try{await bounded.query('ROLLBACK')}catch(rollbackError){releaseError??=rollbackError}
+   throw error;
+  }finally{client.release(releaseError||undefined)}
+ }
  async function ping(){await pool.query('SELECT 1 AS ok');return true}
  async function schemaReady(){
   const {rows}=await pool.query(
@@ -216,6 +266,7 @@ export function createProgressStore({connectionString=process.env.DATABASE_URL,
   equipInventoryItem,unequipInventoryItem,useHealingPotion,
   // Internal server-only transaction hook; never export via HTTP or WS.
   trustedTransaction:transaction,
+  trustedPairTransaction:pairTransaction,
   close:()=>ownsPool?pool.end():Promise.resolve()
  };
 }
