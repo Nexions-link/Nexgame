@@ -55,6 +55,11 @@
   width:min(264px,calc(100vw - 44px));
   bottom:calc(104px + var(--safe-bottom,env(safe-area-inset-bottom,0px)));
  }
+ /* Keep the real cast exactly 20px above the hotbar while moving only the
+    default utility row clear of it. Individually floated buttons stay fixed. */
+ body:has(:is(#gatherCast,#mountCast):not([hidden])) #hotbarUtilities{
+  bottom:var(--ngw-cast-utility-bottom,calc(146px + var(--safe-bottom,env(safe-area-inset-bottom,0px))));
+ }
 }
 @media(max-width:360px){
  #gatherCast.wow-cast-bar,#mountCast.wow-cast-bar{

@@ -8,7 +8,9 @@ function fixture(){
   nodes[id]={hidden:true,textContent:'',innerHTML:'',style:{},attributes:{},setAttribute(name,value){this.attributes[name]=value}};
  let measures=0,barTop=750;
  nodes.actionsBar={getBoundingClientRect(){measures++;return {top:barTop}}};
- const document={getElementById:id=>nodes[id]||null,defaultView:{innerWidth:390,innerHeight:844}};
+ const values={};
+ const document={getElementById:id=>nodes[id]||null,defaultView:{innerWidth:390,innerHeight:844},
+  documentElement:{style:{setProperty(name,value){values[name]=value},removeProperty(name){delete values[name]},getPropertyValue:name=>values[name]}}};
  return {document,nodes,measurements:()=>measures,resize(width,height,top){document.defaultView.innerWidth=width;document.defaultView.innerHeight=height;barTop=top}};
 }
 
@@ -79,4 +81,16 @@ test('invalid geometry and progress are contained without missing-element failur
  }
  assert.doesNotThrow(()=>paintCastBar(f.document,'missing',{progress:50}));
  assert.doesNotThrow(()=>hideCastBar(f.document,'missing'));
+});
+
+test('default utility clearance is measured above cast and remains until both casts close',()=>{
+ const f=fixture(),style=f.document.documentElement.style;
+ f.nodes.gatherCast.getBoundingClientRect=()=>({height:34});
+ paintCastBar(f.document,'gatherCast',{progress:30});
+ assert.equal(style.getPropertyValue('--ngw-cast-utility-bottom'),'156px');
+ f.nodes.mountCast={hidden:false,style:{bottom:'120px'},getBoundingClientRect:()=>({height:36}),setAttribute(){}};
+ hideCastBar(f.document,'gatherCast');
+ assert.equal(style.getPropertyValue('--ngw-cast-utility-bottom'),'164px');
+ hideCastBar(f.document,'mountCast');
+ assert.equal(style.getPropertyValue('--ngw-cast-utility-bottom'),undefined);
 });
