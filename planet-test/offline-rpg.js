@@ -44,6 +44,7 @@ import {SHIELD_TUNER_DEFAULTS} from '../shield-tuner.js?v=0.3.7.0';
 import {GATHER_QUESTS,GATHER_RESPAWN_SECONDS,OFFLINE_CHEST,createGatherWorld} from './gather-world.js?v=64609';
 import {BANDIT_WEAPON_ITEM,BANDIT_WEAPON_REQUIRED,BANDIT_WEAPON_RESPAWN_SECONDS,createBanditWeaponWorld} from './bandit-weapons.js?v=1';
 import {createCampActions} from './camp-actions.js?v=64609';
+import {paintCastBar,hideCastBar} from './cast-bar.js';
 import {OFFLINE_RPG_SAVE_KEY,clearOfflineProgress} from './progress-reset.js?v=1';
 import {HIT_REACTION_SECONDS} from '../combat-feedback.js?v=0.3.7.0';
 import {createSphereCombatFeedback} from './sphere-combat-feedback.js?v=1';
@@ -579,29 +580,29 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   if(serverGatherTimer!==null)clearTimeout(serverGatherTimer);
   serverGatherTimer=null;pendingServerGather=null;
   if(!camp.casting){
-   $('gatherCast').hidden=true;
-   $('gatherCastFill').style.width='0%';
-   $('gatherCast').setAttribute('aria-valuenow','0');
+   hideCastBar(document,'gatherCast');
   }
+ }
+ function paintServerGatherCast(job,progress,waiting=false){
+  const itemId=job.kind==='banditWeapon'?BANDIT_WEAPON_ITEM:GATHER_QUESTS[job.stage]?.item;
+  const remaining=Math.max(0,job.durationMs-(Date.now()-job.startedAt));
+  paintCastBar(document,'gatherCast',{
+   progress,waiting,icon:itemId,
+   label:'Сбор: '+(ITEM_CATALOG[itemId]?.name||'Растение'),
+   timeText:waiting?'Подтверждение…':(remaining/1000).toFixed(1).replace('.',',')+' с'
+  });
  }
  function startServerGatherCast(job,castMs){
   if(serverGatherTimer!==null)clearTimeout(serverGatherTimer);
   job.phase='casting';job.startedAt=Date.now();
   job.durationMs=Math.max(1500,Math.min(20000,Number(castMs)||1500));
-  $('gatherCast').hidden=false;
-  $('gatherCastLabel').textContent=job.kind==='banditWeapon'?
-   'Сбор: Кинжал разбойника':'Сбор: '+(ITEM_CATALOG[GATHER_QUESTS[job.stage]?.item]?.name||'Растение');
-  $('gatherCastTime').textContent=(job.durationMs/1000).toFixed(1).replace('.',',')+' с';
-  $('gatherCastFill').style.width='0%';
-  $('gatherCast').setAttribute('aria-valuenow','0');
+  paintServerGatherCast(job,0);
   serverGatherTimer=setTimeout(()=>{
    serverGatherTimer=null;
    if(pendingServerGather!==job)return;
    if(!isOnline()){stopServerGatherCast();return}
    job.phase='finishing';
-   $('gatherCastFill').style.width='100%';
-   $('gatherCastTime').textContent='0,0 с';
-   $('gatherCast').setAttribute('aria-valuenow','100');
+   paintServerGatherCast(job,100,true);
    const sent=job.kind==='banditWeapon'?
     sendAccountAction('banditWeaponFinish',{index:job.index}):
     sendAccountAction('gatherFinish',{stage:job.stage,index:job.index});
@@ -617,10 +618,7 @@ export function createOfflineRpg({THREE,scene,hero,makeTauren,playerNormal,getRa
   }
   const elapsed=Math.max(0,Date.now()-job.startedAt);
   const percent=job.phase==='finishing'?100:Math.min(100,elapsed/job.durationMs*100);
-  $('gatherCast').hidden=false;
-  $('gatherCastFill').style.width=percent.toFixed(1)+'%';
-  $('gatherCastTime').textContent=(Math.max(0,job.durationMs-elapsed)/1000).toFixed(1).replace('.',',')+' с';
-  $('gatherCast').setAttribute('aria-valuenow',String(Math.round(percent)));
+  paintServerGatherCast(job,percent,job.phase==='finishing'||percent>=100);
  }
  let lastServerScoutRequest=0;
  function onEconomyResult(event){
