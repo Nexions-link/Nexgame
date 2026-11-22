@@ -60,6 +60,9 @@
  body:has(:is(#gatherCast,#mountCast):not([hidden])) #hotbarUtilities{
   bottom:var(--ngw-cast-utility-bottom,calc(146px + var(--safe-bottom,env(safe-area-inset-bottom,0px))));
  }
+ body:has(:is(#gatherCast,#mountCast):not([hidden])) #interact{
+  bottom:calc(var(--ngw-cast-utility-bottom,146px) + 48px);
+ }
 }
 @media(max-width:360px){
  #gatherCast.wow-cast-bar,#mountCast.wow-cast-bar{
