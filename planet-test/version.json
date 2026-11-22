@@ -1,7 +1,7 @@
 {
   "project": "NexGameWorld",
   "version": "0.6.46.12",
-  "publishedDate": "2026-11-21",
+  "publishedDate": "2026-11-22",
   "title": "Обмен между игроками и привычное управление окнами",
   "changes": [
     "Добавлено приватное окно обмена между ближайшими игроками: по шесть предметов и монеты с каждой стороны.",
@@ -13,7 +13,7 @@
   "history": [
     {
       "version": "0.6.46.12",
-      "date": "2026-11-21",
+      "date": "2026-11-22",
       "summary": "Stage 4: private Classic-style six-row trades with atomic dual-owner inventory/currency commits, revision-bound approvals, paired save queues, guarded bag dragging and focus; familiar panel keys, original item tooltips and Shift comparisons"
     },
     {
